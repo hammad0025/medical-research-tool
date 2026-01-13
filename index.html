@@ -110,7 +110,7 @@ const IPFResearchAssistant = () => {
     setChatHistory(prev => [...prev, { role: 'user', content: researchQuery }]);
 
     try {
-      const systemPrompt = `You are a medical research assistant specializing in Idiopathic Pulmonary Fibrosis (IPF). 
+      const systemPrompt = `You are a medical research assistant specializing in Idiopathic Pulmonary Fibrosis (IPF).
 Your role is to analyze research papers, clinical trials, and treatment options with the following criteria:
 
 PATIENT CONTEXT:
@@ -125,13 +125,33 @@ RESEARCH REQUIREMENTS:
 1. Provide explanations at a 12th grade reading level
 2. When citing studies, extract and highlight the SPECIFIC passages that support your conclusions
 3. Consider contraindications based on patient medications and comorbidities
-4. Rate treatments on Efficacy (1-100%) and Safety (1-100%)
+4. Rate treatments on Efficacy (1-100%) and Risks (detailed description)
 5. Evaluate evidence quality: prioritize US/Western European studies, rate journal impact factors
 6. For clinical trials: identify those accepting patients, location, contact info, and whether they use placebos
 7. Include cost estimates and typical insurance coverage
 
+TREATMENT COMPARISON FORMAT:
+When recommending treatments, provide the following details for each option (rank by efficacy, best at top):
+
+PROVIDER: [Specific doctor/clinic name and full contact information]
+TREATMENT: [Detailed description including:
+  - What exactly the patient receives (medication, stem cells, etc.)
+  - Origin lab of product
+  - Amount and strength
+  - How it is delivered (IV, inhaled, oral, etc.)]
+LENGTH/FREQUENCY: [Duration of treatment and frequency (e.g., "6 months, weekly infusions")]
+EFFICACY: [1-100% with supporting evidence]
+RISKS: [Detailed safety concerns, side effects, lab safety issues if overseas, FDA warnings if applicable]
+COST: [Specific dollar amount or range, insurance coverage likelihood]
+
+GEOGRAPHIC FILTERING:
+- Avoid providers in China, Vietnam, Mexico, or India unless specifically requested
+- For stem cell treatments, verify the lab does not have FDA warnings
+- Prioritize reputable US and Western European providers
+
 CRITICAL: When you cite a study, you must:
 - Provide the exact title and authors
+- Include journal name and impact factor
 - Quote the specific finding or conclusion (in quotation marks)
 - Explain why this supports your recommendation
 - Note any limitations or conflicts of interest`;
@@ -188,24 +208,61 @@ CRITICAL: When you cite a study, you must:
     const treatments = [];
     const lines = text.split('\n');
     let currentTreatment = {};
-    
-    lines.forEach(line => {
-      if (line.toLowerCase().includes('efficacy:')) {
-        const match = line.match(/(\d+)%/);
-        if (match) currentTreatment.efficacy = parseInt(match[1]);
-      }
-      if (line.toLowerCase().includes('safety:')) {
-        const match = line.match(/(\d+)%/);
-        if (match) currentTreatment.safety = parseInt(match[1]);
-      }
-      if (line.toLowerCase().includes('treatment:') || line.toLowerCase().includes('drug:')) {
-        if (currentTreatment.name) treatments.push({...currentTreatment});
-        currentTreatment = { name: line.split(':')[1]?.trim() || 'Unknown' };
+
+    lines.forEach((line, idx) => {
+      const trimmedLine = line.trim();
+
+      // Look for structured format
+      if (trimmedLine.startsWith('PROVIDER:')) {
+        if (Object.keys(currentTreatment).length > 0) {
+          treatments.push({...currentTreatment});
+        }
+        currentTreatment = {
+          provider: trimmedLine.replace('PROVIDER:', '').trim()
+        };
+      } else if (trimmedLine.startsWith('TREATMENT:')) {
+        currentTreatment.treatment = trimmedLine.replace('TREATMENT:', '').trim();
+        // Capture multiline treatment descriptions
+        let nextIdx = idx + 1;
+        while (nextIdx < lines.length && !lines[nextIdx].match(/^(PROVIDER|LENGTH|EFFICACY|RISKS|COST):/)) {
+          const nextLine = lines[nextIdx].trim();
+          if (nextLine) {
+            currentTreatment.treatment += ' ' + nextLine;
+          }
+          nextIdx++;
+        }
+      } else if (trimmedLine.startsWith('LENGTH/FREQUENCY:') || trimmedLine.startsWith('LENGTH:')) {
+        currentTreatment.length = trimmedLine.replace(/LENGTH\/FREQUENCY:|LENGTH:/, '').trim();
+      } else if (trimmedLine.startsWith('EFFICACY:')) {
+        const match = trimmedLine.match(/(\d+)%/);
+        if (match) {
+          currentTreatment.efficacy = parseInt(match[1]);
+          currentTreatment.efficacyNote = trimmedLine.replace('EFFICACY:', '').trim();
+        }
+      } else if (trimmedLine.startsWith('RISKS:')) {
+        currentTreatment.risks = trimmedLine.replace('RISKS:', '').trim();
+        // Capture multiline risks
+        let nextIdx = idx + 1;
+        while (nextIdx < lines.length && !lines[nextIdx].match(/^(PROVIDER|TREATMENT|LENGTH|EFFICACY|COST):/)) {
+          const nextLine = lines[nextIdx].trim();
+          if (nextLine) {
+            currentTreatment.risks += ' ' + nextLine;
+          }
+          nextIdx++;
+        }
+      } else if (trimmedLine.startsWith('COST:')) {
+        currentTreatment.cost = trimmedLine.replace('COST:', '').trim();
       }
     });
-    
-    if (currentTreatment.name) treatments.push(currentTreatment);
-    
+
+    // Push last treatment
+    if (Object.keys(currentTreatment).length > 0) {
+      treatments.push(currentTreatment);
+    }
+
+    // Sort by efficacy descending (best at top)
+    treatments.sort((a, b) => (b.efficacy || 0) - (a.efficacy || 0));
+
     if (treatments.length > 0) {
       setComparisonData(treatments);
     }
@@ -611,84 +668,88 @@ CRITICAL: When you cite a study, you must:
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ 
-                  width: '100%', 
+                <table style={{
+                  width: '100%',
                   borderCollapse: 'collapse',
-                  fontSize: '0.9rem'
+                  fontSize: '0.85rem'
                 }}>
                   <thead>
-                    <tr style={{ 
+                    <tr style={{
                       background: 'rgba(74, 158, 255, 0.15)',
                       borderBottom: '2px solid #4a9eff'
                     }}>
-                      <th style={{ padding: '1rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700 }}>Treatment</th>
-                      <th style={{ padding: '1rem', textAlign: 'center', color: '#4a9eff', fontWeight: 700 }}>Efficacy</th>
-                      <th style={{ padding: '1rem', textAlign: 'center', color: '#4a9eff', fontWeight: 700 }}>Safety</th>
-                      <th style={{ padding: '1rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700 }}>Status</th>
+                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '180px' }}>Name and Contact of Clinic/Provider</th>
+                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '250px' }}>Treatment Description</th>
+                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '120px' }}>Length/Frequency</th>
+                      <th style={{ padding: '0.875rem', textAlign: 'center', color: '#4a9eff', fontWeight: 700, minWidth: '100px' }}>Efficacy</th>
+                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '200px' }}>Risks</th>
+                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '120px' }}>Cost</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {comparisonData.map((treatment, idx) => (
-                      <tr key={idx} style={{ 
-                        borderBottom: '1px solid rgba(74, 158, 255, 0.2)',
-                        transition: 'background 0.2s ease'
-                      }}>
-                        <td style={{ padding: '1rem' }}>{treatment.name}</td>
-                        <td style={{ padding: '1rem', textAlign: 'center' }}>
-                          {treatment.efficacy ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                              <span style={{ fontWeight: 600, color: '#4a9eff' }}>{treatment.efficacy}%</span>
-                              <div style={{
-                                width: '80px',
-                                height: '6px',
-                                background: 'rgba(255, 255, 255, 0.1)',
-                                borderRadius: '3px',
-                                overflow: 'hidden'
-                              }}>
-                                <div style={{
-                                  width: `${treatment.efficacy}%`,
-                                  height: '100%',
-                                  background: '#4a9eff',
-                                  transition: 'width 0.5s ease'
-                                }} />
-                              </div>
+                    {comparisonData.map((treatment, idx) => {
+                      // Determine color coding based on efficacy
+                      let efficacyColor = '#6ee7b7'; // Green
+                      if (treatment.efficacy && treatment.efficacy < 70) efficacyColor = '#fbbf24'; // Yellow
+                      if (treatment.efficacy && treatment.efficacy < 40) efficacyColor = '#f87171'; // Red
+
+                      return (
+                        <tr key={idx} style={{
+                          borderBottom: '1px solid rgba(74, 158, 255, 0.2)',
+                          transition: 'background 0.2s ease'
+                        }}>
+                          <td style={{ padding: '0.875rem', verticalAlign: 'top' }}>
+                            <div style={{
+                              fontSize: '0.9rem',
+                              fontWeight: 600,
+                              color: '#4a9eff',
+                              marginBottom: '0.25rem'
+                            }}>
+                              {treatment.provider || '-'}
                             </div>
-                          ) : '-'}
-                        </td>
-                        <td style={{ padding: '1rem', textAlign: 'center' }}>
-                          {treatment.safety ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                              <span style={{ fontWeight: 600, color: '#6ee7b7' }}>{treatment.safety}%</span>
-                              <div style={{
-                                width: '80px',
-                                height: '6px',
-                                background: 'rgba(255, 255, 255, 0.1)',
-                                borderRadius: '3px',
-                                overflow: 'hidden'
-                              }}>
+                          </td>
+                          <td style={{ padding: '0.875rem', verticalAlign: 'top', lineHeight: '1.5' }}>
+                            {treatment.treatment || '-'}
+                          </td>
+                          <td style={{ padding: '0.875rem', verticalAlign: 'top' }}>
+                            {treatment.length || '-'}
+                          </td>
+                          <td style={{ padding: '0.875rem', textAlign: 'center', verticalAlign: 'top' }}>
+                            {treatment.efficacy ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{
+                                  fontWeight: 700,
+                                  fontSize: '1.1rem',
+                                  color: efficacyColor
+                                }}>
+                                  {treatment.efficacy}%
+                                </span>
                                 <div style={{
-                                  width: `${treatment.safety}%`,
-                                  height: '100%',
-                                  background: '#6ee7b7',
-                                  transition: 'width 0.5s ease'
-                                }} />
+                                  width: '60px',
+                                  height: '6px',
+                                  background: 'rgba(255, 255, 255, 0.1)',
+                                  borderRadius: '3px',
+                                  overflow: 'hidden'
+                                }}>
+                                  <div style={{
+                                    width: `${treatment.efficacy}%`,
+                                    height: '100%',
+                                    background: efficacyColor,
+                                    transition: 'width 0.5s ease'
+                                  }} />
+                                </div>
                               </div>
-                            </div>
-                          ) : '-'}
-                        </td>
-                        <td style={{ padding: '1rem' }}>
-                          <span style={{
-                            padding: '0.25rem 0.75rem',
-                            background: 'rgba(74, 158, 255, 0.2)',
-                            borderRadius: '12px',
-                            fontSize: '0.85rem',
-                            color: '#4a9eff'
-                          }}>
-                            Analyzed
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                            ) : '-'}
+                          </td>
+                          <td style={{ padding: '0.875rem', verticalAlign: 'top', lineHeight: '1.5', fontSize: '0.85rem' }}>
+                            {treatment.risks || '-'}
+                          </td>
+                          <td style={{ padding: '0.875rem', verticalAlign: 'top', fontWeight: 600 }}>
+                            {treatment.cost || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -704,10 +765,13 @@ CRITICAL: When you cite a study, you must:
               <h3 style={{ margin: '0 0 0.5rem 0', color: '#4a9eff', fontSize: '1rem' }}>
                 Chart Key
               </h3>
-              <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#a0c4d9', fontSize: '0.9rem', lineHeight: '1.8' }}>
-                <li><strong>Efficacy:</strong> Percentage improvement in clinical outcomes based on peer-reviewed studies</li>
-                <li><strong>Safety:</strong> Inverse relationship with adverse events (higher = fewer/less severe side effects)</li>
-                <li><strong>Ratings:</strong> Based on meta-analyses of randomized controlled trials, weighted by journal impact factor</li>
+              <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#a0c4d9', fontSize: '0.85rem', lineHeight: '1.8' }}>
+                <li><strong>Provider:</strong> Specific clinic or doctor name with contact information for direct inquiry</li>
+                <li><strong>Treatment Description:</strong> Detailed breakdown including what patient receives, product origin lab, amount/strength, and delivery method (IV, inhaled, oral, etc.)</li>
+                <li><strong>Efficacy:</strong> 1-100% rating based on peer-reviewed clinical outcomes. Green (70-100%) = highly effective, Yellow (40-69%) = moderately effective, Red (&lt;40%) = limited effectiveness</li>
+                <li><strong>Risks:</strong> Detailed safety concerns, side effects, and lab safety issues. For overseas providers, includes FDA warnings if applicable</li>
+                <li><strong>Cost:</strong> Treatment cost estimates and typical insurance coverage likelihood</li>
+                <li><strong>Ranking:</strong> Treatments are automatically sorted by efficacy (best options at top)</li>
               </ul>
             </div>
           </div>
