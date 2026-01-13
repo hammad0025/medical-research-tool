@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPF Medical Research Assistant</title>
+    <title>Medical Research Assistant</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -86,6 +86,7 @@ const IPFResearchAssistant = () => {
   const [activeTab, setActiveTab] = useState('research');
   const [researchQuery, setResearchQuery] = useState('');
   const [patientData, setPatientData] = useState({
+    condition: '',
     age: '',
     gender: '',
     diagnoses: '',
@@ -110,13 +111,17 @@ const IPFResearchAssistant = () => {
     setChatHistory(prev => [...prev, { role: 'user', content: researchQuery }]);
 
     try {
-      const systemPrompt = `You are a medical research assistant specializing in Idiopathic Pulmonary Fibrosis (IPF).
-Your role is to analyze research papers, clinical trials, and treatment options with the following criteria:
+      const conditionContext = patientData.condition ? `PRIMARY CONDITION: ${patientData.condition}` : 'PRIMARY CONDITION: Not specified - provide general medical research';
+
+      const systemPrompt = `You are a comprehensive medical research assistant specializing in evidence-based treatment analysis.
+Your role is to analyze research papers, clinical trials, and treatment options for any medical condition with the following criteria:
+
+${conditionContext}
 
 PATIENT CONTEXT:
 ${patientData.age ? `Age: ${patientData.age}` : ''}
 ${patientData.gender ? `Gender: ${patientData.gender}` : ''}
-${patientData.diagnoses ? `Diagnoses: ${patientData.diagnoses}` : ''}
+${patientData.diagnoses ? `All Diagnoses: ${patientData.diagnoses}` : ''}
 ${patientData.medications ? `Current Medications: ${patientData.medications}` : ''}
 ${patientData.symptoms ? `Symptoms: ${patientData.symptoms}` : ''}
 ${patientData.labWork ? `Lab Work: ${patientData.labWork}` : ''}
@@ -268,13 +273,18 @@ CRITICAL: When you cite a study, you must:
     }
   };
 
-  const quickPrompts = [
-    "What are the current FDA-approved treatments for IPF and their efficacy rates?",
-    "Are there any open clinical trials for IPF that don't use placebos?",
-    "What stem cell treatments are available for IPF from reputable sources?",
-    "What are the latest research findings on IPF treatment published in the last 6 months?",
-    "Which IPF treatment centers are considered world-class and why?"
-  ];
+  const getQuickPrompts = () => {
+    const condition = patientData.condition || 'this condition';
+    return [
+      `What are the current FDA-approved treatments for ${condition} and their efficacy rates?`,
+      `Are there any open clinical trials for ${condition} that don't use placebos?`,
+      `What stem cell treatments are available for ${condition} from reputable sources?`,
+      `What are the latest research findings on ${condition} treatment published in the last 6 months?`,
+      `Which treatment centers are considered world-class for ${condition} and why?`
+    ];
+  };
+
+  const quickPrompts = getQuickPrompts();
 
   return (
     <div style={{
@@ -293,22 +303,22 @@ CRITICAL: When you cite a study, you must:
         <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Activity size={36} color="#4a9eff" strokeWidth={2.5} />
           <div>
-            <h1 style={{ 
-              margin: 0, 
-              fontSize: '2rem', 
+            <h1 style={{
+              margin: 0,
+              fontSize: '2rem',
               fontWeight: 700,
               letterSpacing: '-0.5px',
               color: '#4a9eff'
             }}>
-              IPF Research Assistant
+              Medical Research Assistant
             </h1>
-            <p style={{ 
-              margin: '0.25rem 0 0 0', 
-              fontSize: '0.9rem', 
+            <p style={{
+              margin: '0.25rem 0 0 0',
+              fontSize: '0.9rem',
               color: '#a0c4d9',
               fontStyle: 'italic'
             }}>
-              Phase 1 MVP - Idiopathic Pulmonary Fibrosis Research & Analysis
+              AI-Powered Treatment Analysis & Clinical Trial Research for Any Condition
             </p>
           </div>
         </div>
@@ -379,12 +389,13 @@ CRITICAL: When you cite a study, you must:
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
               {[
+                { key: 'condition', label: 'Primary Condition to Research', type: 'text', placeholder: 'e.g., Idiopathic Pulmonary Fibrosis, Multiple Sclerosis, etc.' },
                 { key: 'age', label: 'Age', type: 'number' },
                 { key: 'gender', label: 'Gender', type: 'text' },
                 { key: 'diagnoses', label: 'All Diagnoses (comma-separated)', type: 'textarea' },
                 { key: 'medications', label: 'Current Medications', type: 'textarea' },
                 { key: 'symptoms', label: 'Symptoms', type: 'textarea' },
-                { key: 'labWork', label: 'Lab Work & Pulmonary Function Studies', type: 'textarea' }
+                { key: 'labWork', label: 'Lab Work & Studies', type: 'textarea' }
               ].map(field => (
                 <div key={field.key} style={{ display: 'flex', flexDirection: 'column' }}>
                   <label style={{ 
@@ -399,6 +410,7 @@ CRITICAL: When you cite a study, you must:
                     <textarea
                       value={patientData[field.key]}
                       onChange={(e) => setPatientData(prev => ({ ...prev, [field.key]: e.target.value }))}
+                      placeholder={field.placeholder || ''}
                       style={{
                         padding: '0.75rem',
                         background: 'rgba(15, 32, 39, 0.5)',
@@ -416,6 +428,7 @@ CRITICAL: When you cite a study, you must:
                       type={field.type}
                       value={patientData[field.key]}
                       onChange={(e) => setPatientData(prev => ({ ...prev, [field.key]: e.target.value }))}
+                      placeholder={field.placeholder || ''}
                       style={{
                         padding: '0.75rem',
                         background: 'rgba(15, 32, 39, 0.5)',
@@ -529,8 +542,11 @@ CRITICAL: When you cite a study, you must:
                   }}>
                     <Brain size={48} color="#4a9eff" />
                     <p style={{ fontSize: '1.1rem', textAlign: 'center', maxWidth: '500px' }}>
-                      Ask me anything about IPF treatments, clinical trials, or research.
-                      I'll provide evidence-based answers with verified citations.
+                      {patientData.condition
+                        ? `Ask me anything about ${patientData.condition} treatments, clinical trials, or research.`
+                        : 'Enter a condition in the Patient Profile tab, then ask about treatments, clinical trials, or research.'
+                      }
+                      <br />I'll provide evidence-based answers with verified citations.
                     </p>
                   </div>
                 ) : (
@@ -595,7 +611,10 @@ CRITICAL: When you cite a study, you must:
                   value={researchQuery}
                   onChange={(e) => setResearchQuery(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && performResearch()}
-                  placeholder="Ask about IPF treatments, clinical trials, or research..."
+                  placeholder={patientData.condition
+                    ? `Ask about ${patientData.condition} treatments, trials, or research...`
+                    : "Ask about medical treatments, clinical trials, or research..."
+                  }
                   disabled={isLoading}
                   style={{
                     flex: 1,
