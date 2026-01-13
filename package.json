@@ -2,6 +2,10 @@
   "name": "ipf-research-assistant-mvp",
   "version": "1.0.0",
   "description": "AI-powered medical research platform for Idiopathic Pulmonary Fibrosis (IPF) with citation verification and treatment comparison",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "main": "src/ipf-research-assistant.jsx",
   "keywords": [
     "medical-research",
@@ -30,10 +34,7 @@
     "Dorothy Clay Sims",
     "Tim Felice"
   ],
-  "dependencies": {
-    "react": "^18.0.0",
-    "lucide-react": "^0.263.1"
-  },
+  "dependencies": {},
   "devDependencies": {},
   "scripts": {
     "info": "echo 'IPF Research Assistant MVP - Phase 1'"
