@@ -20,12 +20,10 @@ This repository is ready to push to GitHub! Follow these steps:
 3. GitHub will show you commands - use these:
 
 ```bash
-git remote add origin https://github.com/YOUR-USERNAME/ipf-research-assistant-mvp.git
+git remote add origin https://github.com/hammad0025/medical-research-tool.git
 git branch -M main
 git push -u origin main
 ```
-
-Replace `YOUR-USERNAME` with your actual GitHub username.
 
 ## Option 2: Using GitHub CLI (For Advanced Users)
 
@@ -135,7 +133,7 @@ git push origin main
 
 After creation, your repository will be at:
 ```
-https://github.com/YOUR-USERNAME/ipf-research-assistant-mvp
+https://github.com/hammad0025/medical-research-tool
 ```
 
 Share this URL with Dorothy and Tim for access.

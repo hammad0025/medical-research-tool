@@ -41,21 +41,30 @@ An AI-powered medical research platform specifically designed for **Idiopathic P
 
 ## 🚀 Quick Start
 
-### Option 1: Use as Claude Artifact (Recommended)
+### Option 1: Deploy to Vercel (Production - RECOMMENDED)
+**Full-stack deployment with backend in 5 minutes:**
+
+1. Get Anthropic API key from https://console.anthropic.com/settings/keys
+2. Go to https://vercel.com and sign in with GitHub
+3. Import repository: `hammad0025/medical-research-tool`
+4. Add environment variable: `ANTHROPIC_API_KEY` = your key
+5. Deploy!
+
+**Live at:** `https://medical-research-tool.vercel.app`
+
+**Cost:** $0/month hosting + ~$0.15/month API calls
+
+See [VERCEL-DEPLOY.md](VERCEL-DEPLOY.md) for detailed instructions.
+
+### Option 2: Use as Claude Artifact (Demo/Testing)
+**No deployment needed:**
+
 1. Open [Claude.ai](https://claude.ai)
-2. Upload `src/ipf-research-assistant.jsx`
-3. Ask: "Please render this React component as an artifact"
-4. The app loads in the right panel - start researching!
+2. Upload `index.html`
+3. Ask: "Please render this as an artifact"
+4. The app loads in the right panel
 
-### Option 2: Local Development
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/ipf-research-assistant-mvp.git
-cd ipf-research-assistant-mvp
-
-# The component is in src/ipf-research-assistant.jsx
-# Integrate into your React app or use as standalone artifact
-```
+**Perfect for:** Quick demos, testing features
 
 ## 📁 Project Structure
 
@@ -146,19 +155,39 @@ what IPF treatments should I consider and which should I avoid?"
 ### Frontend
 - **Framework:** React (functional components, hooks)
 - **Styling:** CSS-in-JS with medical/clinical theme
-- **Icons:** Lucide React
+- **Icons:** Lucide React (inline SVG)
 - **State Management:** React useState, useRef
+- **Deployment:** Static HTML, works anywhere
 
-### AI Integration
-- **Model:** Claude Sonnet 4 (claude-sonnet-4-20250514)
-- **API:** Anthropic Messages API
-- **Context Window:** Full conversation history
-- **Token Limit:** 4,000 per response
+### Backend
+- **Platform:** Vercel Serverless Functions
+- **Runtime:** Node.js
+- **API:** Anthropic Claude Sonnet 4
+- **Security:** Environment-based API key storage
+- **Cost:** $0/month (free tier)
+
+### Architecture
+```
+User Browser
+    ↓
+Frontend (index.html)
+    ↓
+Backend (/api/research.js)
+    ↓
+Anthropic API
+    ↓
+Backend
+    ↓
+Frontend
+    ↓
+User sees results
+```
 
 ### Data Handling
-- **Phase 1 (MVP):** Browser storage only (temporary)
-- **Phase 2:** PostgreSQL with encryption
-- **Phase 3:** HIPAA-compliant cloud hosting
+- **Production:** No data storage (stateless)
+- **Patient profiles:** Browser memory only (temporary)
+- **API calls:** Proxied through secure backend
+- **Future:** PostgreSQL with encryption (Phase 2)
 
 ## 📋 Phase Roadmap
 

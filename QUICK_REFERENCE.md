@@ -26,7 +26,7 @@ git log --oneline
 
 ### Create GitHub Repository (After Creating on Web)
 ```bash
-git remote add origin https://github.com/YOUR-USERNAME/ipf-research-assistant-mvp.git
+git remote add origin https://github.com/hammad0025/medical-research-tool.git
 git push -u origin main
 ```
 
@@ -39,9 +39,9 @@ git push origin main
 
 ## Key URLs (After Pushing to GitHub)
 
-**Repository:** `https://github.com/YOUR-USERNAME/ipf-research-assistant-mvp`  
-**Clone URL:** `https://github.com/YOUR-USERNAME/ipf-research-assistant-mvp.git`  
-**Issues:** `https://github.com/YOUR-USERNAME/ipf-research-assistant-mvp/issues`
+**Repository:** `https://github.com/hammad0025/medical-research-tool`  
+**Clone URL:** `https://github.com/hammad0025/medical-research-tool.git`  
+**Issues:** `https://github.com/hammad0025/medical-research-tool/issues`
 
 ## Files to Share with Dorothy
 
