@@ -586,30 +586,52 @@ export default async function handler(req, res) {
       });
     }
 
+    // Effective condition — prefer patient.condition, but fall back to the
+    // user's latest message (chat input) if the profile field is empty. This
+    // is the fix for the "I type RP in the chat, AI refuses because no
+    // condition set" UX bug. The dossier agent itself vets whatever we
+    // pass; a junk string returns a high-uncertainty fallback.
+    const latestUserMsg = (() => {
+      if (userQuery && String(userQuery).trim()) return String(userQuery).trim();
+      const lastUser = [...(chatHistory || [])].reverse().find((m) => m?.role === 'user');
+      return lastUser?.content ? String(lastUser.content).trim() : '';
+    })();
+    // Heuristic: trim long conversational messages down to the medical noun
+    // phrase. "Ok RP, give me info" → "RP". If the message is short (< 60
+    // chars), just pass it whole to the dossier agent (it handles aliases).
+    const extractConditionFromMessage = (msg) => {
+      if (!msg) return '';
+      const clean = msg.replace(/["?.,!]+/g, ' ').trim();
+      if (clean.length < 60) return clean;
+      const m = clean.match(/\b([A-Z]{2,6}|[a-z][a-z\- ]{3,40})\b/);
+      return (m && m[1]) ? m[1] : clean.slice(0, 60);
+    };
+    const effectiveCondition =
+      (patient.condition || '').trim() ||
+      extractConditionFromMessage(latestUserMsg);
+
     // Research pipeline — three phases:
-    //   (1) Disease-intake agent: one Haiku call that builds a structured
-    //       dossier (canonical, synonyms, MeSH, top centers, investigators,
-    //       advocacy orgs, landmark trials) for ANY condition. Cached 24h.
-    //   (2) Evidence + Trials in parallel, both using the same dossier so
-    //       we don't double-charge the dossier agent. Trials now covers
-    //       recruiting + expanded access + OLE + synonym fan-out.
-    //   (3) Claude Sonnet research synthesis with the dossier injected as
-    //       "what we know about this disease" context.
-    //
-    // Chat and pure 'trials' modes don't run the full pipeline but still
-    // benefit from the dossier for condition expansion.
+    //   (1) Disease-intake agent (Haiku, 24h cache) — builds structured
+    //       dossier for ANY condition, including aliases like "RP" or
+    //       "LADA". Runs for ALL modes now, even chat, so the agent has
+    //       disease context from the very first turn.
+    //   (2) Evidence + Trials in parallel, sharing the one dossier call.
+    //   (3) Claude Sonnet synthesis with the dossier injected as context.
     let evidence = null;
     let trials = null;
     let dossier = null;
 
+    if (effectiveCondition) {
+      dossier = await getDossier(effectiveCondition);
+    }
+
     if (mode === 'research' || mode === 'repurpose') {
-      dossier = await getDossier(patient.condition || '');
       const drugs = (patient.medications || '')
         .split(/[,;\n]/).map((s) => s.trim().split(/\s+/)[0]).filter(Boolean).slice(0, 6);
 
       const [evidenceResult, trialsResult] = await Promise.all([
         invokeEvidence({
-          condition: patient.condition || '',
+          condition: effectiveCondition,
           treatments: ['treatment', 'clinical trial', 'systematic review', 'meta-analysis'],
           drugs,
           manufacturers: [],
@@ -618,8 +640,8 @@ export default async function handler(req, res) {
           dossier
         }),
         invokeTrials({
-          condition: patient.condition || '',
-          recruitingOnly: false,  // so we also get AVAILABLE expanded-access
+          condition: effectiveCondition,
+          recruitingOnly: false,
           treatmentOnly: true,
           pageSize: 60,
           dossier
@@ -651,46 +673,70 @@ export default async function handler(req, res) {
         systemPrompt = TRIALS_PROMPT(patient, audience, trialsData || {});
         break;
       case 'chat': {
-        // Chat mode is the follow-up conversation after the user has already
-        // run a Research / Repurpose / Trials analysis. Three critical
-        // differences from the other modes:
-        //   1. We DO NOT re-fetch a fresh evidence pack (too slow). Instead
-        //      we reuse the pack the client passed back from the last run.
-        //   2. We include the prior analyses (if any) as context so Claude
-        //      can answer follow-ups like "why did you rate X over Y".
-        //   3. The strict grounding rule ("cite only from pack or say no
-        //      grounded evidence") is RELAXED for chat, because otherwise
-        //      Claude hedges on every question it can't directly pack-cite.
-        //      It must still be honest about where its information comes from.
+        // Chat mode supports TWO scenarios:
+        //   (a) Follow-up after a prior Research / Repurpose / Trials run,
+        //       where the client sent the prior analyses + cached evidence
+        //       pack so Claude can answer "why did you rate X over Y".
+        //   (b) Cold-start: user types a disease directly into the chat bar
+        //       with no profile filled in and no prior analyses. The agent
+        //       must STILL answer substantively — that was the whole point
+        //       of the user's complaint ("don't refuse, answer the
+        //       question"). In this case we use the dossier we just built
+        //       from their message as the disease context.
         const priorPieces = [];
         const prior = req.body?.priorAnalyses || {};
         if (prior.research)  priorPieces.push(`=== PRIOR "RESEARCH" ANALYSIS (produced earlier in this session) ===\n${String(prior.research).slice(0, 25000)}`);
         if (prior.repurpose) priorPieces.push(`=== PRIOR "REPURPOSE" ANALYSIS ===\n${String(prior.repurpose).slice(0, 20000)}`);
         if (prior.trials)    priorPieces.push(`=== PRIOR "TRIALS" ANALYSIS ===\n${String(prior.trials).slice(0, 20000)}`);
+        const hasPriors = priorPieces.length > 0;
 
         const cachedPack = Array.isArray(req.body?.evidencePack) ? req.body.evidencePack.slice(0, 18) : [];
         const chatGrounding = cachedPack.length
           ? buildGroundingBlock({ groundedForPrompt: cachedPack, fdaLabels: [], fdaManufacturers: [] })
           : '';
 
-        systemPrompt = `You are a senior medical research professor having a substantive conversation with someone who has ALREADY run a full research analysis on this patient's condition. Your job is to answer their follow-up questions directly, thoughtfully, and in detail.
+        // If we got a usable dossier (patient.condition OR extracted from the
+        // user's message), include it so Claude knows what disease we're
+        // talking about even without a profile or prior analysis.
+        const dossierInChat = dossier && dossier.canonical ? buildDossierBlock(dossier) : '';
+
+        // Cold-start detection: the user hasn't run anything yet, no cached
+        // pack, no profile. We swap in an entry-mode prompt that still
+        // answers directly and offers to escalate to full Research.
+        const isColdStart = !hasPriors && !cachedPack.length && !(patient.condition || '').trim();
+
+        const coldStartHeader = isColdStart ? `
+This is the user's FIRST message. They have NOT filled out a patient profile and have NOT run a full Research analysis yet. DO NOT refuse to answer and DO NOT ask them to fill out a form before proceeding.
+
+If the user named a disease (directly or via alias like "RP", "LADA", "AD", "ALS", "PD", "AFib"), the disease dossier below was built for it. Use it to:
+  1. CONFIRM the canonical name back to the user in the first sentence ("RP is Retinitis Pigmentosa, a…").
+  2. Give a substantive 3-6 bullet overview covering: what it is, who gets it, current approved treatments, recruiting trials worth knowing about, patient advocacy orgs, and 1-2 red flags.
+  3. At the end, offer: "For a personalised 16-section analysis with drug-interaction checks against your current meds, fill out the Patient Profile tab and hit Run Research."
+
+If the user's message does NOT clearly name a disease (e.g. "hello", "what can you do"), briefly explain the tool and ask what condition they want researched.
+
+DO NOT force the user back to the profile tab before answering. Answer first, escalate second.
+` : '';
+
+        systemPrompt = `You are a senior medical research professor having a substantive conversation about disease treatment.
 
 ${audienceLine(audience)}
 
 PATIENT PROFILE:
 ${buildPatientContext(patient)}
-
-${priorPieces.length ? priorPieces.join('\n\n') + '\n\n' : ''}BEHAVIOR RULES FOR THIS CHAT:
+${coldStartHeader}
+${dossierInChat ? dossierInChat + '\n' : ''}${hasPriors ? priorPieces.join('\n\n') + '\n\n' : ''}BEHAVIOR RULES FOR THIS CHAT:
 - ANSWER THE QUESTION. Do not refuse, do not punt to "consult your doctor" as a dodge, do not say "I cannot provide medical advice" — the user has already accepted the decision-support disclaimer and knows this isn't medical advice. Give them the substance.
 - Be direct and concrete. If they ask "why did you rate pirfenidone safer than nintedanib", explain the actual safety signal differences with numbers when you know them.
-- Use the prior analyses above as your primary context — they represent what has already been established in this session.
+- **Bold every** drug name, trial acronym, NCT ID, percentage, and center name. Break long paragraphs into bullets. Use markdown tables for 3+ comparisons.
+- Use the disease dossier above as your starting knowledge about the condition. Use prior analyses (if present) as session context.
 - Use the evidence pack below when relevant, with access-level tags ([FULL-TEXT] / [ABSTRACT-ONLY] / [METADATA-ONLY]).
-- When you are drawing on general medical knowledge rather than a pack citation, say so honestly: "From general clinical knowledge, not from a pack citation:" — then give the answer anyway. Do NOT just refuse.
+- When drawing on general medical knowledge rather than a pack citation, say so honestly: "From general clinical knowledge:" — then give the answer anyway. Do NOT just refuse.
 - When asked about drug interactions, dosing, or contraindications for THIS patient, check their medication list and comorbidities and give a specific answer.
 - If the user asks a speculative question ("what if we tried X"), reason through it at the specified audience level — don't punt.
 - Keep the usual disclaimers short and at the end if relevant. Do NOT lead with them.
 
-${chatGrounding || 'No evidence pack was cached for this chat turn. Lean on the prior analyses and general medical knowledge, clearly labeled as such.'}`;
+${chatGrounding || 'No evidence pack was cached for this chat turn. Lean on the dossier (if present), prior analyses (if present), and general medical knowledge — clearly labeled.'}`;
         break;
       }
       case 'research':

@@ -384,7 +384,11 @@
 
         /* -------- Actions -------- */
         const runResearch = async (mode, extra = {}) => {
-          if (!patient.condition.trim()) {
+          // Research / Repurpose / Trials still require a condition (they
+          // do a full 16-section analysis that's meaningless without one).
+          // Chat mode is allowed to start cold — the backend will detect
+          // a disease name in the user's first message.
+          if (mode !== 'chat' && !patient.condition.trim()) {
             alert('Please enter a primary condition in the Patient Profile tab first.');
             setTab('profile');
             return;
