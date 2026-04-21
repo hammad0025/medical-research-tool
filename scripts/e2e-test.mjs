@@ -22,6 +22,19 @@ import evidenceHandler, {
 import validateHandler from '../api/validate.js';
 import unpaywallHandler from '../api/unpaywall.js';
 import kbHandler, { loadKb } from '../api/kb.js';
+import alertsSubscribeHandler from '../api/alerts-subscribe.js';
+import alertsCronHandler from '../api/alerts-cron.js';
+import {
+  _resetForTests as resetAlerts,
+  listSubscriptions as listAllSubs,
+  getSentLedger,
+  isConfigured as alertsStoreConfigured
+} from '../api/alerts-store.js';
+import {
+  renderAlertHtml,
+  renderAlertSubject,
+  isEmailConfigured
+} from '../api/alerts-email.js';
 
 const mockRes = () => {
   const res = {
@@ -491,6 +504,167 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
       pass('validator correctly flagged the fake pubmed URL as hallucinated');
     }
   }
+
+  // ==== WEEKLY EMAIL ALERTS ====
+  console.log('\n=== 2g. /api/alerts-subscribe — create, list, unsubscribe ===');
+  resetAlerts();
+
+  const invokeAlerts = async (method, query, body) => {
+    const req = { method, body: body || {}, headers: {}, query: query || {} };
+    const res = mockRes();
+    await alertsSubscribeHandler(req, res);
+    return { status: res.statusCode, body: res.body };
+  };
+
+  // Rejects bad inputs
+  const badEmail = await invokeAlerts('POST', {}, { email: 'not-an-email', condition: 'IPF' });
+  badEmail.status === 400
+    ? pass('rejects invalid email at subscribe time')
+    : fail(`expected 400 for invalid email, got ${badEmail.status}`);
+
+  const noCondition = await invokeAlerts('POST', {}, { email: 'a@b.co', condition: '' });
+  noCondition.status === 400
+    ? pass('rejects missing condition at subscribe time')
+    : fail(`expected 400 for missing condition, got ${noCondition.status}`);
+
+  // Happy path — subscribe
+  const created = await invokeAlerts('POST', {}, {
+    email: 'dorothy@example.test',
+    condition: 'Idiopathic Pulmonary Fibrosis',
+    patientContext: {
+      age: '68', gender: 'F',
+      medications: 'pirfenidone 2403 mg, omeprazole 40 mg, lisinopril 20 mg',
+      diagnoses: 'IPF, GERD, HTN'
+    }
+  });
+  if (created.status !== 201) return fail(`subscribe returned ${created.status}: ${JSON.stringify(created.body)}`);
+  if (!created.body.id || !created.body.unsubscribeToken) return fail('subscribe response missing id/token');
+  pass(`subscription created: id=${created.body.id.slice(0, 8)}… · backend=${created.body.backend}`);
+  info(`  alerts-store backend: ${created.body.backend}${created.body.ephemeral ? ' (ephemeral)' : ''}`);
+
+  // Duplicate subscribe returns the existing one, doesn't double-create
+  const dup = await invokeAlerts('POST', {}, {
+    email: 'dorothy@example.test',
+    condition: 'Idiopathic Pulmonary Fibrosis'
+  });
+  (dup.status === 200 && dup.body.alreadyExists)
+    ? pass('duplicate subscribe correctly collapses to existing subscription')
+    : fail(`expected alreadyExists=true, got ${JSON.stringify(dup.body).slice(0, 200)}`);
+
+  // List by email — unsubscribeToken must NOT leak in listings
+  const list = await invokeAlerts('GET', { email: 'dorothy@example.test' });
+  if (list.status !== 200) return fail(`list returned ${list.status}`);
+  const listed = (list.body.subscriptions || [])[0];
+  if (!listed) return fail('list returned no subscriptions after subscribe');
+  if ('unsubscribeToken' in listed) return fail('unsubscribeToken leaked in list response — SECURITY ISSUE');
+  pass('list endpoint redacts unsubscribeToken (security check)');
+
+  // Unsubscribe with wrong token → 403
+  const wrong = await invokeAlerts('POST', { action: 'unsubscribe' }, {
+    id: created.body.id, token: 'totally-fake-token'
+  });
+  wrong.status === 403
+    ? pass('unsubscribe with wrong token → 403 (security check)')
+    : fail(`expected 403 for wrong token, got ${wrong.status}`);
+
+  // Unsubscribe with correct token → 200
+  const unsub = await invokeAlerts('POST', { action: 'unsubscribe' }, {
+    id: created.body.id, token: created.body.unsubscribeToken
+  });
+  unsub.status === 200
+    ? pass('unsubscribe with correct token → 200')
+    : fail(`unsubscribe failed: ${unsub.status} ${JSON.stringify(unsub.body)}`);
+
+  // Resubscribe for the cron test below
+  const resub = await invokeAlerts('POST', {}, {
+    email: 'dorothy@example.test',
+    condition: 'Idiopathic Pulmonary Fibrosis',
+    patientContext: { age: '68', medications: 'pirfenidone' }
+  });
+  if (resub.status !== 201) return fail(`resubscribe failed: ${resub.status}`);
+  pass('resubscribed after unsubscribe — clean slate for cron test');
+
+  console.log('\n=== 2h. alerts-email — HTML renderer + subject line ===');
+  const fakeSub = {
+    id: 'test', email: 'dorothy@example.test',
+    condition: 'Idiopathic Pulmonary Fibrosis',
+    patientContext: { age: '68', medications: 'pirfenidone' }
+  };
+  const fakeNewItems = [
+    { id: '10.x/a', title: 'Fake new RCT of pirfenidone', journal: 'NEJM', year: 2026, citations: 5,
+      tier: 'A+', isRCT: true, firstAuthorCountry: 'US', url: 'https://doi.org/10.x/a',
+      text: 'In this randomized placebo-controlled trial of 500 IPF patients…' },
+    { id: '10.x/b', title: 'Fake observational from China', journal: 'Journal of X', year: 2025, citations: 12,
+      tier: 'C', firstAuthorCountry: 'CN', url: 'https://doi.org/10.x/b',
+      text: 'Observational data from a single-centre cohort…' },
+    { id: '10.x/c', title: 'Fake preprint', journal: 'medRxiv', year: 2026, citations: 0,
+      tier: 'C', isPreprint: true, firstAuthorCountry: 'GB', url: 'https://doi.org/10.x/c',
+      text: 'This work has not been peer-reviewed.' }
+  ];
+  const html = renderAlertHtml({
+    sub: fakeSub, newItems: fakeNewItems, trials: [], fdaActions: [],
+    qualityBreakdown: { totalScreened: 58, retractedExcluded: 2, predatoryExcluded: 1, topTierInPromptPack: 10 },
+    condition: fakeSub.condition,
+    unsubscribeUrl: 'https://example.com/unsubscribe?id=test'
+  });
+  html.includes('Fake new RCT of pirfenidone')
+    ? pass('email HTML includes new RCT title')
+    : fail('email HTML missing RCT title');
+  html.includes('CN first author · integrity concern') || html.includes('integrity concern')
+    ? pass('email HTML renders CN integrity-concern flag')
+    : fail('email HTML missing CN integrity-concern flag');
+  html.includes('Preprint (not peer-reviewed)')
+    ? pass('email HTML flags preprint as not peer-reviewed')
+    : fail('email HTML missing preprint flag');
+  html.includes('Screened 58 sources') && html.includes('2 retracted')
+    ? pass('email HTML includes qualityBreakdown footer')
+    : fail('email HTML missing quality breakdown');
+  html.includes('Unsubscribe')
+    ? pass('email HTML includes unsubscribe link')
+    : fail('email HTML missing unsubscribe link');
+
+  const subj1 = renderAlertSubject({ condition: 'IPF', newItems: fakeNewItems });
+  subj1.includes('1 new RCT')
+    ? pass(`subject line: "${subj1}"`)
+    : fail(`unexpected subject: "${subj1}"`);
+  const subj2 = renderAlertSubject({ condition: 'IPF', newItems: [], trials: [] });
+  subj2.includes('no updates')
+    ? pass(`empty-digest subject: "${subj2}"`)
+    : fail(`unexpected empty subject: "${subj2}"`);
+
+  console.log('\n=== 2i. /api/alerts-cron — dry-run end-to-end ===');
+  // Cron is gated by CRON_SECRET when set; in tests we don't set it, so
+  // the handler allows unauthenticated calls. We pass dryRun=1 to avoid
+  // actually sending email even if RESEND_API_KEY happens to be present.
+  info(`  email provider configured: ${isEmailConfigured() ? 'yes (Resend)' : 'no (mocked)'}`);
+  info(`  alerts store: ${alertsStoreConfigured() ? 'Upstash Redis' : 'in-memory'}`);
+  const cronRes = (() => {
+    const req = { method: 'GET', body: null, headers: {}, query: { dryRun: '1' } };
+    const res = mockRes();
+    return alertsCronHandler(req, res).then(() => ({ status: res.statusCode, body: res.body }));
+  });
+  const cron = await cronRes();
+  if (cron.status !== 200) return fail(`cron returned ${cron.status}: ${JSON.stringify(cron.body).slice(0, 200)}`);
+  pass(`cron ran · dryRun=${cron.body.dryRun} · processed ${cron.body.subsProcessed} subscription(s) in ${cron.body.durationMs}ms`);
+  const r0 = (cron.body.results || [])[0];
+  if (!r0) return fail('cron produced no results');
+  if (r0.error) return fail(`cron errored on first sub: ${r0.error}`);
+  pass(`cron first-run digest: screened ${r0.screened} sources, ${r0.newItemsEmailed} items in email, subject: "${r0.subject}"`);
+  r0.firstRun
+    ? pass('first-run flag set correctly (new subscription)')
+    : fail('expected firstRun=true');
+  r0.newItemsEmailed <= 8
+    ? pass(`first-run digest capped at 8 items (got ${r0.newItemsEmailed}) to avoid overwhelming welcome email`)
+    : fail(`first-run digest over cap: ${r0.newItemsEmailed} items`);
+
+  // Verify ledger was NOT updated (dryRun)
+  const subsNow = await listAllSubs();
+  const onlyActive = subsNow.find((s) => s.email === 'dorothy@example.test');
+  if (!onlyActive) return fail('subscription disappeared after cron');
+  const ledgerAfterDry = await getSentLedger(onlyActive.id);
+  ledgerAfterDry.size === 0
+    ? pass('dryRun did not poison the sent-ledger (good — real cron will populate it)')
+    : fail(`dryRun polluted ledger with ${ledgerAfterDry.size} items`);
 
   if (!process.env.ANTHROPIC_API_KEY) {
     console.log('\n(skip) ANTHROPIC_API_KEY not set — skipping research.js + records-audit.js live calls');

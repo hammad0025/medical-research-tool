@@ -64,6 +64,10 @@
         <line x1="12" y1="8" x2="12" y2="12" />
         <line x1="12" y1="16" x2="12.01" y2="16" />
       </>);
+      const Mail = mkIcon(<>
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="m22 7-10 6L2 7" />
+      </>);
       const Beaker = mkIcon(<>
         <path d="M4.5 3h15" />
         <path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3" />
@@ -763,6 +767,7 @@
                 </div>
               ))}
             </div>
+            <AlertsSubscribeCard patient={patient} />
             <div style={{
               marginTop: '1.25rem', padding: '0.9rem', background: 'rgba(248, 113, 113, 0.1)',
               border: '1px solid rgba(248, 113, 113, 0.3)', borderRadius: 8,
@@ -774,6 +779,176 @@
                 Do not enter identifying information (name, DOB, MRN, phone, address). Use initials or "Patient A".
               </p>
             </div>
+          </div>
+        );
+      };
+
+      /* ==================== Weekly email alerts subscribe card ==================== */
+      // Subscribes the user to a Monday-morning digest for the current
+      // condition. Shows active subscriptions under the same email so the
+      // user can one-click unsubscribe from any of them.
+      const AlertsSubscribeCard = ({ patient }) => {
+        const [email, setEmail] = useState(() => {
+          try { return localStorage.getItem('mra-alerts-email') || ''; } catch { return ''; }
+        });
+        const [status, setStatus] = useState(null); // { kind, msg }
+        const [busy, setBusy] = useState(false);
+        const [subs, setSubs] = useState([]);
+        const [loadedFor, setLoadedFor] = useState('');
+
+        const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+        const loadSubs = async (e = email) => {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { setSubs([]); setLoadedFor(''); return; }
+          try {
+            const r = await fetch(`/api/alerts-subscribe?email=${encodeURIComponent(e)}`);
+            const d = await r.json();
+            setSubs(d.subscriptions || []);
+            setLoadedFor(e);
+          } catch (err) { /* silent */ }
+        };
+
+        useEffect(() => {
+          if (emailValid && email !== loadedFor) loadSubs(email);
+        }, [email]);
+
+        const subscribe = async () => {
+          if (!emailValid) { setStatus({ kind: 'error', msg: 'Please enter a valid email.' }); return; }
+          if (!patient.condition) { setStatus({ kind: 'error', msg: 'Enter a primary condition above first.' }); return; }
+          setBusy(true); setStatus(null);
+          try {
+            localStorage.setItem('mra-alerts-email', email);
+            const r = await fetch('/api/alerts-subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email, condition: patient.condition,
+                patientContext: {
+                  age: patient.age, gender: patient.gender, stage: patient.stage,
+                  diagnoses: patient.diagnoses, medications: patient.medications,
+                  allergies: patient.allergies
+                }
+              })
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Subscription failed');
+            if (d.alreadyExists) {
+              setStatus({ kind: 'info', msg: `You're already subscribed to weekly ${patient.condition} digests.` });
+            } else {
+              setStatus({
+                kind: 'ok',
+                msg: d.ephemeral
+                  ? `Subscribed — but the server's subscription store is not configured, so this will not persist in production. Ask admin to set UPSTASH_REDIS_REST_URL.`
+                  : `Subscribed! First digest arrives Monday morning (UTC 14:00).`
+              });
+            }
+            await loadSubs(email);
+          } catch (err) {
+            setStatus({ kind: 'error', msg: err.message });
+          } finally {
+            setBusy(false);
+          }
+        };
+
+        const unsubscribe = async (sub) => {
+          const token = prompt(
+            'Paste the unsubscribe token from your welcome email (or any past digest email footer). ' +
+            'If you don\'t have it, reply to any digest email asking to be removed.'
+          );
+          if (!token) return;
+          try {
+            const r = await fetch('/api/alerts-subscribe?action=unsubscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: sub.id, token })
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Unsubscribe failed');
+            setStatus({ kind: 'ok', msg: `Unsubscribed from ${sub.condition}.` });
+            await loadSubs(email);
+          } catch (err) {
+            setStatus({ kind: 'error', msg: err.message });
+          }
+        };
+
+        const statusColor =
+          status?.kind === 'ok'   ? theme.green :
+          status?.kind === 'info' ? theme.accent :
+          status?.kind === 'error'? theme.red   : theme.textDim;
+
+        return (
+          <div style={{
+            marginTop: '1.25rem', padding: '1rem', borderRadius: 8,
+            background: `${theme.accent}10`, border: `1px solid ${theme.accent}40`
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Mail size={16} color={theme.accent} />
+                <strong style={{ color: theme.accent }}>Weekly research digest (beta)</strong>
+              </div>
+              <span style={{ fontSize: '0.7rem', color: theme.textDim }}>Monday 9am CT · free · unsubscribe anytime</span>
+            </div>
+            <p style={{ margin: '0.5rem 0 0.75rem', fontSize: '0.85rem', color: theme.textDim, lineHeight: 1.5 }}>
+              Every Monday we re-run the full grounded pipeline for{' '}
+              <strong style={{ color: theme.text }}>{patient.condition || '(no condition set above)'}</strong>,
+              diff the results against what you've already seen, and email you only what's NEW —
+              new RCTs and meta-analyses first, then other peer-reviewed research, new clinical trials,
+              and any FDA actions. Retracted and predatory-publisher papers are excluded before emailing,
+              same as the webapp.
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                type="email" value={email} placeholder="you@example.com"
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ ...inputStyle, flex: '1 1 260px', maxWidth: 360 }}
+              />
+              <button
+                onClick={subscribe}
+                disabled={busy || !emailValid || !patient.condition}
+                style={{
+                  padding: '0.55rem 1.1rem', borderRadius: 8, border: 'none',
+                  background: (busy || !emailValid || !patient.condition) ? theme.textDim : theme.accent,
+                  color: '#fff', fontWeight: 700, cursor: (busy || !emailValid || !patient.condition) ? 'not-allowed' : 'pointer',
+                  fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '0.4rem'
+                }}>
+                <Mail size={14} /> {busy ? 'Subscribing…' : 'Subscribe'}
+              </button>
+            </div>
+            {status && (
+              <div style={{ marginTop: '0.6rem', fontSize: '0.82rem', color: statusColor }}>
+                {status.msg}
+              </div>
+            )}
+            {subs.length > 0 && (
+              <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: `1px solid ${theme.border}` }}>
+                <div style={{ fontSize: '0.75rem', color: theme.textDim, fontWeight: 600, marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                  Your active subscriptions
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  {subs.map((s) => (
+                    <div key={s.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '0.4rem 0.6rem', background: 'rgba(255,255,255,0.04)',
+                      borderRadius: 6, fontSize: '0.82rem'
+                    }}>
+                      <span>
+                        <strong>{s.condition}</strong>
+                        <span style={{ color: theme.textDim, marginLeft: '0.5rem' }}>
+                          · {s.cadence} · last run: {s.lastRunAt ? new Date(s.lastRunAt).toLocaleDateString() : 'pending first run'}
+                        </span>
+                      </span>
+                      <button onClick={() => unsubscribe(s)} style={{
+                        background: 'transparent', border: `1px solid ${theme.red}66`,
+                        color: theme.red, padding: '0.2rem 0.6rem', borderRadius: 4,
+                        fontSize: '0.72rem', cursor: 'pointer'
+                      }}>
+                        Unsubscribe
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         );
       };

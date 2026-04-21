@@ -146,13 +146,50 @@ See [api/README.md](api/README.md) for full endpoint documentation.
 
 **Optional** environment variables to unlock extra features:
 
-| Variable              | Purpose                                                    |
-| --------------------- | ---------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`   | Required. Primary AI model.                                |
-| `PERPLEXITY_API_KEY`  | Recommended. Cross-AI audit (web-search verification).     |
-| `OPENAI_API_KEY`      | Alternative cross-AI auditor.                              |
-| `XAI_API_KEY`         | Alternative cross-AI auditor (Grok).                       |
-| `NCBI_API_KEY`        | Lifts PubMed rate limit from 3 req/s to 10 req/s.          |
+| Variable                    | Purpose                                                       |
+| --------------------------- | ------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY`         | Required. Primary AI model.                                   |
+| `PERPLEXITY_API_KEY`        | Recommended. Cross-AI audit (web-search verification).        |
+| `OPENAI_API_KEY`            | Alternative cross-AI auditor.                                 |
+| `XAI_API_KEY`               | Alternative cross-AI auditor (Grok).                          |
+| `NCBI_API_KEY`              | Lifts PubMed rate limit from 3 req/s to 10 req/s.             |
+| `RESEND_API_KEY`            | Enables weekly email digests (free tier 3k/month at resend.com). |
+| `ALERTS_EMAIL_FROM`         | "From" address for digests. Default `onboarding@resend.dev`.  |
+| `ALERTS_PUBLIC_URL`         | Base URL for unsubscribe links in emails (e.g. `https://…vercel.app`). |
+| `UPSTASH_REDIS_REST_URL`    | Persistent subscription store. Free tier at upstash.com.      |
+| `UPSTASH_REDIS_REST_TOKEN`  | Paired with the URL above.                                    |
+| `CRON_SECRET`               | Gates `/api/alerts-cron` against unauthenticated invocations. |
+
+### Weekly email digests
+
+`vercel.json` registers a cron at `0 14 * * 1` (Monday 14:00 UTC / 9am CT)
+that hits `/api/alerts-cron`. For each active subscription the cron runs
+the same grounded pipeline the webapp uses, diffs against a per-subscriber
+"already sent" ledger, and emails the net-new items via Resend.
+
+To enable in production:
+
+1. Create an account at [resend.com](https://resend.com) and set
+   `RESEND_API_KEY` in Vercel. For your own domain, verify it in Resend
+   and update `ALERTS_EMAIL_FROM`.
+2. Create a free database at [upstash.com](https://upstash.com) → "Redis"
+   → copy the REST URL + token into `UPSTASH_REDIS_REST_URL` and
+   `UPSTASH_REDIS_REST_TOKEN`. Without these, subscriptions live in an
+   in-memory Map that resets on every cold start.
+3. Set `CRON_SECRET` to a random string and add the same value to Vercel's
+   cron-job config so only the scheduler can trigger it.
+4. Set `ALERTS_PUBLIC_URL` to your deployment URL so unsubscribe links
+   in the emails resolve correctly.
+
+You can fire the cron manually for testing:
+
+```bash
+# Dry run (no emails sent) — returns the rendered subjects + counts
+curl "https://YOUR-APP.vercel.app/api/alerts-cron?dryRun=1&secret=$CRON_SECRET"
+
+# Real run targeting one email only
+curl "https://YOUR-APP.vercel.app/api/alerts-cron?onlyEmail=you@example.com&secret=$CRON_SECRET"
+```
 
 ### Local development
 

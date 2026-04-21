@@ -3,5 +3,11 @@
     "api/**/*.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/alerts-cron",
+      "schedule": "0 14 * * 1"
+    }
+  ]
 }
