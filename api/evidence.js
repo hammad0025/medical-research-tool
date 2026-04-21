@@ -19,8 +19,8 @@ import europePmcHandler from './europe-pmc.js';
 import openalexHandler from './openalex.js';
 import openfdaHandler from './openfda.js';
 import unpaywallHandler from './unpaywall.js';
-import { loadKb } from './kb.js';
-import { getDossier } from './disease-dossier.js';
+import { loadKb } from '../lib/kb.js';
+import { getDossier } from '../lib/disease-dossier.js';
 
 const invoke = async (handler, body) => {
   let captured = { status: 200, body: null };

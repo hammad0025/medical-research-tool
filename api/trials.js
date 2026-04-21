@@ -29,8 +29,8 @@
 //
 // Public API, no key required. Docs: https://clinicaltrials.gov/data-api/api
 
-import { isTopCenter, topCenterBoost, buildExtendedCenterMatcher } from './medical-lexicon.js';
-import { getDossier } from './disease-dossier.js';
+import { isTopCenter, topCenterBoost, buildExtendedCenterMatcher } from '../lib/medical-lexicon.js';
+import { getDossier } from '../lib/disease-dossier.js';
 
 const CT_API = 'https://clinicaltrials.gov/api/v2/studies';
 

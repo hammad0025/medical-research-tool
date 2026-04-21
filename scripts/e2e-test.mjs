@@ -19,9 +19,9 @@ import evidenceHandler, {
   countryAdjustment,
   computeQualityFlags
 } from '../api/evidence.js';
-import validateHandler from '../api/validate.js';
+import validateHandler from '../lib/validate.js';
 import unpaywallHandler from '../api/unpaywall.js';
-import kbHandler, { loadKb } from '../api/kb.js';
+import kbHandler, { loadKb } from '../lib/kb.js';
 import alertsSubscribeHandler from '../api/alerts-subscribe.js';
 import alertsCronHandler from '../api/alerts-cron.js';
 import {
@@ -29,12 +29,12 @@ import {
   listSubscriptions as listAllSubs,
   getSentLedger,
   isConfigured as alertsStoreConfigured
-} from '../api/alerts-store.js';
+} from '../lib/alerts-store.js';
 import {
   renderAlertHtml,
   renderAlertSubject,
   isEmailConfigured
-} from '../api/alerts-email.js';
+} from '../lib/alerts-email.js';
 
 const mockRes = () => {
   const res = {
@@ -679,8 +679,8 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   //   - full names that should match themselves
   //   - nonsense strings that should raise uncertainty
   // and we verify the 24h in-memory cache actually caches.
-  console.log('\n=== 2j. /api/disease-dossier — realtime disease-intake agent ===');
-  const { getDossier, clearDossierCache } = await import('../api/disease-dossier.js');
+  console.log('\n=== 2j. lib/disease-dossier — realtime disease-intake agent ===');
+  const { getDossier, clearDossierCache } = await import('../lib/disease-dossier.js');
   clearDossierCache();
 
   const dossierExpectations = [

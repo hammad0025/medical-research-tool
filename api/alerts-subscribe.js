@@ -17,7 +17,7 @@ import {
   listSubscriptionsByEmail,
   isConfigured,
   backendName
-} from './alerts-store.js';
+} from '../lib/alerts-store.js';
 
 const randomId = (len = 16) => {
   const bytes = new Uint8Array(len);

@@ -17,8 +17,8 @@
 
 import evidenceHandler from './evidence.js';
 import trialsHandler from './trials.js';
-import { listSubscriptions, getSentLedger, addToSentLedger, putSubscription, backendName } from './alerts-store.js';
-import { sendEmail, renderAlertHtml, renderAlertSubject, isEmailConfigured } from './alerts-email.js';
+import { listSubscriptions, getSentLedger, addToSentLedger, putSubscription, backendName } from '../lib/alerts-store.js';
+import { sendEmail, renderAlertHtml, renderAlertSubject, isEmailConfigured } from '../lib/alerts-email.js';
 
 const invoke = async (handler, body) => {
   let captured = { status: 200, body: null };

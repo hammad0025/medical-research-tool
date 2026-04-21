@@ -23,9 +23,9 @@
 // (PROVIDER/TREATMENT/EFFICACY/SAFETY/COST/REFERENCES) into the comparison chart.
 
 import evidenceHandler from './evidence.js';
-import validateHandler from './validate.js';
+import validateHandler from '../lib/validate.js';
 import trialsHandler from './trials.js';
-import { getDossier } from './disease-dossier.js';
+import { getDossier } from '../lib/disease-dossier.js';
 
 const MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 8000;
