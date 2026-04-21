@@ -58,7 +58,10 @@ export default async function handler(req, res) {
     const sp = new URLSearchParams({
       search: String(query),
       per_page: String(Math.min(Number(limit) || 10, 25)),
-      select: 'id,doi,title,publication_year,cited_by_count,type,open_access,primary_location,authorships,concepts,abstract_inverted_index'
+      // OpenAlex also gives us is_retracted + is_paratext; authorships include
+      // institutions with country codes. We pull both for the quality-scoring
+      // layer downstream.
+      select: 'id,doi,title,publication_year,cited_by_count,type,open_access,primary_location,authorships,concepts,abstract_inverted_index,is_retracted,is_paratext'
     });
     const filters = [];
     if (fromYear) filters.push(`from_publication_date:${fromYear}-01-01`);
@@ -78,9 +81,28 @@ export default async function handler(req, res) {
     const articles = works.map((w) => {
       const journal = w.primary_location?.source?.display_name || '';
       const publisher = w.primary_location?.source?.host_organization_name || '';
-      const authors = (w.authorships || []).map((a) => a.author?.display_name).filter(Boolean).slice(0, 8);
+      const sourceType = w.primary_location?.source?.type || ''; // "journal" | "repository" | …
+      const authorships = w.authorships || [];
+      const authors = authorships.map((a) => a.author?.display_name).filter(Boolean).slice(0, 8);
       const doi = w.doi ? String(w.doi).replace(/^https?:\/\/doi\.org\//, '') : null;
       const abstract = reconstructAbstract(w.abstract_inverted_index);
+
+      // Institutional country codes — 2-letter ISO. Empty when OpenAlex has
+      // no affiliation data (common for older papers). First-author country
+      // is the single best signal for "whose lab did this work."
+      const institutions = [];
+      const countrySet = new Set();
+      for (const a of authorships) {
+        for (const inst of (a.institutions || [])) {
+          if (inst.country_code) countrySet.add(inst.country_code);
+          if (inst.display_name) institutions.push({
+            name: inst.display_name,
+            country: inst.country_code || null
+          });
+        }
+      }
+      const firstAuthorCountry = authorships[0]?.institutions?.[0]?.country_code || null;
+
       return {
         source: 'OpenAlex',
         id: w.id,
@@ -90,6 +112,7 @@ export default async function handler(req, res) {
         publisher,
         year: w.publication_year,
         type: w.type,
+        sourceType,
         citedByCount: w.cited_by_count,
         authors,
         authorLine: authors.slice(0, 3).join(', ') + (authors.length > 3 ? ', et al.' : ''),
@@ -99,7 +122,16 @@ export default async function handler(req, res) {
         oaUrl: w.open_access?.oa_url || null,
         doiUrl: doi ? `https://doi.org/${doi}` : null,
         landingUrl: w.primary_location?.landing_page_url || null,
-        concepts: (w.concepts || []).filter((c) => c.score > 0.3).map((c) => c.display_name).slice(0, 6)
+        concepts: (w.concepts || []).filter((c) => c.score > 0.3).map((c) => c.display_name).slice(0, 6),
+        // Quality signals — OpenAlex is the only upstream that ships
+        // is_retracted directly, which is why we fold its flag into PubMed's
+        // downstream too when de-duping.
+        isRetracted: !!w.is_retracted,
+        isParatext: !!w.is_paratext,
+        isPreprint: sourceType === 'repository' || (w.type || '') === 'preprint',
+        institutions: institutions.slice(0, 12),
+        countries: [...countrySet],
+        firstAuthorCountry
       };
     });
 

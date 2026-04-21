@@ -970,6 +970,199 @@
         );
       };
 
+      /* ==================== Source-quality flags + panel ==================== */
+      // Color + icon per quality-flag severity. The severity taxonomy matches
+      // what api/evidence.js computeQualityFlags() emits:
+      //   positive = evidence-strength boost (RCT, Cochrane, A+ journal, KB)
+      //   warning  = integrity concern (preprint, country-penalised, low-integrity)
+      //   critical = hard-exclusion class (retracted, predatory publisher)
+      const FLAG_COLORS = {
+        positive: theme.green,
+        warning: theme.yellow,
+        critical: theme.red
+      };
+      const QualityFlagBadge = ({ flag }) => {
+        const color = FLAG_COLORS[flag.severity] || theme.textDim;
+        return (
+          <span title={flag.label} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+            padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.68rem',
+            border: `1px solid ${color}66`, background: `${color}1a`,
+            color, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase',
+            whiteSpace: 'nowrap'
+          }}>
+            {flag.label}
+          </span>
+        );
+      };
+
+      // Country flag — shows first-author institution country. Styled green
+      // for strong-integrity jurisdictions, yellow for neutral, red for
+      // documented-concern jurisdictions.
+      const COUNTRY_TIER = {
+        US: 'strong', GB: 'strong', DE: 'strong', FR: 'strong', NL: 'strong',
+        SE: 'strong', CH: 'strong', DK: 'strong', NO: 'strong', FI: 'strong',
+        IE: 'strong', BE: 'strong', AT: 'strong', IT: 'strong', ES: 'strong',
+        CA: 'strong', AU: 'strong', NZ: 'strong', JP: 'strong', SG: 'strong', IL: 'strong',
+        CN: 'concern', RU: 'concern', IR: 'concern', PK: 'concern',
+        IN: 'concern', VN: 'concern', MX: 'concern',
+        KR: 'neutral', TW: 'neutral', HK: 'neutral', PT: 'neutral',
+        CZ: 'neutral', PL: 'neutral', GR: 'neutral', TR: 'neutral'
+      };
+      const CountryBadge = ({ country }) => {
+        if (!country) return null;
+        const tier = COUNTRY_TIER[country] || 'neutral';
+        const color = tier === 'strong' ? theme.green
+                    : tier === 'concern' ? theme.red
+                    : theme.textDim;
+        const title = tier === 'concern'
+          ? `First-author country: ${country} — documented research-integrity concerns for this jurisdiction; paper was down-weighted in ranking`
+          : tier === 'strong'
+          ? `First-author country: ${country} — strong-integrity jurisdiction`
+          : `First-author country: ${country}`;
+        return (
+          <span title={title} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+            padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.68rem',
+            border: `1px solid ${color}55`, background: `${color}15`,
+            color, fontWeight: 700, letterSpacing: 0.4
+          }}>
+            🌐 {country}
+          </span>
+        );
+      };
+
+      // Quality-breakdown panel: "we screened 58 sources, excluded 2 retracted,
+      // 1 predatory-publisher paper, and down-weighted 4 from integrity-concern
+      // jurisdictions in the prompt pack we fed Claude."
+      const QualityPanel = ({ qb }) => {
+        const [expanded, setExpanded] = useState(false);
+        if (!qb) return null;
+        const hasExclusions = (qb.retractedExcluded || 0) > 0 || (qb.predatoryExcluded || 0) > 0;
+        return (
+          <div style={{
+            ...panelStyle,
+            borderLeft: `3px solid ${hasExclusions ? theme.red : theme.green}`,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Shield size={18} /> Source-quality screen · {qb.totalScreened} sources evaluated
+              </h3>
+              <button onClick={() => setExpanded(v => !v)} style={{
+                background: 'transparent', border: `1px solid ${theme.border}`,
+                color: theme.textDim, padding: '0.3rem 0.7rem', borderRadius: 6,
+                fontSize: '0.75rem', cursor: 'pointer'
+              }}>
+                {expanded ? 'Hide details' : 'Show details'}
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.6rem' }}>
+              <span style={{
+                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
+                background: `${theme.red}22`, color: theme.red, fontWeight: 700,
+                border: `1px solid ${theme.red}55`
+              }}>
+                {qb.retractedExcluded} retracted · EXCLUDED
+              </span>
+              <span style={{
+                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
+                background: `${theme.red}22`, color: theme.red, fontWeight: 700,
+                border: `1px solid ${theme.red}55`
+              }}>
+                {qb.predatoryExcluded} predatory-publisher · EXCLUDED
+              </span>
+              <span style={{
+                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
+                background: `${theme.yellow}22`, color: theme.yellow, fontWeight: 700,
+                border: `1px solid ${theme.yellow}55`
+              }}>
+                {qb.preprintsInPool} preprint · flagged in pool
+              </span>
+              <span style={{
+                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
+                background: `${theme.yellow}22`, color: theme.yellow, fontWeight: 700,
+                border: `1px solid ${theme.yellow}55`
+              }}>
+                {qb.countryConcernInPromptPack}/{qb.countryConcernInPool} integrity-concern country · in prompt / in pool
+              </span>
+              <span style={{
+                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
+                background: `${theme.green}22`, color: theme.green, fontWeight: 700,
+                border: `1px solid ${theme.green}55`
+              }}>
+                {qb.topTierInPromptPack} A+/A tier · in prompt pack
+              </span>
+              <span style={{
+                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
+                background: `${theme.green}22`, color: theme.green, fontWeight: 700,
+                border: `1px solid ${theme.green}55`
+              }}>
+                {qb.rctOrMetaInPromptPack} RCT / systematic review · in prompt pack
+              </span>
+            </div>
+            {expanded && (
+              <div style={{ marginTop: '0.85rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <strong style={{ color: theme.text }}>How the screen works.</strong>
+                  {' '}Every source is scored by journal tier, citations, recency, publication
+                  type (RCT / meta-analysis > observational > opinion), and first-author
+                  institutional country. Retractions and papers from documented predatory
+                  publishers are EXCLUDED entirely. Preprints and first-author-from-integrity-concern
+                  jurisdictions (CN, RU, IR, PK, IN, VN) are kept but down-weighted and flagged
+                  so the AI treats them as weaker evidence.
+                </div>
+                {(qb.retractedTitles || []).length > 0 && (
+                  <div style={{ marginTop: '0.6rem' }}>
+                    <div style={{ color: theme.red, fontWeight: 700, marginBottom: '0.25rem' }}>
+                      Retracted papers EXCLUDED from prompt pack:
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+                      {qb.retractedTitles.map((r, i) => (
+                        <li key={i}>
+                          "{(r.title || '(untitled)').slice(0, 140)}" ({r.journal || 'journal unknown'})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(qb.predatoryTitles || []).length > 0 && (
+                  <div style={{ marginTop: '0.6rem' }}>
+                    <div style={{ color: theme.red, fontWeight: 700, marginBottom: '0.25rem' }}>
+                      Predatory-publisher papers EXCLUDED:
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+                      {qb.predatoryTitles.map((r, i) => (
+                        <li key={i}>
+                          "{(r.title || '(untitled)').slice(0, 120)}" — {r.publisher || r.journal}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {qb.countryCounts && Object.keys(qb.countryCounts).length > 0 && (
+                  <div style={{ marginTop: '0.6rem' }}>
+                    <div style={{ color: theme.text, fontWeight: 700, marginBottom: '0.25rem' }}>
+                      First-author country distribution in clean pool:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                      {Object.entries(qb.countryCounts)
+                        .sort(([,a],[,b]) => b - a)
+                        .slice(0, 20)
+                        .map(([code, n]) => (
+                          <span key={code} style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center' }}>
+                            <CountryBadge country={code} />
+                            <span style={{ fontSize: '0.75rem', color: theme.textDim }}>× {n}</span>
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      };
+
       /* ==================== Cross-AI Validator Panel ==================== */
       // Renders the second-AI (Perplexity / OpenAI / xAI) audit of Claude's
       // output. This is the safeguard against hallucinated citations:
@@ -1200,6 +1393,8 @@
             </div>
 
             <KBPanel kb={evidenceSummary?.knowledgeBase} />
+
+            <QualityPanel qb={evidenceSummary?.qualityBreakdown} />
 
             <ValidatorPanel validation={validation} />
 
@@ -2069,7 +2264,7 @@
                         padding: '0.75rem', background: 'rgba(255,255,255,0.04)',
                         borderRadius: 8, border: `1px solid ${theme.border}`
                       }}>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
                           {p.isCuratedKB && <KBBadge category={p.category} />}
                           <AccessBadge level={p.accessLevel || 'metadata-only'} />
                           {p.journalTier && (
@@ -2079,6 +2274,11 @@
                               color: theme.accent, fontWeight: 600
                             }}>Tier {p.journalTier}</span>
                           )}
+                          <CountryBadge country={p.firstAuthorCountry} />
+                          {(p.qualityFlags || [])
+                            .filter((f) => f.key !== 'top-tier-journal' && f.key !== 'curated-kb')
+                            .slice(0, 4)
+                            .map((f, idx) => <QualityFlagBadge key={idx} flag={f} />)}
                           {(p.sources || []).map((s) => (
                             <span key={s} style={{
                               fontSize: '0.7rem', padding: '0.15rem 0.5rem',

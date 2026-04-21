@@ -65,9 +65,26 @@ const buildGroundingBlock = (evidence) => {
     const kbTag = it.isCuratedKB
       ? ` [CURATED KB${it.kbCategory ? ` · ${it.kbCategory.toUpperCase()}` : ''}]`
       : '';
+    // Quality signals — render the two most important positive and negative
+    // flags inline so Claude weights the source appropriately when citing.
+    const qualityTags = [];
+    if (it.isMetaAnalysis) qualityTags.push('META-ANALYSIS');
+    else if (it.isSystematicReview) qualityTags.push('SYSTEMATIC-REVIEW');
+    else if (it.isRCT) qualityTags.push('RCT');
+    if (it.isPreprint) qualityTags.push('PREPRINT-NOT-PEER-REVIEWED');
+    // Country-of-research flag — rendered only when penalised. The country
+    // code is the first author's institutional country. This reflects a
+    // documented integrity-concern weighting, not a blanket dismissal.
+    const penalisedCountries = { CN: 'CHINA', RU: 'RUSSIA', IR: 'IRAN', PK: 'PAKISTAN', IN: 'INDIA', VN: 'VIETNAM' };
+    if (it.firstAuthorCountry && penalisedCountries[it.firstAuthorCountry]) {
+      qualityTags.push(`FIRST-AUTHOR-${penalisedCountries[it.firstAuthorCountry]}-INTEGRITY-CONCERN`);
+    }
+    const qTag = qualityTags.length ? ` [${qualityTags.join(' · ')}]` : '';
     const src = (it.sources || []).join('+');
-    return `[#${i + 1}]${kbTag}${tierLabel}${access}${oa} ${it.title || '(no title)'}
-      Journal: ${it.journal || '?'} · Year: ${it.year || '?'} · Sources: ${src} · Citations: ${it.citations || 0}
+    const pubLine = it.publisher ? ` · Publisher: ${it.publisher}` : '';
+    const countryLine = it.firstAuthorCountry ? ` · 1st-author country: ${it.firstAuthorCountry}` : '';
+    return `[#${i + 1}]${kbTag}${tierLabel}${access}${oa}${qTag} ${it.title || '(no title)'}
+      Journal: ${it.journal || '?'}${pubLine} · Year: ${it.year || '?'} · Sources: ${src} · Citations: ${it.citations || 0}${countryLine}
       URL: ${it.url || '(no URL)'}
       Content: ${(it.text || '').slice(0, 3000) || '(no text available — metadata only; you may name this paper but MUST NOT claim anything about its results, methods, or conclusions)'}`;
   }).join('\n\n');
@@ -117,11 +134,33 @@ Use these canonical facts and red flags as your backbone. Live evidence suppleme
 `;
   }
 
+  // Quality-exclusion summary — tell Claude what we already filtered OUT so
+  // it doesn't cite papers we pulled out of the pool and doesn't try to
+  // compensate by naming known-retracted titles from general knowledge.
+  const qb = evidence.qualityBreakdown;
+  let qualityNoteBlock = '';
+  if (qb) {
+    const bits = [];
+    if (qb.retractedExcluded > 0) {
+      bits.push(`${qb.retractedExcluded} retracted paper(s) were FOUND in the initial pool and EXCLUDED from this pack. Do not cite these titles from memory: ${qb.retractedTitles.map((r) => `"${(r.title || '').slice(0, 80)}"`).join('; ')}.`);
+    }
+    if (qb.predatoryExcluded > 0) {
+      bits.push(`${qb.predatoryExcluded} paper(s) from documented predatory publishers were EXCLUDED.`);
+    }
+    if (qb.preprintsInPool > 0) {
+      bits.push(`${qb.preprintsInPool} preprint(s) are still present but tagged — flag them to the user as "preprint, not peer-reviewed".`);
+    }
+    if (qb.countryConcernInPromptPack > 0) {
+      bits.push(`${qb.countryConcernInPromptPack} of the items below have a first author from a jurisdiction with documented systemic research-integrity concerns (CN, RU, IR, PK, IN, VN). They carry a "FIRST-AUTHOR-*-INTEGRITY-CONCERN" tag. You may still cite them, but: (a) prefer equivalent Western-origin evidence when available, (b) when you do cite them, explicitly note the origin in the text of your answer, and (c) never cite them as the SOLE evidence for a safety-critical claim.`);
+    }
+    if (bits.length) qualityNoteBlock = `SOURCE-QUALITY NOTES FOR THIS PACK:\n${bits.map((b) => `- ${b}`).join('\n')}\n\n`;
+  }
+
   return `GROUNDED EVIDENCE PACK — you MUST cite only from this list. If a claim is not supported by one of these items, say "No grounded evidence in pack" instead of making one up.
 
 ${kbBlock}
 
-CITATION ACCESS RULES (strict — many medical journals are paywalled and we deliberately only pull what is legal to share):
+${qualityNoteBlock}CITATION ACCESS RULES (strict — many medical journals are paywalled and we deliberately only pull what is legal to share):
 - Each item is tagged [FULL-TEXT], [ABSTRACT-ONLY], or [METADATA-ONLY] to tell you exactly how much of it you have read.
 - Items also tagged [CURATED KB] are hand-curated landmark references — prefer them when the topic is directly covered.
 - [FULL-TEXT] items: you may cite methods, results, secondary endpoints, subgroups, adverse events, and figures, because you actually have the body text.
@@ -130,6 +169,16 @@ CITATION ACCESS RULES (strict — many medical journals are paywalled and we del
 - In EVERY citation you write, append the access tag in brackets after the URL, exactly like this: \`[#3] (NEJM 2014) https://... [ABSTRACT-ONLY] — "quoted passage"\`. This is non-negotiable.
 - When the Content shows an "Editor's summary", treat that as context — do not quote it as if it were from the paper. Quote only "Verbatim passage" blocks verbatim, or abstract text for live items.
 - When you quote, copy the text verbatim from the Content field below and include the URL.
+
+SOURCE-QUALITY PRIORITY ORDER (use this when two items conflict):
+  1. [CURATED KB] items (hand-curated landmark refs for this disease)
+  2. Cochrane Systematic Reviews + [META-ANALYSIS]
+  3. [SYSTEMATIC-REVIEW] + [RCT] in A+ / A tier journals
+  4. Observational / cohort studies in A+ / A tier journals
+  5. [RCT] / [META-ANALYSIS] in B tier journals
+  6. Anything else peer-reviewed
+  7. [PREPRINT-NOT-PEER-REVIEWED] items (only cite as supplementary, flag explicitly)
+  Items carrying FIRST-AUTHOR-*-INTEGRITY-CONCERN drop one tier in this order.
 
 ${packed}
 
@@ -493,6 +542,7 @@ ${chatGrounding || 'No evidence pack was cached for this chat turn. Lean on the 
             totalUnique: evidence.totalUnique,
             accessBreakdown: evidence.accessBreakdown,
             promptPackBreakdown: evidence.promptPackBreakdown,
+            qualityBreakdown: evidence.qualityBreakdown,
             knowledgeBase: evidence.knowledgeBase,
             topRanked: (evidence.topRanked || []).slice(0, 50),
             groundedForPrompt: evidence.groundedForPrompt,

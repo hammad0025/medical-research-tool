@@ -13,7 +13,12 @@ import auditHandler from '../api/records-audit.js';
 import europePmcHandler from '../api/europe-pmc.js';
 import openalexHandler from '../api/openalex.js';
 import openfdaHandler from '../api/openfda.js';
-import evidenceHandler from '../api/evidence.js';
+import evidenceHandler, {
+  scoreArticle,
+  isPredatoryPublisher,
+  countryAdjustment,
+  computeQualityFlags
+} from '../api/evidence.js';
 import validateHandler from '../api/validate.js';
 import unpaywallHandler from '../api/unpaywall.js';
 import kbHandler, { loadKb } from '../api/kb.js';
@@ -258,6 +263,203 @@ const info = (msg) => console.log(`  ${msg}`);
   if (!ev.body.knowledgeBase?.matched)
     return fail('evidence response missing knowledgeBase metadata');
   pass(`knowledgeBase metadata attached to evidence response (${ev.body.knowledgeBase.itemCount} KB items available, matched on "${ev.body.knowledgeBase.matchedOn}")`);
+
+  // ==== SOURCE-QUALITY SCORING LOCK-INS ====
+  // These tests guard the source-quality screen that filters retracted papers,
+  // flags predatory publishers, and applies geographic integrity weighting.
+  console.log('\n=== 2e.1 source-quality screen — qualityBreakdown present & structured ===');
+  const qb = ev.body.qualityBreakdown;
+  if (!qb) return fail('evidence response missing qualityBreakdown');
+  pass(`qualityBreakdown present · ${qb.totalScreened} screened · ${qb.retractedExcluded} retracted excluded · ${qb.predatoryExcluded} predatory excluded`);
+  if (typeof qb.countryConcernInPromptPack !== 'number') return fail('qualityBreakdown.countryConcernInPromptPack missing');
+  if (typeof qb.topTierInPromptPack !== 'number')         return fail('qualityBreakdown.topTierInPromptPack missing');
+  if (typeof qb.rctOrMetaInPromptPack !== 'number')       return fail('qualityBreakdown.rctOrMetaInPromptPack missing');
+  pass(`prompt pack: ${qb.topTierInPromptPack} A+/A tier · ${qb.rctOrMetaInPromptPack} RCT/systematic-review · ${qb.countryConcernInPromptPack} integrity-concern jurisdiction`);
+  if (qb.topTierInPromptPack < 3) {
+    return fail(`expected >= 3 A+/A tier articles in IPF prompt pack, got ${qb.topTierInPromptPack}`);
+  }
+  pass('A+/A tier floor for IPF prompt pack: OK');
+
+  console.log('\n=== 2e.2 PubMed enrichment — publicationType + affiliations + retraction flag ===');
+  // PubMed is 3 req/s anon; we've already hammered it through /api/evidence.
+  // Back off before asking again so this doesn't rate-limit the whole run.
+  await new Promise((r) => setTimeout(r, 2000));
+  const pmSample = await invoke(pubmedHandler, {
+    query: 'Idiopathic Pulmonary Fibrosis',
+    limit: 8,
+    withAbstract: true
+  });
+  if (pmSample.status === 429 || pmSample.status === 503) {
+    info(`  (skip) PubMed returned ${pmSample.status} (rate limit). Set NCBI_API_KEY for higher limits.`);
+  } else if (pmSample.status !== 200) {
+    return fail(`pubmed enrichment call failed: ${pmSample.status}`);
+  } else {
+    const anyWithPubTypes = (pmSample.body.articles || []).some((a) => (a.publicationTypes || []).length > 0);
+    const anyWithAffiliations = (pmSample.body.articles || []).some((a) => (a.affiliations || []).length > 0);
+    const anyWithCountry = (pmSample.body.articles || []).some((a) => !!a.firstAuthorCountry);
+    const allHaveRetractedField = (pmSample.body.articles || []).every((a) => typeof a.isRetracted === 'boolean');
+    anyWithPubTypes       ? pass('PubMed returns publicationTypes for at least one article')     : fail('PubMed returned no publicationTypes');
+    anyWithAffiliations   ? pass('PubMed returns affiliations for at least one article')         : fail('PubMed returned no affiliations');
+    anyWithCountry        ? pass('PubMed parses firstAuthorCountry for at least one article')     : fail('PubMed parsed no firstAuthorCountry — country alias regex may be broken');
+    allHaveRetractedField ? pass('every PubMed article carries isRetracted boolean (defaulted)') : fail('some PubMed articles missing isRetracted');
+  }
+
+  console.log('\n=== 2e.3 retraction filter — known-retracted paper is EXCLUDED from prompt pack ===');
+  // PMID 20301425 was retracted ("Neuropsychological decline..."). We query
+  // a broad term that returns recent IPF work and manually inject a
+  // retraction-flagged synthetic paper through the evidence scorer.
+  // Direct-path test: call the evidence handler's internal scorer by asking
+  // for a condition where retracted papers historically appear. We also
+  // seed via a synthetic OpenAlex-style payload using the dedupe+score path.
+  const retractedSynthetic = {
+    source: 'SyntheticTest',
+    id: 'test:retracted-1',
+    doi: '10.9999/fake-retracted',
+    pmid: '99999001',
+    title: 'Fake retracted study that should NEVER reach Claude',
+    journal: 'The Lancet',
+    publisher: 'Elsevier',
+    year: 2018,
+    abstract: 'This paper was retracted for fabricated data.',
+    isRetracted: true,
+    countries: ['US'],
+    firstAuthorCountry: 'US'
+  };
+  const predatorySynthetic = {
+    source: 'SyntheticTest',
+    id: 'test:predatory-1',
+    doi: '10.9999/fake-predatory',
+    pmid: '99999002',
+    title: 'Fake paper from predatory publisher',
+    journal: 'Journal of OMICS',
+    publisher: 'OMICS International',
+    year: 2023,
+    abstract: 'This paper appeared in a predatory venue.',
+    isRetracted: false,
+    countries: ['IN'],
+    firstAuthorCountry: 'IN'
+  };
+  const chinaSynthetic = {
+    source: 'SyntheticTest',
+    id: 'test:china-1',
+    doi: '10.9999/china-test',
+    pmid: '99999003',
+    title: 'Fake Chinese-first-author paper (should be kept but down-weighted)',
+    journal: 'Thorax',
+    publisher: 'BMJ Publishing Group',
+    year: 2024,
+    abstract: 'Legitimate paper, first author from China.',
+    isRetracted: false,
+    countries: ['CN'],
+    firstAuthorCountry: 'CN'
+  };
+  const usSynthetic = {
+    source: 'SyntheticTest',
+    id: 'test:us-1',
+    doi: '10.9999/us-test',
+    pmid: '99999004',
+    title: 'Fake US-first-author paper (should score higher than CN twin)',
+    journal: 'Thorax',
+    publisher: 'BMJ Publishing Group',
+    year: 2024,
+    abstract: 'Same hypothetical paper but from a US lab.',
+    isRetracted: false,
+    countries: ['US'],
+    firstAuthorCountry: 'US'
+  };
+
+  // Unit tests — exercise the scorer directly with synthetic inputs to prove
+  // the scoring curve behaves correctly independent of what the live APIs
+  // happen to return this minute.
+  const retractedScore = scoreArticle(retractedSynthetic);
+  const predatoryScore = scoreArticle(predatorySynthetic);
+  const chinaScore     = scoreArticle(chinaSynthetic);
+  const usScore        = scoreArticle(usSynthetic);
+
+  retractedScore < -100
+    ? pass(`retracted paper scored ${retractedScore} (< -100 → below any inclusion floor)`)
+    : fail(`retracted paper scored ${retractedScore} — should be < -100 to be excluded`);
+
+  isPredatoryPublisher('OMICS International')
+    ? pass('OMICS International correctly flagged as predatory publisher')
+    : fail('OMICS International not flagged as predatory');
+  isPredatoryPublisher('Hindawi')
+    ? pass('Hindawi correctly flagged as predatory publisher')
+    : fail('Hindawi not flagged as predatory');
+  !isPredatoryPublisher('Elsevier')
+    ? pass('Elsevier NOT falsely flagged as predatory')
+    : fail('Elsevier was incorrectly flagged as predatory');
+
+  predatoryScore < scoreArticle({ ...predatorySynthetic, publisher: 'Elsevier' })
+    ? pass(`predatory publisher penalised: ${predatoryScore} < ${scoreArticle({ ...predatorySynthetic, publisher: 'Elsevier' })} (same paper at Elsevier)`)
+    : fail('predatory-publisher penalty not applied');
+
+  chinaScore < usScore - 15
+    ? pass(`geographic penalty applied: US paper=${usScore} · same-paper-but-CN=${chinaScore} (delta ${usScore - chinaScore})`)
+    : fail(`geographic weighting too weak: US=${usScore}, CN=${chinaScore}, delta=${usScore - chinaScore} — expected >= 15`);
+
+  countryAdjustment({ firstAuthorCountry: 'CN', countries: ['CN'] }) <= -20
+    ? pass('countryAdjustment: CN → -20 (documented integrity-concern jurisdiction)')
+    : fail('countryAdjustment: CN penalty not -20');
+  countryAdjustment({ firstAuthorCountry: 'US', countries: ['US'] }) >= 5
+    ? pass('countryAdjustment: US → +5 (strong-integrity jurisdiction)')
+    : fail('countryAdjustment: US bonus not +5');
+  countryAdjustment({ firstAuthorCountry: 'US', countries: ['US', 'CN'] }) < 5
+    ? pass('countryAdjustment: US first author + CN co-author → reduced (half CN penalty applied)')
+    : fail('countryAdjustment: co-author penalty not applied');
+
+  const retractedFlags = computeQualityFlags(retractedSynthetic);
+  retractedFlags.some((f) => f.key === 'retracted' && f.severity === 'critical')
+    ? pass('computeQualityFlags: retracted → critical severity')
+    : fail('computeQualityFlags: retracted flag missing');
+
+  const chinaFlags = computeQualityFlags(chinaSynthetic);
+  chinaFlags.some((f) => f.key === 'country-concern')
+    ? pass('computeQualityFlags: CN first author → country-concern flag')
+    : fail('computeQualityFlags: country-concern flag missing for CN');
+
+  // End-to-end — the live pack must also never contain retracted/predatory.
+  const packHasRetracted = (ev.body.groundedForPrompt || []).some(
+    (a) => (a.qualityFlags || []).some((f) => f.key === 'retracted')
+  );
+  !packHasRetracted
+    ? pass('no retracted paper made it into the Claude prompt pack')
+    : fail('retracted paper was not filtered out of prompt pack — CRITICAL regression');
+
+  const packHasPredatory = (ev.body.groundedForPrompt || []).some(
+    (a) => (a.qualityFlags || []).some((f) => f.key === 'predatory-publisher')
+  );
+  !packHasPredatory
+    ? pass('no predatory-publisher paper made it into the Claude prompt pack')
+    : fail('predatory-publisher paper was not filtered out of prompt pack');
+
+  console.log('\n=== 2e.4 geographic weighting — country flags surface on articles ===');
+  // At least some articles in a large IPF pool should carry first-author
+  // country data (OpenAlex is near-complete for recent papers). The pack
+  // should never be exclusively flagged as all-Chinese — that would suggest
+  // the scorer isn't actually applying the penalty.
+  const withCountry = (ev.body.groundedForPrompt || []).filter((a) => a.firstAuthorCountry);
+  withCountry.length > 0
+    ? pass(`${withCountry.length}/${ev.body.groundedForPrompt.length} prompt-pack items carry firstAuthorCountry`)
+    : info('  (no firstAuthorCountry on any prompt-pack item — OpenAlex may be rate-limited)');
+
+  const cnShare = (ev.body.groundedForPrompt || []).filter(
+    (a) => a.firstAuthorCountry === 'CN'
+  ).length;
+  const westShare = (ev.body.groundedForPrompt || []).filter(
+    (a) => ['US', 'GB', 'DE', 'FR', 'NL', 'CA', 'AU', 'IT', 'ES', 'SE'].includes(a.firstAuthorCountry)
+  ).length;
+  if (withCountry.length >= 5) {
+    westShare >= cnShare
+      ? pass(`geographic weighting working: ${westShare} Western-first-author ≥ ${cnShare} Chinese-first-author in prompt pack`)
+      : fail(`geographic weighting regression: ${cnShare} Chinese-first > ${westShare} Western in prompt pack`);
+  }
+
+  console.log('\n=== 2e.5 quality flags — every prompt-pack item carries qualityFlags[] ===');
+  const allHaveFlags = (ev.body.groundedForPrompt || []).every((a) => Array.isArray(a.qualityFlags));
+  allHaveFlags
+    ? pass('every prompt-pack item has a qualityFlags array')
+    : fail('some prompt-pack items missing qualityFlags');
 
   console.log('\n=== 2f. /api/validate — cross-AI audit (standalone) ===');
   const hasValidatorKey =
