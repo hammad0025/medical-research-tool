@@ -667,9 +667,80 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
     : fail(`dryRun polluted ledger with ${ledgerAfterDry.size} items`);
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.log('\n(skip) ANTHROPIC_API_KEY not set — skipping research.js + records-audit.js live calls');
+    console.log('\n(skip) ANTHROPIC_API_KEY not set — skipping research.js + records-audit.js + disease-dossier live calls');
     console.log('\n=== All available tests passed ===');
     return;
+  }
+
+  // ==== Disease-intake agent tests ====
+  // This is the dynamic replacement for the hardcoded CONDITION_SYNONYMS map.
+  // We test it against a mix of:
+  //   - common aliases ("RP", "LADA", "AD", "ALS", "PD")
+  //   - full names that should match themselves
+  //   - nonsense strings that should raise uncertainty
+  // and we verify the 24h in-memory cache actually caches.
+  console.log('\n=== 2j. /api/disease-dossier — realtime disease-intake agent ===');
+  const { getDossier, clearDossierCache } = await import('../api/disease-dossier.js');
+  clearDossierCache();
+
+  const dossierExpectations = [
+    { input: 'RP', expectCanonicalContains: /retinitis pigmentosa/i, expectSubspecialty: /ophthalm|genetic|retina/i },
+    { input: 'LADA', expectCanonicalContains: /latent autoimmune diabetes|type 1\.5/i, expectSubspecialty: /endocrin|diabet/i },
+    { input: 'AD', expectCanonicalContains: /alzheimer/i, expectSubspecialty: /neurol|geriatric|cognitive/i },
+    { input: 'ALS', expectCanonicalContains: /amyotrophic lateral sclerosis|lou gehrig/i, expectSubspecialty: /neurol/i },
+    { input: 'PD', expectCanonicalContains: /parkinson/i, expectSubspecialty: /neurol|movement/i }
+  ];
+
+  const dossierStart = Date.now();
+  for (const e of dossierExpectations) {
+    const d = await getDossier(e.input, { bypassCache: true });
+    if (!d || !d.canonical) { fail(`dossier "${e.input}" → no canonical returned`); continue; }
+    if (!e.expectCanonicalContains.test(d.canonical)) {
+      fail(`dossier "${e.input}" → canonical "${d.canonical}" didn't match ${e.expectCanonicalContains}`);
+    } else {
+      pass(`dossier "${e.input}" → "${d.canonical}" (unc=${d.uncertainty ?? '?'}, ${d.generatedBy || 'agent'})`);
+    }
+    if (!Array.isArray(d.synonyms) || d.synonyms.length === 0) {
+      fail(`dossier "${e.input}" → no synonyms array`);
+    } else {
+      info(`  synonyms: ${d.synonyms.slice(0, 4).join(' / ')}${d.synonyms.length > 4 ? '…' : ''}`);
+    }
+    if (typeof d.uncertainty !== 'number') fail(`dossier "${e.input}" → missing uncertainty field`);
+    if (d.subspecialty && !e.expectSubspecialty.test(d.subspecialty)) {
+      info(`  (soft) subspecialty "${d.subspecialty}" didn't match ${e.expectSubspecialty}`);
+    }
+    if ((d.topCenters || []).length) {
+      info(`  topCenters: ${d.topCenters.slice(0, 3).map(c => c.name).join(' / ')}`);
+    }
+  }
+  info(`  5 dossier calls took ${Date.now() - dossierStart}ms total (uncached)`);
+
+  // Cache-hit test: second call for IPF should be instant + flagged cacheHit.
+  const firstIpf = await getDossier('IPF');
+  const cacheStart = Date.now();
+  const secondIpf = await getDossier('IPF');
+  const cacheMs = Date.now() - cacheStart;
+  if (secondIpf.cacheHit) {
+    pass(`dossier cache hit for "IPF" in ${cacheMs}ms (first call ${firstIpf.cacheHit ? 'also cached — prior test contaminated' : 'was fresh'})`);
+  } else {
+    fail(`dossier cache MISS for "IPF" on second call (should have hit); cacheMs=${cacheMs}`);
+  }
+
+  // Normalisation: different-case / whitespace variants should share a cache slot.
+  const normA = await getDossier('IPF');
+  const normB = await getDossier('  ipf  ');
+  if (normA.cacheHit && normB.cacheHit && normA.canonical === normB.canonical) {
+    pass('dossier cache normalises input (case + whitespace)');
+  } else {
+    fail(`dossier cache NOT normalising: "IPF"→${normA.canonical} / "  ipf  "→${normB.canonical}`);
+  }
+
+  // Nonsense / ambiguous input should surface high uncertainty.
+  const garbage = await getDossier('xyzzy_not_a_disease_123', { bypassCache: true });
+  if (garbage && typeof garbage.uncertainty === 'number' && garbage.uncertainty >= 0.7) {
+    pass(`dossier flags nonsense input as uncertain (unc=${garbage.uncertainty})`);
+  } else {
+    info(`  (soft) dossier unc=${garbage?.uncertainty ?? '?'} for nonsense input (hoped for >=0.7)`);
   }
 
   console.log('\n=== 3. /api/research mode=research — Anthropic for IPF patient ===');
@@ -695,6 +766,30 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   hasStandardOfCare ? pass('standard-of-care section present') : fail('no standard-of-care section');
   hasNonDrug ? pass('non-drug / lifestyle recommendations present') : fail('no non-drug section');
   hasStem ? pass('stem-cell landscape section present') : fail('no stem-cell section');
+
+  // New mandatory sections introduced with the dossier overhaul.
+  const hasExpandedAccess = /expanded access|compassionate use/i.test(researchText);
+  const hasOLE = /open[- ]label extension|OLE\b|long[- ]term follow[- ]up/i.test(researchText);
+  const hasTopCenters = /top centers|best experts|leading centers|johns? hopkins|mayo|cleveland clinic|ucsf|duke/i.test(researchText);
+  const hasAdvocacy = /advocacy|pulmonary fibrosis foundation|patient foundation|registry/i.test(researchText);
+  const hasPipeline = /pipeline|phase 1|phase 2|in development|early[- ]stage/i.test(researchText);
+  hasExpandedAccess ? pass('Expanded Access / Compassionate Use section present') : fail('MISSING Expanded Access section (mandatory)');
+  hasOLE ? pass('Open-Label Extension section present') : fail('MISSING OLE section (mandatory)');
+  hasTopCenters ? pass('Top Centers & Experts section surfaces leading institutions') : fail('MISSING top centers');
+  hasAdvocacy ? pass('Patient advocacy / resources section present') : fail('MISSING advocacy orgs section');
+  hasPipeline ? pass('Pipeline section present') : fail('MISSING pipeline section');
+
+  // Dossier response payload is piped back to the UI.
+  if (research.body.dossier && research.body.dossier.canonical) {
+    pass(`research response includes dossier (canonical=${research.body.dossier.canonical}, unc=${research.body.dossier.uncertainty ?? '?'})`);
+  } else {
+    fail('research response did NOT include dossier payload (UI will have nothing to render in DossierPanel)');
+  }
+  if (research.body.trials && (research.body.trials.studies || []).length) {
+    pass(`research response includes ${research.body.trials.studies.length} trials from parallel CT.gov pull`);
+  } else {
+    fail('research response missing trials payload (parallel pull should have fired)');
+  }
 
   console.log('\n=== 4. /api/research mode=repurpose — EveryCure-style for IPF ===');
   const rep = await invoke(researchHandler, {

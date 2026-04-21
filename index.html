@@ -147,6 +147,10 @@
       const Shield = mkIcon(<>
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       </>);
+      const BookOpen = mkIcon(<>
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+      </>);
       const TrendingUp = mkIcon(<>
         <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
         <polyline points="17 6 23 6 23 12" />
@@ -357,6 +361,7 @@
         });
         const [evidenceSummary, setEvidenceSummary] = useState(null);
         const [evidencePack, setEvidencePack] = useState([]);
+        const [dossier, setDossier] = useState(null);
 
         useEffect(() => saveLS('mrt_patient', patient), [patient]);
         useEffect(() => saveLS('mrt_audience', audience), [audience]);
@@ -407,6 +412,9 @@
             if (data.evidence) {
               setEvidenceSummary(data.evidence);
               setEvidencePack(data.evidence.topRanked || []);
+            }
+            if (data.dossier) {
+              setDossier(data.dossier);
             }
           } catch (e) {
             alert('Error: ' + e.message);
@@ -1207,6 +1215,221 @@
         );
       };
 
+      // Dossier panel — shows what the realtime disease-intake agent knows
+      // about the user's condition. This is the agent's answer to the
+      // user's explicit ask: "shouldn't there be an AI to do disease search,
+      // so I put in IPF and then in realtime the agent does research?" Yes,
+      // and here's exactly what it found — transparent by default, with an
+      // uncertainty score so you know when to trust it vs when to push.
+      const DossierPanel = ({ dossier }) => {
+        const [expanded, setExpanded] = useState(true);
+        if (!dossier || !dossier.canonical) return null;
+        const unc = typeof dossier.uncertainty === 'number' ? dossier.uncertainty : null;
+        const uncColor = unc == null ? theme.textDim
+          : unc < 0.3 ? theme.green
+          : unc < 0.6 ? theme.yellow
+          : theme.red;
+        const uncLabel = unc == null ? 'n/a'
+          : unc < 0.3 ? 'high confidence'
+          : unc < 0.6 ? 'moderate confidence'
+          : 'low confidence — verify everything';
+        return (
+          <div style={{ ...panelStyle, borderLeft: `3px solid ${theme.accent}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <BookOpen size={18} /> Disease dossier · what the AI knows about "{dossier.canonical}"
+                {dossier.cacheHit && (
+                  <span style={{
+                    padding: '0.15rem 0.5rem', borderRadius: 999, fontSize: '0.65rem',
+                    background: `${theme.green}22`, color: theme.green, fontWeight: 700,
+                    border: `1px solid ${theme.green}55`
+                  }}>
+                    cached
+                  </span>
+                )}
+              </h3>
+              <button onClick={() => setExpanded(v => !v)} style={{
+                background: 'transparent', border: `1px solid ${theme.border}`,
+                color: theme.textDim, padding: '0.3rem 0.7rem', borderRadius: 6,
+                fontSize: '0.75rem', cursor: 'pointer'
+              }}>
+                {expanded ? 'Collapse' : 'Expand'}
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.6rem' }}>
+              {dossier.subspecialty && (
+                <span style={{
+                  padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
+                  background: `${theme.accent}15`, color: theme.accent, fontWeight: 600,
+                  border: `1px solid ${theme.accent}44`
+                }}>
+                  {dossier.subspecialty}
+                </span>
+              )}
+              {dossier.icd10 && (
+                <span style={{
+                  padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
+                  background: `${theme.textDim}15`, color: theme.textDim, fontWeight: 600,
+                  border: `1px solid ${theme.border}`
+                }}>
+                  ICD-10 {dossier.icd10}
+                </span>
+              )}
+              <span style={{
+                padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
+                background: `${uncColor}15`, color: uncColor, fontWeight: 700,
+                border: `1px solid ${uncColor}55`
+              }}>
+                uncertainty {unc == null ? '?' : unc.toFixed(2)} · {uncLabel}
+              </span>
+              {dossier.generatedBy && (
+                <span style={{
+                  padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
+                  background: `${theme.textDim}10`, color: theme.textDim,
+                  border: `1px solid ${theme.border}`
+                }}>
+                  agent: {dossier.generatedBy}
+                </span>
+              )}
+            </div>
+            {expanded && (
+              <div style={{ marginTop: '0.9rem', fontSize: '0.85rem', color: theme.text, lineHeight: 1.55, display: 'grid', gap: '0.9rem' }}>
+                {dossier.synonyms?.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+                      Aliases searched
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                      {dossier.synonyms.map((s, i) => (
+                        <span key={i} style={{
+                          padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.72rem',
+                          background: `${theme.accent}10`, color: theme.accent,
+                          border: `1px solid ${theme.accent}44`
+                        }}>{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dossier.meshTerms?.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+                      MeSH terms (PubMed controlled vocabulary)
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                      {dossier.meshTerms.map((m, i) => (
+                        <span key={i} style={{
+                          padding: '0.15rem 0.5rem', borderRadius: 4, fontSize: '0.72rem',
+                          background: `${theme.textDim}15`, color: theme.textDim,
+                          border: `1px solid ${theme.border}`
+                        }}>{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dossier.topCenters?.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+                      Top centers (disease-specific)
+                    </div>
+                    <div style={{ display: 'grid', gap: '0.3rem' }}>
+                      {dossier.topCenters.map((c, i) => (
+                        <div key={i} style={{ fontSize: '0.82rem' }}>
+                          <strong style={{ color: theme.accent }}>{c.name}</strong>
+                          {(c.city || c.country) && (
+                            <span style={{ color: theme.textDim }}>
+                              {' '}· {[c.city, c.country].filter(Boolean).join(', ')}
+                            </span>
+                          )}
+                          {c.why && <span style={{ color: theme.textDim }}> — {c.why}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dossier.keyInvestigators?.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+                      Key investigators
+                    </div>
+                    <div style={{ display: 'grid', gap: '0.3rem' }}>
+                      {dossier.keyInvestigators.map((i, idx) => (
+                        <div key={idx} style={{ fontSize: '0.82rem' }}>
+                          <strong style={{ color: theme.accent }}>{i.name}</strong>
+                          {i.affiliation && <span style={{ color: theme.textDim }}> · {i.affiliation}</span>}
+                          {i.why && <span style={{ color: theme.textDim }}> — {i.why}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dossier.patientAdvocacy?.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+                      Patient advocacy & registries
+                    </div>
+                    <div style={{ display: 'grid', gap: '0.3rem' }}>
+                      {dossier.patientAdvocacy.map((a, i) => (
+                        <div key={i} style={{ fontSize: '0.82rem' }}>
+                          {a.url
+                            ? <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ color: theme.accent, fontWeight: 700 }}>{a.name}</a>
+                            : <strong style={{ color: theme.accent }}>{a.name}</strong>}
+                          {a.why && <span style={{ color: theme.textDim }}> — {a.why}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dossier.landmarkTrials?.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+                      Landmark trials
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                      {dossier.landmarkTrials.map((t, i) => (
+                        <span key={i} title={t.topic || t.name} style={{
+                          padding: '0.2rem 0.55rem', borderRadius: 4, fontSize: '0.75rem',
+                          background: `${theme.accent}15`, color: theme.accent, fontWeight: 700,
+                          border: `1px solid ${theme.accent}44`
+                        }}>
+                          {t.acronym || t.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {dossier.redFlags?.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, color: theme.red, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+                      Red flags — common mistakes for this disease
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '1.2rem', color: theme.text }}>
+                      {dossier.redFlags.map((r, i) => (
+                        <li key={i} style={{ fontSize: '0.82rem', marginBottom: 2 }}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {dossier.commonComorbidities?.length > 0 && (
+                  <div style={{ fontSize: '0.82rem', color: theme.textDim }}>
+                    <strong style={{ color: theme.text }}>Common comorbidities to screen for:</strong>{' '}
+                    {dossier.commonComorbidities.join(', ')}
+                  </div>
+                )}
+                {dossier.notes && (
+                  <div style={{
+                    fontSize: '0.78rem', color: theme.textDim, fontStyle: 'italic',
+                    padding: '0.5rem', borderRadius: 6, background: `${theme.textDim}08`,
+                    border: `1px solid ${theme.border}`
+                  }}>
+                    Agent notes: {dossier.notes}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      };
+
       // Quality-breakdown panel: "we screened 58 sources, excluded 2 retracted,
       // 1 predatory-publisher paper, and down-weighted 4 from integrity-concern
       // jurisdictions in the prompt pack we fed Claude."
@@ -1566,6 +1789,8 @@
                 </p>
               )}
             </div>
+
+            <DossierPanel dossier={dossier} />
 
             <KBPanel kb={evidenceSummary?.knowledgeBase} />
 

@@ -20,6 +20,7 @@ import openalexHandler from './openalex.js';
 import openfdaHandler from './openfda.js';
 import unpaywallHandler from './unpaywall.js';
 import { loadKb } from './kb.js';
+import { getDossier } from './disease-dossier.js';
 
 const invoke = async (handler, body) => {
   let captured = { status: 200, body: null };
@@ -264,13 +265,36 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'condition required' });
 
     const coreQuery = String(condition);
-    const treatmentQueries = treatments.slice(0, 4).map((t) => `${coreQuery} ${t}`);
-    const cochraneQuery = `${coreQuery} AND "Cochrane Database of Systematic Reviews"[journal]`;
 
-    const queries = [coreQuery, ...treatmentQueries];
+    // Disease-intake agent. Supplies canonical + synonyms + MeSH terms so
+    // our PubMed / Europe PMC / OpenAlex fan-out isn't limited to whatever
+    // verbatim string the user typed. Callers can pass a pre-fetched
+    // dossier through `body.dossier` to avoid a duplicate agent call.
+    const dossier =
+      (req.body && req.body.dossier && req.body.dossier.canonical)
+        ? req.body.dossier
+        : await getDossier(coreQuery);
 
-    // Curated knowledge base lookup happens first so we can pin canonical
-    // ground-truth references on every query for conditions we've hand-curated.
+    const canonical = dossier.canonical || coreQuery;
+    const synonymSearches = [
+      canonical,
+      ...(dossier.synonyms || []).filter(
+        (s) => s && s.toLowerCase() !== canonical.toLowerCase()
+      )
+    ].slice(0, 4);
+
+    // For Cochrane, use the canonical form — Cochrane reviews index on
+    // formal disease names, not abbreviations.
+    const cochraneQuery = `${canonical} AND "Cochrane Database of Systematic Reviews"[journal]`;
+
+    // Full query set: canonical + up to 3 synonym variants + treatment-term
+    // cross-products on canonical only (to avoid combinatorial explosion).
+    const treatmentQueries = treatments.slice(0, 3).map((t) => `${canonical} ${t}`);
+    const queries = [...synonymSearches, ...treatmentQueries];
+
+    // Curated knowledge base lookup. Uses the ORIGINAL condition text so
+    // aliased inputs ("RP") still match the ipf-style KB slug rules. The
+    // dossier is a separate realtime layer — KB matches are still authoritative.
     const kb = await loadKb(coreQuery);
 
     // PubMed & Europe PMC are rate-limited for anonymous traffic (~3 req/s);
@@ -446,6 +470,19 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       condition: coreQuery,
+      dossier: {
+        canonical: dossier.canonical,
+        synonyms: dossier.synonyms,
+        meshTerms: dossier.meshTerms,
+        subspecialty: dossier.subspecialty,
+        uncertainty: dossier.uncertainty,
+        cacheHit: dossier.cacheHit,
+        generatedBy: dossier.generatedBy,
+        topCenters: dossier.topCenters || [],
+        keyInvestigators: dossier.keyInvestigators || [],
+        patientAdvocacy: dossier.patientAdvocacy || [],
+        landmarkTrials: dossier.landmarkTrials || []
+      },
       totalUnique: merged.length,
       accessBreakdown,
       promptPackBreakdown,
