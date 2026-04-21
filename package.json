@@ -1,21 +1,29 @@
 {
-  "name": "ipf-research-assistant-mvp",
-  "version": "1.0.0",
-  "description": "AI-powered medical research platform for Idiopathic Pulmonary Fibrosis (IPF) with citation verification and treatment comparison",
+  "name": "medical-research-assistant",
+  "version": "3.0.0",
+  "description": "AI-powered medical research platform. Any condition, live ClinicalTrials.gov, drug repurposing (EveryCure-style), cross-AI citation audit, curated knowledge base ground truth, and patient-personalized drug-interaction checking.",
   "type": "module",
   "engines": {
     "node": ">=18.0.0"
   },
-  "main": "src/ipf-research-assistant.jsx",
+  "main": "index.html",
   "keywords": [
     "medical-research",
-    "ipf",
-    "pulmonary-fibrosis",
-    "ai",
-    "claude",
-    "healthcare",
+    "clinical-decision-support",
+    "evidence-based-medicine",
+    "drug-repurposing",
     "clinical-trials",
-    "evidence-based-medicine"
+    "citation-verification",
+    "retrieval-augmented-generation",
+    "curated-knowledge-base",
+    "anthropic-claude",
+    "pubmed",
+    "openfda",
+    "europe-pmc",
+    "openalex",
+    "unpaywall",
+    "idiopathic-pulmonary-fibrosis",
+    "ipf"
   ],
   "author": {
     "name": "Syed Hammad Haque",
@@ -30,16 +38,13 @@
   "bugs": {
     "email": "shaque025@gmail.com"
   },
-  "clients": [
-    "Dorothy Clay Sims",
-    "Tim Felice"
-  ],
   "dependencies": {},
   "devDependencies": {},
   "scripts": {
-    "info": "echo 'IPF Research Assistant MVP - Phase 1'"
+    "info": "echo 'Medical Research Assistant - Phase 3 (curated KB + EveryCure repurpose + cross-AI audit)'",
+    "e2e": "node scripts/e2e-test.mjs"
   },
-  "phase": "1-MVP",
-  "status": "proof-of-concept",
-  "nextPhase": "2-full-platform"
+  "phase": "3",
+  "status": "phase-3-shipped",
+  "nextPhase": "3.1-multi-condition-kb-and-scheduled-alerts"
 }

@@ -1,74 +1,52 @@
-# Contributing to IPF Research Assistant
+# Contributing
 
-Thank you for your interest in the IPF Research Assistant project!
+This is a proprietary research prototype. External contributions are not
+currently accepted, but bug reports and questions are welcome.
 
-## Project Status
+## Reporting issues
 
-This is a **proprietary Phase 1 MVP** developed specifically for Dorothy Clay Sims and Tim Felice. External contributions are not currently being accepted.
+Email <shaque025@gmail.com> with:
 
-## For Dorothy & Tim
+- What you were trying to do
+- What you expected to happen
+- What actually happened
+- The condition you were researching (so the issue can be reproduced)
+- Browser + OS if it's a UI issue
 
-If you have feedback, feature requests, or bug reports:
+## Local development
 
-### Reporting Issues
-1. **Email:** shaque025@gmail.com
-2. **Subject:** IPF Research Assistant - [Issue/Feature/Bug]
-3. **Include:**
-   - Clear description of the issue/request
-   - Steps to reproduce (for bugs)
-   - Expected vs actual behavior
-   - Screenshots if applicable
+```bash
+git clone https://github.com/hammad0025/medical-research-tool.git
+cd medical-research-tool
+vercel env pull .env.local
+vercel dev
+```
 
-### Feature Requests
-For Phase 2 planning, please provide:
-- Feature description
-- Use case / problem it solves
-- Priority level (must-have / nice-to-have)
-- Any specific requirements or constraints
+### Running tests
 
-### Feedback on MVP
-Your feedback on the Phase 1 MVP is valuable:
-- What works well?
-- What's confusing or unclear?
-- What features are missing for your workflow?
-- Any performance or usability issues?
+```bash
+npm run e2e
+```
 
-## Development Guidelines (For Future Phases)
+The end-to-end harness invokes every serverless handler in-process and
+asserts realistic behavior (IPF clinical trials are returned, PubMed
+abstracts come back populated, the curated KB pins the right items, the
+chat mode responds substantively, etc.).
 
-When this project moves to Phase 2 or beyond, these guidelines will apply:
+### Adding a curated knowledge base for a new condition
 
-### Code Standards
-- React functional components with hooks
-- Inline styles with CSS-in-JS pattern
-- Comprehensive error handling
-- Clear variable/function naming
-- Comments for complex logic
+1. Copy `data/kb/ipf.json` to `data/kb/<slug>.json`.
+2. Replace `condition`, `slug`, `aliases`, `items`, `canonicalFacts`,
+   `lifestyleRecommendations`, and `redFlags`.
+3. Follow the rules in `data/kb/_schema.md`:
+   - Real DOIs and URLs only (no placeholders, no guesses).
+   - Honest `accessLevel` (`full-text` / `abstract` / `metadata-only`).
+   - Verbatim quotes in `keyPassages` — no paraphrasing.
+   - Editorial `summary` is acceptable and clearly labeled as such to the AI.
+4. Run the e2e suite against the new condition to confirm it matches.
 
-### Documentation
-- Update README.md for new features
-- Add usage examples for new capabilities
-- Document API changes
-- Include medical disclaimers where appropriate
+### Making prompt changes
 
-### Testing Requirements
-- Test with sample data, never real PHI
-- Verify citation accuracy
-- Check contraindication logic
-- Test edge cases (missing data, API errors)
-
-### Security & Compliance
-- Never commit API keys or secrets
-- Handle patient data securely
-- Follow HIPAA guidelines in production
-- Encrypt sensitive data
-- Implement proper access controls
-
-## Contact
-
-**Developer:** Syed Hammad Haque  
-**Email:** shaque025@gmail.com  
-**Response Time:** Within 24 hours
-
-## License
-
-See [LICENSE](LICENSE) - This is proprietary software.
+Every change to a grounding block, system prompt, or citation rule in
+`api/research.js` should be followed by an e2e run on at least one condition
+to confirm citations still resolve and no format regressions slipped through.

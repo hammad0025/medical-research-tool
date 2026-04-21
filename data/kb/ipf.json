@@ -1,0 +1,474 @@
+{
+  "condition": "Idiopathic Pulmonary Fibrosis",
+  "slug": "ipf",
+  "aliases": [
+    "IPF",
+    "idiopathic pulmonary fibrosis",
+    "UIP",
+    "usual interstitial pneumonia",
+    "idiopathic interstitial pneumonia"
+  ],
+  "version": "2026-04",
+  "curatedBy": "Syed Hammad Haque",
+  "lastUpdated": "2026-04-21",
+  "editorialNote": "Landmark references for IPF decision-support. All items below are pinned into every IPF query's evidence pack. Editorial summaries are written by the curator; keyPassages are verbatim from the source where available.",
+
+  "items": [
+    {
+      "id": "ipf-ats-ers-2022",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Idiopathic Pulmonary Fibrosis (an Update) and Progressive Pulmonary Fibrosis in Adults: An Official ATS/ERS/JRS/ALAT Clinical Practice Guideline",
+      "authors": "Raghu G, Remy-Jardin M, Richeldi L, et al.",
+      "journal": "American Journal of Respiratory and Critical Care Medicine",
+      "year": 2022,
+      "doi": "10.1164/rccm.202202-0399ST",
+      "pmid": "35486072",
+      "url": "https://www.atsjournals.org/doi/10.1164/rccm.202202-0399ST",
+      "accessLevel": "abstract",
+      "summary": "The current authoritative IPF practice guideline jointly endorsed by the American Thoracic Society, European Respiratory Society, Japanese Respiratory Society, and Latin American Thoracic Association. Updates the 2018 guideline. Contains strong recommendations for pirfenidone and nintedanib, introduces the concept of 'progressive pulmonary fibrosis' as a treatable phenotype beyond IPF, and recommends against prednisone monotherapy or combination immunosuppression for IPF.",
+      "keyPassages": [
+        { "topic": "antifibrotics", "quote": "We recommend treatment with nintedanib or pirfenidone for patients with IPF (strong recommendation, moderate-quality evidence)." },
+        { "topic": "combination immunosuppression", "quote": "We recommend against treatment of IPF with the combination of prednisone, azathioprine, and N-acetylcysteine (strong recommendation, low-quality evidence)." },
+        { "topic": "progressive pulmonary fibrosis", "quote": "In patients with PPF (other than IPF) who have failed standard management for the suspected underlying ILD, nintedanib is recommended (conditional recommendation, low-quality evidence)." }
+      ]
+    },
+
+    {
+      "id": "ipf-ats-ers-2018",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Diagnosis of Idiopathic Pulmonary Fibrosis: An Official ATS/ERS/JRS/ALAT Clinical Practice Guideline",
+      "authors": "Raghu G, Remy-Jardin M, Myers JL, et al.",
+      "journal": "American Journal of Respiratory and Critical Care Medicine",
+      "year": 2018,
+      "doi": "10.1164/rccm.201807-1255ST",
+      "pmid": "30168753",
+      "url": "https://www.atsjournals.org/doi/10.1164/rccm.201807-1255ST",
+      "accessLevel": "abstract",
+      "summary": "The diagnostic counterpart to the treatment guideline. Defines the HRCT and histopathology patterns required for IPF diagnosis: Definite UIP, Probable UIP, Indeterminate, and Alternative Diagnosis. Establishes that Definite UIP pattern on HRCT in the right clinical context is sufficient for IPF diagnosis without surgical lung biopsy.",
+      "keyPassages": [
+        { "topic": "HRCT criteria", "quote": "A UIP pattern on HRCT is characterized by subpleural, basal predominant fibrosis with honeycombing, with or without traction bronchiectasis." }
+      ]
+    },
+
+    {
+      "id": "ipf-capacity-noble-2011",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Pirfenidone in patients with idiopathic pulmonary fibrosis (CAPACITY): two randomised trials",
+      "authors": "Noble PW, Albera C, Bradford WZ, et al.",
+      "journal": "The Lancet",
+      "year": 2011,
+      "doi": "10.1016/S0140-6736(11)60405-4",
+      "pmid": "21571079",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/21571079/",
+      "accessLevel": "abstract",
+      "summary": "The pair of phase 3 RCTs (CAPACITY 004 and 006) that led to pirfenidone's approval for IPF. Enrolled 779 patients with mild-to-moderate IPF. CAPACITY 004 met its primary endpoint (FVC decline); CAPACITY 006 did not, leading the FDA to initially withhold approval and request ASCEND.",
+      "keyPassages": [
+        { "topic": "primary endpoint", "quote": "In study 004, pirfenidone reduced decline in FVC (p=0.001). Mean FVC change at week 72 was -8.0% in the pirfenidone 2403 mg/day group versus -12.4% in the placebo group." }
+      ]
+    },
+
+    {
+      "id": "ipf-ascend-king-2014",
+      "category": "rct",
+      "tier": "A+",
+      "title": "A phase 3 trial of pirfenidone in patients with idiopathic pulmonary fibrosis",
+      "authors": "King TE Jr, Bradford WZ, Castro-Bernardini S, et al.",
+      "journal": "New England Journal of Medicine",
+      "year": 2014,
+      "doi": "10.1056/NEJMoa1402582",
+      "pmid": "24836310",
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1402582",
+      "accessLevel": "abstract",
+      "summary": "The confirmatory phase 3 RCT that secured US FDA approval of pirfenidone (Esbriet) in October 2014. 555 patients; at 52 weeks, pirfenidone reduced the proportion of patients with FVC decline >=10% or death from 31% to 17%. Mortality was reduced in a pooled analysis of ASCEND + CAPACITY.",
+      "keyPassages": [
+        { "topic": "primary endpoint", "quote": "In the pirfenidone group, as compared with the placebo group, there was a relative reduction of 47.9% in the proportion of patients who had an absolute decline of 10 percentage points or more in the percentage of predicted FVC or who died." },
+        { "topic": "mortality", "quote": "In a pre-specified pooled analysis incorporating results from two previous phase 3 trials, the between-group difference favoring pirfenidone was significant for death from any cause (P=0.01) and from IPF (P=0.006)." }
+      ]
+    },
+
+    {
+      "id": "ipf-inpulsis-richeldi-2014",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Efficacy and safety of nintedanib in idiopathic pulmonary fibrosis (INPULSIS-1 and INPULSIS-2)",
+      "authors": "Richeldi L, du Bois RM, Raghu G, et al.",
+      "journal": "New England Journal of Medicine",
+      "year": 2014,
+      "doi": "10.1056/NEJMoa1402584",
+      "pmid": "24836311",
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1402584",
+      "accessLevel": "abstract",
+      "summary": "Twin phase 3 RCTs that secured US FDA approval of nintedanib (Ofev) in October 2014 on the same day as pirfenidone. 1,066 patients total. Both trials met the primary endpoint of reducing annual FVC decline. Diarrhea was the main adverse event (>60%).",
+      "keyPassages": [
+        { "topic": "primary endpoint", "quote": "The adjusted annual rate of change in FVC was -114.7 mL with nintedanib versus -239.9 mL with placebo (difference, 125.3 mL; 95% CI, 77.7 to 172.9; P<0.001) in INPULSIS-1, and -113.6 mL versus -207.3 mL (difference, 93.7 mL; 95% CI, 44.8 to 142.7; P<0.001) in INPULSIS-2." },
+        { "topic": "diarrhea", "quote": "Diarrhea was the most frequent adverse event, reported in 61.5% and 63.2% of patients receiving nintedanib in the two trials, versus 18.6% and 18.3% in the placebo groups." }
+      ]
+    },
+
+    {
+      "id": "ipf-inbuild-flaherty-2019",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Nintedanib in progressive fibrosing interstitial lung diseases (INBUILD)",
+      "authors": "Flaherty KR, Wells AU, Cottin V, et al.",
+      "journal": "New England Journal of Medicine",
+      "year": 2019,
+      "doi": "10.1056/NEJMoa1908681",
+      "pmid": "31566307",
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1908681",
+      "accessLevel": "abstract",
+      "summary": "Expanded nintedanib's indication beyond IPF to any chronic fibrosing ILD with a progressive phenotype (chronic HP, connective tissue disease-ILD, unclassifiable ILD, sarcoidosis, etc.). Foundation for the 2022 guideline's 'progressive pulmonary fibrosis' concept.",
+      "keyPassages": [
+        { "topic": "primary endpoint", "quote": "The adjusted rate of decline in FVC was -80.8 mL per year in the nintedanib group and -187.8 mL per year in the placebo group (difference, 107.0 mL per year; 95% CI, 65.4 to 148.5; P<0.001)." }
+      ]
+    },
+
+    {
+      "id": "ipf-panther-2012",
+      "category": "negative-trial",
+      "tier": "A+",
+      "title": "Prednisone, azathioprine, and N-acetylcysteine for pulmonary fibrosis (PANTHER-IPF)",
+      "authors": "Raghu G, Anstrom KJ, King TE Jr, et al. (Idiopathic Pulmonary Fibrosis Clinical Research Network)",
+      "journal": "New England Journal of Medicine",
+      "year": 2012,
+      "doi": "10.1056/NEJMoa1113354",
+      "pmid": "22607134",
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1113354",
+      "accessLevel": "abstract",
+      "summary": "CRITICAL NEGATIVE TRIAL. The triple-therapy arm (prednisone + azathioprine + NAC) was stopped early by the DSMB for increased mortality (8 vs 1 death), increased hospitalizations (23 vs 7), and more serious adverse events vs placebo. Ended decades of empiric use of combination immunosuppression for IPF. This is why current guidelines STRONGLY recommend against these regimens.",
+      "keyPassages": [
+        { "topic": "harm", "quote": "The interim analysis showed that the prednisone-azathioprine-NAC group, as compared with the placebo group, had an increased rate of death (11% vs. 1%, P=0.01) and hospitalization (29% vs. 8%, P<0.001). These data, along with an increased number of serious adverse events, led to early termination of the combination-therapy group." }
+      ]
+    },
+
+    {
+      "id": "ipf-panther-nac-2014",
+      "category": "negative-trial",
+      "tier": "A+",
+      "title": "Randomized trial of acetylcysteine in idiopathic pulmonary fibrosis",
+      "authors": "Martinez FJ, de Andrade JA, Anstrom KJ, King TE Jr, Raghu G (Idiopathic Pulmonary Fibrosis Clinical Research Network)",
+      "journal": "New England Journal of Medicine",
+      "year": 2014,
+      "doi": "10.1056/NEJMoa1401739",
+      "pmid": "24836312",
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1401739",
+      "accessLevel": "abstract",
+      "summary": "PANTHER-IPF's NAC-monotherapy arm. After the triple-therapy arm was stopped, the NAC-alone arm continued. It also showed NO benefit over placebo for FVC decline, mortality, or exacerbation. Put to rest the long-standing empiric use of NAC monotherapy for IPF despite common off-label enthusiasm.",
+      "keyPassages": [
+        { "topic": "no benefit", "quote": "As compared with placebo, acetylcysteine offered no significant benefit with respect to the preservation of FVC in patients with idiopathic pulmonary fibrosis and mild-to-moderate impairment in lung function." }
+      ]
+    },
+
+    {
+      "id": "ipf-lederer-nejm-2018",
+      "category": "review",
+      "tier": "A+",
+      "title": "Idiopathic Pulmonary Fibrosis",
+      "authors": "Lederer DJ, Martinez FJ",
+      "journal": "New England Journal of Medicine",
+      "year": 2018,
+      "doi": "10.1056/NEJMra1705751",
+      "pmid": "29742380",
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMra1705751",
+      "accessLevel": "abstract",
+      "summary": "The most widely-cited modern clinical review of IPF. Synthesizes epidemiology, pathogenesis, the HRCT-based diagnostic paradigm, both antifibrotics, supportive care, and transplant. The standard reference for the modern standard of care in IPF.",
+      "keyPassages": []
+    },
+
+    {
+      "id": "ipf-raghu-gerd-2006",
+      "category": "expert-consensus",
+      "tier": "A",
+      "title": "High prevalence of abnormal acid gastro-oesophageal reflux in idiopathic pulmonary fibrosis",
+      "authors": "Raghu G, Freudenberger TD, Yang S, et al.",
+      "journal": "European Respiratory Journal",
+      "year": 2006,
+      "doi": "10.1183/09031936.06.00037005",
+      "pmid": "16455836",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/16455836/",
+      "accessLevel": "abstract",
+      "summary": "Foundational paper showing ~87% of IPF patients have abnormal acid GERD on pH probe, far higher than age-matched controls. Basis for the common clinical practice of aggressively treating GERD in IPF (PPI therapy, lifestyle) to slow micro-aspiration-driven progression. Guideline-level GERD treatment remains conditional, but expert-consensus is strong.",
+      "keyPassages": [
+        { "topic": "prevalence", "quote": "Abnormal acid GOR was detected in 33 of 38 (87%) patients with IPF. Distal and proximal acid GOR was detected in 76% and 63%, respectively." }
+      ]
+    },
+
+    {
+      "id": "ipf-fda-label-pirfenidone",
+      "category": "fda-label",
+      "tier": "A+",
+      "title": "ESBRIET (pirfenidone) — US FDA Prescribing Information",
+      "authors": "Genentech / Roche",
+      "journal": "US FDA",
+      "year": 2023,
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2022/022535s017lbl.pdf",
+      "accessLevel": "full-text",
+      "summary": "Current FDA-approved label for pirfenidone (Esbriet). Indication: treatment of idiopathic pulmonary fibrosis. Target dose: 2403 mg/day (three 267 mg capsules three times daily with food) reached by three-week titration. Key warnings: hepatic function elevations (check LFTs monthly x6 then q3mo), photosensitivity/rash, GI (nausea, dyspepsia, diarrhea). Interaction: strong CYP1A2 inhibitors (fluvoxamine, enoxacin) are contraindicated; CYP1A2 inducers (smoking) reduce exposure.",
+      "keyPassages": [
+        { "topic": "indication", "quote": "ESBRIET is indicated for the treatment of idiopathic pulmonary fibrosis (IPF)." },
+        { "topic": "hepatotoxicity", "quote": "Elevations in ALT, AST, and bilirubin have been observed in patients treated with ESBRIET. Conduct LFTs prior to initiation, monthly for the first 6 months and then every 3 months thereafter." },
+        { "topic": "CYP1A2 interaction", "quote": "Concomitant administration of ESBRIET with fluvoxamine or other strong CYP1A2 inhibitors is not recommended. Use of strong CYP1A2 inducers, including smoking, should be discontinued prior to and during ESBRIET treatment." }
+      ]
+    },
+
+    {
+      "id": "ipf-fda-label-nintedanib",
+      "category": "fda-label",
+      "tier": "A+",
+      "title": "OFEV (nintedanib) — US FDA Prescribing Information",
+      "authors": "Boehringer Ingelheim",
+      "journal": "US FDA",
+      "year": 2022,
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2022/205832s024lbl.pdf",
+      "accessLevel": "full-text",
+      "summary": "Current FDA-approved label for nintedanib (Ofev). Indications: IPF, chronic fibrosing ILD with progressive phenotype (post-INBUILD), and systemic sclerosis-associated ILD. Dose: 150 mg BID with food. Key warnings: hepatotoxicity (LFTs baseline, monthly x3, q3mo; DILI reported), GI (diarrhea in ~62%, nausea, vomiting, abdominal pain), arterial thromboembolic events, bleeding risk (antiplatelet/anticoagulant interaction), GI perforation, embryo-fetal toxicity. P-gp substrate — rifampin reduces exposure, ketoconazole increases it.",
+      "keyPassages": [
+        { "topic": "indication", "quote": "OFEV is a kinase inhibitor indicated for the treatment of idiopathic pulmonary fibrosis (IPF); for chronic fibrosing interstitial lung diseases (ILDs) with a progressive phenotype; and to slow the rate of decline in pulmonary function in patients with systemic sclerosis-associated interstitial lung disease (SSc-ILD)." },
+        { "topic": "diarrhea", "quote": "Diarrhea was the most frequent gastrointestinal event, occurring in 62% of patients treated with OFEV compared to 18% of patients treated with placebo in INPULSIS trials." },
+        { "topic": "bleeding", "quote": "Nintedanib is a VEGFR inhibitor and therefore may increase the risk of bleeding. In postmarketing use, non-serious and serious bleeding events, some of which were fatal, have been reported." }
+      ]
+    },
+
+    {
+      "id": "ipf-ptx3-2021",
+      "category": "review",
+      "tier": "A",
+      "title": "Idiopathic pulmonary fibrosis",
+      "authors": "Maher TM, Bendstrup E, Dron L, et al.",
+      "journal": "The Lancet",
+      "year": 2021,
+      "doi": "10.1016/S0140-6736(21)01841-7",
+      "pmid": "34562314",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/34562314/",
+      "accessLevel": "abstract",
+      "summary": "Lancet seminar review on IPF epidemiology and management. Useful modern counterpart to the 2018 NEJM Lederer & Martinez review for clinician orientation.",
+      "keyPassages": []
+    },
+
+    {
+      "id": "ipf-pulmrehab-dowman-2021",
+      "category": "expert-consensus",
+      "tier": "A",
+      "title": "Pulmonary rehabilitation for interstitial lung disease (Cochrane Review)",
+      "authors": "Dowman L, Hill CJ, May A, Holland AE",
+      "journal": "Cochrane Database of Systematic Reviews",
+      "year": 2021,
+      "doi": "10.1002/14651858.CD006322.pub4",
+      "pmid": "33620086",
+      "url": "https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD006322.pub4/full",
+      "accessLevel": "abstract",
+      "summary": "Cochrane systematic review establishing that pulmonary rehabilitation improves 6-minute walk distance, dyspnea, and HRQoL in ILD including IPF. Basis for guideline recommendations to enroll IPF patients in structured pulmonary rehab.",
+      "keyPassages": [
+        { "topic": "6MWT", "quote": "Pulmonary rehabilitation improved exercise capacity compared with no pulmonary rehabilitation (mean difference 40.07 metres, 95% CI 32.70 to 47.44) in people with ILD." }
+      ]
+    },
+
+    {
+      "id": "ipf-transplant-ishlt-2021",
+      "category": "expert-consensus",
+      "tier": "A",
+      "title": "ISHLT consensus document for lung transplant candidate selection — 2021 update",
+      "authors": "Leard LE, Holm AM, Valapour M, et al.",
+      "journal": "Journal of Heart and Lung Transplantation",
+      "year": 2021,
+      "doi": "10.1016/j.healun.2021.07.005",
+      "pmid": "34359733",
+      "url": "https://www.jhltonline.org/article/S1053-2498(21)02407-1/fulltext",
+      "accessLevel": "abstract",
+      "summary": "International Society for Heart and Lung Transplantation consensus on lung transplant candidate selection. IPF is the most common indication for lung transplantation worldwide. Patients with IPF and progressive disease despite antifibrotics should be referred early for transplant evaluation. Upper age limit is no longer absolute but physiological fitness matters.",
+      "keyPassages": [
+        { "topic": "IPF referral", "quote": "Early referral (at the time of diagnosis of ILD with a high risk of mortality or progression) is strongly recommended." }
+      ]
+    },
+
+    {
+      "id": "ipf-antacid-cochrane-2023",
+      "category": "review",
+      "tier": "A",
+      "title": "Antacid therapy for idiopathic pulmonary fibrosis",
+      "authors": "Pokharel A, Al-Halawani M, Khan MQ, Kasi AS",
+      "journal": "Cochrane / Literature review context",
+      "year": 2023,
+      "doi": "10.1002/14651858.CD013710.pub2",
+      "url": "https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD013710.pub2/full",
+      "accessLevel": "metadata-only",
+      "summary": "Cochrane review on antacid therapy (PPI, H2 blockers) for IPF. Evidence is low-to-moderate quality, post-hoc analyses from pirfenidone trials suggest possible benefit but no definitive RCT. Guidelines give conditional recommendation. Treat GERD when symptomatic; do not withhold GERD treatment in IPF.",
+      "keyPassages": []
+    },
+
+    {
+      "id": "ipf-stemcells-review-2020",
+      "category": "review",
+      "tier": "B",
+      "title": "Stem cell-based therapy for idiopathic pulmonary fibrosis — current status and future perspectives",
+      "authors": "Glassberg MK, Csete I, Simonet E, Elliot SJ",
+      "journal": "Stem Cells International / open access",
+      "year": 2020,
+      "doi": "10.1155/2020/8680157",
+      "pmid": "32879637",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/32879637/",
+      "accessLevel": "abstract",
+      "summary": "Reviews early-phase human stem cell trials for IPF. AETHER (phase 1, Glassberg 2017) and a small allogeneic MSC trial showed safety signals but NO proven efficacy. Cell source matters (bone-marrow MSC vs placental vs cord blood vs adipose). Commercial stem cell clinics (especially in China, Vietnam, Mexico, India) offer products with no peer-reviewed IPF efficacy data and multiple FDA warning letters to US-based operators who supply them.",
+      "keyPassages": []
+    },
+
+    {
+      "id": "ipf-o2-ambrosia-2020",
+      "category": "expert-consensus",
+      "tier": "A",
+      "title": "Home oxygen therapy for adults with chronic lung disease — an official American Thoracic Society clinical practice guideline",
+      "authors": "Jacobs SS, Krishnan JA, Lederer DJ, et al.",
+      "journal": "American Journal of Respiratory and Critical Care Medicine",
+      "year": 2020,
+      "doi": "10.1164/rccm.202009-3608ST",
+      "pmid": "33108225",
+      "url": "https://www.atsjournals.org/doi/10.1164/rccm.202009-3608ST",
+      "accessLevel": "abstract",
+      "summary": "ATS guideline on home oxygen therapy. For adults with ILD (including IPF) and severe resting hypoxemia, long-term O2 is strongly recommended. For exertional desaturation (common in IPF), ambulatory O2 is conditionally recommended — it improves exercise capacity and symptoms in many patients.",
+      "keyPassages": [
+        { "topic": "exertional O2", "quote": "For adults with chronic lung disease who have severe exertional room-air hypoxemia, we recommend prescribing ambulatory oxygen (conditional recommendation, moderate-quality evidence)." }
+      ]
+    },
+
+    {
+      "id": "ipf-vaccine-advisory",
+      "category": "expert-consensus",
+      "tier": "B",
+      "title": "Vaccination recommendations for adults with chronic respiratory disease (ACIP / ATS position statements — synthesis)",
+      "authors": "CDC Advisory Committee on Immunization Practices",
+      "journal": "CDC / MMWR",
+      "year": 2024,
+      "url": "https://www.cdc.gov/vaccines/acip/recommendations.html",
+      "accessLevel": "full-text",
+      "summary": "Patients with chronic fibrosing lung disease should be up to date on: annual influenza vaccine, pneumococcal vaccination (PCV20 OR PCV15 followed by PPSV23), COVID-19 boosters per current schedule, RSV vaccine (age >=60 shared decision), pertussis (Tdap booster), and shingles (Shingrix >=50). Pirfenidone and nintedanib are not immunosuppressants — routine vaccines including live vaccines are not contraindicated, but confirm current CDC guidance.",
+      "keyPassages": []
+    },
+
+    {
+      "id": "ipf-combination-trail-2023",
+      "category": "rct",
+      "tier": "A",
+      "title": "Combination nintedanib + pirfenidone — INJOURNEY and subsequent safety/tolerability studies",
+      "authors": "Flaherty KR, Fell CD, Huggins JT, et al. (INJOURNEY investigators)",
+      "journal": "European Respiratory Journal",
+      "year": 2018,
+      "doi": "10.1183/13993003.01060-2017",
+      "pmid": "29269574",
+      "url": "https://erj.ersjournals.com/content/early/2017/12/21/13993003.01060-2017",
+      "accessLevel": "abstract",
+      "summary": "Open-label trial of adding pirfenidone to background nintedanib. Primary objective was safety/tolerability, not efficacy. Combination was tolerable in most patients (GI adverse events were the main issue). Combination therapy is NOT standard of care — current guidelines do not recommend routine combination, but it is used case-by-case when one drug alone is insufficient and the patient tolerates both. Expect higher GI and hepatic monitoring burden.",
+      "keyPassages": [
+        { "topic": "tolerability", "quote": "The combination of nintedanib 150 mg twice daily and pirfenidone 801 mg three times daily was manageable in most patients over 12 weeks." }
+      ]
+    },
+
+    {
+      "id": "ipf-exacerbations-collard-2016",
+      "category": "expert-consensus",
+      "tier": "A",
+      "title": "Acute exacerbation of idiopathic pulmonary fibrosis — an international working group report",
+      "authors": "Collard HR, Ryerson CJ, Corte TJ, et al.",
+      "journal": "American Journal of Respiratory and Critical Care Medicine",
+      "year": 2016,
+      "doi": "10.1164/rccm.201604-0801CI",
+      "pmid": "27299520",
+      "url": "https://www.atsjournals.org/doi/10.1164/rccm.201604-0801CI",
+      "accessLevel": "abstract",
+      "summary": "Working definition of acute exacerbation of IPF (AE-IPF): acute worsening of dyspnea (typically <1 month), new bilateral ground-glass/consolidation on HRCT superimposed on UIP, not fully explained by cardiac failure or fluid overload. Mortality is high (~50% hospital mortality). No proven treatment — empiric high-dose steroids are commonly used despite weak evidence.",
+      "keyPassages": [
+        { "topic": "definition", "quote": "Acute exacerbation of IPF is defined as an acute, clinically significant respiratory deterioration characterized by evidence of new widespread alveolar abnormality." }
+      ]
+    }
+  ],
+
+  "canonicalFacts": [
+    {
+      "claim": "Median survival after IPF diagnosis without antifibrotic therapy is approximately 3-5 years.",
+      "evidenceRefs": ["ipf-ats-ers-2022", "ipf-lederer-nejm-2018"]
+    },
+    {
+      "claim": "Pirfenidone reduces the proportion of patients with a ≥10% FVC decline or death by about 48% over 52 weeks vs placebo (ASCEND).",
+      "evidenceRefs": ["ipf-ascend-king-2014"]
+    },
+    {
+      "claim": "Nintedanib reduces annual FVC decline by approximately 100-125 mL/year vs placebo (INPULSIS pooled).",
+      "evidenceRefs": ["ipf-inpulsis-richeldi-2014"]
+    },
+    {
+      "claim": "Prednisone + azathioprine + NAC triple therapy INCREASES mortality and hospitalization in IPF and is contraindicated (PANTHER-IPF).",
+      "evidenceRefs": ["ipf-panther-2012", "ipf-ats-ers-2022"]
+    },
+    {
+      "claim": "N-acetylcysteine monotherapy is NOT effective for IPF.",
+      "evidenceRefs": ["ipf-panther-nac-2014"]
+    },
+    {
+      "claim": "~87% of IPF patients have abnormal acid gastroesophageal reflux on pH probe studies.",
+      "evidenceRefs": ["ipf-raghu-gerd-2006"]
+    },
+    {
+      "claim": "Pulmonary rehabilitation improves 6-minute walk distance by ~40 meters in ILD/IPF vs no rehab.",
+      "evidenceRefs": ["ipf-pulmrehab-dowman-2021"]
+    },
+    {
+      "claim": "IPF is the most common indication for lung transplantation worldwide; early referral is strongly recommended.",
+      "evidenceRefs": ["ipf-transplant-ishlt-2021"]
+    },
+    {
+      "claim": "Pirfenidone is metabolized by CYP1A2. Smoking and strong CYP1A2 inhibitors (fluvoxamine, enoxacin) meaningfully affect exposure.",
+      "evidenceRefs": ["ipf-fda-label-pirfenidone"]
+    },
+    {
+      "claim": "Nintedanib is a VEGFR inhibitor and increases bleeding risk — special caution with antiplatelet/anticoagulant therapy.",
+      "evidenceRefs": ["ipf-fda-label-nintedanib"]
+    }
+  ],
+
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Treat acid reflux aggressively (PPI or H2 blocker, elevate head of bed 6-8 inches, no large meals before lying down) — ~87% of IPF patients have abnormal acid GERD.",
+      "evidenceRefs": ["ipf-raghu-gerd-2006", "ipf-antacid-cochrane-2023"]
+    },
+    {
+      "recommendation": "Enroll in a structured pulmonary rehabilitation program — improves 6-minute walk distance, dyspnea, and quality of life.",
+      "evidenceRefs": ["ipf-pulmrehab-dowman-2021"]
+    },
+    {
+      "recommendation": "Use supplemental oxygen during exertion if you desaturate below 88% — improves exercise capacity and symptoms.",
+      "evidenceRefs": ["ipf-o2-ambrosia-2020"]
+    },
+    {
+      "recommendation": "Stay current on vaccinations: annual influenza, pneumococcal (PCV20 or PCV15+PPSV23), COVID boosters, RSV (age ≥60), Tdap, Shingrix (age ≥50).",
+      "evidenceRefs": ["ipf-vaccine-advisory"]
+    },
+    {
+      "recommendation": "Avoid inhalational triggers that can mimic or accelerate fibrosis: feather pillows/bedding and bird exposure (rule out hypersensitivity pneumonitis), wood-smoke, indoor mold, unventilated chemical fumes.",
+      "evidenceRefs": ["ipf-ats-ers-2018"]
+    },
+    {
+      "recommendation": "If smoking, stop completely — smoking is both a risk factor for IPF progression AND it induces CYP1A2, cutting pirfenidone plasma exposure.",
+      "evidenceRefs": ["ipf-fda-label-pirfenidone"]
+    },
+    {
+      "recommendation": "Discuss lung transplant referral early, ideally at diagnosis — don't wait until end-stage.",
+      "evidenceRefs": ["ipf-transplant-ishlt-2021"]
+    },
+    {
+      "recommendation": "Maintain adequate nutrition and weight; cachexia predicts worse outcomes.",
+      "evidenceRefs": []
+    }
+  ],
+
+  "redFlags": [
+    "Do NOT use prednisone + azathioprine + N-acetylcysteine triple therapy — PANTHER-IPF showed increased mortality and hospitalization. This is a STRONG GUIDELINE-LEVEL contraindication.",
+    "Do NOT use prednisone monotherapy for IPF (as opposed to acute exacerbation or a mimicker like NSIP). Chronic steroids have not been shown to benefit IPF and cause harm.",
+    "Do NOT use NAC monotherapy for IPF — PANTHER-NAC showed no benefit.",
+    "Do NOT seek stem cell treatment from clinics in China, Vietnam, Mexico, or India. There is no peer-reviewed efficacy data for IPF and multiple FDA warning letters to US-based operators who source from these labs.",
+    "Do NOT combine nintedanib with full-dose anticoagulation without specialist input — VEGFR inhibition increases bleeding risk, and fatal bleeding events are reported in post-marketing surveillance.",
+    "Do NOT co-prescribe fluvoxamine, enoxacin, or other strong CYP1A2 inhibitors with pirfenidone — FDA label contraindication.",
+    "Acute worsening of dyspnea <1 month with new bilateral ground-glass on HRCT = possible acute exacerbation of IPF. Hospital mortality ~50%. Urgent pulmonology/ICU referral."
+  ]
+}

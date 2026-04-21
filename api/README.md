@@ -1,13 +1,63 @@
 # API Backend
 
-This directory contains Vercel serverless functions that act as a secure backend for the IPF Research Assistant.
+This directory contains Vercel serverless functions that power the Medical
+Research Assistant.
 
 ## Structure
 
 ```
 api/
-└── research.js    # Anthropic API proxy endpoint
+├── research.js        # Main Anthropic pipeline. Modes: research | repurpose | trials | chat
+│                       # Fetches grounded evidence + auto-runs cross-AI audit after Claude
+├── trials.js          # Live ClinicalTrials.gov v2 pull with structured enrichment
+├── pubmed.js          # NCBI E-utilities (esearch + esummary + efetch abstracts)
+├── europe-pmc.js      # Europe PMC — includes OA full-text retrieval
+├── openalex.js        # OpenAlex — broad scholarly coverage + journal tiering
+├── openfda.js         # openFDA — drug labels, FAERS, enforcement actions
+├── evidence.js        # Fan-out orchestrator: builds a grounded evidence pack
+├── validate.js        # Cross-AI validator (Perplexity / OpenAI / xAI)
+└── records-audit.js   # Anthropic-based medical-records audit
 ```
+
+## Endpoints
+
+### POST /api/research
+Body: `{ mode, patient, audience, userQuery?, chatHistory?, trialsData? }`
+- `mode`: `research` (default) | `repurpose` | `trials` | `chat`
+- `patient`: `{ condition, stage, age, gender, weight, smoking, exercise, diagnoses, medications, symptoms, labWork, scans }`
+- `audience`: `layperson` | `medical`
+- For `mode=trials`, pass the structured output of `/api/trials` as `trialsData`.
+
+### POST /api/trials
+Body: `{ condition, recruitingOnly?, treatmentOnly?, excludePlacebo?, pageSize?, country? }`
+Returns ranked, classified trials from ClinicalTrials.gov v2 including phase,
+recruiting status, placebo flag, designations (fast-track/breakthrough/orphan/
+expanded-access/PTA/OLE), oversight (IRB/DSMB/FDA-regulated), locations, contacts.
+
+### POST /api/pubmed
+Body: `{ query, limit?, sort?, withAbstract? }`
+Returns PubMed articles with PMID, title, authors, journal, year, abstract, DOI,
+and a direct pubmedUrl. Set `NCBI_API_KEY` env var for higher rate limits.
+
+### POST /api/records-audit
+Body: `{ records, summary?, condition?, audience? }`
+Returns a structured audit of abnormal findings, omissions, misrepresentations,
+and unsupported summary statements.
+
+### POST /api/validate
+Body: `{ analysisText, evidencePack, patient?, condition?, audience? }`
+Runs an **independent second AI** (Perplexity preferred, then OpenAI, then xAI)
+against Claude's output and the same grounded evidence pack. Returns verdicts
+per claim: CONFIRMED / DISPUTED / UNSUPPORTED / HALLUCINATED-CITATION.
+
+This is the safeguard against hallucinated references — it's the explicit
+"have Perplexity cross-check Claude" pattern. It runs automatically after
+every `/api/research` call (research / repurpose / trials modes) and the
+result is returned in the `validation` field of the response.
+
+Perplexity is preferred because `sonar-reasoning-pro` has built-in live web
+search — it can actually open the URLs Claude cites and confirm whether the
+paper exists and says what was claimed.
 
 ## How It Works
 
@@ -33,12 +83,20 @@ api/
 ## Environment Variables
 
 Required:
-- `ANTHROPIC_API_KEY` - Your Anthropic API key
+- `ANTHROPIC_API_KEY` — Your Anthropic API key (used by `research.js` and `records-audit.js`)
+
+Optional:
+- `NCBI_API_KEY` — NCBI E-utilities key (raises PubMed rate limit from 3 to 10 req/s)
+- `PERPLEXITY_API_KEY` — enables the cross-AI audit via Perplexity `sonar-reasoning-pro` (recommended primary validator — has live web search so it can actually open cited URLs)
+- `OPENAI_API_KEY` — cross-AI audit fallback (GPT-4.1)
+- `XAI_API_KEY` — cross-AI audit fallback (Grok)
 
 Set in Vercel:
 ```bash
 vercel env add ANTHROPIC_API_KEY
-# Paste your key when prompted
+vercel env add PERPLEXITY_API_KEY   # strongly recommended for citation verification
+vercel env add OPENAI_API_KEY       # optional fallback validator
+vercel env add NCBI_API_KEY         # optional
 ```
 
 ## Endpoint

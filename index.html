@@ -9,857 +9,2172 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      body { margin: 0; }
+      * { box-sizing: border-box; }
+      input::placeholder, textarea::placeholder { color: rgba(160, 196, 217, 0.5); }
+      input:focus, textarea:focus, select:focus {
+        outline: none; border-color: #4a9eff; box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.15);
+      }
+      button:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74, 158, 255, 0.25); }
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      .spin { animation: spin 1s linear infinite; }
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-track { background: rgba(15, 32, 39, 0.5); }
+      ::-webkit-scrollbar-thumb { background: rgba(74, 158, 255, 0.4); border-radius: 5px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(74, 158, 255, 0.6); }
+      tbody tr:hover { background: rgba(74, 158, 255, 0.05); }
+      a { color: #6ec1ff; }
+      a:hover { color: #9fd4ff; }
+    </style>
 </head>
 <body>
     <div id="root"></div>
+    <script type="text/babel" data-presets="env,react">
+      const { useState, useRef, useEffect, useMemo } = React;
 
-    <script type="text/babel">
-        const { useState, useRef, useEffect } = React;
+      /* ==================== Inline icon components ==================== */
+      const mkIcon = (paths) => ({ size = 20, color = 'currentColor', ...rest }) => (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+             strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...rest}>
+          {paths}
+        </svg>
+      );
+      const Activity = mkIcon(<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />);
+      const Brain = mkIcon(<>
+        <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
+        <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
+      </>);
+      const FileText = mkIcon(<>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+      </>);
+      const Search = mkIcon(<>
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.35-4.35" />
+      </>);
+      const TrendingUp = mkIcon(<>
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+        <polyline points="17 6 23 6 23 12" />
+      </>);
+      const AlertCircle = mkIcon(<>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </>);
+      const Beaker = mkIcon(<>
+        <path d="M4.5 3h15" />
+        <path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3" />
+        <path d="M6 14h12" />
+      </>);
+      const Sparkles = mkIcon(<>
+        <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.4L12 15l-1.9-4.6L5.5 9l4.6-1.4L12 3z" />
+        <path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z" />
+      </>);
+      const ShieldCheck = mkIcon(<>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <path d="m9 12 2 2 4-4" />
+      </>);
+      const Book = mkIcon(<>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z" />
+        <path d="M4 19.5v0A2.5 2.5 0 0 0 6.5 22H20v-5" />
+      </>);
+      const Loader = mkIcon(<>
+        <line x1="12" y1="2" x2="12" y2="6" />
+        <line x1="12" y1="18" x2="12" y2="22" />
+        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+        <line x1="2" y1="12" x2="6" y2="12" />
+        <line x1="18" y1="12" x2="22" y2="12" />
+        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+      </>);
+      const Database = mkIcon(<>
+        <ellipse cx="12" cy="5" rx="9" ry="3" />
+        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+      </>);
+      const Download = mkIcon(<>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </>);
+      const ExternalLink = mkIcon(<>
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
+      </>);
+      const CheckCircle = mkIcon(<>
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <polyline points="22 4 12 14.01 9 11.01" />
+      </>);
+      const XCircle = mkIcon(<>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="15" y1="9" x2="9" y2="15" />
+        <line x1="9" y1="9" x2="15" y2="15" />
+      </>);
+      const Scales = mkIcon(<>
+        <path d="M16 16l3-8 3 8c-2 1-4 1-6 0" />
+        <path d="M2 16l3-8 3 8c-2 1-4 1-6 0" />
+        <path d="M12 2v20" />
+        <path d="M5 8h14" />
+        <path d="M7 21h10" />
+      </>);
+      const Award = mkIcon(<>
+        <circle cx="12" cy="8" r="7" />
+        <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+      </>);
+      const Lightbulb = mkIcon(<>
+        <path d="M9 18h6" />
+        <path d="M10 22h4" />
+        <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+      </>);
+      const Flask = mkIcon(<>
+        <path d="M10 2v7.31" />
+        <path d="M14 9.3V1.99" />
+        <path d="M8.5 2h7" />
+        <path d="M14 9.3a6.5 6.5 0 1 1-4 0" />
+      </>);
+      const MessageCircle = mkIcon(<>
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      </>);
+      const Shield = mkIcon(<>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </>);
+      const TrendingUp = mkIcon(<>
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+        <polyline points="17 6 23 6 23 12" />
+      </>);
+      const ChevronDown = mkIcon(<>
+        <polyline points="6 9 12 15 18 9" />
+      </>);
+      const ChevronUp = mkIcon(<>
+        <polyline points="18 15 12 9 6 15" />
+      </>);
+      const AlertTriangle = mkIcon(<>
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </>);
 
-        // Lucide icons as inline SVG components
-        const Search = ({ size = 24, color = "currentColor", ...props }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.35-4.35"></path>
-            </svg>
-        );
-
-        const FileText = ({ size = 24, color = "currentColor", ...props }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-        );
-
-        const AlertCircle = ({ size = 24, color = "currentColor", ...props }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-        );
-
-        const TrendingUp = ({ size = 24, color = "currentColor", ...props }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
-                <polyline points="17 6 23 6 23 12"></polyline>
-            </svg>
-        );
-
-        const Activity = ({ size = 24, color = "currentColor", ...props }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-            </svg>
-        );
-
-        const Brain = ({ size = 24, color = "currentColor", ...props }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-                <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"></path>
-                <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"></path>
-            </svg>
-        );
-
-        const Database = ({ size = 24, color = "currentColor", ...props }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
-            </svg>
-        );
-
-        const Loader = ({ size = 24, color = "currentColor", ...props }) => (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-                <line x1="12" y1="2" x2="12" y2="6"></line>
-                <line x1="12" y1="18" x2="12" y2="22"></line>
-                <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
-                <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
-                <line x1="2" y1="12" x2="6" y2="12"></line>
-                <line x1="18" y1="12" x2="22" y2="12"></line>
-                <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
-                <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
-            </svg>
-        );
-
-const IPFResearchAssistant = () => {
-  const [activeTab, setActiveTab] = useState('research');
-  const [researchQuery, setResearchQuery] = useState('');
-  const [patientData, setPatientData] = useState({
-    condition: '',
-    age: '',
-    gender: '',
-    diagnoses: '',
-    medications: '',
-    symptoms: '',
-    labWork: ''
-  });
-  const [researchResults, setResearchResults] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [comparisonData, setComparisonData] = useState([]);
-  const [chatHistory, setChatHistory] = useState([]);
-  const chatEndRef = useRef(null);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistory]);
-
-  const performResearch = async () => {
-    if (!researchQuery.trim()) return;
-
-    setIsLoading(true);
-    setChatHistory(prev => [...prev, { role: 'user', content: researchQuery }]);
-
-    try {
-      const conditionContext = patientData.condition ? `PRIMARY CONDITION: ${patientData.condition}` : 'PRIMARY CONDITION: Not specified - provide general medical research';
-
-      const systemPrompt = `You are a comprehensive medical research assistant specializing in evidence-based treatment analysis.
-Your role is to analyze research papers, clinical trials, and treatment options for any medical condition with the following criteria:
-
-${conditionContext}
-
-PATIENT CONTEXT:
-${patientData.age ? `Age: ${patientData.age}` : ''}
-${patientData.gender ? `Gender: ${patientData.gender}` : ''}
-${patientData.diagnoses ? `All Diagnoses: ${patientData.diagnoses}` : ''}
-${patientData.medications ? `Current Medications: ${patientData.medications}` : ''}
-${patientData.symptoms ? `Symptoms: ${patientData.symptoms}` : ''}
-${patientData.labWork ? `Lab Work: ${patientData.labWork}` : ''}
-
-RESEARCH REQUIREMENTS:
-1. Provide explanations at a 12th grade reading level
-2. When citing studies, extract and highlight the SPECIFIC passages that support your conclusions
-3. Consider contraindications based on patient medications and comorbidities
-4. Rate treatments on Efficacy (1-100%) and Risks (detailed description)
-5. Evaluate evidence quality: prioritize US/Western European studies, rate journal impact factors
-6. For clinical trials: identify those accepting patients, location, contact info, and whether they use placebos
-7. Include cost estimates and typical insurance coverage
-
-TREATMENT COMPARISON FORMAT:
-When recommending treatments, provide the following details for each option (rank by efficacy, best at top):
-
-PROVIDER: [Specific doctor/clinic name and full contact information]
-TREATMENT: [Detailed description including:
-  - What exactly the patient receives (medication, stem cells, etc.)
-  - Origin lab of product
-  - Amount and strength
-  - How it is delivered (IV, inhaled, oral, etc.)]
-LENGTH/FREQUENCY: [Duration of treatment and frequency (e.g., "6 months, weekly infusions")]
-EFFICACY: [1-100% with supporting evidence]
-RISKS: [Detailed safety concerns, side effects, lab safety issues if overseas, FDA warnings if applicable]
-COST: [Specific dollar amount or range, insurance coverage likelihood]
-
-GEOGRAPHIC FILTERING:
-- Avoid providers in China, Vietnam, Mexico, or India unless specifically requested
-- For stem cell treatments, verify the lab does not have FDA warnings
-- Prioritize reputable US and Western European providers
-
-CRITICAL: When you cite a study, you must:
-- Provide the exact title and authors
-- Include journal name and impact factor
-- Quote the specific finding or conclusion (in quotation marks)
-- Explain why this supports your recommendation
-- Note any limitations or conflicts of interest`;
-
-      const response = await fetch('/api/research', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          system: systemPrompt,
-          messages: [
-            ...chatHistory.map(msg => ({
-              role: msg.role,
-              content: msg.content
-            })),
-            {
-              role: 'user',
-              content: researchQuery
-            }
-          ]
-        })
+      /* ==================== Theme ==================== */
+      const theme = {
+        bg: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+        panel: 'rgba(255, 255, 255, 0.05)',
+        panelSolid: 'rgba(15, 32, 39, 0.85)',
+        border: 'rgba(74, 158, 255, 0.25)',
+        accent: '#4a9eff',
+        text: '#e8f4f8',
+        textDim: '#a0c4d9',
+        green: '#6ee7b7', yellow: '#fbbf24', red: '#f87171'
+      };
+      const panelStyle = {
+        background: theme.panel, borderRadius: 12, border: `1px solid ${theme.border}`,
+        padding: '1.5rem', backdropFilter: 'blur(10px)'
+      };
+      const inputStyle = {
+        padding: '0.75rem', background: 'rgba(15, 32, 39, 0.5)',
+        border: '1px solid rgba(74, 158, 255, 0.3)', borderRadius: 8,
+        color: theme.text, fontSize: '0.95rem', fontFamily: 'inherit', width: '100%'
+      };
+      const labelStyle = {
+        marginBottom: '0.4rem', color: theme.accent, fontWeight: 600,
+        fontSize: '0.85rem', letterSpacing: '0.02em'
+      };
+      const btn = (variant = 'primary', disabled = false) => ({
+        padding: '0.7rem 1.1rem',
+        background: disabled ? 'rgba(74, 158, 255, 0.2)'
+          : variant === 'primary' ? theme.accent
+          : variant === 'ghost' ? 'rgba(74, 158, 255, 0.12)'
+          : variant === 'danger' ? '#c53030'
+          : 'rgba(74, 158, 255, 0.18)',
+        color: variant === 'primary' ? '#fff' : theme.text,
+        border: variant === 'ghost' ? '1px solid rgba(74, 158, 255, 0.35)' : 'none',
+        borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer',
+        fontSize: '0.9rem', fontWeight: 600, fontFamily: 'inherit',
+        display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+        transition: 'all 0.15s ease'
       });
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'API request failed');
-      }
-      
-      const assistantMessage = data.content
-        .filter(block => block.type === 'text')
-        .map(block => block.text)
-        .join('\n');
-
-      setChatHistory(prev => [...prev, { role: 'assistant', content: assistantMessage }]);
-      setResearchResults(assistantMessage);
-      
-      parseForComparisonChart(assistantMessage);
-      
-    } catch (error) {
-      console.error('Research error:', error);
-      setChatHistory(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'I encountered an error while researching. Please try again or refine your query.' 
-      }]);
-    } finally {
-      setIsLoading(false);
-      setResearchQuery('');
-    }
-  };
-
-  const parseForComparisonChart = (text) => {
-    const treatments = [];
-    const lines = text.split('\n');
-    let currentTreatment = {};
-
-    lines.forEach((line, idx) => {
-      const trimmedLine = line.trim();
-
-      // Look for structured format
-      if (trimmedLine.startsWith('PROVIDER:')) {
-        if (Object.keys(currentTreatment).length > 0) {
-          treatments.push({...currentTreatment});
+      /* ==================== Parsers ==================== */
+      const collectBlock = (text, startIdx, terminators) => {
+        const lines = text.split('\n');
+        let cur = lines[startIdx].split(':').slice(1).join(':').trim();
+        let next = startIdx + 1;
+        while (next < lines.length) {
+          const trimmed = lines[next].trim();
+          if (terminators.some(t => trimmed.startsWith(t))) break;
+          if (trimmed.startsWith('## ')) break;
+          if (trimmed) cur += ' ' + trimmed;
+          next++;
         }
-        currentTreatment = {
-          provider: trimmedLine.replace('PROVIDER:', '').trim()
+        return cur;
+      };
+
+      const TREATMENT_KEYS = [
+        'PROVIDER:', 'TREATMENT:', 'FDA_STATUS:', 'LENGTH_FREQUENCY:',
+        'EFFICACY:', 'SAFETY:', 'RISKS:', 'INTERACTIONS:', 'COST:', 'REFERENCES:'
+      ];
+      const parseTreatments = (text) => {
+        const blocks = [];
+        const lines = text.split('\n');
+        let cur = null;
+        lines.forEach((line, i) => {
+          const t = line.trim();
+          const key = TREATMENT_KEYS.find(k => t.startsWith(k));
+          if (!key) return;
+          if (key === 'PROVIDER:') {
+            if (cur) blocks.push(cur);
+            cur = { _type: 'treatment' };
+          }
+          if (!cur) return;
+          const field = key.replace(':', '').toLowerCase();
+          cur[field] = collectBlock(text, i, TREATMENT_KEYS);
+          if (field === 'efficacy' || field === 'safety') {
+            const num = cur[field].match(/(\d{1,3})\s*%/);
+            cur[field + '_pct'] = num ? parseInt(num[1]) : null;
+            cur[field + '_note'] = cur[field];
+          }
+        });
+        if (cur) blocks.push(cur);
+        return blocks.sort((a, b) => (b.efficacy_pct || 0) - (a.efficacy_pct || 0));
+      };
+
+      const REPURPOSE_KEYS = [
+        'CANDIDATE:', 'CLASS:', 'APPROVED_FOR:', 'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:',
+        'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:',
+        'CONFIDENCE:', 'PATIENT_SPECIFIC_RISKS:', 'HOW_TO_DISCUSS_WITH_DOCTOR:'
+      ];
+      const parseCandidates = (text) => {
+        const out = [];
+        const lines = text.split('\n');
+        let cur = null;
+        lines.forEach((line, i) => {
+          const t = line.trim();
+          const key = REPURPOSE_KEYS.find(k => t.startsWith(k));
+          if (!key) return;
+          if (key === 'CANDIDATE:') { if (cur) out.push(cur); cur = {}; }
+          if (!cur) return;
+          const field = key.replace(':', '').toLowerCase();
+          cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
+          if (field === 'efficacy_hypothesis' || field === 'safety' || field === 'confidence') {
+            const num = cur[field].match(/(\d{1,3})\s*%/);
+            cur[field + '_pct'] = num ? parseInt(num[1]) : null;
+          }
+        });
+        if (cur) out.push(cur);
+        return out.sort((a, b) =>
+          (b.confidence_pct || b.efficacy_hypothesis_pct || 0) -
+          (a.confidence_pct || a.efficacy_hypothesis_pct || 0)
+        );
+      };
+
+      const TRIAL_KEYS = [
+        'TRIAL:', 'NCT:', 'URL:', 'PHASE:', 'STATUS:', 'ACCEPTING:', 'PLACEBO:',
+        'TREATMENT_ONLY:', 'COUNTRY:', 'OVERSIGHT:', 'DESIGNATIONS:',
+        'FIT_FOR_PATIENT:', 'HARM_RISK:', 'INTERACTIONS:', 'LOCATION_CONTACT:', 'SUMMARY:'
+      ];
+      const parseTrialBlocks = (text) => {
+        const out = [];
+        const lines = text.split('\n');
+        let cur = null;
+        lines.forEach((line, i) => {
+          const t = line.trim();
+          const key = TRIAL_KEYS.find(k => t.startsWith(k));
+          if (!key) return;
+          if (key === 'TRIAL:') { if (cur) out.push(cur); cur = {}; }
+          if (!cur) return;
+          const field = key.replace(':', '').toLowerCase();
+          cur[field] = collectBlock(text, i, TRIAL_KEYS);
+          if (field === 'fit_for_patient' || field === 'harm_risk') {
+            const num = cur[field].match(/(\d{1,3})\s*%/);
+            cur[field + '_pct'] = num ? parseInt(num[1]) : null;
+          }
+        });
+        if (cur) out.push(cur);
+        return out;
+      };
+
+      const parseReferences = (text) => {
+        const urlRe = /(https?:\/\/[^\s)]+)(?:\s*[-—:]\s*["“]([^"”]+)["”])?/g;
+        const refs = [];
+        const seen = new Set();
+        let m;
+        while ((m = urlRe.exec(text)) !== null) {
+          const url = m[1].replace(/[.,;)]+$/, '');
+          if (seen.has(url)) continue;
+          seen.add(url);
+          refs.push({ url, quote: m[2] || '' });
+        }
+        return refs;
+      };
+
+      /* ==================== Color helpers ==================== */
+      const ratingColor = (n) => {
+        if (n == null) return theme.textDim;
+        if (n >= 70) return theme.green;
+        if (n >= 40) return theme.yellow;
+        return theme.red;
+      };
+
+      /* ==================== Storage ==================== */
+      const loadLS = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+      const saveLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+      /* ============================================================== */
+      /* =========================== APP ============================== */
+      /* ============================================================== */
+      const App = () => {
+        const [tab, setTab] = useState('profile');
+        const [patient, setPatient] = useState(() => loadLS('mrt_patient', {
+          condition: 'Idiopathic Pulmonary Fibrosis', stage: '',
+          age: '', gender: '', weight: '',
+          smoking: '', exercise: '',
+          diagnoses: '', medications: '', symptoms: '', labWork: '', scans: ''
+        }));
+        const [audience, setAudience] = useState(() => loadLS('mrt_audience', 'layperson'));
+        const [acceptedHipaa, setAcceptedHipaa] = useState(() => loadLS('mrt_hipaa', false));
+
+        const [researchText, setResearchText] = useState('');
+        const [repurposeText, setRepurposeText] = useState('');
+        const [trialsText, setTrialsText] = useState('');
+        const [trialsData, setTrialsData] = useState(null);
+        const [recordsResult, setRecordsResult] = useState(null);
+        const [chatHistory, setChatHistory] = useState([]);
+        const [userQuery, setUserQuery] = useState('');
+        const [busy, setBusy] = useState(null);
+
+        // Cross-AI audit results per mode — a second model independently
+        // audits Claude's output against the same evidence pack.
+        const [validations, setValidations] = useState({
+          research: null, repurpose: null, trials: null
+        });
+        const [evidenceSummary, setEvidenceSummary] = useState(null);
+        const [evidencePack, setEvidencePack] = useState([]);
+
+        useEffect(() => saveLS('mrt_patient', patient), [patient]);
+        useEffect(() => saveLS('mrt_audience', audience), [audience]);
+        useEffect(() => saveLS('mrt_hipaa', acceptedHipaa), [acceptedHipaa]);
+
+        /* -------- Derived / parsed data -------- */
+        const treatments = useMemo(() => parseTreatments(researchText), [researchText]);
+        const candidates = useMemo(() => parseCandidates(repurposeText), [repurposeText]);
+        const trialBlocks = useMemo(() => parseTrialBlocks(trialsText), [trialsText]);
+        const references = useMemo(() => {
+          const all = [
+            ...parseReferences(researchText),
+            ...parseReferences(repurposeText),
+            ...parseReferences(trialsText)
+          ];
+          const map = new Map();
+          all.forEach(r => { if (!map.has(r.url)) map.set(r.url, r); });
+          return [...map.values()];
+        }, [researchText, repurposeText, trialsText]);
+
+        /* -------- Actions -------- */
+        const runResearch = async (mode, extra = {}) => {
+          if (!patient.condition.trim()) {
+            alert('Please enter a primary condition in the Patient Profile tab first.');
+            setTab('profile');
+            return;
+          }
+          setBusy(mode);
+          try {
+            const res = await fetch('/api/research', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode, patient, audience, ...extra })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Request failed');
+            const text = (data.content || [])
+              .filter(b => b.type === 'text').map(b => b.text).join('\n');
+            if (mode === 'research') setResearchText(text);
+            if (mode === 'repurpose') setRepurposeText(text);
+            if (mode === 'trials') setTrialsText(text);
+            if (mode === 'chat') {
+              setChatHistory(h => [...h, { role: 'assistant', content: text }]);
+            }
+            if (mode !== 'chat' && data.validation) {
+              setValidations((v) => ({ ...v, [mode]: data.validation }));
+            }
+            if (data.evidence) {
+              setEvidenceSummary(data.evidence);
+              setEvidencePack(data.evidence.topRanked || []);
+            }
+          } catch (e) {
+            alert('Error: ' + e.message);
+          } finally {
+            setBusy(null);
+          }
         };
-      } else if (trimmedLine.startsWith('TREATMENT:')) {
-        currentTreatment.treatment = trimmedLine.replace('TREATMENT:', '').trim();
-        // Capture multiline treatment descriptions
-        let nextIdx = idx + 1;
-        while (nextIdx < lines.length && !lines[nextIdx].match(/^(PROVIDER|LENGTH|EFFICACY|RISKS|COST):/)) {
-          const nextLine = lines[nextIdx].trim();
-          if (nextLine) {
-            currentTreatment.treatment += ' ' + nextLine;
+
+        const runTrialsFetch = async (opts) => {
+          if (!patient.condition.trim()) {
+            alert('Please enter a primary condition in the Patient Profile tab first.');
+            setTab('profile');
+            return;
           }
-          nextIdx++;
-        }
-      } else if (trimmedLine.startsWith('LENGTH/FREQUENCY:') || trimmedLine.startsWith('LENGTH:')) {
-        currentTreatment.length = trimmedLine.replace(/LENGTH\/FREQUENCY:|LENGTH:/, '').trim();
-      } else if (trimmedLine.startsWith('EFFICACY:')) {
-        const match = trimmedLine.match(/(\d+)%/);
-        if (match) {
-          currentTreatment.efficacy = parseInt(match[1]);
-          currentTreatment.efficacyNote = trimmedLine.replace('EFFICACY:', '').trim();
-        }
-      } else if (trimmedLine.startsWith('RISKS:')) {
-        currentTreatment.risks = trimmedLine.replace('RISKS:', '').trim();
-        // Capture multiline risks
-        let nextIdx = idx + 1;
-        while (nextIdx < lines.length && !lines[nextIdx].match(/^(PROVIDER|TREATMENT|LENGTH|EFFICACY|COST):/)) {
-          const nextLine = lines[nextIdx].trim();
-          if (nextLine) {
-            currentTreatment.risks += ' ' + nextLine;
+          setBusy('trials-fetch');
+          try {
+            const res = await fetch('/api/trials', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                condition: patient.condition,
+                recruitingOnly: opts?.recruitingOnly ?? true,
+                treatmentOnly: opts?.treatmentOnly ?? true,
+                excludePlacebo: opts?.excludePlacebo ?? false,
+                pageSize: 40
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Trials fetch failed');
+            setTrialsData(data);
+          } catch (e) {
+            alert('Error: ' + e.message);
+          } finally {
+            setBusy(null);
           }
-          nextIdx++;
-        }
-      } else if (trimmedLine.startsWith('COST:')) {
-        currentTreatment.cost = trimmedLine.replace('COST:', '').trim();
-      }
-    });
+        };
 
-    // Push last treatment
-    if (Object.keys(currentTreatment).length > 0) {
-      treatments.push(currentTreatment);
-    }
+        const runTrialsAnalysis = () => {
+          if (!trialsData || !trialsData.studies?.length) {
+            alert('Fetch trials first (Clinical Trials tab → Fetch Live Trials).');
+            return;
+          }
+          runResearch('trials', { trialsData });
+        };
 
-    // Sort by efficacy descending (best at top)
-    treatments.sort((a, b) => (b.efficacy || 0) - (a.efficacy || 0));
+        const sendChat = async () => {
+          if (!userQuery.trim()) return;
+          const q = userQuery;
+          setUserQuery('');
+          setChatHistory(h => [...h, { role: 'user', content: q }]);
+          setBusy('chat');
+          try {
+            // Pass the prior analyses + cached evidence pack so chat mode
+            // has real context to answer from. Before this, chat ran with no
+            // evidence pack and no memory of prior research output, which is
+            // why follow-ups often came back as "can't compute" hedges.
+            const packForChat = (evidencePack || []).slice(0, 18).map((a) => ({
+              id: a.doi || a.pmid || a.id,
+              title: a.title,
+              journal: a.journal,
+              tier: a.journalTier,
+              year: a.year,
+              sources: a.sources,
+              accessLevel: a.accessLevel,
+              url: a.pmcUrl || a.pubmedUrl || a.doiUrl || a.oaUrl || a.landingUrl || a.europePmcUrl,
+              text: (a.fullText || a.abstract || '').slice(0, 2500)
+            })).filter((a) => a.title);
 
-    if (treatments.length > 0) {
-      setComparisonData(treatments);
-    }
-  };
+            const res = await fetch('/api/research', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                mode: 'chat', patient, audience, userQuery: q,
+                chatHistory: chatHistory.slice(-10),
+                priorAnalyses: {
+                  research: researchText || undefined,
+                  repurpose: repurposeText || undefined,
+                  trials: trialsText || undefined
+                },
+                evidencePack: packForChat
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Chat failed');
+            const text = (data.content || [])
+              .filter(b => b.type === 'text').map(b => b.text).join('\n');
+            setChatHistory(h => [...h, { role: 'assistant', content: text }]);
+          } catch (e) {
+            setChatHistory(h => [...h, { role: 'assistant', content: 'Error: ' + e.message }]);
+          } finally {
+            setBusy(null);
+          }
+        };
 
-  const getQuickPrompts = () => {
-    const condition = patientData.condition || 'this condition';
-    return [
-      `What are the current FDA-approved treatments for ${condition} and their efficacy rates?`,
-      `Are there any open clinical trials for ${condition} that don't use placebos?`,
-      `What stem cell treatments are available for ${condition} from reputable sources?`,
-      `What are the latest research findings on ${condition} treatment published in the last 6 months?`,
-      `Which treatment centers are considered world-class for ${condition} and why?`
-    ];
-  };
+        return (
+          <div style={{ minHeight: '100vh', background: theme.bg,
+            fontFamily: '"Crimson Pro", Georgia, serif', color: theme.text }}>
+            <Header patient={patient} audience={audience} setAudience={setAudience} />
+            {!acceptedHipaa && <HipaaGate onAccept={() => setAcceptedHipaa(true)} />}
 
-  const quickPrompts = getQuickPrompts();
+            <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 2rem' }}>
+              <Tabs tab={tab} setTab={setTab} />
 
-  return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
-      fontFamily: '"Crimson Pro", "Georgia", serif',
-      color: '#e8f4f8'
-    }}>
-      <header style={{
-        background: 'rgba(15, 32, 39, 0.95)',
-        borderBottom: '2px solid #4a9eff',
-        padding: '1.5rem 2rem',
-        backdropFilter: 'blur(10px)',
-        boxShadow: '0 4px 20px rgba(74, 158, 255, 0.15)'
-      }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Activity size={36} color="#4a9eff" strokeWidth={2.5} />
-          <div>
-            <h1 style={{
-              margin: 0,
-              fontSize: '2rem',
-              fontWeight: 700,
-              letterSpacing: '-0.5px',
-              color: '#4a9eff'
-            }}>
-              Medical Research Assistant
-            </h1>
-            <p style={{
-              margin: '0.25rem 0 0 0',
-              fontSize: '0.9rem',
-              color: '#a0c4d9',
-              fontStyle: 'italic'
-            }}>
-              AI-Powered Treatment Analysis & Clinical Trial Research for Any Condition
+              {tab === 'profile' && <PatientTab patient={patient} setPatient={setPatient}
+                audience={audience} setAudience={setAudience} />}
+              {tab === 'research' && <ResearchTab
+                patient={patient} busy={busy} runResearch={runResearch}
+                researchText={researchText} treatments={treatments}
+                validation={validations.research} evidenceSummary={evidenceSummary}
+                chatHistory={chatHistory} userQuery={userQuery}
+                setUserQuery={setUserQuery} sendChat={sendChat} />}
+              {tab === 'trials' && <TrialsTab
+                patient={patient} busy={busy} trialsData={trialsData}
+                trialBlocks={trialBlocks} trialsText={trialsText}
+                validation={validations.trials}
+                runTrialsFetch={runTrialsFetch} runTrialsAnalysis={runTrialsAnalysis} />}
+              {tab === 'repurpose' && <RepurposeTab
+                patient={patient} busy={busy} runResearch={runResearch}
+                repurposeText={repurposeText} candidates={candidates}
+                validation={validations.repurpose} />}
+              {tab === 'records' && <RecordsTab
+                patient={patient} audience={audience}
+                busy={busy} setBusy={setBusy}
+                recordsResult={recordsResult} setRecordsResult={setRecordsResult} />}
+              {tab === 'chart' && <ChartTab treatments={treatments} candidates={candidates} />}
+              {tab === 'refs' && <RefsTab references={references} evidencePack={evidencePack} evidenceSummary={evidenceSummary} />}
+            </div>
+            <Footer />
+          </div>
+        );
+      };
+
+      /* ==================== Header ==================== */
+      const Header = ({ patient, audience, setAudience }) => (
+        <header style={{
+          background: 'rgba(15, 32, 39, 0.95)', borderBottom: `2px solid ${theme.accent}`,
+          padding: '1rem 2rem', backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <Activity size={32} color={theme.accent} />
+            <div style={{ flex: 1 }}>
+              <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 700, color: theme.accent }}>
+                Medical Research Assistant
+              </h1>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: theme.textDim, fontStyle: 'italic' }}>
+                Evidence-based treatments · Live clinical trials · Drug repurposing · Records audit
+                {patient?.condition ? ` · researching: ${patient.condition}` : ''}
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.8rem', color: theme.textDim }}>Audience:</span>
+              <select value={audience} onChange={e => setAudience(e.target.value)}
+                style={{ ...inputStyle, width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}>
+                <option value="layperson">Layperson (10th grade)</option>
+                <option value="medical">Medical professional</option>
+              </select>
+            </div>
+          </div>
+        </header>
+      );
+
+      /* ==================== HIPAA Gate ==================== */
+      const HipaaGate = ({ onAccept }) => (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'
+        }}>
+          <div style={{ ...panelStyle, maxWidth: 720, background: theme.panelSolid }}>
+            <h2 style={{ marginTop: 0, color: '#ff8b5a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <AlertCircle size={24} /> Privacy & HIPAA Warning
+            </h2>
+            <p><strong>This tool is NOT HIPAA compliant.</strong> It is a research prototype. Do not enter
+            real, identifying patient information unless you understand and accept that:</p>
+            <ul style={{ color: theme.textDim, lineHeight: 1.7 }}>
+              <li>Data you type is sent to a third-party AI (Anthropic) and clinical databases (ClinicalTrials.gov, PubMed).</li>
+              <li>There is no Business Associate Agreement (BAA) in place.</li>
+              <li>Before pasting any medical records, <strong>remove name, date of birth, MRN, address, phone,
+              and any other identifier</strong>. The tool provides a "de-identify" guide in the Records tab.</li>
+              <li>Output is decision-support research only — not medical advice. Final decisions require a physician.</li>
+            </ul>
+            <p style={{ color: theme.textDim, fontSize: '0.85rem' }}>
+              By continuing you acknowledge these limitations.
             </p>
+            <button style={btn('primary')} onClick={onAccept}>I Understand — Continue</button>
           </div>
         </div>
-      </header>
+      );
 
-      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-        <div style={{ 
-          display: 'flex', 
-          gap: '1rem', 
-          marginBottom: '2rem',
-          borderBottom: '1px solid rgba(74, 158, 255, 0.3)'
-        }}>
-          {[
-            { id: 'research', label: 'AI Research', icon: Brain },
-            { id: 'patient', label: 'Patient Profile', icon: FileText },
-            { id: 'comparison', label: 'Treatment Comparison', icon: TrendingUp }
-          ].map(tab => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  padding: '1rem 1.5rem',
-                  background: activeTab === tab.id ? 'rgba(74, 158, 255, 0.2)' : 'transparent',
-                  border: 'none',
-                  borderBottom: activeTab === tab.id ? '3px solid #4a9eff' : '3px solid transparent',
-                  color: activeTab === tab.id ? '#4a9eff' : '#a0c4d9',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  transition: 'all 0.3s ease',
-                  fontFamily: 'inherit'
-                }}
-              >
-                <Icon size={20} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {activeTab === 'patient' && (
+      /* ==================== Tabs ==================== */
+      const Tabs = ({ tab, setTab }) => {
+        const tabs = [
+          { id: 'profile', label: 'Patient Profile', icon: FileText },
+          { id: 'research', label: 'AI Research', icon: Brain },
+          { id: 'trials', label: 'Clinical Trials', icon: Beaker },
+          { id: 'repurpose', label: 'Drug Repurposing', icon: Sparkles },
+          { id: 'records', label: 'Records Audit', icon: ShieldCheck },
+          { id: 'chart', label: 'Comparison Chart', icon: TrendingUp },
+          { id: 'refs', label: 'References', icon: Book }
+        ];
+        return (
           <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '12px',
-            padding: '2rem',
-            border: '1px solid rgba(74, 158, 255, 0.2)',
-            backdropFilter: 'blur(10px)'
+            display: 'flex', gap: '0.25rem', marginBottom: '1.25rem', flexWrap: 'wrap',
+            borderBottom: `1px solid ${theme.border}`
           }}>
-            <h2 style={{ 
-              marginTop: 0, 
-              color: '#4a9eff',
-              fontSize: '1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              <FileText size={24} />
-              Patient Profile
-            </h2>
-            <p style={{ color: '#a0c4d9', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
-              Enter patient information to personalize treatment recommendations and check for contraindications.
+            {tabs.map(t => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)} style={{
+                  padding: '0.75rem 1rem', background: active ? 'rgba(74, 158, 255, 0.18)' : 'transparent',
+                  border: 'none', borderBottom: active ? `3px solid ${theme.accent}` : '3px solid transparent',
+                  color: active ? theme.accent : theme.textDim, cursor: 'pointer', fontSize: '0.9rem',
+                  fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  fontFamily: 'inherit', transition: 'all 0.2s ease'
+                }}>
+                  <Icon size={16} /> {t.label}
+                </button>
+              );
+            })}
+          </div>
+        );
+      };
+
+      /* ==================== Sample patients ==================== */
+      // Fictional demo profiles used by the "Load sample" buttons. These are
+      // NOT real patients — they're illustrative cases the user can load to
+      // see how the tool reasons about a realistic clinical picture. No PHI
+      // should ever be entered into this prototype.
+      const SAMPLE_PATIENTS = {
+        ipf: {
+          label: 'IPF — mild/moderate',
+          icon: '🫁',
+          data: {
+            condition: 'Idiopathic Pulmonary Fibrosis',
+            stage: 'GAP Stage II (moderate)',
+            age: '68',
+            gender: 'Male',
+            weight: '175 lb / 79 kg',
+            smoking: 'Former smoker, ~30 pack-years, quit 2010',
+            exercise: 'Walks 20-30 minutes daily; breathless on stairs',
+            diagnoses: 'GERD, hypertension, hyperlipidemia, obstructive sleep apnea (on CPAP)',
+            medications: 'Pantoprazole 40 mg daily, lisinopril 10 mg daily, atorvastatin 20 mg nightly, aspirin 81 mg daily, vitamin D3 2000 IU daily',
+            symptoms: 'Progressive exertional dyspnea (~2 years), dry cough, fatigue, mild finger clubbing',
+            labWork: 'FVC 68% predicted (declined from 78% a year ago), DLCO 48% predicted, 6-minute walk distance 385 m with desat to 88% on room air',
+            scans: 'HRCT 3/2026: bilateral subpleural basal reticulation with honeycombing and traction bronchiectasis — definite UIP pattern. No ground-glass. No pleural effusion. Mild coronary calcifications.'
+          }
+        },
+        ipfAdvanced: {
+          label: 'IPF — advanced',
+          icon: '🫁',
+          data: {
+            condition: 'Idiopathic Pulmonary Fibrosis',
+            stage: 'GAP Stage III (severe)',
+            age: '74',
+            gender: 'Female',
+            weight: '132 lb / 60 kg',
+            smoking: 'Never smoker; lived with smoker spouse 40 years',
+            exercise: 'Short walks around house; uses supplemental O2 at 2 L/min on exertion',
+            diagnoses: 'Osteoporosis, atrial fibrillation (on anticoagulation), mild CKD stage 3a, depression',
+            medications: 'Pirfenidone 801 mg TID, apixaban 5 mg BID, metoprolol succinate 50 mg daily, alendronate 70 mg weekly, sertraline 50 mg daily, calcium 600 mg + vitamin D3 1000 IU daily',
+            symptoms: 'Dyspnea at rest worsening over 6 months, chronic dry cough, severe fatigue, weight loss 8 lb in 4 months',
+            labWork: 'FVC 46% predicted, DLCO 28% predicted, 6MWT 220 m with desat to 82% on 2 L/min O2, SpO2 resting 91% on room air',
+            scans: 'HRCT 1/2026: end-stage honeycomb lung, traction bronchiectasis, no acute consolidation, normal heart size'
+          }
+        },
+        empty: {
+          label: 'Clear form',
+          icon: '🧹',
+          data: {
+            condition: '', stage: '', age: '', gender: '', weight: '', smoking: '',
+            exercise: '', diagnoses: '', medications: '', symptoms: '', labWork: '', scans: ''
+          }
+        }
+      };
+
+      /* ==================== Patient Tab ==================== */
+      const PatientTab = ({ patient, setPatient, audience, setAudience }) => {
+        const set = (k, v) => setPatient(p => ({ ...p, [k]: v }));
+        const loadSample = (key) => {
+          const s = SAMPLE_PATIENTS[key];
+          if (!s) return;
+          setPatient((_p) => ({ ...s.data }));
+        };
+        const fields = [
+          { k: 'condition',  l: 'Primary Condition to Research',   ta: false,
+            ph: 'e.g. Idiopathic Pulmonary Fibrosis, Glioblastoma, ALS…' },
+          { k: 'stage',      l: 'Stage of Disease (optional)',     ta: false, ph: 'e.g. GAP Stage II, metastatic' },
+          { k: 'age',        l: 'Age',                              ta: false, ph: 'e.g. 65', type: 'number' },
+          { k: 'gender',     l: 'Gender',                           ta: false },
+          { k: 'weight',     l: 'Weight',                           ta: false, ph: 'e.g. 170 lb / 77 kg' },
+          { k: 'smoking',    l: 'Smoking History',                  ta: false, ph: 'e.g. Former, 20 pack-years, quit 2015' },
+          { k: 'exercise',   l: 'Exercise / Activity Level',        ta: false, ph: 'e.g. Walks 30 min daily' },
+          { k: 'diagnoses',  l: 'ALL Current Diagnoses',            ta: true,
+            ph: 'Comma-separated. These are NOT what we research — they inform safety checks.' },
+          { k: 'medications',l: 'Current Medications',              ta: true,
+            ph: 'Every active Rx + OTC + supplement. Used for interaction checking.' },
+          { k: 'symptoms',   l: 'Current Symptoms',                 ta: true },
+          { k: 'labWork',    l: 'Lab Work / PFTs / Other Studies',  ta: true,
+            ph: 'e.g. FVC 58% predicted, DLCO 42%, 6MWT 350m' },
+          { k: 'scans',      l: 'Recent Imaging / Scans',           ta: true,
+            ph: 'e.g. HRCT 3/2025: UIP pattern, honeycombing basal/peripheral' }
+        ];
+        return (
+          <div style={panelStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0, color: theme.accent, fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <FileText size={22} /> Patient Profile
+              </h2>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', color: theme.textDim }}>Explain results as:</span>
+                <select value={audience} onChange={e => setAudience(e.target.value)}
+                  style={{ ...inputStyle, width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}>
+                  <option value="layperson">10th-grade layperson</option>
+                  <option value="medical">Medical professional</option>
+                </select>
+              </div>
+            </div>
+            <p style={{ color: theme.textDim, fontSize: '0.9rem', marginTop: 0 }}>
+              All fields are optional except <strong>Primary Condition</strong>. The more you provide,
+              the better the safety / interaction checks. This data is saved only in your browser.
             </p>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-              {[
-                { key: 'condition', label: 'Primary Condition to Research', type: 'text', placeholder: 'e.g., Idiopathic Pulmonary Fibrosis, Multiple Sclerosis, etc.' },
-                { key: 'age', label: 'Age', type: 'number' },
-                { key: 'gender', label: 'Gender', type: 'text' },
-                { key: 'diagnoses', label: 'All Diagnoses (comma-separated)', type: 'textarea' },
-                { key: 'medications', label: 'Current Medications', type: 'textarea' },
-                { key: 'symptoms', label: 'Symptoms', type: 'textarea' },
-                { key: 'labWork', label: 'Lab Work & Studies', type: 'textarea' }
-              ].map(field => (
-                <div key={field.key} style={{ display: 'flex', flexDirection: 'column' }}>
-                  <label style={{ 
-                    marginBottom: '0.5rem', 
-                    color: '#4a9eff',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    {field.label}
-                  </label>
-                  {field.type === 'textarea' ? (
-                    <textarea
-                      value={patientData[field.key]}
-                      onChange={(e) => setPatientData(prev => ({ ...prev, [field.key]: e.target.value }))}
-                      placeholder={field.placeholder || ''}
-                      style={{
-                        padding: '0.75rem',
-                        background: 'rgba(15, 32, 39, 0.5)',
-                        border: '1px solid rgba(74, 158, 255, 0.3)',
-                        borderRadius: '8px',
-                        color: '#e8f4f8',
-                        fontSize: '0.95rem',
-                        fontFamily: 'inherit',
-                        minHeight: '100px',
-                        resize: 'vertical'
-                      }}
-                    />
-                  ) : (
-                    <input
-                      type={field.type}
-                      value={patientData[field.key]}
-                      onChange={(e) => setPatientData(prev => ({ ...prev, [field.key]: e.target.value }))}
-                      placeholder={field.placeholder || ''}
-                      style={{
-                        padding: '0.75rem',
-                        background: 'rgba(15, 32, 39, 0.5)',
-                        border: '1px solid rgba(74, 158, 255, 0.3)',
-                        borderRadius: '8px',
-                        color: '#e8f4f8',
-                        fontSize: '0.95rem',
-                        fontFamily: 'inherit'
-                      }}
-                    />
-                  )}
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
+              padding: '0.6rem 0.8rem', background: `${theme.accent}0e`,
+              border: `1px dashed ${theme.accent}55`, borderRadius: 8,
+              marginBottom: '1rem'
+            }}>
+              <span style={{ fontSize: '0.78rem', color: theme.textDim, fontWeight: 600, letterSpacing: 0.3 }}>
+                Demo profiles (fictional):
+              </span>
+              {Object.entries(SAMPLE_PATIENTS).map(([key, s]) => (
+                <button key={key} onClick={() => loadSample(key)} style={{
+                  background: key === 'empty' ? 'transparent' : `${theme.accent}18`,
+                  border: `1px solid ${key === 'empty' ? theme.border : theme.accent + '55'}`,
+                  color: key === 'empty' ? theme.textDim : theme.accent,
+                  padding: '0.35rem 0.8rem', borderRadius: 6, fontSize: '0.78rem',
+                  cursor: 'pointer', fontWeight: 600,
+                  display: 'inline-flex', alignItems: 'center', gap: '0.35rem'
+                }}>
+                  <span>{s.icon}</span>{s.label}
+                </button>
+              ))}
+              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: theme.textDim, fontStyle: 'italic' }}>
+                These are illustrative cases — not real patients. Do not enter real PHI.
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+              {fields.map(f => (
+                <div key={f.k} style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={labelStyle}>{f.l}</label>
+                  {f.ta
+                    ? <textarea value={patient[f.k] || ''} placeholder={f.ph || ''}
+                        onChange={e => set(f.k, e.target.value)}
+                        style={{ ...inputStyle, minHeight: 90, resize: 'vertical' }} />
+                    : <input type={f.type || 'text'} value={patient[f.k] || ''} placeholder={f.ph || ''}
+                        onChange={e => set(f.k, e.target.value)} style={inputStyle} />
+                  }
                 </div>
               ))}
             </div>
-
             <div style={{
-              marginTop: '1.5rem',
-              padding: '1rem',
-              background: 'rgba(74, 158, 255, 0.1)',
-              borderRadius: '8px',
-              border: '1px solid rgba(74, 158, 255, 0.3)',
-              display: 'flex',
-              gap: '0.5rem',
-              alignItems: 'flex-start'
+              marginTop: '1.25rem', padding: '0.9rem', background: 'rgba(248, 113, 113, 0.1)',
+              border: '1px solid rgba(248, 113, 113, 0.3)', borderRadius: 8,
+              display: 'flex', gap: '0.5rem', alignItems: 'flex-start'
             }}>
-              <AlertCircle size={20} color="#4a9eff" style={{ flexShrink: 0, marginTop: '0.15rem' }} />
-              <p style={{ margin: 0, fontSize: '0.85rem', color: '#a0c4d9' }}>
-                <strong style={{ color: '#4a9eff' }}>Privacy Notice:</strong> Patient data is processed securely and used only to personalize treatment recommendations. 
-                This is an MVP demonstration. Production version will be HIPAA-compliant with encrypted storage.
+              <AlertCircle size={18} color="#f87171" />
+              <p style={{ margin: 0, fontSize: '0.85rem', color: theme.text }}>
+                <strong style={{ color: '#f87171' }}>HIPAA notice:</strong> This tool is not HIPAA-compliant.
+                Do not enter identifying information (name, DOB, MRN, phone, address). Use initials or "Patient A".
               </p>
             </div>
           </div>
-        )}
+        );
+      };
 
-        {activeTab === 'research' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      /* ==================== Access-level badge ==================== */
+      // Visually encodes what Claude actually read for each source:
+      //   full-text     → green  — body of article (from PMC or legal OA)
+      //   abstract      → blue   — peer-reviewed abstract
+      //   metadata-only → orange — title + journal only; no content
+      const ACCESS_META = {
+        'full-text':     { label: 'Full text',     color: '#6ee7b7', desc: 'Body of the article was read' },
+        'abstract':      { label: 'Abstract only', color: '#60a5fa', desc: 'Only the peer-reviewed abstract was read — claims limited to what the abstract states' },
+        'metadata-only': { label: 'No text',       color: '#fbbf24', desc: 'Paper exists but neither full text nor abstract were available — Claude cannot claim its findings' }
+      };
+      const AccessBadge = ({ level, n }) => {
+        const m = ACCESS_META[level] || { label: level, color: theme.textDim, desc: '' };
+        return (
+          <span title={m.desc} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+            padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
+            border: `1px solid ${m.color}66`, background: `${m.color}18`,
+            color: m.color, fontWeight: 600
+          }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%', background: m.color,
+              display: 'inline-block'
+            }} />
+            {m.label}{typeof n === 'number' ? ` · ${n}` : ''}
+          </span>
+        );
+      };
+
+      /* ==================== Reusable meter + evidence badge ==================== */
+      // Visual meter bar used for Efficacy / Safety / Confidence on the
+      // repurposing candidate cards. Renders a gradient-filled horizontal bar
+      // with the percentage in-line and a color that matches ratingColor().
+      const MeterBar = ({ label, value, icon }) => {
+        const color = ratingColor(value);
+        const pct = typeof value === 'number' ? Math.max(0, Math.min(100, value)) : 0;
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div style={{ width: 92, fontSize: '0.72rem', color: theme.textDim, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              {icon}{label}
+            </div>
             <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '12px',
-              padding: '1.5rem',
-              border: '1px solid rgba(74, 158, 255, 0.2)'
+              flex: 1, height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.06)',
+              overflow: 'hidden', position: 'relative'
             }}>
-              <h3 style={{ 
-                margin: '0 0 1rem 0', 
-                color: '#4a9eff',
-                fontSize: '1.1rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}>
-                <Database size={20} />
-                Quick Research Prompts
+              <div style={{
+                width: `${pct}%`, height: '100%',
+                background: `linear-gradient(90deg, ${color}77, ${color})`,
+                transition: 'width 0.5s ease'
+              }} />
+            </div>
+            <div style={{ width: 46, textAlign: 'right', fontSize: '0.85rem', fontWeight: 700, color, fontVariantNumeric: 'tabular-nums' }}>
+              {typeof value === 'number' ? `${pct}%` : '—'}
+            </div>
+          </div>
+        );
+      };
+
+      // Evidence strength ladder. Matches the EVIDENCE_STRENGTH enum Claude
+      // is asked to emit (MECHANISTIC_ONLY → LARGE_RCT). Color scales from
+      // red (pure hypothesis) to bright green (RCT data).
+      const EVIDENCE_LADDER = [
+        { key: 'MECHANISTIC_ONLY', label: 'Mechanistic hypothesis',    color: '#ef4444', rank: 1 },
+        { key: 'PRECLINICAL',      label: 'Preclinical',               color: '#f97316', rank: 2 },
+        { key: 'CASE_REPORT',      label: 'Case report',               color: '#eab308', rank: 3 },
+        { key: 'OBSERVATIONAL',    label: 'Observational',             color: '#a3e635', rank: 4 },
+        { key: 'SMALL_RCT',        label: 'Small RCT',                 color: '#22c55e', rank: 5 },
+        { key: 'LARGE_RCT',        label: 'Large RCT',                 color: '#10b981', rank: 6 }
+      ];
+      const evidenceMeta = (value) => {
+        const v = String(value || '').toUpperCase().trim();
+        const hit = EVIDENCE_LADDER.find(e => v.includes(e.key));
+        return hit || { key: 'UNSPECIFIED', label: value || 'Unspecified', color: theme.textDim, rank: 0 };
+      };
+      const EvidenceStrengthBadge = ({ value }) => {
+        const m = evidenceMeta(value);
+        return (
+          <span title={`Evidence strength: ${m.label} (rank ${m.rank}/6)`} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+            padding: '0.25rem 0.65rem', borderRadius: 999, fontSize: '0.72rem',
+            border: `1px solid ${m.color}88`, background: `${m.color}1f`,
+            color: m.color, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase'
+          }}>
+            <span style={{ display: 'inline-flex', gap: 1.5 }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <span key={i} style={{
+                  width: 4, height: 8, borderRadius: 1,
+                  background: i < m.rank ? m.color : `${m.color}33`
+                }} />
+              ))}
+            </span>
+            {m.label}
+          </span>
+        );
+      };
+
+      /* ==================== Curated Knowledge Base ==================== */
+      // When the condition matches a hand-curated KB (e.g. IPF), these items
+      // are PINNED into the evidence pack on every query — the ground-truth
+      // floor that never changes with a new PubMed search.
+      const KBBadge = ({ category }) => (
+        <span title={`Curated landmark reference${category ? ` (${category})` : ''}`} style={{
+          display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+          padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
+          border: `1px solid ${theme.accent}66`,
+          background: `${theme.accent}22`,
+          color: theme.accent, fontWeight: 700, letterSpacing: 0.3
+        }}>
+          <Award size={11} /> CURATED KB{category ? ` · ${String(category).toUpperCase()}` : ''}
+        </span>
+      );
+
+      const KBPanel = ({ kb }) => {
+        const [expanded, setExpanded] = useState(false);
+        if (!kb || !kb.matched) return null;
+        const facts = (kb.canonicalFacts || []).slice(0, expanded ? 99 : 4);
+        const lifestyle = (kb.lifestyleRecommendations || []).slice(0, expanded ? 99 : 3);
+        const redFlags = (kb.redFlags || []).slice(0, expanded ? 99 : 3);
+        return (
+          <div style={{
+            ...panelStyle,
+            borderLeft: `3px solid ${theme.accent}`,
+            background: `linear-gradient(90deg, ${theme.accent}10 0%, ${panelStyle.background} 60%)`
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Award size={18} /> Curated knowledge base · {kb.condition}
               </h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                {quickPrompts.map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setResearchQuery(prompt)}
-                    style={{
-                      padding: '0.75rem 1rem',
-                      background: 'rgba(74, 158, 255, 0.15)',
-                      border: '1px solid rgba(74, 158, 255, 0.4)',
-                      borderRadius: '8px',
-                      color: '#e8f4f8',
-                      cursor: 'pointer',
-                      fontSize: '0.85rem',
-                      transition: 'all 0.2s ease',
-                      fontFamily: 'inherit'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = 'rgba(74, 158, 255, 0.25)';
-                      e.target.style.transform = 'translateY(-2px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = 'rgba(74, 158, 255, 0.15)';
-                      e.target.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    {prompt}
-                  </button>
-                ))}
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <span style={{
+                  padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.7rem',
+                  background: `${theme.accent}22`, color: theme.accent, fontWeight: 600
+                }}>
+                  {kb.itemCount} pinned references
+                </span>
+                {kb.version && (
+                  <span style={{
+                    padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.7rem',
+                    background: 'rgba(255,255,255,0.06)', color: theme.textDim
+                  }}>
+                    v{kb.version}
+                  </span>
+                )}
+              </div>
+            </div>
+            <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: '0.5rem' }}>
+              These are hand-curated landmark references for {kb.condition} — society guidelines,
+              defining RCTs, FDA labels, and authoritative reviews. They are PINNED into every
+              query on this condition so the AI always has a consistent ground-truth floor, not
+              just whatever PubMed happens to rank this minute.
+            </p>
+            {facts.length > 0 && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: theme.text, marginBottom: '0.35rem' }}>
+                  Canonical facts
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '1.1rem', color: theme.textDim, fontSize: '0.85rem', lineHeight: 1.55 }}>
+                  {facts.map((f, i) => <li key={i}>{f.claim}</li>)}
+                </ul>
+              </div>
+            )}
+            {redFlags.length > 0 && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: theme.red, marginBottom: '0.35rem' }}>
+                  Red flags / contraindications
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '1.1rem', color: theme.textDim, fontSize: '0.85rem', lineHeight: 1.55 }}>
+                  {redFlags.map((r, i) => <li key={i}>{r}</li>)}
+                </ul>
+              </div>
+            )}
+            {lifestyle.length > 0 && (
+              <div style={{ marginTop: '0.75rem' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: theme.green, marginBottom: '0.35rem' }}>
+                  Lifestyle / non-drug guidance
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '1.1rem', color: theme.textDim, fontSize: '0.85rem', lineHeight: 1.55 }}>
+                  {lifestyle.map((l, i) => <li key={i}>{l.recommendation}</li>)}
+                </ul>
+              </div>
+            )}
+            <button onClick={() => setExpanded(v => !v)} style={{
+              marginTop: '0.75rem',
+              background: 'transparent', border: `1px solid ${theme.accent}66`,
+              color: theme.accent, padding: '0.35rem 0.8rem', borderRadius: 6,
+              fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600
+            }}>
+              {expanded ? 'Show less' : `Show all facts, red flags, and lifestyle guidance`}
+            </button>
+          </div>
+        );
+      };
+
+      /* ==================== Cross-AI Validator Panel ==================== */
+      // Renders the second-AI (Perplexity / OpenAI / xAI) audit of Claude's
+      // output. This is the safeguard against hallucinated citations:
+      // an INDEPENDENT model rechecks every factual claim against the same
+      // grounded evidence pack and flags disputed / unsupported / hallucinated.
+      const agreementColor = (level) => {
+        if (level === 'high') return theme.green;
+        if (level === 'moderate') return theme.yellow;
+        if (level === 'low') return theme.red;
+        return theme.textDim;
+      };
+
+      const ValidatorPanel = ({ validation }) => {
+        if (!validation) return null;
+        if (validation.error) {
+          return (
+            <div style={panelStyle}>
+              <h3 style={{ marginTop: 0, color: theme.yellow, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Scales size={18} /> Cross-AI Audit — not available
+              </h3>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: 0 }}>
+                {validation.error}{validation.hint ? ` — ${validation.hint}` : ''}
+              </p>
+            </div>
+          );
+        }
+        const p = validation.primary;
+        if (!p) {
+          return (
+            <div style={panelStyle}>
+              <h3 style={{ marginTop: 0, color: theme.yellow, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Scales size={18} /> Cross-AI Audit — no validators responded
+              </h3>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: 0 }}>
+                Validators attempted: {(validation.validators || []).map((v) => v.provider).join(', ') || 'none'}
+              </p>
+            </div>
+          );
+        }
+        const disputed = p.disputed || [];
+        const unsupported = p.unsupported || [];
+        const hallucinated = p.hallucinatedCitations || [];
+        const confirmed = p.confirmed || [];
+        const missing = p.missingPerspectives || [];
+        return (
+          <div style={{ ...panelStyle, borderLeft: `4px solid ${agreementColor(p.agreement)}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <h3 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Scales size={20} /> Independent Cross-AI Audit
+                </h3>
+                <p style={{ margin: '0.25rem 0 0', color: theme.textDim, fontSize: '0.85rem' }}>
+                  An independent model ({p.provider} · {p.model}) re-checked every factual claim
+                  Claude made against the same grounded evidence pack.
+                  {validation.consensus && validation.consensus.totalValidators > 1 && (
+                    <> Consensus across {validation.consensus.totalValidators} validators: <strong>{validation.consensus.level}</strong> agreement ({validation.consensus.validatorsAgreeing} / {validation.consensus.totalValidators}).</>
+                  )}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{
+                  fontSize: '2.5rem', fontWeight: 700, lineHeight: 1,
+                  color: agreementColor(p.agreement)
+                }}>
+                  {p.overallScore ?? '?'}<span style={{ fontSize: '1rem' }}>/100</span>
+                </div>
+                <div style={{
+                  fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em',
+                  color: agreementColor(p.agreement), fontWeight: 700
+                }}>
+                  {p.agreement || 'n/a'} agreement
+                </div>
               </div>
             </div>
 
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '12px',
-              border: '1px solid rgba(74, 158, 255, 0.2)',
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              height: '600px'
-            }}>
+            {p.overall && (
               <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '1.5rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem'
+                marginTop: '0.9rem', padding: '0.8rem 1rem',
+                background: 'rgba(255,255,255,0.04)', borderRadius: 8,
+                fontSize: '0.92rem', lineHeight: 1.55
               }}>
-                {chatHistory.length === 0 ? (
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    gap: '1rem',
-                    color: '#a0c4d9'
-                  }}>
-                    <Brain size={48} color="#4a9eff" />
-                    <p style={{ fontSize: '1.1rem', textAlign: 'center', maxWidth: '500px' }}>
-                      {patientData.condition
-                        ? `Ask me anything about ${patientData.condition} treatments, clinical trials, or research.`
-                        : 'Enter a condition in the Patient Profile tab, then ask about treatments, clinical trials, or research.'
-                      }
-                      <br />I'll provide evidence-based answers with verified citations.
-                    </p>
-                  </div>
-                ) : (
-                  chatHistory.map((msg, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        padding: '1rem',
-                        background: msg.role === 'user' 
-                          ? 'rgba(74, 158, 255, 0.15)' 
-                          : 'rgba(255, 255, 255, 0.05)',
-                        borderRadius: '8px',
-                        border: `1px solid ${msg.role === 'user' ? 'rgba(74, 158, 255, 0.4)' : 'rgba(255, 255, 255, 0.1)'}`,
-                        alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                        maxWidth: '85%'
-                      }}
-                    >
-                      <div style={{ 
-                        fontSize: '0.8rem', 
-                        color: '#4a9eff',
-                        marginBottom: '0.5rem',
-                        fontWeight: 600
-                      }}>
-                        {msg.role === 'user' ? 'You' : 'AI Research Assistant'}
-                      </div>
-                      <div style={{ 
-                        fontSize: '0.95rem', 
-                        lineHeight: '1.6',
-                        whiteSpace: 'pre-wrap'
-                      }}>
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))
-                )}
-                {isLoading && (
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '1rem',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    borderRadius: '8px',
-                    alignSelf: 'flex-start'
-                  }}>
-                    <Loader size={20} color="#4a9eff" className="spin" />
-                    <span style={{ color: '#a0c4d9' }}>Researching and analyzing...</span>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
+                {p.overall}
               </div>
+            )}
 
-              <div style={{
-                padding: '1.5rem',
-                background: 'rgba(15, 32, 39, 0.5)',
-                borderTop: '1px solid rgba(74, 158, 255, 0.2)',
-                display: 'flex',
-                gap: '1rem'
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '0.5rem', marginTop: '0.9rem' }}>
+              <ValidatorStat label="Confirmed"     n={confirmed.length}   color={theme.green}  Icon={CheckCircle} />
+              <ValidatorStat label="Disputed"      n={disputed.length}    color={theme.yellow} Icon={AlertCircle} />
+              <ValidatorStat label="Unsupported"   n={unsupported.length} color={theme.yellow} Icon={AlertCircle} />
+              <ValidatorStat label="Hallucinated citations" n={hallucinated.length} color={theme.red} Icon={XCircle} />
+            </div>
+
+            {disputed.length > 0 && (
+              <ValidatorList title="Disputed claims" color={theme.yellow}
+                items={disputed.map((d) => ({ primary: d.claim, reason: d.reason, correction: d.correction }))} />
+            )}
+            {unsupported.length > 0 && (
+              <ValidatorList title="Unsupported claims (no evidence in pack)" color={theme.yellow}
+                items={unsupported.map((d) => ({ primary: d.claim, reason: d.reason }))} />
+            )}
+            {hallucinated.length > 0 && (
+              <ValidatorList title="Hallucinated / broken citations" color={theme.red}
+                items={hallucinated.map((d) => ({ primary: d.url, reason: d.issue, isUrl: true }))} />
+            )}
+            {missing.length > 0 && (
+              <ValidatorList title="Missing perspectives the validator flagged" color={theme.accent}
+                items={missing.map((m) => ({ primary: m }))} />
+            )}
+
+            {validation.validators && validation.validators.length > 1 && (
+              <details style={{ marginTop: '0.75rem' }}>
+                <summary style={{ cursor: 'pointer', color: theme.textDim, fontSize: '0.85rem' }}>
+                  Validator details ({validation.validators.length} model{validation.validators.length === 1 ? '' : 's'})
+                </summary>
+                <div style={{ display: 'grid', gap: '0.4rem', marginTop: '0.5rem' }}>
+                  {validation.validators.map((v, i) => (
+                    <div key={i} style={{ fontSize: '0.8rem', color: theme.textDim, padding: '0.4rem 0.6rem',
+                      background: 'rgba(255,255,255,0.03)', borderRadius: 6 }}>
+                      <strong style={{ color: theme.text }}>{v.provider}{v.model ? ` · ${v.model}` : ''}</strong>
+                      {v.error ? <> — <span style={{ color: theme.red }}>error: {v.error}</span></>
+                              : v.parsed ? <> — agreement: {v.parsed.agreement || '?'} · score: {v.parsed.overallScore ?? '?'}</>
+                              : <> — no parsed output</>}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        );
+      };
+
+      const ValidatorStat = ({ label, n, color, Icon }) => (
+        <div style={{
+          padding: '0.6rem 0.75rem', background: 'rgba(255,255,255,0.04)',
+          border: `1px solid ${color}33`, borderRadius: 8,
+          display: 'flex', alignItems: 'center', gap: '0.5rem'
+        }}>
+          <Icon size={18} color={color} />
+          <div>
+            <div style={{ fontSize: '1.15rem', fontWeight: 700, color, lineHeight: 1 }}>{n}</div>
+            <div style={{ fontSize: '0.75rem', color: theme.textDim, marginTop: 2 }}>{label}</div>
+          </div>
+        </div>
+      );
+
+      const ValidatorList = ({ title, color, items }) => (
+        <div style={{ marginTop: '0.9rem' }}>
+          <h4 style={{ margin: '0 0 0.4rem', color, fontSize: '0.9rem' }}>{title}</h4>
+          <div style={{ display: 'grid', gap: '0.4rem' }}>
+            {items.map((it, i) => (
+              <div key={i} style={{
+                padding: '0.5rem 0.75rem', borderLeft: `3px solid ${color}`,
+                background: 'rgba(255,255,255,0.03)', borderRadius: 4
               }}>
-                <input
-                  type="text"
-                  value={researchQuery}
-                  onChange={(e) => setResearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && performResearch()}
-                  placeholder={patientData.condition
-                    ? `Ask about ${patientData.condition} treatments, trials, or research...`
-                    : "Ask about medical treatments, clinical trials, or research..."
-                  }
-                  disabled={isLoading}
-                  style={{
-                    flex: 1,
-                    padding: '0.875rem',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(74, 158, 255, 0.3)',
-                    borderRadius: '8px',
-                    color: '#e8f4f8',
-                    fontSize: '0.95rem',
-                    fontFamily: 'inherit'
-                  }}
-                />
-                <button
-                  onClick={performResearch}
-                  disabled={isLoading || !researchQuery.trim()}
-                  style={{
-                    padding: '0.875rem 1.5rem',
-                    background: isLoading || !researchQuery.trim() 
-                      ? 'rgba(74, 158, 255, 0.3)' 
-                      : '#4a9eff',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    cursor: isLoading || !researchQuery.trim() ? 'not-allowed' : 'pointer',
-                    fontSize: '0.95rem',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s ease',
-                    fontFamily: 'inherit'
-                  }}
-                >
-                  <Search size={20} />
-                  Research
+                <div style={{ fontSize: '0.9rem', wordBreak: 'break-word' }}>
+                  {it.isUrl
+                    ? <a href={it.primary} target="_blank" rel="noopener">{it.primary}</a>
+                    : <span>{it.primary}</span>}
+                </div>
+                {it.reason && (
+                  <div style={{ fontSize: '0.8rem', color: theme.textDim, marginTop: 2 }}>
+                    {it.reason}
+                  </div>
+                )}
+                {it.correction && (
+                  <div style={{ fontSize: '0.8rem', color: theme.green, marginTop: 2 }}>
+                    → {it.correction}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+      /* ==================== Research Tab ==================== */
+      const ResearchTab = ({ patient, busy, runResearch, researchText, treatments,
+                              validation, evidenceSummary,
+                              chatHistory, userQuery, setUserQuery, sendChat }) => {
+        const cond = patient.condition || 'this condition';
+        const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
+        const baseQuickPrompts = [
+          `Why did you rank the top treatment #1 over the others? Walk me through the tradeoff.`,
+          `Check every treatment you recommended against my current medications for interactions.`,
+          `What is the single most important question I should ask my doctor next week?`,
+          `What are the realistic side effects I should actually expect, ranked by how common they are?`,
+          `If I only had one treatment option to pursue next month, which one and why?`,
+          `What are warning signs I should stop a treatment and call my doctor immediately?`,
+          `Non-drug practical things I can start doing this week for ${cond}.`,
+          `What does the evidence say about combining the top 2 treatments?`
+        ];
+        const ipfQuickPrompts = [
+          `Pirfenidone vs nintedanib — given my patient profile, which antifibrotic has a better risk-benefit tradeoff and why?`,
+          `Was prednisone + azathioprine + NAC triple therapy ever shown to help IPF? What does PANTHER-IPF say?`,
+          `Is there any evidence for vitamin D, N-acetylcysteine monotherapy, or other supplements in IPF?`,
+          `How aggressive should I be about treating GERD given the IPF micro-aspiration hypothesis?`,
+          `When is lung transplant evaluation typically initiated? What are the absolute contraindications?`,
+          `What pulmonary rehab / exercise training is evidence-based for IPF?`,
+          `Are there any drug combinations being trialed on top of standard antifibrotics? What phase?`,
+          `How should I interpret a ~5–10% FVC decline over 12 months — is it time to change therapy?`
+        ];
+        const quickPrompts = isIpf ? ipfQuickPrompts : baseQuickPrompts;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={panelStyle}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Brain size={22} /> AI Treatment Research
+                </h2>
+                <button style={btn('primary', !!busy)} disabled={!!busy}
+                  onClick={() => runResearch('research')}>
+                  {busy === 'research' ? <><Loader size={16} className="spin" /> Researching…</>
+                    : <><Search size={16} /> Run Full Research</>}
+                </button>
+              </div>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
+                Generates a structured analysis: standard of care, best experts, ranked treatments
+                (efficacy & safety 1–100), drug-interaction check against your current meds, non-drug
+                lifestyle recommendations, stem cell & gene-therapy landscape, and insurance/cost notes.
+              </p>
+              {treatments.length > 0 && (
+                <p style={{ color: theme.green, fontSize: '0.85rem' }}>
+                  ✓ Parsed {treatments.length} treatment block{treatments.length === 1 ? '' : 's'}.
+                  See the Comparison Chart tab.
+                </p>
+              )}
+            </div>
+
+            <KBPanel kb={evidenceSummary?.knowledgeBase} />
+
+            <ValidatorPanel validation={validation} />
+
+            {evidenceSummary && evidenceSummary.totalUnique > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Database size={18} /> Grounded evidence · {evidenceSummary.totalUnique} unique peer-reviewed sources pulled this query
+                </h3>
+                {evidenceSummary.promptPackBreakdown && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: theme.textDim }}>Fed to Claude:</span>
+                    <span style={{
+                      padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
+                      background: `${theme.accent}22`, color: theme.accent, fontWeight: 600
+                    }}>
+                      {evidenceSummary.promptPackBreakdown.total} total
+                    </span>
+                    <span style={{
+                      padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
+                      background: `${theme.accent}18`, color: theme.accent, fontWeight: 600,
+                      border: `1px solid ${theme.accent}66`
+                    }}>
+                      {evidenceSummary.promptPackBreakdown.curatedKB} curated KB
+                    </span>
+                    <span style={{
+                      padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
+                      background: 'rgba(110, 231, 183, 0.15)', color: theme.green, fontWeight: 600
+                    }}>
+                      {evidenceSummary.promptPackBreakdown.liveFetched} live-fetched
+                    </span>
+                  </div>
+                )}
+                {evidenceSummary.accessBreakdown && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8rem', color: theme.textDim, alignSelf: 'center' }}>Access level across entire pool:</span>
+                    <AccessBadge level="full-text"   n={evidenceSummary.accessBreakdown['full-text']} />
+                    <AccessBadge level="abstract"    n={evidenceSummary.accessBreakdown['abstract']} />
+                    <AccessBadge level="metadata-only" n={evidenceSummary.accessBreakdown['metadata-only']} />
+                  </div>
+                )}
+                <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: '0.75rem', marginBottom: 0 }}>
+                  Live fan-out runs on every query across PubMed, Europe PMC, OpenAlex, Cochrane, openFDA,
+                  and Unpaywall — pulling abstracts and legal full-text where available. The curated KB
+                  is the pinned ground-truth floor; live-fetched items supplement it with the newest
+                  research. Every citation is tagged <strong>[FULL-TEXT]</strong>,
+                  <strong> [ABSTRACT-ONLY]</strong>, or <strong>[METADATA-ONLY]</strong> so the AI
+                  cannot overreach past what it actually read.
+                </p>
+              </div>
+            )}
+
+            {researchText && (
+              <div style={panelStyle}>
+                <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>Full analysis</h3>
+                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: '0.95rem' }}>{researchText}</div>
+              </div>
+            )}
+
+            <div style={panelStyle}>
+              <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Database size={18} /> Follow-up chat (uses patient profile + audience)
+              </h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                {quickPrompts.map((p, i) => (
+                  <button key={i} style={btn('ghost')} onClick={() => setUserQuery(p)}>
+                    {p.length > 70 ? p.slice(0, 67) + '…' : p}
+                  </button>
+                ))}
+              </div>
+              <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                {chatHistory.map((m, i) => (
+                  <div key={i} style={{
+                    padding: '0.75rem', borderRadius: 8, maxWidth: '85%',
+                    alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                    background: m.role === 'user' ? 'rgba(74, 158, 255, 0.18)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${m.role === 'user' ? 'rgba(74, 158, 255, 0.4)' : 'rgba(255,255,255,0.1)'}`
+                  }}>
+                    <div style={{ fontSize: '0.75rem', color: theme.accent, fontWeight: 600, marginBottom: 4 }}>
+                      {m.role === 'user' ? 'You' : 'Assistant'}
+                    </div>
+                    <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.55 }}>{m.content}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input value={userQuery} onChange={e => setUserQuery(e.target.value)}
+                  placeholder="Ask a follow-up (e.g. 'Why did you rate pirfenidone safer than nintedanib?')"
+                  onKeyDown={e => e.key === 'Enter' && !busy && sendChat()}
+                  style={{ ...inputStyle, flex: 1 }} disabled={!!busy} />
+                <button style={btn('primary', !!busy || !userQuery.trim())}
+                  disabled={!!busy || !userQuery.trim()} onClick={sendChat}>
+                  {busy === 'chat' ? <Loader size={16} className="spin" /> : <Search size={16} />} Send
                 </button>
               </div>
             </div>
           </div>
-        )}
+        );
+      };
 
-        {activeTab === 'comparison' && (
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderRadius: '12px',
-            padding: '2rem',
-            border: '1px solid rgba(74, 158, 255, 0.2)'
-          }}>
-            <h2 style={{ 
-              marginTop: 0, 
-              color: '#4a9eff',
-              fontSize: '1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              <TrendingUp size={24} />
-              Treatment Comparison Chart
-            </h2>
-            
-            {comparisonData.length === 0 ? (
-              <div style={{
-                textAlign: 'center',
-                padding: '3rem',
-                color: '#a0c4d9'
+      /* ==================== Clinical Trials Tab ==================== */
+      const TrialsTab = ({ patient, busy, trialsData, trialBlocks, trialsText, validation,
+                           runTrialsFetch, runTrialsAnalysis }) => {
+        const [filters, setFilters] = useState({ recruitingOnly: true, treatmentOnly: true, excludePlacebo: false });
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={panelStyle}>
+              <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Beaker size={22} /> Clinical Trials (live ClinicalTrials.gov)
+              </h2>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
+                Queries ClinicalTrials.gov directly and ranks by phase, recruiting status, placebo exposure,
+                oversight, and geography. Then runs a per-patient analysis that names drug interactions,
+                fit score, and harm risk.
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+                  <input type="checkbox" checked={filters.recruitingOnly}
+                    onChange={e => setFilters(f => ({ ...f, recruitingOnly: e.target.checked }))} />
+                  Recruiting / enrolling only
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+                  <input type="checkbox" checked={filters.treatmentOnly}
+                    onChange={e => setFilters(f => ({ ...f, treatmentOnly: e.target.checked }))} />
+                  Treatment-only (exclude observational)
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
+                  <input type="checkbox" checked={filters.excludePlacebo}
+                    onChange={e => setFilters(f => ({ ...f, excludePlacebo: e.target.checked }))} />
+                  Exclude trials with placebo arms
+                </label>
+                <button style={btn('primary', !!busy)} disabled={!!busy}
+                  onClick={() => runTrialsFetch(filters)}>
+                  {busy === 'trials-fetch' ? <><Loader size={16} className="spin" /> Fetching…</>
+                    : <><Database size={16} /> Fetch Live Trials</>}
+                </button>
+                <button style={btn('ghost', !!busy || !trialsData)} disabled={!!busy || !trialsData}
+                  onClick={runTrialsAnalysis}>
+                  {busy === 'trials' ? <><Loader size={16} className="spin" /> Analyzing…</>
+                    : <><Brain size={16} /> Analyze for This Patient</>}
+                </button>
+              </div>
+            </div>
+
+            <Glossary />
+
+            {trialsData && <TrialsTable data={trialsData} />}
+
+            {trialBlocks.length > 0 && <RankedTrialsForPatient blocks={trialBlocks} />}
+
+            <ValidatorPanel validation={validation} />
+
+            {trialsText && (
+              <div style={panelStyle}>
+                <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>Full per-patient analysis</h3>
+                <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: '0.95rem' }}>{trialsText}</div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const Glossary = () => (
+        <div style={panelStyle}>
+          <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>Trial-access terminology</h3>
+          <table style={{ width: '100%', fontSize: '0.9rem' }}>
+            <tbody>
+              {[
+                ['Post-Trial Access (PTA)',  'Free continued drug access after the trial ends — what you usually want.'],
+                ['Expanded Access',          'FDA pathway to get an unapproved drug outside a trial.'],
+                ['Compassionate Use',        'Common name for Expanded Access in life-threatening conditions.'],
+                ['Open-Label Extension (OLE)','Follow-on trial phase that gives continued access inside a research framework.']
+              ].map(([k,v]) => (
+                <tr key={k} style={{ borderTop: `1px solid ${theme.border}` }}>
+                  <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: theme.text, width: 220 }}>{k}</td>
+                  <td style={{ padding: '0.5rem 0.75rem', color: theme.textDim }}>{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+
+      const TrialsTable = ({ data }) => (
+        <div style={panelStyle}>
+          <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>
+            {data.returned} trial{data.returned === 1 ? '' : 's'} returned (of {data.total} matching on ClinicalTrials.gov) · ranked by promise score
+          </h3>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              <thead>
+                <tr style={{ background: 'rgba(74, 158, 255, 0.15)', borderBottom: `2px solid ${theme.accent}` }}>
+                  {['Title / NCT','Phase','Status','Accepting','Placebo','Designations','Countries','Oversight','Score',''].map(h => (
+                    <th key={h} style={{ padding: '0.6rem', textAlign: 'left', color: theme.accent, fontWeight: 700 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.studies.map(s => (
+                  <tr key={s.nctId} style={{ borderBottom: `1px solid ${theme.border}`, verticalAlign: 'top' }}>
+                    <td style={{ padding: '0.6rem', maxWidth: 360 }}>
+                      <div style={{ color: theme.accent, fontWeight: 600 }}>{s.briefTitle}</div>
+                      <div style={{ color: theme.textDim, fontSize: '0.75rem' }}>{s.nctId} · {s.sponsor || ''}</div>
+                    </td>
+                    <td style={{ padding: '0.6rem' }}>{(s.phases || []).join(', ') || '—'}</td>
+                    <td style={{ padding: '0.6rem' }}>{s.status}</td>
+                    <td style={{ padding: '0.6rem', color: s.acceptingNewPatients ? theme.green : theme.textDim }}>
+                      {s.acceptingNewPatients ? 'Yes' : 'No'}
+                    </td>
+                    <td style={{ padding: '0.6rem', color: s.hasPlacebo ? theme.yellow : theme.green }}>
+                      {s.hasPlacebo ? 'Yes' : 'No'}
+                    </td>
+                    <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
+                      {Object.entries(s.designations).filter(([,v]) => v).map(([k]) => k).join(', ') || '—'}
+                    </td>
+                    <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>{(s.countries || []).join(', ') || '—'}</td>
+                    <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
+                      {s.oversight?.oversightHasDMC ? 'DSMB ✓' : ''} {s.oversight?.fdaRegulatedDrug ? 'FDA ✓' : ''}
+                    </td>
+                    <td style={{ padding: '0.6rem', fontWeight: 700 }}>{s.promiseScore}</td>
+                    <td style={{ padding: '0.6rem' }}>
+                      <a href={s.url} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
+                        Open <ExternalLink size={12} />
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+
+      const RankedTrialsForPatient = ({ blocks }) => (
+        <div style={panelStyle}>
+          <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>
+            Top trials matched to this patient
+          </h3>
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
+            {blocks.map((b, i) => (
+              <div key={i} style={{
+                padding: '0.9rem', background: 'rgba(255,255,255,0.04)',
+                borderRadius: 8, border: `1px solid ${theme.border}`
               }}>
-                <p style={{ fontSize: '1.1rem' }}>
-                  No comparison data yet. Perform research in the AI Research tab to generate treatment comparisons.
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div style={{ fontWeight: 600, color: theme.accent }}>{b.trial}</div>
+                  <div style={{ fontSize: '0.8rem' }}>
+                    <span style={{ color: ratingColor(b.fit_for_patient_pct) }}>Fit: {b.fit_for_patient_pct ?? '?'}%</span>
+                    {' · '}
+                    <span style={{ color: ratingColor(b.harm_risk_pct) }}>Safety: {b.harm_risk_pct ?? '?'}%</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: theme.textDim, marginTop: 4 }}>
+                  {b.nct} · {b.phase} · {b.status} · {b.country}
+                </div>
+                <div style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>{b.summary}</div>
+                {b.interactions && (
+                  <div style={{ fontSize: '0.8rem', marginTop: '0.4rem', color: theme.yellow }}>
+                    ⚠ Interactions: {b.interactions}
+                  </div>
+                )}
+                {b.url && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <a href={b.url.trim()} target="_blank" rel="noopener" style={{ fontSize: '0.85rem' }}>
+                      Open on ClinicalTrials.gov ↗
+                    </a>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+      /* ==================== Drug Repurposing Tab (EveryCure-style) ==================== */
+      // Expandable disclosure for a titled section on the candidate card.
+      const Disclosure = ({ title, icon, color, children, defaultOpen = false }) => {
+        const [open, setOpen] = useState(defaultOpen);
+        const accent = color || theme.accent;
+        return (
+          <div style={{
+            marginTop: '0.5rem',
+            borderRadius: 8,
+            border: `1px solid ${accent}33`,
+            background: `${accent}08`,
+            overflow: 'hidden'
+          }}>
+            <button onClick={() => setOpen(v => !v)} style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              padding: '0.55rem 0.8rem',
+              color: accent, fontSize: '0.82rem', fontWeight: 700, letterSpacing: 0.3
+            }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                {icon}{title}
+              </span>
+              {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+            {open && (
+              <div style={{
+                padding: '0 0.8rem 0.8rem',
+                fontSize: '0.88rem', lineHeight: 1.6, color: theme.text,
+                whiteSpace: 'pre-wrap'
+              }}>
+                {children}
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const RankBadge = ({ rank }) => (
+        <div style={{
+          width: 40, height: 40, borderRadius: 10,
+          background: `linear-gradient(135deg, ${theme.accent}aa, ${theme.accent}55)`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontWeight: 800, fontSize: '1.1rem', color: '#ffffff',
+          boxShadow: `0 2px 10px ${theme.accent}33`,
+          fontVariantNumeric: 'tabular-nums'
+        }}>
+          #{rank}
+        </div>
+      );
+
+      // Individual repurposing-candidate card. One per drug/supplement.
+      const CandidateCard = ({ c, rank }) => {
+        return (
+          <div style={{
+            padding: '1rem 1.1rem',
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0.02) 100%)',
+            borderRadius: 12,
+            border: `1px solid ${theme.border}`,
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+              background: `linear-gradient(90deg, ${theme.accent}, ${ratingColor(c.confidence_pct)})`
+            }} />
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.9rem' }}>
+              <RankBadge rank={rank} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '0.6rem' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1.15rem', color: theme.text }}>
+                    {c.candidate || '(unnamed candidate)'}
+                  </div>
+                  {c.class && (
+                    <div style={{ fontSize: '0.78rem', color: theme.textDim, fontStyle: 'italic' }}>
+                      {c.class}
+                    </div>
+                  )}
+                </div>
+                {c.approved_for && (
+                  <div style={{ fontSize: '0.78rem', color: theme.textDim, marginTop: 2 }}>
+                    Currently approved for: <span style={{ color: theme.text }}>{c.approved_for}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.55rem' }}>
+                  {c.evidence_strength && <EvidenceStrengthBadge value={c.evidence_strength} />}
+                  {c.mechanism_target && (
+                    <span title="Molecular target / pathway" style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                      padding: '0.25rem 0.65rem', borderRadius: 999, fontSize: '0.72rem',
+                      border: `1px solid ${theme.accent}55`, background: `${theme.accent}12`,
+                      color: theme.accent, fontWeight: 600
+                    }}>
+                      <Flask size={11} /> {String(c.mechanism_target).length > 80
+                        ? String(c.mechanism_target).slice(0, 77) + '…'
+                        : c.mechanism_target}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.5rem' }}>
+              <MeterBar label="Efficacy"   value={c.efficacy_hypothesis_pct} icon={<TrendingUp size={11} />} />
+              <MeterBar label="Safety"     value={c.safety_pct}              icon={<Shield size={11} />} />
+              <MeterBar label="Confidence" value={c.confidence_pct}          icon={<Award size={11} />} />
+            </div>
+
+            {c.repurpose_rationale && (
+              <Disclosure
+                title="Why it might help"
+                icon={<Lightbulb size={13} />}
+                color={theme.accent}
+                defaultOpen={true}
+              >
+                {c.repurpose_rationale}
+              </Disclosure>
+            )}
+            {c.supporting_evidence && (
+              <Disclosure
+                title="Supporting evidence"
+                icon={<Database size={13} />}
+                color={theme.green}
+              >
+                {c.supporting_evidence}
+              </Disclosure>
+            )}
+            {c.patient_specific_risks && (
+              <Disclosure
+                title="Risks for this patient specifically"
+                icon={<AlertTriangle size={13} />}
+                color={theme.yellow}
+                defaultOpen={true}
+              >
+                {c.patient_specific_risks}
+              </Disclosure>
+            )}
+            {c.how_to_discuss_with_doctor && (
+              <Disclosure
+                title="Questions to ask your doctor"
+                icon={<MessageCircle size={13} />}
+                color={theme.green}
+              >
+                {c.how_to_discuss_with_doctor}
+              </Disclosure>
+            )}
+          </div>
+        );
+      };
+
+      // EveryCure-style hero for the Repurposing tab. Big CTA, feature tiles,
+      // honest disclaimer, no clinical claim — this is hypothesis generation.
+      const RepurposeHero = ({ patient, busy, runResearch }) => {
+        const cond = patient?.condition?.trim() || 'this condition';
+        return (
+          <div style={{
+            ...panelStyle,
+            padding: '1.5rem',
+            background: `linear-gradient(135deg, ${theme.accent}18 0%, rgba(255,255,255,0.04) 60%)`,
+            borderColor: `${theme.accent}55`
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <Sparkles size={18} color={theme.accent} />
+              <span style={{
+                fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5,
+                color: theme.accent, textTransform: 'uppercase'
+              }}>
+                Drug Repurposing · mechanistic-reasoning approach
+              </span>
+            </div>
+            <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.5rem', lineHeight: 1.25, color: theme.text }}>
+              Existing drugs that <em style={{ color: theme.accent, fontStyle: 'normal' }}>might</em> already treat {cond}
+            </h2>
+            <p style={{ margin: '0 0 1rem', color: theme.textDim, fontSize: '0.92rem', lineHeight: 1.55, maxWidth: 780 }}>
+              The AI reasons like a senior medical-school professor guiding students through a
+              seminar: given the pathophysiology of {cond} and the known mechanisms of every
+              FDA-approved drug, which ones share a molecular pathway that <em>logically</em>
+              suggests they could help — even when no formal guideline endorses that use yet?
+              Each candidate reports mechanism, evidence strength on a 6-step ladder
+              (mechanistic hypothesis → large RCT), safety, confidence, and any interaction with
+              the medications in your patient profile.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1.1rem' }}>
+              {[
+                { icon: <Brain size={13} />,    label: 'First-principles mechanistic reasoning' },
+                { icon: <Database size={13} />, label: 'Evidence ladder per candidate' },
+                { icon: <Shield size={13} />,   label: 'Your-medications interaction check' },
+                { icon: <MessageCircle size={13} />, label: 'Physician-conversation script' }
+              ].map((f, i) => (
+                <span key={i} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                  padding: '0.3rem 0.7rem', borderRadius: 999,
+                  background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`,
+                  color: theme.textDim, fontSize: '0.76rem', fontWeight: 600
+                }}>
+                  <span style={{ color: theme.accent }}>{f.icon}</span>{f.label}
+                </span>
+              ))}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+              <button style={{ ...btn('primary', !!busy), padding: '0.75rem 1.2rem', fontSize: '0.95rem' }}
+                disabled={!!busy}
+                onClick={() => runResearch('repurpose')}>
+                {busy === 'repurpose'
+                  ? <><Loader size={16} className="spin" /> Reasoning across the drug library…</>
+                  : <><Sparkles size={16} /> Generate candidates for {cond}</>}
+              </button>
+              <span style={{ fontSize: '0.78rem', color: theme.yellow, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                <AlertTriangle size={13} /> Hypothesis generation only. Not a prescription.
+              </span>
+            </div>
+          </div>
+        );
+      };
+
+      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation }) => {
+        const [showRaw, setShowRaw] = useState(false);
+        const byStrength = {
+          LARGE_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 6).length,
+          SMALL_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 5).length,
+          OBSERVATIONAL:    candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 4).length,
+          CASE_REPORT:      candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 3).length,
+          PRECLINICAL:      candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 2).length,
+          MECHANISTIC_ONLY: candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 1).length
+        };
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <RepurposeHero patient={patient} busy={busy} runResearch={runResearch} />
+
+            <ValidatorPanel validation={validation} />
+
+            {candidates.length > 0 && (
+              <>
+                <div style={panelStyle}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
+                    <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem' }}>
+                      {candidates.length} candidate{candidates.length === 1 ? '' : 's'}
+                      <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem', marginLeft: '0.5rem' }}>
+                        · ranked by overall confidence
+                      </span>
+                    </h3>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
+                    {EVIDENCE_LADDER.slice().reverse().map(l => byStrength[l.key] ? (
+                      <span key={l.key} title={l.label} style={{
+                        padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.7rem',
+                        border: `1px solid ${l.color}66`, background: `${l.color}18`,
+                        color: l.color, fontWeight: 700
+                      }}>
+                        {byStrength[l.key]} × {l.label}
+                      </span>
+                    ) : null)}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  {candidates.map((c, i) => <CandidateCard key={i} c={c} rank={i + 1} />)}
+                </div>
+              </>
+            )}
+
+            {repurposeText && (
+              <div style={panelStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                  <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem' }}>Full reasoning narrative</h3>
+                  <button onClick={() => setShowRaw(v => !v)} style={{
+                    background: 'transparent', border: `1px solid ${theme.border}`,
+                    color: theme.textDim, padding: '0.3rem 0.7rem', borderRadius: 6,
+                    fontSize: '0.75rem', cursor: 'pointer'
+                  }}>
+                    {showRaw ? 'Hide' : 'Show'} raw
+                  </button>
+                </div>
+                {showRaw && (
+                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: '0.92rem', marginTop: '0.6rem', color: theme.textDim }}>
+                    {repurposeText}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      /* ==================== Records Audit Tab ==================== */
+      const RecordsTab = ({ patient, audience, busy, setBusy, recordsResult, setRecordsResult }) => {
+        const [records, setRecords] = useState('');
+        const [summary, setSummary] = useState('');
+
+        const runAudit = async () => {
+          if (!records.trim()) { alert('Paste the raw medical records first.'); return; }
+          setBusy('records');
+          try {
+            const res = await fetch('/api/records-audit', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                records, summary, condition: patient.condition || '', audience
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Audit failed');
+            setRecordsResult(data);
+          } catch (e) {
+            alert('Error: ' + e.message);
+          } finally {
+            setBusy(null);
+          }
+        };
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={panelStyle}>
+              <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ShieldCheck size={22} /> Medical Records Audit
+              </h2>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
+                Paste raw medical records (imaging reports, labs, office notes). Optionally paste a
+                summary or report (IME, doctor's letter). The auditor extracts every abnormal finding,
+                then flags anything <strong>omitted, downplayed, exaggerated, or unsupported</strong> in the summary.
+              </p>
+              <p style={{ color: '#f87171', fontSize: '0.85rem' }}>
+                ⚠ De-identify before pasting: remove name, DOB, MRN, address, phone, photos, face sheets.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <label style={labelStyle}>Raw medical records (required)</label>
+                  <textarea value={records} onChange={e => setRecords(e.target.value)}
+                    placeholder="Paste de-identified imaging reports, labs, consult notes, hospital records…"
+                    style={{ ...inputStyle, minHeight: 280, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Summary / report to check (optional)</label>
+                  <textarea value={summary} onChange={e => setSummary(e.target.value)}
+                    placeholder="Paste the summary letter, IME report, or discharge summary that you want checked for misrepresentation or omission."
+                    style={{ ...inputStyle, minHeight: 280, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
+                </div>
+              </div>
+              <div style={{ marginTop: '0.75rem' }}>
+                <button style={btn('primary', !!busy || !records.trim())}
+                  disabled={!!busy || !records.trim()} onClick={runAudit}>
+                  {busy === 'records' ? <><Loader size={16} className="spin" /> Auditing…</>
+                    : <><ShieldCheck size={16} /> Run Audit</>}
+                </button>
+              </div>
+            </div>
+
+            {recordsResult?.audit && <AuditResult audit={recordsResult.audit} />}
+            {recordsResult && !recordsResult.audit && recordsResult.raw && (
+              <div style={panelStyle}>
+                <h3 style={{ marginTop: 0, color: theme.yellow }}>Could not parse structured audit</h3>
+                <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem' }}>{recordsResult.raw}</div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const AuditResult = ({ audit }) => {
+        const findings = audit.abnormalFindings || [];
+        const color = (acc) => acc === 'accurate' ? theme.green
+          : acc === 'omitted' || acc === 'contradicted' ? theme.red
+          : acc === 'downplayed' || acc === 'exaggerated' ? theme.yellow
+          : theme.textDim;
+        return (
+          <div style={panelStyle}>
+            <h3 style={{ marginTop: 0, color: theme.accent }}>Audit result</h3>
+            <p style={{ fontSize: '0.95rem', lineHeight: 1.6 }}>{audit.overallAssessment}</p>
+            <div style={{ fontSize: '0.85rem', color: theme.textDim, marginBottom: '1rem' }}>
+              Confidence: <strong style={{ color: theme.text }}>{audit.confidence}</strong>
+              {audit.limitations ? <> · Limitations: {audit.limitations}</> : null}
+            </div>
+            <h4 style={{ color: theme.accent, fontSize: '0.95rem' }}>Findings ({findings.length})</h4>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {findings.map((f, i) => (
+                <div key={i} style={{
+                  padding: '0.75rem', background: 'rgba(255,255,255,0.04)',
+                  borderRadius: 8, borderLeft: `4px solid ${color(f.summaryAccuracy)}`
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <div style={{ fontWeight: 600 }}>{f.finding}</div>
+                    <div style={{ fontSize: '0.8rem', color: color(f.summaryAccuracy), textTransform: 'uppercase', fontWeight: 600 }}>
+                      {f.summaryAccuracy}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: theme.textDim, marginTop: 4 }}>
+                    From {f.source} · severity: {f.severity} · relevant: {f.relevantToCondition ? 'yes' : 'no'}
+                  </div>
+                  <div style={{ fontSize: '0.85rem', fontStyle: 'italic', marginTop: '0.4rem', color: theme.text }}>
+                    “{f.quote}”
+                  </div>
+                  {f.summaryQuote && (
+                    <div style={{ fontSize: '0.8rem', marginTop: '0.3rem', color: theme.textDim }}>
+                      Summary says: “{f.summaryQuote}”
+                    </div>
+                  )}
+                  {f.auditorNote && (
+                    <div style={{ fontSize: '0.85rem', marginTop: '0.4rem' }}>
+                      {f.auditorNote}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            {audit.unsupportedSummaryStatements?.length > 0 && (
+              <>
+                <h4 style={{ color: '#f87171', marginTop: '1rem' }}>Unsupported statements in the summary</h4>
+                {audit.unsupportedSummaryStatements.map((s, i) => (
+                  <div key={i} style={{ padding: '0.5rem 0.75rem', borderLeft: '3px solid #f87171', marginBottom: '0.5rem' }}>
+                    <div style={{ fontStyle: 'italic' }}>“{s.statement}”</div>
+                    <div style={{ fontSize: '0.8rem', color: theme.textDim }}>{s.issue}</div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        );
+      };
+
+      /* ==================== Comparison Chart Tab ==================== */
+      const ChartTab = ({ treatments, candidates }) => {
+        const exportCsv = () => {
+          const rows = [
+            ['Provider','Treatment','FDA Status','Length/Frequency','Efficacy %','Safety %','Risks','Interactions','Cost']
+          ];
+          treatments.forEach(t => rows.push([
+            t.provider||'', t.treatment||'', t.fda_status||'', t.length_frequency||'',
+            t.efficacy_pct||'', t.safety_pct||'', t.risks||'', t.interactions||'', t.cost||''
+          ]));
+          const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'treatment-comparison.csv';
+          a.click();
+        };
+        return (
+          <div style={panelStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <TrendingUp size={22} /> Treatment Comparison · best at top
+              </h2>
+              <button style={btn('ghost', treatments.length === 0)} disabled={treatments.length === 0} onClick={exportCsv}>
+                <Download size={16} /> Export CSV
+              </button>
+            </div>
+            <p style={{ color: theme.textDim, fontSize: '0.85rem' }}>
+              Efficacy and Safety are both rated 1–100 (higher is better on both). Ranked by efficacy.
+            </p>
+            {treatments.length === 0 && candidates.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2rem', color: theme.textDim }}>
+                No data yet. Run <strong>AI Research</strong> or <strong>Drug Repurposing</strong> first.
               </div>
             ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontSize: '0.85rem'
-                }}>
-                  <thead>
-                    <tr style={{
-                      background: 'rgba(74, 158, 255, 0.15)',
-                      borderBottom: '2px solid #4a9eff'
-                    }}>
-                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '180px' }}>Name and Contact of Clinic/Provider</th>
-                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '250px' }}>Treatment Description</th>
-                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '120px' }}>Length/Frequency</th>
-                      <th style={{ padding: '0.875rem', textAlign: 'center', color: '#4a9eff', fontWeight: 700, minWidth: '100px' }}>Efficacy</th>
-                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '200px' }}>Risks</th>
-                      <th style={{ padding: '0.875rem', textAlign: 'left', color: '#4a9eff', fontWeight: 700, minWidth: '120px' }}>Cost</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparisonData.map((treatment, idx) => {
-                      // Determine color coding based on efficacy
-                      let efficacyColor = '#6ee7b7'; // Green
-                      if (treatment.efficacy && treatment.efficacy < 70) efficacyColor = '#fbbf24'; // Yellow
-                      if (treatment.efficacy && treatment.efficacy < 40) efficacyColor = '#f87171'; // Red
+              <>
+                {treatments.length > 0 && <ComparisonTable rows={treatments} variant="treatment" />}
+                {candidates.length > 0 && (
+                  <>
+                    <h3 style={{ color: theme.accent, marginTop: '1.25rem', fontSize: '1rem' }}>
+                      Repurposing candidates (hypothesis)
+                    </h3>
+                    <ComparisonTable rows={candidates} variant="candidate" />
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        );
+      };
 
-                      return (
-                        <tr key={idx} style={{
-                          borderBottom: '1px solid rgba(74, 158, 255, 0.2)',
-                          transition: 'background 0.2s ease'
-                        }}>
-                          <td style={{ padding: '0.875rem', verticalAlign: 'top' }}>
-                            <div style={{
-                              fontSize: '0.9rem',
-                              fontWeight: 600,
-                              color: '#4a9eff',
-                              marginBottom: '0.25rem'
-                            }}>
-                              {treatment.provider || '-'}
-                            </div>
-                          </td>
-                          <td style={{ padding: '0.875rem', verticalAlign: 'top', lineHeight: '1.5' }}>
-                            {treatment.treatment || '-'}
-                          </td>
-                          <td style={{ padding: '0.875rem', verticalAlign: 'top' }}>
-                            {treatment.length || '-'}
-                          </td>
-                          <td style={{ padding: '0.875rem', textAlign: 'center', verticalAlign: 'top' }}>
-                            {treatment.efficacy ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                                <span style={{
-                                  fontWeight: 700,
-                                  fontSize: '1.1rem',
-                                  color: efficacyColor
-                                }}>
-                                  {treatment.efficacy}%
-                                </span>
-                                <div style={{
-                                  width: '60px',
-                                  height: '6px',
-                                  background: 'rgba(255, 255, 255, 0.1)',
-                                  borderRadius: '3px',
-                                  overflow: 'hidden'
-                                }}>
-                                  <div style={{
-                                    width: `${treatment.efficacy}%`,
-                                    height: '100%',
-                                    background: efficacyColor,
-                                    transition: 'width 0.5s ease'
-                                  }} />
-                                </div>
+      const ComparisonTable = ({ rows, variant }) => {
+        const cols = variant === 'treatment'
+          ? [
+              { k: 'provider',          h: 'Provider / Clinic',   w: 180 },
+              { k: 'treatment',         h: 'Treatment description', w: 260 },
+              { k: 'fda_status',        h: 'FDA status',          w: 120 },
+              { k: 'length_frequency',  h: 'Length / Freq',       w: 140 },
+              { k: 'efficacy_pct',      h: 'Efficacy',            w: 110, bar: true },
+              { k: 'safety_pct',        h: 'Safety',              w: 110, bar: true },
+              { k: 'risks',             h: 'Risks',               w: 220 },
+              { k: 'interactions',      h: 'Interactions',        w: 180 },
+              { k: 'cost',              h: 'Cost / Insurance',    w: 140 }
+            ]
+          : [
+              { k: 'candidate',                 h: 'Candidate',       w: 160 },
+              { k: 'class',                     h: 'Class',           w: 140 },
+              { k: 'approved_for',              h: 'Approved for',    w: 180 },
+              { k: 'repurpose_rationale',       h: 'Why it might help', w: 280 },
+              { k: 'efficacy_hypothesis_pct',   h: 'Hypothesized efficacy', w: 110, bar: true },
+              { k: 'safety_pct',                h: 'Safety',          w: 110, bar: true },
+              { k: 'patient_specific_risks',    h: 'Your-specific risks', w: 220 }
+            ];
+        return (
+          <div style={{ overflowX: 'auto', marginTop: '0.75rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+              <thead>
+                <tr style={{ background: 'rgba(74, 158, 255, 0.15)', borderBottom: `2px solid ${theme.accent}` }}>
+                  {cols.map(c => (
+                    <th key={c.k} style={{ padding: '0.6rem', textAlign: c.bar ? 'center' : 'left',
+                      color: theme.accent, fontWeight: 700, minWidth: c.w }}>{c.h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} style={{ borderBottom: `1px solid ${theme.border}`, verticalAlign: 'top' }}>
+                    {cols.map(c => {
+                      const v = r[c.k];
+                      if (c.bar) {
+                        const n = typeof v === 'number' ? v : null;
+                        const col = ratingColor(n);
+                        return (
+                          <td key={c.k} style={{ padding: '0.6rem', textAlign: 'center' }}>
+                            <div style={{ color: col, fontWeight: 700 }}>{n != null ? n + '%' : '—'}</div>
+                            {n != null && (
+                              <div style={{ width: 70, height: 5, background: 'rgba(255,255,255,0.1)',
+                                borderRadius: 3, margin: '4px auto 0', overflow: 'hidden' }}>
+                                <div style={{ width: `${n}%`, height: '100%', background: col }} />
                               </div>
-                            ) : '-'}
+                            )}
                           </td>
-                          <td style={{ padding: '0.875rem', verticalAlign: 'top', lineHeight: '1.5', fontSize: '0.85rem' }}>
-                            {treatment.risks || '-'}
-                          </td>
-                          <td style={{ padding: '0.875rem', verticalAlign: 'top', fontWeight: 600 }}>
-                            {treatment.cost || '-'}
-                          </td>
-                        </tr>
-                      );
+                        );
+                      }
+                      return <td key={c.k} style={{ padding: '0.6rem', lineHeight: 1.5 }}>{v || '—'}</td>;
                     })}
-                  </tbody>
-                </table>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      };
+
+      /* ==================== References Tab ==================== */
+      // Two sections now:
+      //   1. The grounded evidence pack that was fed to Claude — with per-source
+      //      access-level badges (full-text / abstract / metadata-only).
+      //   2. The raw URLs Claude's narrative emitted — parsed from its text.
+      const RefsTab = ({ references, evidencePack, evidenceSummary }) => {
+        const pubmedRefs = references.filter(r => r.url.includes('pubmed') || r.url.includes('doi.org'));
+        const trialRefs = references.filter(r => r.url.includes('clinicaltrials.gov'));
+        const otherRefs = references.filter(r => !pubmedRefs.includes(r) && !trialRefs.includes(r));
+        const Section = ({ title, items }) => items.length === 0 ? null : (
+          <div style={{ marginBottom: '1.25rem' }}>
+            <h3 style={{ color: theme.accent, fontSize: '1rem', marginBottom: '0.5rem' }}>{title} ({items.length})</h3>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {items.map((r, i) => (
+                <div key={i} style={{
+                  padding: '0.6rem 0.75rem', background: 'rgba(255,255,255,0.04)',
+                  borderRadius: 8, border: `1px solid ${theme.border}`
+                }}>
+                  <a href={r.url} target="_blank" rel="noopener"
+                    style={{ fontSize: '0.88rem', wordBreak: 'break-all' }}>
+                    {r.url}
+                  </a>
+                  {r.quote && <div style={{ fontSize: '0.85rem', fontStyle: 'italic', marginTop: '0.3rem', color: theme.textDim }}>
+                    “{r.quote}”
+                  </div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={panelStyle}>
+              <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Book size={22} /> References & Evidence Pack
+              </h2>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
+                Every source the AI was allowed to cite, with an honest badge showing how much of
+                each paper was actually read. Many high-impact medical journals are paywalled — we
+                legally pull whatever is available (full text for open-access papers; abstracts for
+                everything else) and the AI is prohibited from overreaching past what it saw.
+              </p>
+              {evidenceSummary?.accessBreakdown && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
+                  <AccessBadge level="full-text"     n={evidenceSummary.accessBreakdown['full-text']} />
+                  <AccessBadge level="abstract"      n={evidenceSummary.accessBreakdown['abstract']} />
+                  <AccessBadge level="metadata-only" n={evidenceSummary.accessBreakdown['metadata-only']} />
+                </div>
+              )}
+            </div>
+
+            {evidencePack && evidencePack.length > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>
+                  Grounded evidence pack ({evidencePack.length} sources)
+                </h3>
+                <div style={{ display: 'grid', gap: '0.5rem' }}>
+                  {evidencePack.slice(0, 40).map((p, i) => {
+                    const url = p.pmcUrl || p.pubmedUrl || p.doiUrl || p.oaUrl || p.landingUrl || p.europePmcUrl;
+                    const excerpt = (p.fullText || p.abstract || '').slice(0, 260);
+                    return (
+                      <div key={i} style={{
+                        padding: '0.75rem', background: 'rgba(255,255,255,0.04)',
+                        borderRadius: 8, border: `1px solid ${theme.border}`
+                      }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {p.isCuratedKB && <KBBadge category={p.category} />}
+                          <AccessBadge level={p.accessLevel || 'metadata-only'} />
+                          {p.journalTier && (
+                            <span style={{
+                              fontSize: '0.7rem', padding: '0.15rem 0.5rem',
+                              borderRadius: 4, background: 'rgba(74,158,255,0.15)',
+                              color: theme.accent, fontWeight: 600
+                            }}>Tier {p.journalTier}</span>
+                          )}
+                          {(p.sources || []).map((s) => (
+                            <span key={s} style={{
+                              fontSize: '0.7rem', padding: '0.15rem 0.5rem',
+                              borderRadius: 4, background: 'rgba(255,255,255,0.07)',
+                              color: theme.textDim
+                            }}>{s}</span>
+                          ))}
+                          {p.unpaywall && (
+                            <span title={`Legal OA copy via Unpaywall (${p.unpaywall.oaStatus}, ${p.unpaywall.version})`} style={{
+                              fontSize: '0.7rem', padding: '0.15rem 0.5rem',
+                              borderRadius: 4, background: 'rgba(110, 231, 183, 0.15)',
+                              color: theme.green, fontWeight: 600
+                            }}>OA via Unpaywall</span>
+                          )}
+                        </div>
+                        <div style={{ fontWeight: 600, marginTop: '0.4rem', fontSize: '0.92rem' }}>
+                          {p.title || '(untitled)'}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: theme.textDim, marginTop: 2 }}>
+                          {p.journal || 'Unknown journal'}{p.year ? ` · ${p.year}` : ''}
+                          {typeof p.citedByCount === 'number' ? ` · cited ${p.citedByCount}×` : ''}
+                          {p.authorLine ? ` · ${p.authorLine}` : ''}
+                        </div>
+                        {excerpt && (
+                          <div style={{
+                            fontSize: '0.82rem', color: theme.text, marginTop: '0.4rem',
+                            fontStyle: 'italic', lineHeight: 1.5
+                          }}>
+                            “{excerpt}{(p.fullText || p.abstract || '').length > 260 ? '…' : ''}”
+                          </div>
+                        )}
+                        {url && (
+                          <div style={{ marginTop: '0.4rem' }}>
+                            <a href={url} target="_blank" rel="noopener"
+                               style={{ fontSize: '0.82rem', wordBreak: 'break-all' }}>
+                              {url}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            <div style={{
-              marginTop: '2rem',
-              padding: '1rem',
-              background: 'rgba(74, 158, 255, 0.1)',
-              borderRadius: '8px',
-              border: '1px solid rgba(74, 158, 255, 0.3)'
-            }}>
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#4a9eff', fontSize: '1rem' }}>
-                Chart Key
+            <div style={panelStyle}>
+              <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>
+                URLs extracted from AI narrative
               </h3>
-              <ul style={{ margin: 0, paddingLeft: '1.5rem', color: '#a0c4d9', fontSize: '0.85rem', lineHeight: '1.8' }}>
-                <li><strong>Provider:</strong> Specific clinic or doctor name with contact information for direct inquiry</li>
-                <li><strong>Treatment Description:</strong> Detailed breakdown including what patient receives, product origin lab, amount/strength, and delivery method (IV, inhaled, oral, etc.)</li>
-                <li><strong>Efficacy:</strong> 1-100% rating based on peer-reviewed clinical outcomes. Green (70-100%) = highly effective, Yellow (40-69%) = moderately effective, Red (&lt;40%) = limited effectiveness</li>
-                <li><strong>Risks:</strong> Detailed safety concerns, side effects, and lab safety issues. For overseas providers, includes FDA warnings if applicable</li>
-                <li><strong>Cost:</strong> Treatment cost estimates and typical insurance coverage likelihood</li>
-                <li><strong>Ranking:</strong> Treatments are automatically sorted by efficacy (best options at top)</li>
-              </ul>
+              <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: 0 }}>
+                Every URL the AI emitted across all tabs, deduplicated. If one 404s, that is a red
+                flag — the Cross-AI Audit panel also independently re-checks these links.
+              </p>
+              {references.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '1.5rem', color: theme.textDim }}>
+                  No references yet. Run any research tab to populate this.
+                </div>
+              ) : (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <Section title="PubMed / DOI" items={pubmedRefs} />
+                  <Section title="ClinicalTrials.gov" items={trialRefs} />
+                  <Section title="Other" items={otherRefs} />
+                </div>
+              )}
             </div>
           </div>
-        )}
-      </div>
+        );
+      };
 
-      <style>{`
-        * {
-          box-sizing: border-box;
-        }
-        
-        input::placeholder,
-        textarea::placeholder {
-          color: rgba(160, 196, 217, 0.5);
-        }
-        
-        input:focus,
-        textarea:focus {
-          outline: none;
-          border-color: #4a9eff;
-          box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
-        }
-        
-        button:not(:disabled):hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
-        }
-        
-        button:not(:disabled):active {
-          transform: translateY(0);
-        }
-        
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        
-        .spin {
-          animation: spin 1s linear infinite;
-        }
-        
-        ::-webkit-scrollbar {
-          width: 10px;
-          height: 10px;
-        }
-        
-        ::-webkit-scrollbar-track {
-          background: rgba(15, 32, 39, 0.5);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-          background: rgba(74, 158, 255, 0.4);
-          border-radius: 5px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-          background: rgba(74, 158, 255, 0.6);
-        }
-        
-        tbody tr:hover {
-          background: rgba(74, 158, 255, 0.05);
-        }
-      `}</style>
-    </div>
-  );
-};
+      /* ==================== Footer ==================== */
+      const Footer = () => (
+        <footer style={{
+          maxWidth: 1400, margin: '0 auto', padding: '1.5rem 2rem 2.5rem',
+          color: theme.textDim, fontSize: '0.78rem'
+        }}>
+          <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '1rem', lineHeight: 1.65 }}>
+            <div style={{ marginBottom: '0.6rem' }}>
+              <strong>Medical decision-support research only.</strong> This tool is not medical advice
+              and does not create a doctor-patient relationship. All recommendations require review
+              by a licensed physician before any treatment decision is made. This prototype is not
+              HIPAA-compliant — do not enter personally identifying information.
+            </div>
+            <div style={{ color: theme.textDim, opacity: 0.85 }}>
+              <strong>Evidence sources:</strong> ClinicalTrials.gov v2 · NCBI PubMed · Europe PMC ·
+              OpenAlex · openFDA · Unpaywall · Cochrane Library · curated knowledge base.
+              <br />
+              <strong>AI layer:</strong> Anthropic Claude Sonnet generates analysis. Cross-AI audit by
+              Perplexity, OpenAI, or xAI independently re-checks every claim against the same
+              evidence pack (when configured).
+            </div>
+          </div>
+        </footer>
+      );
 
-        ReactDOM.render(<IPFResearchAssistant />, document.getElementById('root'));
+      ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
 </html>
