@@ -560,11 +560,13 @@
               <Tabs tab={tab} setTab={setTab} />
 
               {tab === 'profile' && <PatientTab patient={patient} setPatient={setPatient}
-                audience={audience} setAudience={setAudience} />}
+                audience={audience} setAudience={setAudience}
+                setTab={setTab} runResearch={runResearch} busy={busy} />}
               {tab === 'research' && <ResearchTab
                 patient={patient} busy={busy} runResearch={runResearch}
                 researchText={researchText} treatments={treatments}
                 validation={validations.research} evidenceSummary={evidenceSummary}
+                dossier={dossier}
                 chatHistory={chatHistory} userQuery={userQuery}
                 setUserQuery={setUserQuery} sendChat={sendChat} />}
               {tab === 'trials' && <TrialsTab
@@ -1000,19 +1002,37 @@
       };
 
       /* ==================== Patient Tab ==================== */
-      const PatientTab = ({ patient, setPatient, audience, setAudience }) => {
+      const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runResearch, busy }) => {
         const set = (k, v) => setPatient(p => ({ ...p, [k]: v }));
         const loadSample = (key) => {
           const s = SAMPLE_PATIENTS[key];
           if (!s) return;
           setPatient((_p) => ({ ...s.data }));
         };
+        const startResearch = () => {
+          if (!patient.condition?.trim()) {
+            alert('Please enter a Primary Condition first (e.g. "IPF", "Retinitis Pigmentosa", "ALS").');
+            return;
+          }
+          setTab && setTab('research');
+          setTimeout(() => runResearch && runResearch('research'), 50);
+        };
+        // `type` can be 'text' | 'number' | 'select'. Select fields also
+        // supply `options` (array of {value,label}). Most free-form clinical
+        // context stays as textarea so clinicians can paste from notes.
         const fields = [
           { k: 'condition',  l: 'Primary Condition to Research',   ta: false,
-            ph: 'e.g. Idiopathic Pulmonary Fibrosis, Glioblastoma, ALS…' },
+            ph: 'e.g. Idiopathic Pulmonary Fibrosis, Glioblastoma, ALS…', enterSubmits: true },
           { k: 'stage',      l: 'Stage of Disease (optional)',     ta: false, ph: 'e.g. GAP Stage II, metastatic' },
           { k: 'age',        l: 'Age',                              ta: false, ph: 'e.g. 65', type: 'number' },
-          { k: 'gender',     l: 'Gender',                           ta: false },
+          { k: 'gender',     l: 'Sex / Gender',                     ta: false, type: 'select',
+            options: [
+              { value: '',                 label: 'Select…' },
+              { value: 'Female',           label: 'Female' },
+              { value: 'Male',             label: 'Male' },
+              { value: 'Intersex',         label: 'Intersex' },
+              { value: 'Prefer not to say', label: 'Prefer not to say' }
+            ] },
           { k: 'weight',     l: 'Weight',                           ta: false, ph: 'e.g. 170 lb / 77 kg' },
           { k: 'smoking',    l: 'Smoking History',                  ta: false, ph: 'e.g. Former, 20 pack-years, quit 2015' },
           { k: 'exercise',   l: 'Exercise / Activity Level',        ta: false, ph: 'e.g. Walks 30 min daily' },
@@ -1074,16 +1094,61 @@
               {fields.map(f => (
                 <div key={f.k} style={{ display: 'flex', flexDirection: 'column' }}>
                   <label style={labelStyle}>{f.l}</label>
-                  {f.ta
-                    ? <textarea value={patient[f.k] || ''} placeholder={f.ph || ''}
-                        onChange={e => set(f.k, e.target.value)}
-                        style={{ ...inputStyle, minHeight: 90, resize: 'vertical' }} />
-                    : <input type={f.type || 'text'} value={patient[f.k] || ''} placeholder={f.ph || ''}
-                        onChange={e => set(f.k, e.target.value)} style={inputStyle} />
-                  }
+                  {f.ta ? (
+                    <textarea value={patient[f.k] || ''} placeholder={f.ph || ''}
+                      onChange={e => set(f.k, e.target.value)}
+                      style={{ ...inputStyle, minHeight: 90, resize: 'vertical' }} />
+                  ) : f.type === 'select' ? (
+                    <select value={patient[f.k] || ''}
+                      onChange={e => set(f.k, e.target.value)} style={inputStyle}>
+                      {f.options.map(o => (
+                        <option key={o.value} value={o.value} style={{ background: '#0b1f2a' }}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input type={f.type || 'text'} value={patient[f.k] || ''} placeholder={f.ph || ''}
+                      onChange={e => set(f.k, e.target.value)}
+                      onKeyDown={e => { if (f.enterSubmits && e.key === 'Enter' && !busy) { e.preventDefault(); startResearch(); } }}
+                      style={inputStyle} />
+                  )}
                 </div>
               ))}
             </div>
+
+            {/* Primary action: explicit submit so users aren't left wondering
+                how to kick off research after filling the form. Scrolling
+                target so the button is always visible at the bottom. */}
+            <div style={{
+              marginTop: '1.5rem', display: 'flex', gap: '0.75rem',
+              flexWrap: 'wrap', alignItems: 'center',
+              padding: '1rem', borderRadius: 10,
+              background: `linear-gradient(135deg, ${theme.accent}14 0%, rgba(110,231,183,0.08) 100%)`,
+              border: `1px solid ${theme.accent}44`
+            }}>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: theme.text, marginBottom: 2 }}>
+                  Ready when you are
+                </div>
+                <div style={{ fontSize: '0.82rem', color: theme.textDim }}>
+                  We'll pull live clinical trials, peer-reviewed evidence, and build a dossier for{' '}
+                  <strong style={{ color: theme.accent }}>
+                    {patient.condition?.trim() || '(enter a condition above)'}
+                  </strong>.
+                </div>
+              </div>
+              <button onClick={() => { setTab && setTab('research'); }} style={btn('ghost', !!busy)} disabled={!!busy}>
+                <Brain size={15} /> Go to Research
+              </button>
+              <button onClick={startResearch} disabled={!!busy || !patient.condition?.trim()}
+                style={{ ...btn('primary', !!busy || !patient.condition?.trim()), padding: '0.8rem 1.25rem', fontSize: '0.95rem' }}>
+                {busy === 'research'
+                  ? <><Loader size={16} className="spin" /> Researching…</>
+                  : <><Search size={16} /> Save &amp; Run Full Research</>}
+              </button>
+            </div>
+
             <AlertsSubscribeCard patient={patient} />
             <div style={{
               marginTop: '1.25rem', padding: '0.9rem', background: 'rgba(248, 113, 113, 0.1)',
@@ -2048,7 +2113,7 @@
 
       /* ==================== Research Tab ==================== */
       const ResearchTab = ({ patient, busy, runResearch, researchText, treatments,
-                              validation, evidenceSummary,
+                              validation, evidenceSummary, dossier,
                               chatHistory, userQuery, setUserQuery, sendChat }) => {
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
