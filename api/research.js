@@ -394,23 +394,26 @@ OUTPUT FORMATTING RULES (enforce strictly — the user has explicitly complained
 - For every card (treatment / trial / candidate), use the exact fixed-field structure. Do not add prose between fields.
 `;
 
-// Front-half sections (1-4): condition snapshot, centers & experts,
-// approved treatments (UI-parsed cards), clinical trials + access
-// programs. These are the "what the world currently offers this
-// patient" sections.
-const RESEARCH_PROMPT_FRONT = (patient, audience) => `You are a comprehensive medical research assistant. Produce SECTIONS 1-4 of a structured analysis for the patient's primary condition. Sections 5-8 will be produced by a separate call — do NOT write them now.
+// Front-half sections (1-3): condition snapshot, centers & experts,
+// approved treatments (UI-parsed cards). These are the "here is your
+// disease and what's available for it today" sections.
+// (Section 4 — clinical trials & access programs — was moved to the
+// BACK half because bundling trial sub-tables with 5 treatment cards
+// kept blowing through max_tokens; BACK had 1000 tokens of headroom
+// to absorb it.)
+const RESEARCH_PROMPT_FRONT = (patient, audience) => `You are a comprehensive medical research assistant. Produce SECTIONS 1-3 of a structured analysis for the patient's primary condition. Sections 4-8 will be produced by a separate call — do NOT write them now.
 
 ${audienceLine(audience)}
 
 PATIENT PROFILE:
 ${buildPatientContext(patient)}
 
-LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens):
-- Target ~600 output tokens (~450 words) per section across the 4 sections.
+LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens across 3 sections):
+- Target ~800 output tokens (~600 words) per section on average.
 - Dense bullets / tables. No paragraphs longer than 2 lines. No filler.
-- YOU MUST FINISH ALL 4 SECTIONS. If section 3 is running long, cut it shorter.
+- YOU MUST FINISH ALL 3 SECTIONS. If section 3 is running long, cut to 3 treatments (not 5).
 
-Your output MUST include the following 4 sections IN THIS ORDER, and nothing else. Do NOT add sections 5-8 — a separate call handles those.
+Your output MUST include the following 3 sections IN THIS ORDER, and nothing else. Do NOT add sections 4-8 — a separate call handles those.
 
 ## 1. Condition Snapshot
 - One-sentence definition.
@@ -441,6 +444,30 @@ INTERACTIONS: <named interactions vs this patient's meds, or "None identified">
 COST: <USD range, US insurance coverage note>
 REFERENCES: <2-3 URLs from the evidence pack, each with [ACCESS] tag>
 
+${FORMATTING_RULES}
+
+${SHARED_GUARDRAILS}`;
+
+// Back-half sections (4-8): clinical trials & access programs, drug
+// repurposing + pipeline, cell/gene, THIS patient's interaction &
+// access plan, red flags. These are the "here's how to get into a
+// trial, what to try, and what to avoid" sections — safety-critical
+// and personalised.
+const RESEARCH_PROMPT_BACK = (patient, audience) => `You are a comprehensive medical research assistant. Produce SECTIONS 4-8 of a structured analysis for the patient's primary condition. Sections 1-3 were produced by a previous call — do NOT repeat them. Start straight at section 4.
+
+${audienceLine(audience)}
+
+PATIENT PROFILE:
+${buildPatientContext(patient)}
+
+LENGTH BUDGET (HARD RULE — this call has ~2,500 output tokens across 5 sections):
+- Target ~500 output tokens (~375 words) per section on average. Section 4 (trials) may be larger; compensate by keeping 5-8 tighter.
+- Dense bullets / tables. No paragraphs longer than 2 lines. No filler.
+- YOU MUST FINISH ALL 5 SECTIONS. Sections 7-8 are safety-critical — do NOT starve them.
+- Begin your output with the "## 4." heading. Do NOT write any preamble.
+
+Your output MUST include the following 5 sections IN THIS ORDER, and nothing else.
+
 ## 4. Clinical Trials & Access Programs
 **This single section MUST cover ALL FOUR access pathways.** Pull directly from the LIVE CLINICAL TRIALS PULL block below.
 
@@ -453,29 +480,6 @@ REFERENCES: <2-3 URLs from the evidence pack, each with [ACCESS] tag>
 **C. Expanded Access / Compassionate Use:** For each EA record from the trials pull, one bullet: program name + NCT (or sponsor URL) · eligibility · how to apply · cost to patient. If none surfaced on CT.gov, check the dossier's landmarkTrials + your grounded knowledge for **industry-sponsored EAPs** (e.g. Ocugen's OCU400 for RP, lecanemab EAP for early AD). Name them with the sponsor-side URL and flag *"not listed on CT.gov — verify with sponsor."*
 
 **D. Pay-to-Access / Charitable:** Any paid post-trial access programs the patient should know about (e.g. the ~$40k tier some sponsors charge between trial completion and market launch). If you don't know of any, say so — do NOT invent programs.
-
-${FORMATTING_RULES}
-
-${SHARED_GUARDRAILS}`;
-
-// Back-half sections (5-8): drug repurposing + pipeline, cell/gene,
-// THIS patient's interaction & access plan, red flags. These are the
-// "what to do next / what to avoid" sections — safety-critical and
-// personalised.
-const RESEARCH_PROMPT_BACK = (patient, audience) => `You are a comprehensive medical research assistant. Produce SECTIONS 5-8 of a structured analysis for the patient's primary condition. Sections 1-4 were produced by a previous call — do NOT repeat them. Start straight at section 5.
-
-${audienceLine(audience)}
-
-PATIENT PROFILE:
-${buildPatientContext(patient)}
-
-LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens):
-- Target ~600 output tokens (~450 words) per section across the 4 sections.
-- Dense bullets / tables. No paragraphs longer than 2 lines. No filler.
-- YOU MUST FINISH ALL 4 SECTIONS. Sections 7-8 are safety-critical — do NOT starve them.
-- Begin your output with the "## 5." heading. Do NOT write any preamble.
-
-Your output MUST include the following 4 sections IN THIS ORDER, and nothing else.
 
 ## 5. Drug Repurposing + Pipeline Watch
 - **Repurposing teaser (2-3 candidates):** existing drugs/supplements with plausible mechanistic rationale. One line each. Point user to the dedicated Drug Repurposing tab for the full analysis.

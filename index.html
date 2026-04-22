@@ -542,7 +542,7 @@
               // hitting stop_reason=max_tokens mid-section. Repurpose
               // mode still runs a single synth call (its prompt is
               // smaller and the max_tokens budget is enough).
-              updateStep('synth', { status: 'running', detail: mode === 'research' ? 'Part 1/2: sections 1-4' : undefined });
+              updateStep('synth', { status: 'running', detail: mode === 'research' ? 'Part 1/2: condition, experts, treatments' : undefined });
               if (mode === 'research') {
                 // FRONT half: sections 1-4 (snapshot, centers,
                 // treatments, trials & access programs).
@@ -555,7 +555,7 @@
                   providedTrials: gathered.trials,
                   ...extra
                 });
-                updateStep('synth', { status: 'running', detail: 'Part 2/2: sections 5-8' });
+                updateStep('synth', { status: 'running', detail: 'Part 2/2: trials, access, patient plan, red flags' });
                 // BACK half: sections 5-8 (repurposing/pipeline,
                 // cell/gene, patient plan, red flags).
                 const back = await callResearch({
