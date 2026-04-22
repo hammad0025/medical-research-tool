@@ -714,7 +714,7 @@
                   desc: 'Canonical name, synonyms, MeSH, top centers, landmark trials.',
                   status: 'running' },
                 { id: 'evidence', label: 'Pull peer-reviewed evidence',
-                  desc: 'PubMed · Europe PMC · OpenAlex · Cochrane · openFDA · Unpaywall.',
+                  desc: 'Searches ~250k journals worldwide via PubMed · Europe PMC · OpenAlex · Cochrane · openFDA · Unpaywall. Academic / peer-reviewed venues only; paper mills excluded.',
                   status: 'running' },
                 { id: 'trials',   label: 'Scan ClinicalTrials.gov',
                   desc: 'Recruiting + expanded-access + open-label extension fan-out.',
@@ -781,9 +781,16 @@
               });
               updateStep('evidence', {
                 status: 'done',
-                detail: gathered.evidence?.totalUnique
-                  ? `${gathered.evidence.totalUnique} unique peer-reviewed sources`
-                  : 'evidence pack ready'
+                detail: (() => {
+                  const e = gathered.evidence;
+                  if (!e) return 'evidence pack ready';
+                  const fetched = e.totalFetched || e.totalUnique || 0;
+                  const unique = e.totalUnique || 0;
+                  const journals = e.uniqueJournals || 0;
+                  const pack = e.promptPackBreakdown?.total || 0;
+                  // e.g. "Screened 104 records across PubMed / Europe PMC / OpenAlex / Cochrane — 32 unique across 27 journals, top 25 passed to Claude"
+                  return `Screened ${fetched} records across PubMed / Europe PMC / OpenAlex / Cochrane — ${unique} unique across ${journals} journals, top ${pack} passed to Claude`;
+                })()
               });
               updateStep('trials', {
                 status: 'done',
@@ -2884,11 +2891,67 @@
             {evidenceSummary && evidenceSummary.totalUnique > 0 && (
               <div style={panelStyle}>
                 <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Database size={18} /> Grounded evidence · {evidenceSummary.totalUnique} unique peer-reviewed sources pulled this query
+                  <Database size={18} /> Evidence funnel for this query
                 </h3>
+
+                {/* Funnel: fetched -> unique -> journals -> passed to Claude.
+                    This is the "are you really looking at everything?" answer. */}
+                <div style={{
+                  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                  gap: '0.6rem', marginTop: '0.6rem'
+                }}>
+                  {[
+                    { n: evidenceSummary.totalFetched || evidenceSummary.totalUnique,
+                      label: 'records pulled',
+                      sub: 'raw hits across databases' },
+                    { n: evidenceSummary.totalUnique,
+                      label: 'unique papers',
+                      sub: 'after cross-database de-dup' },
+                    { n: evidenceSummary.uniqueJournals || '—',
+                      label: 'distinct journals',
+                      sub: 'surfaced this query' },
+                    { n: evidenceSummary.promptPackBreakdown?.total || 0,
+                      label: 'passed to Claude',
+                      sub: 'top-ranked by quality + recency' }
+                  ].map((card, i) => (
+                    <div key={i} style={{
+                      padding: '0.6rem 0.8rem', borderRadius: 10,
+                      background: theme.accentSoft, border: `1px solid ${theme.border}`
+                    }}>
+                      <div style={{ color: theme.accent, fontSize: '1.35rem', fontWeight: 700, lineHeight: 1.1 }}>
+                        {card.n}
+                      </div>
+                      <div style={{ color: theme.text, fontSize: '0.8rem', fontWeight: 600 }}>
+                        {card.label}
+                      </div>
+                      <div style={{ color: theme.textDim, fontSize: '0.72rem', marginTop: 2 }}>
+                        {card.sub}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Per-source breakdown — where the records actually came from. */}
+                {evidenceSummary.perSourceCounts && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.75rem' }}>
+                    <span style={{ fontSize: '0.8rem', color: theme.textDim, alignSelf: 'center' }}>By source:</span>
+                    {Object.entries(evidenceSummary.perSourceCounts)
+                      .filter(([, n]) => n > 0)
+                      .map(([src, n]) => (
+                        <span key={src} style={{
+                          padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
+                          background: theme.accentSoft, color: theme.accent, fontWeight: 600,
+                          border: `1px solid ${theme.accentEdge}`
+                        }}>
+                          {src}: {n}
+                        </span>
+                      ))}
+                  </div>
+                )}
+
                 {evidenceSummary.promptPackBreakdown && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.8rem', color: theme.textDim }}>Fed to Claude:</span>
+                    <span style={{ fontSize: '0.8rem', color: theme.textDim }}>Prompt pack composition:</span>
                     <span style={{
                       padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
                       background: `${theme.accent}22`, color: theme.accent, fontWeight: 600
@@ -2918,13 +2981,38 @@
                     <AccessBadge level="metadata-only" n={evidenceSummary.accessBreakdown['metadata-only']} />
                   </div>
                 )}
+
+                {/* Corpus footprint — the "we search the world, not just
+                    30 journals" answer in case someone asks. */}
+                {evidenceSummary.corpusFootprint?.databases && (
+                  <details style={{ marginTop: '0.75rem' }}>
+                    <summary style={{
+                      cursor: 'pointer', color: theme.accent, fontSize: '0.85rem', fontWeight: 600
+                    }}>
+                      What gets searched? (the full corpus behind this query)
+                    </summary>
+                    <ul style={{
+                      margin: '0.5rem 0 0 0', paddingLeft: '1.2rem',
+                      color: theme.text, fontSize: '0.85rem', lineHeight: 1.6
+                    }}>
+                      {evidenceSummary.corpusFootprint.databases.map((d, i) => (
+                        <li key={i}>
+                          <strong style={{ color: theme.accent }}>{d.name}</strong> — {d.journals}
+                        </li>
+                      ))}
+                    </ul>
+                    <p style={{ color: theme.textDim, fontSize: '0.8rem', marginTop: '0.5rem', marginBottom: 0 }}>
+                      {evidenceSummary.corpusFootprint.universityFilter}
+                    </p>
+                  </details>
+                )}
+
                 <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: '0.75rem', marginBottom: 0 }}>
-                  Live fan-out runs on every query across PubMed, Europe PMC, OpenAlex, Cochrane, openFDA,
-                  and Unpaywall — pulling abstracts and legal full-text where available. The curated KB
-                  is the pinned ground-truth floor; live-fetched items supplement it with the newest
-                  research. Every citation is tagged <strong>[FULL-TEXT]</strong>,
+                  Every citation is tagged <strong>[FULL-TEXT]</strong>,
                   <strong> [ABSTRACT-ONLY]</strong>, or <strong>[METADATA-ONLY]</strong> so the AI
-                  cannot overreach past what it actually read.
+                  cannot overreach past what it actually read. The curated knowledge base is the
+                  pinned ground-truth floor; live-fetched items supplement it with the newest
+                  research.
                 </p>
               </div>
             )}

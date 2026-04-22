@@ -51,11 +51,19 @@ const throttledFanOut = async (handler, bodies, chunkSize = 2, gapMs = 400) => {
 };
 
 // Journal quality tiers for "weight evidence by reputable publications"
+// Journal quality tiers for "weight evidence by reputable publications."
+// Tiering is based on editorial rigour, impact factor, and indexing in major
+// services — NOT country of publication. We explicitly include well-regarded
+// Asian (incl. Chinese) journals at the tier their impact factor warrants,
+// per the 2026-04 policy change against country-of-origin weighting.
 const journalTier = (name = '') => {
   const n = String(name).toLowerCase();
   if (!n) return 'C';
   if (/(new england journal of medicine|\blancet\b|^jama$|^bmj$|nature medicine|^nature$|^cell$|^science$|annals of internal medicine|cochrane database of systematic reviews)/.test(n)) return 'A+';
   if (/(^jama |^lancet |^nature |european respiratory journal|american journal of respiratory|thorax|^chest$|circulation|european heart journal|^gut$|kidney international|^blood$|diabetes care)/.test(n)) return 'A';
+  // Reputable Asian/Chinese medical journals — IF-justified A/B tier.
+  if (/(chinese medical journal$|chinese medical journal \(|national science review|^cell research$|signal transduction and targeted therapy|bone research|cell discovery|^ebiomedicine$)/.test(n)) return 'A';
+  if (/(chinese journal of cancer|chinese journal of integrative medicine|journal of thoracic disease|journal of (genetics and genomics|molecular cell biology)|asian journal of |korean journal of |japanese journal of |acta pharmacologica sinica)/.test(n)) return 'B';
   if (/(journal of |respir|pulmonology|clinical|\bmedicine\b)/.test(n)) return 'B';
   return 'C';
 };
@@ -88,8 +96,13 @@ const PREDATORY_PUBLISHERS = [
 ];
 const LOW_INTEGRITY_PUBLISHERS = [
   /^mdpi$/i,                // paper-mill concerns + guest-editor issues
-  /^frontiers /i,           // lower bar than specialty journals; not all equal
-  /^wolters kluwer medknow/i // host of many low-IF Indian/SEA titles
+  /^frontiers /i            // lower bar than specialty journals; not all equal
+  // NOTE 2026-04: removed `wolters kluwer medknow`. Medknow hosts many
+  // reputable regional-society journals (including Chinese Medical Journal,
+  // the flagship of the Chinese Medical Association, IF ~6). Publisher-level
+  // penalty was effectively a country/region proxy. Per Dorothy's policy
+  // (no country weighting) we now judge Medknow titles on journal-tier and
+  // individual retraction history rather than publisher identity.
 ];
 export const isPredatoryPublisher = (p) => PREDATORY_PUBLISHERS.some((r) => r.test(p || ''));
 export const isLowIntegrityPublisher = (p) => LOW_INTEGRITY_PUBLISHERS.some((r) => r.test(p || ''));
@@ -279,6 +292,24 @@ export default async function handler(req, res) {
     const oa = oaRes.flatMap((r) => r.body?.articles || []);
     const cochrane = (cochRes.body?.articles || []).map((a) => ({ ...a, source: 'Cochrane' }));
 
+    // Per-source raw (pre-dedup) counts. We surface these so the UI can
+    // honestly tell the user "we pulled 104 records from 4 corpora, which
+    // de-duplicated to 32 unique papers" — instead of the misleading "30
+    // sources" framing that sounds like we only looked at 30 journals.
+    const perSourceCounts = {
+      PubMed: pm.length,
+      EuropePMC: epmc.length,
+      OpenAlex: oa.length,
+      Cochrane: cochrane.length,
+      CuratedKB: (kb.items || []).length
+    };
+    const totalFetched =
+      perSourceCounts.PubMed +
+      perSourceCounts.EuropePMC +
+      perSourceCounts.OpenAlex +
+      perSourceCounts.Cochrane +
+      perSourceCounts.CuratedKB;
+
     // Curated KB items come pre-tagged with tier/abstract; they merge-dedupe
     // against live results by DOI / PMID so we don't double-list a landmark RCT
     // that PubMed also returned.
@@ -430,6 +461,31 @@ export default async function handler(req, res) {
       countryCounts
     };
 
+    // Distinct journals touched in this query (after dedup). Useful as a
+    // breadth signal for the UI: "pulled from 27 different journals" reads
+    // very differently from "pulled 30 papers".
+    const uniqueJournals = new Set(
+      merged
+        .map((a) => (a.journal || '').trim().toLowerCase())
+        .filter(Boolean)
+    ).size;
+
+    // Corpus footprint — a static description of the universe we search
+    // across. These numbers are published facts about the upstream APIs, not
+    // per-query counts. We surface them so the UI can explain to users /
+    // stakeholders "yes, your query actually went against this entire pool."
+    const corpusFootprint = {
+      databases: [
+        { name: 'PubMed / MEDLINE', journals: '~5,200 indexed journals, ~36M citations' },
+        { name: 'Europe PMC',       journals: '~40M articles + preprints, open-access full text' },
+        { name: 'OpenAlex',         journals: '~250,000 journals, ~250M works (global)' },
+        { name: 'Cochrane Library', journals: 'gold-standard systematic reviews' },
+        { name: 'openFDA',          journals: 'FDA labels + adverse-event reports' },
+        { name: 'Curated KB',       journals: 'hand-curated landmark trials & guidelines' }
+      ],
+      universityFilter: 'Journal-tier filter + predatory-publisher blacklist select for peer-reviewed academic publications. Preprints are flagged but allowed. Paper-mill and pay-to-publish venues are down-weighted or excluded.'
+    };
+
     return res.status(200).json({
       condition: coreQuery,
       dossier: {
@@ -446,6 +502,10 @@ export default async function handler(req, res) {
         landmarkTrials: dossier.landmarkTrials || []
       },
       totalUnique: merged.length,
+      totalFetched,
+      perSourceCounts,
+      uniqueJournals,
+      corpusFootprint,
       accessBreakdown,
       promptPackBreakdown,
       qualityBreakdown,

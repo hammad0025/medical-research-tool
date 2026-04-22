@@ -421,6 +421,35 @@ const info = (msg) => console.log(`  ${msg}`);
     ? pass('countryAdjustment: US → 0 (country weighting disabled)')
     : fail('countryAdjustment: US should return 0, weighting is disabled');
 
+  // Regression: Chinese Medical Journal (flagship CMA journal, IF ~6) must
+  // NOT be penalised as "low-integrity publisher" via its Medknow imprint,
+  // and must be tiered on its impact-factor merits, not its country.
+  const cmjPaper = {
+    source: 'SyntheticTest',
+    id: 'test:cmj-1',
+    doi: '10.9999/cmj-test',
+    pmid: '99999005',
+    title: 'Reputable paper in Chinese Medical Journal',
+    journal: 'Chinese Medical Journal',
+    publisher: 'Wolters Kluwer Medknow',
+    year: 2024,
+    abstract: 'Methodologically sound study published in the flagship journal of the Chinese Medical Association.',
+    isRetracted: false,
+    isRCT: true,
+    citedByCount: 40,
+    countries: ['CN'],
+    firstAuthorCountry: 'CN'
+  };
+  const cmjFlags = computeQualityFlags(cmjPaper);
+  !cmjFlags.some((f) => f.key === 'low-integrity-publisher')
+    ? pass('Chinese Medical Journal / Medknow: no low-integrity-publisher flag (Medknow removed from LOW_INTEGRITY list)')
+    : fail('Chinese Medical Journal / Medknow is still being flagged as low-integrity publisher — should be removed');
+  const cmjScore = scoreArticle(cmjPaper);
+  const generalMedScore = scoreArticle({ ...cmjPaper, journal: 'Journal of General Medicine', publisher: 'Elsevier' });
+  cmjScore >= generalMedScore - 5
+    ? pass(`Chinese Medical Journal scored ${cmjScore} ≳ generic B-tier ${generalMedScore} (tier-aware, no country/publisher bias)`)
+    : fail(`Chinese Medical Journal scored ${cmjScore} but generic B-tier scored ${generalMedScore} — CMJ is being unfairly penalised`);
+
   const retractedFlags = computeQualityFlags(retractedSynthetic);
   retractedFlags.some((f) => f.key === 'retracted' && f.severity === 'critical')
     ? pass('computeQualityFlags: retracted → critical severity')
