@@ -16,6 +16,12 @@
     <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
+      /* Base font size bumped from the browser default 16px to 17.5px
+         because the primary user is 80+ with glasses and IPF. This
+         scales everything rem-based in the app (panel text, buttons,
+         labels) up ~10% uniformly, and individual rules below further
+         bump the rendered-markdown analysis since that's the main read. */
+      html { font-size: 17.5px; }
       body { margin: 0; }
       * { box-sizing: border-box; }
       input::placeholder, textarea::placeholder { color: rgba(160, 196, 217, 0.5); }
@@ -42,15 +48,18 @@
          headings (## 1. ...), tables, bullets, bold, links. Without these
          styles the browser defaults would look like raw HTML test-page —
          these rules make the output look like a real clinical report. */
-      .mrt-markdown { line-height: 1.65; font-size: 0.96rem; color: #dfeaff; }
-      .mrt-markdown h1 { font-size: 1.5rem; color: #9fd4ff; border-bottom: 1px solid rgba(74, 158, 255, 0.2); padding-bottom: 0.35rem; margin: 1.5rem 0 0.8rem; }
-      .mrt-markdown h2 { font-size: 1.25rem; color: #9fd4ff; margin: 1.6rem 0 0.6rem; padding-top: 0.5rem; border-top: 1px solid rgba(74, 158, 255, 0.12); }
+      /* Analysis body text sized for a 80+ reader with glasses: ~20px
+         at the base root of 17.5px. Generous line-height too, so long
+         paragraphs don't crowd. */
+      .mrt-markdown { line-height: 1.7; font-size: 1.15rem; color: #e4edff; }
+      .mrt-markdown h1 { font-size: 1.75rem; color: #9fd4ff; border-bottom: 1px solid rgba(74, 158, 255, 0.2); padding-bottom: 0.35rem; margin: 1.6rem 0 0.9rem; }
+      .mrt-markdown h2 { font-size: 1.45rem; color: #9fd4ff; margin: 1.7rem 0 0.7rem; padding-top: 0.6rem; border-top: 1px solid rgba(74, 158, 255, 0.12); }
       .mrt-markdown h2:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
-      .mrt-markdown h3 { font-size: 1.05rem; color: #b6dbff; margin: 1.1rem 0 0.45rem; }
-      .mrt-markdown h4 { font-size: 0.95rem; color: #b6dbff; margin: 0.8rem 0 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
-      .mrt-markdown p  { margin: 0 0 0.7rem; }
-      .mrt-markdown ul, .mrt-markdown ol { margin: 0.2rem 0 0.9rem 1.2rem; padding: 0; }
-      .mrt-markdown li { margin: 0.2rem 0; }
+      .mrt-markdown h3 { font-size: 1.2rem; color: #b6dbff; margin: 1.2rem 0 0.5rem; }
+      .mrt-markdown h4 { font-size: 1.05rem; color: #b6dbff; margin: 0.9rem 0 0.4rem; text-transform: uppercase; letter-spacing: 0.04em; }
+      .mrt-markdown p  { margin: 0 0 0.8rem; }
+      .mrt-markdown ul, .mrt-markdown ol { margin: 0.3rem 0 1rem 1.4rem; padding: 0; }
+      .mrt-markdown li { margin: 0.3rem 0; }
       .mrt-markdown strong { color: #f2f8ff; font-weight: 700; }
       .mrt-markdown em { color: #cde2ff; }
       .mrt-markdown a { color: #6ec1ff; text-decoration: none; border-bottom: 1px dashed rgba(110, 193, 255, 0.4); }
@@ -59,9 +68,9 @@
       .mrt-markdown pre { background: rgba(9, 20, 30, 0.6); border: 1px solid rgba(74, 158, 255, 0.15); padding: 0.75rem 0.9rem; border-radius: 6px; overflow-x: auto; }
       .mrt-markdown pre code { background: transparent; padding: 0; }
       .mrt-markdown blockquote { border-left: 3px solid rgba(74, 158, 255, 0.45); margin: 0.5rem 0; padding: 0.1rem 0.9rem; color: #bcd6f5; background: rgba(74, 158, 255, 0.05); }
-      .mrt-markdown table { width: 100%; border-collapse: collapse; margin: 0.7rem 0 1rem; font-size: 0.88rem; }
-      .mrt-markdown th, .mrt-markdown td { border: 1px solid rgba(74, 158, 255, 0.2); padding: 0.45rem 0.65rem; text-align: left; vertical-align: top; }
-      .mrt-markdown th { background: rgba(74, 158, 255, 0.1); color: #cde2ff; font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; }
+      .mrt-markdown table { width: 100%; border-collapse: collapse; margin: 0.8rem 0 1.1rem; font-size: 1rem; }
+      .mrt-markdown th, .mrt-markdown td { border: 1px solid rgba(74, 158, 255, 0.2); padding: 0.55rem 0.75rem; text-align: left; vertical-align: top; }
+      .mrt-markdown th { background: rgba(74, 158, 255, 0.1); color: #cde2ff; font-weight: 600; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.03em; }
       .mrt-markdown tr:nth-child(even) td { background: rgba(15, 32, 39, 0.4); }
       .mrt-markdown hr { border: 0; border-top: 1px solid rgba(74, 158, 255, 0.18); margin: 1.5rem 0; }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
