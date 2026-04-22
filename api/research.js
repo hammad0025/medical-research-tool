@@ -28,7 +28,15 @@ import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
 
 const MODEL = 'claude-sonnet-4-20250514';
-const MAX_TOKENS = 8000;
+// Vercel Hobby has a hard 60s serverless timeout. A full research pass is
+// dossier (cached → 0s, cold → 10s) + evidence fan-out (~12s) + trials
+// (~6s) + Claude generation (~20 tokens/s output). At 8000 max_tokens
+// Claude alone can burn 40–55s of generation, which pushes the whole
+// pipeline past 60s and the user sees a confusing timeout page. 4500
+// tokens is still enough for the 16-section structured analysis (we
+// measured ~3.2k output tokens on a typical IPF / RP run) and leaves a
+// comfortable budget for the fan-out.
+const MAX_TOKENS = 4500;
 
 const invokeInProcess = async (handler, body) => {
   let captured = { status: 200, body: null };
@@ -629,13 +637,20 @@ export default async function handler(req, res) {
       const drugs = (patient.medications || '')
         .split(/[,;\n]/).map((s) => s.trim().split(/\s+/)[0]).filter(Boolean).slice(0, 6);
 
+      // Budgets tuned for the 60s Vercel cap. `limitPerSource` used to be 5
+      // and trials `pageSize` 60 — that produced >80 evidence items and >200
+      // trial blobs which the grounding formatter had to serialise into the
+      // Claude prompt, and every extra item chews a few extra ms on the
+      // wire and a few more tokens on Claude's generation. 3 + 30 gives us
+      // still-dense coverage (the dossier + KB fill in the gaps) while
+      // letting the whole pipeline finish under the deadline.
       const [evidenceResult, trialsResult] = await Promise.all([
         invokeEvidence({
           condition: effectiveCondition,
           treatments: ['treatment', 'clinical trial', 'systematic review', 'meta-analysis'],
           drugs,
           manufacturers: [],
-          limitPerSource: 5,
+          limitPerSource: 3,
           includeFullText: true,
           dossier
         }),
@@ -643,7 +658,7 @@ export default async function handler(req, res) {
           condition: effectiveCondition,
           recruitingOnly: false,
           treatmentOnly: true,
-          pageSize: 60,
+          pageSize: 30,
           dossier
         })
       ]);
