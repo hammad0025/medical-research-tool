@@ -401,99 +401,79 @@ ${audienceLine(audience)}
 PATIENT PROFILE:
 ${buildPatientContext(patient)}
 
-LENGTH BUDGET (HARD RULE — we run on a 60-second serverless slot, so you MUST fit in ~2,000 words total):
-- Aim for ~125-150 words per section. Dense bullets, not paragraphs.
-- Inapplicable sections: write the heading + "N/A for this condition — <one-line reason>" and move on. Do NOT pad.
-- Finish all sections. Truncating mid-section is a failure; cut words elsewhere first.
+LENGTH BUDGET (HARD RULE — Vercel serverless gives us ~45s of Claude generation which is ~2,500 output tokens. Going over truncates mid-sentence, which is worse than a shorter but complete answer):
+- You have exactly 8 sections below. Target ~300 output tokens (~220 words) per section.
+- Dense bullets / tables. No paragraphs longer than 2 lines.
+- Inapplicable sections: heading + "**N/A for this condition** — <one-line reason>" and move on. Do NOT pad.
+- YOU MUST FINISH ALL 8 SECTIONS. If you feel yourself running long in section 3, cut section 3 shorter — do NOT starve sections 6-8.
 
-Your output MUST include ALL of the following sections IN THIS ORDER. Missing a section is a failure.
+Your output MUST include ALL of the following 8 sections IN THIS ORDER. Missing a section is a failure.
 
 ## 1. Condition Snapshot
 - One-sentence definition.
 - Prevalence / incidence (from evidence pack or dossier).
 - Typical trajectory if untreated.
-- Primary medical specialty to see (from dossier).
+- Primary medical specialty (from dossier) + one or two named top experts.
 - Disease-dossier uncertainty score if > 0.5 (be transparent about AI confidence).
 
 ## 2. Top Centers & Experts Worldwide
-**Use the disease dossier's topCenters and keyInvestigators as your starting list.** Add to or correct them with grounded evidence. Present as a markdown table:
+**Use the disease dossier's topCenters + keyInvestigators as your starting list.** Correct/extend from grounded evidence. Present as a markdown table:
 
-| Center | City | Phone / URL | Why it leads |
+| Center | City | URL / Phone | Why it leads |
 |---|---|---|---|
 
-Then list 3–6 individual **named experts** with affiliations.
-Do NOT lead with clinic self-advertising. Peer-recognised only.
+Then list 3–5 individual **named experts** with affiliations. Peer-recognised only — no clinic self-advertising.
 
 ## 3. Approved Treatments (Standard of Care)
-Ranked by evidence strength, best first. For EACH treatment output this EXACT card structure (the UI parses these fields):
+Ranked by evidence strength, best first. Include the 3-5 most important treatments only. For EACH output this EXACT card structure (the UI parses these fields):
 
-PROVIDER: <specific doctor / clinic / manufacturer with phone or URL>
+PROVIDER: <doctor / clinic / manufacturer with phone or URL>
 TREATMENT: <drug / biologic / device / surgery; include dose, strength, route>
 FDA_STATUS: <approved | off-label | investigational | expanded access | compassionate use | not FDA regulated>
 LENGTH_FREQUENCY: <duration + frequency>
 EFFICACY: <1-100>% — <one-line justification with grounded citation>
 SAFETY: <1-100>% — <higher = safer, one-line justification>
-RISKS: <serious AEs, contraindications, THIS patient's risk given meds/comorbidities>
+RISKS: <serious AEs + THIS patient's risk given meds/comorbidities>
 INTERACTIONS: <named interactions vs this patient's meds, or "None identified">
-COST: <USD range, note US insurance coverage>
-REFERENCES: <semicolon-separated URLs from the evidence pack, each with [ACCESS] tag and quoted passage>
+COST: <USD range, US insurance coverage note>
+REFERENCES: <2-3 URLs from the evidence pack, each with [ACCESS] tag>
 
-## 4. Recruiting Clinical Trials (Top 5–8)
-Pull directly from the LIVE CLINICAL TRIALS PULL block below. Use a markdown table:
+## 4. Clinical Trials & Access Programs
+**This single section MUST cover ALL FOUR access pathways.** Pull directly from the LIVE CLINICAL TRIALS PULL block below.
 
-| **NCT ID** | Phase | Trial Title | Top Center? | Accepting? | Placebo? | URL |
-|---|---|---|---|---|---|---|
+**A. Recruiting trials (top 5):** Markdown table —
+| NCT ID | Phase | Title | Top Center? | Accepting? | URL |
+|---|---|---|---|---|---|
 
-Follow with a one-line "fit for this patient" note per trial.
+**B. Open-Label Extension (OLE) studies:** For each OLE trial flagged in the pull, one line: NCT, parent trial, sponsor, closest open site. If none surfaced, say so AND tell the user: *"Patients in any Phase 2/3 should ask their PI whether an OLE is planned — most multi-year programs have one even before it lists on CT.gov."*
 
-## 5. Open-Label Extension (OLE) Studies
-**This is a mandatory section.** These are the trials that let patients who were already in a prior study keep getting the drug. Often the ONLY way to get access to an experimental therapy long-term.
+**C. Expanded Access / Compassionate Use:** For each EA record from the trials pull, one bullet: program name + NCT (or sponsor URL) · eligibility · how to apply · cost to patient. If none surfaced on CT.gov, check the dossier's landmarkTrials + your grounded knowledge for **industry-sponsored EAPs** (e.g. Ocugen's OCU400 for RP, lecanemab EAP for early AD). Name them with the sponsor-side URL and flag *"not listed on CT.gov — verify with sponsor."*
 
-For each OLE trial (from the LIVE TRIALS PULL, section flagged "OPEN-LABEL EXTENSION STUDIES"), list NCT, parent trial, sponsor, site count, and the closest open site.
+**D. Pay-to-Access / Charitable:** Any paid post-trial access programs the patient should know about (e.g. the ~$40k tier some sponsors charge between trial completion and market launch). If you don't know of any, say so — do NOT invent programs.
 
-If the trials pull returned NO open-label extensions, say so explicitly AND tell the user: "Patients currently in any Phase 2/3 for this condition should ask their investigator whether an OLE is planned — most sponsors build one even before it lists on CT.gov."
+## 5. Drug Repurposing + Pipeline Watch
+- **Repurposing teaser (2-3 candidates):** existing drugs/supplements with plausible mechanistic rationale. One line each. Point user to the dedicated Drug Repurposing tab for the full analysis.
+- **Pipeline watch (2-3 early-phase programs):** Phase 1/2 worth watching, with NCT IDs and rough timeline-to-possible-approval.
 
-## 6. Expanded Access / Compassionate Use Programs
-**This is a mandatory section.** FDA's pathway for patients who don't qualify for trials to get experimental drugs. For each expanded-access record from the trials pull:
+## 6. Cell, Gene & Advanced Therapies
+*If not applicable: one line "**N/A** — no active cell/gene therapy program for this condition."*
+- **Stem cell:** reputable US / W. Europe labs only. Cell type · source lab · route · **FDA warning-letter status**. Exclude China / Vietnam / Mexico / India clinics by default.
+- **Gene therapy:** approved? in trial? theoretical? Name specific NCT IDs + sponsors. Distinguish "cure" vs "slow progression."
 
-- **Program name + NCT** (if CT.gov listed) OR **Sponsor direct-to-patient URL**
-- Which patients qualify (eligibility summary)
-- How to apply (usually: treating physician contacts sponsor; sponsor files IND-EA with FDA)
-- Cost to the patient (many are free; some sponsors charge for drug cost only)
+## 7. This Patient's Interaction & Access Plan
+Tailored to **this specific patient profile**:
+- **Drug-drug interactions:** walk the patient's current meds vs the Section-3 recommendations. List every clinically meaningful interaction.
+- **Non-drug / lifestyle:** practical bullets from the dossier's lifestyleCategories (e.g. IPF → GERD treatment, feather pillows, pulm rehab, vaccinations, O₂. RP → UV protection, vitamin A caveats, omega-3 caveats).
+- **Patient advocacy:** 2-4 orgs / registries / foundations from the dossier's patientAdvocacy list, with homepage URLs.
+- **Insurance & cost:** what US commercial / Medicare typically covers. Rough out-of-pocket. Red-flag overseas clinics with undisclosed pricing.
 
-If none surfaced on CT.gov, check the dossier's landmarkTrials + your own grounded knowledge for any **industry-sponsored expanded-access program** (e.g. Ocugen's OCU400 for RP, lecanemab EAP for early AD). Name them with the sponsor-side URL and flag "not listed on CT.gov — verify directly with sponsor."
+## 8. Red Flags — DO NOT DO THIS
+From the dossier's redFlags + your grounded-evidence knowledge. Concrete "don't" bullets:
+- e.g. IPF: *"Do NOT use prednisone+azathioprine+NAC — increased mortality per PANTHER-IPF (NEJM 2012)."*
+- e.g. LADA: *"Do NOT treat as T2D with sulfonylurea — accelerates beta-cell failure."*
+- e.g. RP: *"Do NOT take high-dose vitamin A palmitate if pregnancy is possible — teratogenic."*
 
-## 7. Pay-to-Access / Charitable Access Programs
-**This is a mandatory section.** Some sponsors run paid post-trial access programs (e.g. the $40,000 tier some companies charge to keep receiving a Phase 3 drug between approval and market launch). List any the patient should know about.
-
-If you don't know of any, say so — do NOT invent programs.
-
-## 8. Drug Repurposing Candidates (mention, don't replace the Repurpose tab)
-2–4 existing drugs/supplements with plausible mechanistic rationale for this condition (brief — point the user at the dedicated Drug Repurposing tab for the full analysis).
-
-## 9. Non-Drug / Lifestyle
-Practical bullets. Tailor to the actual condition — use the dossier's lifestyleCategories as a starting checklist. For IPF that's GERD, feather pillows, pulmonary rehab, vaccinations, O₂. For RP it's UV protection, vitamin A caveats (pregnancy / liver), dietary omega-3 with warnings.
-
-## 10. Stem Cell Therapy Landscape *(if applicable)*
-Reputable US / W. Europe labs only. For each: cell type, source lab, delivery route, **FDA warning-letter status**. Exclude China / Vietnam / Mexico / India clinics by default.
-
-## 11. Gene Therapy Landscape *(if applicable)*
-Approved? In trial? Theoretical? Name specific NCT IDs and sponsors. Distinguish "cure" vs "slow progression".
-
-## 12. Drug-Drug Interaction Check for THIS Patient
-Walk through the patient's current medications one by one. For each, list every clinically meaningful interaction with the Section-3 recommendations.
-
-## 13. What's in the Pipeline
-2–5 early-phase (Phase 1/2) programs worth watching, with NCT IDs and timeline-to-possible-approval estimates.
-
-## 14. Patient Advocacy & Resources
-From the dossier's patientAdvocacy list — orgs, registries, patient foundations. Link the homepage URL for each.
-
-## 15. Insurance & Cost Snapshot
-What US commercial / Medicare typically covers. Rough out-of-pocket. Red-flag overseas clinics with undisclosed pricing.
-
-## 16. Red Flags — DO NOT DO THIS
-From the dossier's redFlags + your grounded-evidence knowledge. Concrete "don't" bullets (e.g. for IPF: "Do NOT use prednisone+azathioprine+NAC — increased mortality per PANTHER-IPF"; for LADA: "Do NOT treat as T2D with sulfonylurea — accelerates beta-cell failure").
+Plus: overseas clinic warnings, unproven 'cures,' and anything contradicted by the grounded evidence.
 
 ${FORMATTING_RULES}
 
