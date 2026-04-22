@@ -28,15 +28,16 @@ import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
 
 const MODEL = 'claude-sonnet-4-20250514';
-// Vercel Hobby has a hard 60s serverless timeout. A full research pass is
-// dossier (cached → 0s, cold → 10s) + evidence fan-out (~12s) + trials
-// (~6s) + Claude generation (~20 tokens/s output). At 8000 max_tokens
-// Claude alone can burn 40–55s of generation, which pushes the whole
-// pipeline past 60s and the user sees a confusing timeout page. 4500
-// tokens is still enough for the 16-section structured analysis (we
-// measured ~3.2k output tokens on a typical IPF / RP run) and leaves a
-// comfortable budget for the fan-out.
-const MAX_TOKENS = 4500;
+// Vercel Hobby has a hard 60s serverless cap. Measured Claude Sonnet 4
+// throughput on our grounded prompts is ~60-100 tok/s TTFT-to-stop,
+// which puts 4500 max_tokens at 45-75s of pure generation — too close
+// to the cap for a reliable single-shot response (we were seeing
+// FUNCTION_INVOCATION_TIMEOUT every attempt after the gather phase
+// completed successfully). Cutting to 2500 gives us ~25-40s generation
+// which fits comfortably with the heavy grounded prompt + input
+// context. 2500 tokens is still enough for a tight 8-section
+// clinician-grade summary — we adjusted the prompt scaffold to match.
+const MAX_TOKENS = 2500;
 
 const invokeInProcess = async (handler, body) => {
   let captured = { status: 200, body: null };
@@ -149,10 +150,14 @@ const buildTrialsBlock = (trials) => {
     URL: ${s.url}`;
   };
 
-  const recruiting = studies.filter((s) => s.acceptingNewPatients && !s.isExpandedAccessStudy && !s.designations?.hasOpenLabelExtension).slice(0, 10);
-  const ea = studies.filter((s) => s.designations?.hasExpandedAccess).slice(0, 8);
-  const ole = studies.filter((s) => s.designations?.hasOpenLabelExtension).slice(0, 8);
-  const topCenter = studies.filter((s) => s.hasTopCenter).slice(0, 8);
+  // Same budget story as the grounding block: bigger trial lists chew
+  // input tokens AND output tokens (Claude tries to discuss each).
+  // 8 + 4 + 4 + 4 is enough to surface the most important programs
+  // while staying under Vercel's 60s synth cap.
+  const recruiting = studies.filter((s) => s.acceptingNewPatients && !s.isExpandedAccessStudy && !s.designations?.hasOpenLabelExtension).slice(0, 8);
+  const ea = studies.filter((s) => s.designations?.hasExpandedAccess).slice(0, 4);
+  const ole = studies.filter((s) => s.designations?.hasOpenLabelExtension).slice(0, 4);
+  const topCenter = studies.filter((s) => s.hasTopCenter).slice(0, 4);
 
   const chunks = [];
   chunks.push(`LIVE CLINICAL TRIALS PULL (ClinicalTrials.gov, fanned across condition + synonyms + expanded-access studyType + OLE title search):
@@ -182,7 +187,13 @@ MeSH terms used: ${(trials.dossier?.meshTerms || []).join(', ') || '(none)'}`);
 
 const buildGroundingBlock = (evidence) => {
   if (!evidence) return '';
-  const items = (evidence.groundedForPrompt || []).slice(0, 25);
+  // Top-12 rather than top-25. Each item costs ~200-400 input tokens
+  // (title + authors + journal + year + excerpt + quality flags). 25
+  // items was ~6-9k input tokens just on the grounding block, which
+  // slowed TTFT measurably AND pushed total generation past the 60s
+  // Vercel cap. 12 items × the best-scored sources is still enough for
+  // a well-grounded 8-section synthesis and keeps the prompt lean.
+  const items = (evidence.groundedForPrompt || []).slice(0, 12);
   if (!items.length) return '';
   const packed = items.map((it, i) => {
     const tierLabel = it.tier ? ` [TIER ${it.tier}]` : '';
@@ -389,6 +400,11 @@ ${audienceLine(audience)}
 
 PATIENT PROFILE:
 ${buildPatientContext(patient)}
+
+LENGTH BUDGET (HARD RULE — we run on a 60-second serverless slot, so you MUST fit in ~2,000 words total):
+- Aim for ~125-150 words per section. Dense bullets, not paragraphs.
+- Inapplicable sections: write the heading + "N/A for this condition — <one-line reason>" and move on. Do NOT pad.
+- Finish all sections. Truncating mid-section is a failure; cut words elsewhere first.
 
 Your output MUST include ALL of the following sections IN THIS ORDER. Missing a section is a failure.
 
