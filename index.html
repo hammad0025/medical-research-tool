@@ -418,17 +418,17 @@
             return;
           }
           setBusy(mode);
-          try {
+          // Helper: POST /api/research with robust non-JSON error handling.
+          // Vercel's 60s serverless cap, when hit, returns a plain-text error
+          // page (FUNCTION_INVOCATION_TIMEOUT) which is NOT JSON — we detect
+          // that specifically and surface a friendlier message instead of
+          // the browser's cryptic 'Unexpected token A ... is not valid JSON'.
+          const callResearch = async (payload) => {
             const res = await fetch('/api/research', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ mode, patient, audience, ...extra })
+              body: JSON.stringify(payload)
             });
-            // The serverless function can return non-JSON when Vercel hits
-            // its 60s timeout (it serves an HTML 'An error occurred' page) or
-            // when an upstream (Anthropic, PubMed) briefly returns HTML. Read
-            // as text first, then parse so we can surface a useful message
-            // instead of the cryptic 'Unexpected token A ... is not valid JSON'.
             const raw = await res.text();
             let data;
             try { data = JSON.parse(raw); }
@@ -436,11 +436,43 @@
               const isTimeout = /FUNCTION_INVOCATION_TIMEOUT|An error occurred with your deployment/i.test(raw);
               throw new Error(
                 isTimeout
-                  ? 'The research pipeline took longer than 60 seconds (Vercel free-tier cap). Try again — the dossier is cached now so the second run will be much faster, or use the Chat tab for a quick answer first.'
+                  ? `Step timed out (60s cap). The ${payload.phase || 'full'} phase is too heavy for the free tier — try again, it'll usually pass on the second attempt because the dossier and upstream queries cache.`
                   : `Server returned non-JSON (HTTP ${res.status}): ${raw.slice(0, 140)}`
               );
             }
             if (!res.ok) throw new Error(data.error || `Request failed (HTTP ${res.status})`);
+            return data;
+          };
+          try {
+            // Two-phase for research + repurpose (fan-out is too heavy to
+            // finish alongside Claude synthesis in one 60s slot). Chat and
+            // trials stay single-shot — their pipelines are much shorter.
+            const useTwoPhase = (mode === 'research' || mode === 'repurpose');
+            let data;
+            if (useTwoPhase) {
+              const gathered = await callResearch({
+                mode, patient, audience, phase: 'gather', ...extra
+              });
+              // Expose the pools in the UI as soon as phase 1 finishes so
+              // the user sees dossier / trials / evidence panels populate
+              // before Claude's full narrative arrives.
+              if (gathered.dossier) setDossier(gathered.dossier);
+              if (gathered.evidence) {
+                setEvidenceSummary(gathered.evidence);
+                setEvidencePack(gathered.evidence.topRanked || []);
+              }
+              // Phase 2: synthesize.
+              data = await callResearch({
+                mode, patient, audience,
+                phase: 'synthesize',
+                providedDossier: gathered.dossier,
+                providedEvidence: gathered.evidence,
+                providedTrials: gathered.trials,
+                ...extra
+              });
+            } else {
+              data = await callResearch({ mode, patient, audience, ...extra });
+            }
             const text = (data.content || [])
               .filter(b => b.type === 'text').map(b => b.text).join('\n');
             if (mode === 'research') setResearchText(text);

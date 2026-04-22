@@ -584,7 +584,20 @@ export default async function handler(req, res) {
       audience = 'layperson',
       userQuery = '',
       chatHistory = [],
-      trialsData = null
+      trialsData = null,
+      // Two-phase pipeline to stay under Vercel's 60s serverless cap.
+      //   phase='gather'     — fan out to dossier+evidence+trials, return
+      //                         those pools to the client, DON'T call Claude.
+      //   phase='synthesize' — skip fan-out, use dossier+evidence+trials
+      //                         provided by the client, run Claude only.
+      //   phase='all' (default for backward compat & chat/trials/repurpose modes):
+      //                         do everything in one request. Research mode
+      //                         from the UI now uses gather→synthesize; the
+      //                         single-shot path is still there for the API.
+      phase = 'all',
+      providedDossier = null,
+      providedEvidence = null,
+      providedTrials = null
     } = req.body || {};
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -629,41 +642,62 @@ export default async function handler(req, res) {
     let trials = null;
     let dossier = null;
 
-    if (effectiveCondition) {
-      dossier = await getDossier(effectiveCondition);
+    // Phase: 'synthesize' trusts client-provided pools, skips fan-out.
+    // Everything else (gather / all) does the live pulls.
+    if (phase === 'synthesize') {
+      dossier = providedDossier || null;
+      evidence = providedEvidence || null;
+      trials = providedTrials || null;
+    } else {
+      if (effectiveCondition) {
+        dossier = await getDossier(effectiveCondition);
+      }
+
+      if (mode === 'research' || mode === 'repurpose') {
+        const drugs = (patient.medications || '')
+          .split(/[,;\n]/).map((s) => s.trim().split(/\s+/)[0]).filter(Boolean).slice(0, 6);
+
+        // Budgets tuned for the 60s Vercel cap. `limitPerSource` used to be 5
+        // and trials `pageSize` 60 — that produced >80 evidence items and >200
+        // trial blobs which the grounding formatter had to serialise into the
+        // Claude prompt, and every extra item chews a few extra ms on the
+        // wire and a few more tokens on Claude's generation. 3 + 30 gives us
+        // still-dense coverage (the dossier + KB fill in the gaps) while
+        // letting the whole pipeline finish under the deadline.
+        const [evidenceResult, trialsResult] = await Promise.all([
+          invokeEvidence({
+            condition: effectiveCondition,
+            treatments: ['treatment', 'clinical trial', 'systematic review', 'meta-analysis'],
+            drugs,
+            manufacturers: [],
+            limitPerSource: 3,
+            includeFullText: true,
+            dossier
+          }),
+          invokeTrials({
+            condition: effectiveCondition,
+            recruitingOnly: false,
+            treatmentOnly: true,
+            pageSize: 30,
+            dossier
+          })
+        ]);
+        evidence = evidenceResult;
+        trials = trialsResult;
+      }
     }
 
-    if (mode === 'research' || mode === 'repurpose') {
-      const drugs = (patient.medications || '')
-        .split(/[,;\n]/).map((s) => s.trim().split(/\s+/)[0]).filter(Boolean).slice(0, 6);
-
-      // Budgets tuned for the 60s Vercel cap. `limitPerSource` used to be 5
-      // and trials `pageSize` 60 — that produced >80 evidence items and >200
-      // trial blobs which the grounding formatter had to serialise into the
-      // Claude prompt, and every extra item chews a few extra ms on the
-      // wire and a few more tokens on Claude's generation. 3 + 30 gives us
-      // still-dense coverage (the dossier + KB fill in the gaps) while
-      // letting the whole pipeline finish under the deadline.
-      const [evidenceResult, trialsResult] = await Promise.all([
-        invokeEvidence({
-          condition: effectiveCondition,
-          treatments: ['treatment', 'clinical trial', 'systematic review', 'meta-analysis'],
-          drugs,
-          manufacturers: [],
-          limitPerSource: 3,
-          includeFullText: true,
-          dossier
-        }),
-        invokeTrials({
-          condition: effectiveCondition,
-          recruitingOnly: false,
-          treatmentOnly: true,
-          pageSize: 30,
-          dossier
-        })
-      ]);
-      evidence = evidenceResult;
-      trials = trialsResult;
+    // Phase='gather' short-circuits here. We hand the raw pools back to the
+    // client, which will then call us again with phase='synthesize' and the
+    // pools attached. This splits the >60s single-shot pipeline into two
+    // sub-60s serverless invocations.
+    if (phase === 'gather') {
+      return res.status(200).json({
+        phase: 'gather',
+        dossier,
+        evidence,
+        trials
+      });
     }
     const groundingBlock = evidence ? buildGroundingBlock(evidence) : '';
     const trialsBlock = trials ? buildTrialsBlock(trials) : '';
