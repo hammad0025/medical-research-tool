@@ -407,19 +407,19 @@ const info = (msg) => console.log(`  ${msg}`);
     ? pass(`predatory publisher penalised: ${predatoryScore} < ${scoreArticle({ ...predatorySynthetic, publisher: 'Elsevier' })} (same paper at Elsevier)`)
     : fail('predatory-publisher penalty not applied');
 
-  chinaScore < usScore - 15
-    ? pass(`geographic penalty applied: US paper=${usScore} · same-paper-but-CN=${chinaScore} (delta ${usScore - chinaScore})`)
-    : fail(`geographic weighting too weak: US=${usScore}, CN=${chinaScore}, delta=${usScore - chinaScore} — expected >= 15`);
+  // Country-weighting is DISABLED (product decision, 2026-04: don't
+  // down-weight literature by author country). Expect parity between
+  // otherwise-identical US and CN papers, and zero countryAdjustment.
+  Math.abs(chinaScore - usScore) <= 2
+    ? pass(`no geographic penalty (policy): US=${usScore} ≈ CN=${chinaScore} (delta ${usScore - chinaScore})`)
+    : fail(`unexpected country-based delta: US=${usScore}, CN=${chinaScore} — country weighting should be disabled`);
 
-  countryAdjustment({ firstAuthorCountry: 'CN', countries: ['CN'] }) <= -20
-    ? pass('countryAdjustment: CN → -20 (documented integrity-concern jurisdiction)')
-    : fail('countryAdjustment: CN penalty not -20');
-  countryAdjustment({ firstAuthorCountry: 'US', countries: ['US'] }) >= 5
-    ? pass('countryAdjustment: US → +5 (strong-integrity jurisdiction)')
-    : fail('countryAdjustment: US bonus not +5');
-  countryAdjustment({ firstAuthorCountry: 'US', countries: ['US', 'CN'] }) < 5
-    ? pass('countryAdjustment: US first author + CN co-author → reduced (half CN penalty applied)')
-    : fail('countryAdjustment: co-author penalty not applied');
+  countryAdjustment({ firstAuthorCountry: 'CN', countries: ['CN'] }) === 0
+    ? pass('countryAdjustment: CN → 0 (country weighting disabled)')
+    : fail('countryAdjustment: CN should return 0, weighting is disabled');
+  countryAdjustment({ firstAuthorCountry: 'US', countries: ['US'] }) === 0
+    ? pass('countryAdjustment: US → 0 (country weighting disabled)')
+    : fail('countryAdjustment: US should return 0, weighting is disabled');
 
   const retractedFlags = computeQualityFlags(retractedSynthetic);
   retractedFlags.some((f) => f.key === 'retracted' && f.severity === 'critical')
@@ -427,9 +427,9 @@ const info = (msg) => console.log(`  ${msg}`);
     : fail('computeQualityFlags: retracted flag missing');
 
   const chinaFlags = computeQualityFlags(chinaSynthetic);
-  chinaFlags.some((f) => f.key === 'country-concern')
-    ? pass('computeQualityFlags: CN first author → country-concern flag')
-    : fail('computeQualityFlags: country-concern flag missing for CN');
+  !chinaFlags.some((f) => f.key === 'country-concern')
+    ? pass('computeQualityFlags: CN first author → NO country-concern flag (weighting disabled)')
+    : fail('computeQualityFlags: country-concern flag should no longer appear — country weighting was disabled');
 
   // End-to-end — the live pack must also never contain retracted/predatory.
   const packHasRetracted = (ev.body.groundedForPrompt || []).some(
@@ -446,27 +446,14 @@ const info = (msg) => console.log(`  ${msg}`);
     ? pass('no predatory-publisher paper made it into the Claude prompt pack')
     : fail('predatory-publisher paper was not filtered out of prompt pack');
 
-  console.log('\n=== 2e.4 geographic weighting — country flags surface on articles ===');
-  // At least some articles in a large IPF pool should carry first-author
-  // country data (OpenAlex is near-complete for recent papers). The pack
-  // should never be exclusively flagged as all-Chinese — that would suggest
-  // the scorer isn't actually applying the penalty.
+  console.log('\n=== 2e.4 country metadata still surfaces on articles (for display / analytics) ===');
+  // We no longer PENALISE by country, but we still expose first-author
+  // country metadata on pack items so the UI can show where a paper is
+  // from. Verify the field continues to propagate from OpenAlex.
   const withCountry = (ev.body.groundedForPrompt || []).filter((a) => a.firstAuthorCountry);
   withCountry.length > 0
-    ? pass(`${withCountry.length}/${ev.body.groundedForPrompt.length} prompt-pack items carry firstAuthorCountry`)
+    ? pass(`${withCountry.length}/${ev.body.groundedForPrompt.length} prompt-pack items carry firstAuthorCountry metadata`)
     : info('  (no firstAuthorCountry on any prompt-pack item — OpenAlex may be rate-limited)');
-
-  const cnShare = (ev.body.groundedForPrompt || []).filter(
-    (a) => a.firstAuthorCountry === 'CN'
-  ).length;
-  const westShare = (ev.body.groundedForPrompt || []).filter(
-    (a) => ['US', 'GB', 'DE', 'FR', 'NL', 'CA', 'AU', 'IT', 'ES', 'SE'].includes(a.firstAuthorCountry)
-  ).length;
-  if (withCountry.length >= 5) {
-    westShare >= cnShare
-      ? pass(`geographic weighting working: ${westShare} Western-first-author ≥ ${cnShare} Chinese-first-author in prompt pack`)
-      : fail(`geographic weighting regression: ${cnShare} Chinese-first > ${westShare} Western in prompt pack`);
-  }
 
   console.log('\n=== 2e.5 quality flags — every prompt-pack item carries qualityFlags[] ===');
   const allHaveFlags = (ev.body.groundedForPrompt || []).every((a) => Array.isArray(a.qualityFlags));
