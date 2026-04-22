@@ -151,6 +151,29 @@
         <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
         <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
       </>);
+      const User = mkIcon(<>
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </>);
+      const LogIn = mkIcon(<>
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+        <polyline points="10 17 15 12 10 7" />
+        <line x1="15" y1="12" x2="3" y2="12" />
+      </>);
+      const LogOut = mkIcon(<>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <polyline points="16 17 21 12 16 7" />
+        <line x1="21" y1="12" x2="9" y2="12" />
+      </>);
+      const Settings = mkIcon(<>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </>);
+      const HelpCircle = mkIcon(<>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </>);
       const TrendingUp = mkIcon(<>
         <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
         <polyline points="17 6 23 6 23 12" />
@@ -168,14 +191,18 @@
       </>);
 
       /* ==================== Theme ==================== */
+      // Palette tuned to feel like modern AI tools (ChatGPT / Claude / Perplexity):
+      // deep desaturated background, soft blue accent, plenty of room to breathe.
+      // Previous palette was a brighter 3-stop teal gradient that read as
+      // dashboardy; this darker slate+hint-of-teal looks more "medical serious".
       const theme = {
-        bg: 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
-        panel: 'rgba(255, 255, 255, 0.05)',
-        panelSolid: 'rgba(15, 32, 39, 0.85)',
-        border: 'rgba(74, 158, 255, 0.25)',
+        bg: 'radial-gradient(ellipse at top, #0e1f2a 0%, #07141c 55%, #050e14 100%)',
+        panel: 'rgba(255, 255, 255, 0.035)',
+        panelSolid: 'rgba(11, 31, 42, 0.92)',
+        border: 'rgba(148, 183, 210, 0.14)',
         accent: '#4a9eff',
         text: '#e8f4f8',
-        textDim: '#a0c4d9',
+        textDim: '#9ab3c2',
         green: '#6ee7b7', yellow: '#fbbf24', red: '#f87171'
       };
       const panelStyle = {
@@ -344,6 +371,7 @@
         }));
         const [audience, setAudience] = useState(() => loadLS('mrt_audience', 'layperson'));
         const [acceptedHipaa, setAcceptedHipaa] = useState(() => loadLS('mrt_hipaa', false));
+        const [user, setUser] = useState(() => loadStoredUser());
 
         const [researchText, setResearchText] = useState('');
         const [repurposeText, setRepurposeText] = useState('');
@@ -529,7 +557,7 @@
         return (
           <div style={{ minHeight: '100vh', background: theme.bg,
             fontFamily: '"Crimson Pro", Georgia, serif', color: theme.text }}>
-            <Header patient={patient} audience={audience} setAudience={setAudience} />
+            <Header patient={patient} audience={audience} setAudience={setAudience} user={user} setUser={setUser} />
             {!acceptedHipaa && <HipaaGate onAccept={() => setAcceptedHipaa(true)} />}
 
             <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 2rem' }}>
@@ -565,33 +593,297 @@
       };
 
       /* ==================== Header ==================== */
-      const Header = ({ patient, audience, setAudience }) => (
-        <header style={{
-          background: 'rgba(15, 32, 39, 0.95)', borderBottom: `2px solid ${theme.accent}`,
-          padding: '1rem 2rem', backdropFilter: 'blur(10px)'
-        }}>
-          <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <Activity size={32} color={theme.accent} />
-            <div style={{ flex: 1 }}>
-              <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 700, color: theme.accent }}>
-                Medical Research Assistant
-              </h1>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: theme.textDim, fontStyle: 'italic' }}>
-                Evidence-based treatments · Live clinical trials · Drug repurposing · Records audit
-                {patient?.condition ? ` · researching: ${patient.condition}` : ''}
+      // User-menu dropdown state is kept at the app level so the menu can
+      // close when the user clicks anywhere else. `user` is the authenticated
+      // identity (null = anonymous / free-use). We stub it with localStorage
+      // for now — enough to show the "Sign In" / "signed in as X" UX without
+      // actually standing up OAuth yet. When we add real auth (Clerk / Auth0 /
+      // NextAuth) the shape here won't change.
+      const loadStoredUser = () => {
+        try {
+          const raw = localStorage.getItem('mrt_user');
+          return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+      };
+
+      const Header = ({ patient, audience, setAudience, user, setUser }) => {
+        const [menuOpen, setMenuOpen] = useState(false);
+        const [signInOpen, setSignInOpen] = useState(false);
+        useEffect(() => {
+          if (!menuOpen) return;
+          const close = () => setMenuOpen(false);
+          document.addEventListener('click', close);
+          return () => document.removeEventListener('click', close);
+        }, [menuOpen]);
+        const initial = user?.email ? user.email[0].toUpperCase() : '';
+
+        return (
+          <>
+            <header style={{
+              position: 'sticky', top: 0, zIndex: 20,
+              background: 'rgba(9, 20, 26, 0.92)',
+              borderBottom: `1px solid ${theme.border}`,
+              backdropFilter: 'blur(12px)',
+              boxShadow: '0 1px 0 rgba(255,255,255,0.02), 0 4px 24px rgba(0,0,0,0.35)'
+            }}>
+              <div style={{
+                maxWidth: 1400, margin: '0 auto',
+                padding: '0.75rem 1.5rem',
+                display: 'flex', alignItems: 'center', gap: '1rem'
+              }}>
+                {/* Brand mark + wordmark */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: `linear-gradient(135deg, ${theme.accent} 0%, #6ee7b7 100%)`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(74,158,255,0.35)'
+                  }}>
+                    <Activity size={20} color="#0b1f2a" />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{
+                        fontFamily: '"Crimson Pro", Georgia, serif',
+                        fontWeight: 700, fontSize: '1.1rem', color: theme.text, letterSpacing: '-0.01em'
+                      }}>
+                        Medical Research
+                      </span>
+                      <span style={{
+                        fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em',
+                        padding: '0.12rem 0.4rem', borderRadius: 4,
+                        background: 'rgba(110, 231, 183, 0.15)', color: '#6ee7b7',
+                        border: '1px solid rgba(110, 231, 183, 0.35)', textTransform: 'uppercase'
+                      }}>
+                        Beta
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: theme.textDim }}>
+                      AI-assisted clinical literature &amp; trial discovery
+                    </span>
+                  </div>
+                </div>
+
+                {/* Center context chip (what we're researching) */}
+                {patient?.condition ? (
+                  <div style={{
+                    marginLeft: '0.5rem', display: 'none',
+                    padding: '0.3rem 0.65rem', borderRadius: 999,
+                    background: `${theme.accent}15`, border: `1px solid ${theme.accent}44`,
+                    color: theme.accent, fontSize: '0.78rem', fontWeight: 600,
+                    maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                  }} className="mrt-condition-chip">
+                    Researching: {patient.condition}
+                  </div>
+                ) : null}
+
+                <div style={{ flex: 1 }} />
+
+                {/* Audience switcher (quiet, small) */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  padding: '0.3rem 0.5rem', borderRadius: 8,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${theme.border}`
+                }}>
+                  <span style={{ fontSize: '0.72rem', color: theme.textDim, fontWeight: 600 }}>Reading level</span>
+                  <select value={audience} onChange={e => setAudience(e.target.value)}
+                    style={{
+                      background: 'transparent', color: theme.text, border: 'none',
+                      fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
+                      outline: 'none', cursor: 'pointer', padding: '0 0.2rem'
+                    }}>
+                    <option value="layperson" style={{ background: '#0b1f2a' }}>Layperson</option>
+                    <option value="medical"   style={{ background: '#0b1f2a' }}>Clinician</option>
+                  </select>
+                </div>
+
+                {/* Free-use pill */}
+                <div style={{
+                  padding: '0.3rem 0.65rem', borderRadius: 999,
+                  background: 'rgba(110, 231, 183, 0.12)', border: '1px solid rgba(110, 231, 183, 0.3)',
+                  color: '#6ee7b7', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.03em',
+                  display: 'inline-flex', alignItems: 'center', gap: '0.3rem'
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 999, background: '#6ee7b7', display: 'inline-block' }} />
+                  Free during beta
+                </div>
+
+                {/* User menu */}
+                <div style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
+                  {user ? (
+                    <button onClick={() => setMenuOpen(v => !v)} style={{
+                      display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      padding: '0.3rem 0.5rem 0.3rem 0.35rem', borderRadius: 999,
+                      background: 'rgba(255,255,255,0.04)', border: `1px solid ${theme.border}`,
+                      cursor: 'pointer', color: theme.text, fontFamily: 'inherit'
+                    }}>
+                      <span style={{
+                        width: 28, height: 28, borderRadius: 999,
+                        background: `linear-gradient(135deg, ${theme.accent} 0%, #6ee7b7 100%)`,
+                        color: '#0b1f2a', fontWeight: 700, fontSize: '0.8rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>{initial}</span>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 600, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {user.email}
+                      </span>
+                      <ChevronDown size={14} color={theme.textDim} />
+                    </button>
+                  ) : (
+                    <button onClick={() => setSignInOpen(true)} style={{
+                      display: 'flex', alignItems: 'center', gap: '0.4rem',
+                      padding: '0.45rem 0.85rem', borderRadius: 8,
+                      background: theme.accent, color: '#0b1f2a', border: 'none',
+                      cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: '0.82rem',
+                      boxShadow: '0 1px 0 rgba(255,255,255,0.15) inset, 0 2px 8px rgba(74,158,255,0.3)'
+                    }}>
+                      <LogIn size={14} /> Sign in
+                    </button>
+                  )}
+                  {menuOpen && user && (
+                    <div style={{
+                      position: 'absolute', top: 'calc(100% + 8px)', right: 0, minWidth: 240,
+                      background: '#0b1f2a', border: `1px solid ${theme.border}`, borderRadius: 10,
+                      padding: '0.5rem', boxShadow: '0 12px 32px rgba(0,0,0,0.5)', zIndex: 30
+                    }}>
+                      <div style={{ padding: '0.6rem 0.6rem 0.8rem', borderBottom: `1px solid ${theme.border}` }}>
+                        <div style={{ fontSize: '0.72rem', color: theme.textDim }}>Signed in as</div>
+                        <div style={{ fontSize: '0.88rem', fontWeight: 700, color: theme.text, wordBreak: 'break-all' }}>
+                          {user.email}
+                        </div>
+                      </div>
+                      {[
+                        { icon: Settings,    label: 'Account settings', onClick: () => alert('Account settings coming soon.') },
+                        { icon: BookOpen,    label: 'My alerts',        onClick: () => alert('Manage alerts from the Patient Profile tab for now.') },
+                        { icon: HelpCircle,  label: 'Help & feedback',  onClick: () => alert('Send feedback to hammad@example.com') }
+                      ].map((item, i) => (
+                        <button key={i} onClick={item.onClick} style={{
+                          display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%',
+                          padding: '0.5rem 0.6rem', background: 'transparent', border: 'none',
+                          color: theme.text, cursor: 'pointer', borderRadius: 6, fontSize: '0.85rem',
+                          fontFamily: 'inherit', textAlign: 'left'
+                        }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <item.icon size={14} color={theme.textDim} />
+                          {item.label}
+                        </button>
+                      ))}
+                      <div style={{ borderTop: `1px solid ${theme.border}`, marginTop: 4, paddingTop: 4 }}>
+                        <button onClick={() => { setUser(null); try { localStorage.removeItem('mrt_user'); } catch {} setMenuOpen(false); }} style={{
+                          display: 'flex', alignItems: 'center', gap: '0.6rem', width: '100%',
+                          padding: '0.5rem 0.6rem', background: 'transparent', border: 'none',
+                          color: '#f87171', cursor: 'pointer', borderRadius: 6, fontSize: '0.85rem',
+                          fontFamily: 'inherit', textAlign: 'left'
+                        }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(248,113,113,0.08)'}
+                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <LogOut size={14} /> Sign out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Secondary bar: currently-researching chip, only visible on narrow screens */}
+              {patient?.condition && (
+                <div style={{
+                  maxWidth: 1400, margin: '0 auto', padding: '0 1.5rem 0.6rem',
+                  fontSize: '0.78rem', color: theme.textDim
+                }}>
+                  <span style={{ color: theme.textDim }}>Researching:</span>{' '}
+                  <span style={{ color: theme.accent, fontWeight: 600 }}>{patient.condition}</span>
+                </div>
+              )}
+            </header>
+
+            {signInOpen && (
+              <SignInModal onClose={() => setSignInOpen(false)} onSuccess={(u) => {
+                setUser(u);
+                try { localStorage.setItem('mrt_user', JSON.stringify(u)); } catch {}
+                setSignInOpen(false);
+              }} />
+            )}
+          </>
+        );
+      };
+
+      // Stub sign-in modal. Captures an email + name so the UI has something
+      // to personalise with (user menu shows initials/email). We don't yet
+      // send this anywhere — it's intentionally offline until we wire a real
+      // identity provider (Clerk / Auth0 / NextAuth). The UX is designed so
+      // swapping in real auth only replaces the `handleSubmit` body below.
+      const SignInModal = ({ onClose, onSuccess }) => {
+        const [email, setEmail] = useState('');
+        const [name, setName] = useState('');
+        const [mode, setMode] = useState('signin'); // 'signin' | 'create'
+        const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        const submit = (e) => {
+          e?.preventDefault();
+          if (!emailOk) return;
+          onSuccess({ email: email.trim(), name: name.trim() || email.trim().split('@')[0], createdAt: new Date().toISOString() });
+        };
+        return (
+          <div onClick={onClose} style={{
+            position: 'fixed', inset: 0, background: 'rgba(3,10,14,0.7)',
+            backdropFilter: 'blur(6px)', zIndex: 200,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+          }}>
+            <div onClick={e => e.stopPropagation()} style={{
+              width: '100%', maxWidth: 420, background: '#0b1f2a',
+              borderRadius: 14, border: `1px solid ${theme.border}`,
+              padding: '1.75rem', boxShadow: '0 24px 64px rgba(0,0,0,0.6)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.75rem' }}>
+                <div style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  background: `linear-gradient(135deg, ${theme.accent} 0%, #6ee7b7 100%)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <Activity size={18} color="#0b1f2a" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', color: theme.text, fontFamily: '"Crimson Pro", Georgia, serif' }}>
+                    {mode === 'signin' ? 'Sign in' : 'Create account'}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: theme.textDim }}>
+                    Free during beta · your data stays on your device
+                  </p>
+                </div>
+              </div>
+              <form onSubmit={submit}>
+                {mode === 'create' && (
+                  <div style={{ marginBottom: '0.7rem' }}>
+                    <label style={labelStyle}>Name</label>
+                    <input value={name} onChange={e => setName(e.target.value)}
+                      style={inputStyle} placeholder="Dr. Jane Doe" autoFocus />
+                  </div>
+                )}
+                <div style={{ marginBottom: '0.7rem' }}>
+                  <label style={labelStyle}>Email</label>
+                  <input value={email} onChange={e => setEmail(e.target.value)}
+                    type="email" style={inputStyle} placeholder="you@hospital.org"
+                    autoFocus={mode === 'signin'} />
+                </div>
+                <button type="submit" disabled={!emailOk} style={{
+                  ...btn('primary', !emailOk), width: '100%', justifyContent: 'center',
+                  marginTop: '0.5rem'
+                }}>
+                  <LogIn size={14} /> {mode === 'signin' ? 'Continue' : 'Create free account'}
+                </button>
+              </form>
+              <p style={{ marginTop: '0.9rem', marginBottom: 0, textAlign: 'center', fontSize: '0.78rem', color: theme.textDim }}>
+                {mode === 'signin' ? 'New here?' : 'Already have an account?'}{' '}
+                <button type="button" onClick={() => setMode(m => m === 'signin' ? 'create' : 'signin')}
+                  style={{ background: 'transparent', border: 'none', color: theme.accent, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', fontSize: '0.78rem' }}>
+                  {mode === 'signin' ? 'Create an account' : 'Sign in'}
+                </button>
+              </p>
+              <p style={{ marginTop: '0.75rem', marginBottom: 0, fontSize: '0.7rem', color: theme.textDim, textAlign: 'center', fontStyle: 'italic' }}>
+                Accounts are free and currently local-only. We don't sync, don't share, and don't sell.
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.8rem', color: theme.textDim }}>Audience:</span>
-              <select value={audience} onChange={e => setAudience(e.target.value)}
-                style={{ ...inputStyle, width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}>
-                <option value="layperson">Layperson (10th grade)</option>
-                <option value="medical">Medical professional</option>
-              </select>
-            </div>
           </div>
-        </header>
-      );
+        );
+      };
 
       /* ==================== HIPAA Gate ==================== */
       const HipaaGate = ({ onAccept }) => (
@@ -623,35 +915,39 @@
       /* ==================== Tabs ==================== */
       const Tabs = ({ tab, setTab }) => {
         const tabs = [
-          { id: 'profile', label: 'Patient Profile', icon: FileText },
-          { id: 'research', label: 'AI Research', icon: Brain },
-          { id: 'trials', label: 'Clinical Trials', icon: Beaker },
-          { id: 'repurpose', label: 'Drug Repurposing', icon: Sparkles },
-          { id: 'records', label: 'Records Audit', icon: ShieldCheck },
-          { id: 'chart', label: 'Comparison Chart', icon: TrendingUp },
-          { id: 'refs', label: 'References', icon: Book }
+          { id: 'profile',   label: 'Profile',         icon: FileText },
+          { id: 'research',  label: 'Research',        icon: Brain },
+          { id: 'trials',    label: 'Trials',          icon: Beaker },
+          { id: 'repurpose', label: 'Repurposing',     icon: Sparkles },
+          { id: 'records',   label: 'Records Audit',   icon: ShieldCheck },
+          { id: 'chart',     label: 'Compare',         icon: TrendingUp },
+          { id: 'refs',      label: 'References',      icon: Book }
         ];
         return (
-          <div style={{
-            display: 'flex', gap: '0.25rem', marginBottom: '1.25rem', flexWrap: 'wrap',
-            borderBottom: `1px solid ${theme.border}`
+          <nav style={{
+            display: 'flex', gap: '0.15rem', marginBottom: '1.5rem', flexWrap: 'wrap',
+            padding: '0.3rem', borderRadius: 10,
+            background: 'rgba(255,255,255,0.025)',
+            border: `1px solid ${theme.border}`
           }}>
             {tabs.map(t => {
               const Icon = t.icon;
               const active = tab === t.id;
               return (
                 <button key={t.id} onClick={() => setTab(t.id)} style={{
-                  padding: '0.75rem 1rem', background: active ? 'rgba(74, 158, 255, 0.18)' : 'transparent',
-                  border: 'none', borderBottom: active ? `3px solid ${theme.accent}` : '3px solid transparent',
-                  color: active ? theme.accent : theme.textDim, cursor: 'pointer', fontSize: '0.9rem',
+                  padding: '0.55rem 0.9rem', background: active ? 'rgba(74, 158, 255, 0.14)' : 'transparent',
+                  border: 'none', borderRadius: 7,
+                  color: active ? theme.accent : theme.textDim, cursor: 'pointer', fontSize: '0.85rem',
                   fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem',
-                  fontFamily: 'inherit', transition: 'all 0.2s ease'
-                }}>
-                  <Icon size={16} /> {t.label}
+                  fontFamily: 'inherit', transition: 'all 0.15s ease',
+                  boxShadow: active ? 'inset 0 0 0 1px rgba(74,158,255,0.35)' : 'none'
+                }} onMouseEnter={e => { if (!active) e.currentTarget.style.color = theme.text; }}
+                   onMouseLeave={e => { if (!active) e.currentTarget.style.color = theme.textDim; }}>
+                  <Icon size={15} /> {t.label}
                 </button>
               );
             })}
-          </div>
+          </nav>
         );
       };
 
