@@ -28,14 +28,15 @@ import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
 
 const MODEL = 'claude-sonnet-4-20250514';
-// Vercel Hobby has a hard 60s serverless cap. Measured Claude Sonnet 4
-// generation rate on our grounded prompts is ~45-50 tok/s, so 3200
-// output tokens costs ~52-58s. Pairing 3200 max_tokens with a tighter
-// grounding block (8 top sources) and a tighter trials block (6+3+3+3)
-// gets total synthesize time to ~48-55s — consistently under the 60s
-// cap, with enough output budget for Claude to finish all 8 sections
-// without stop_reason=max_tokens truncation mid-section.
-const MAX_TOKENS = 3200;
+// Vercel Hobby has a hard 60s serverless cap. Claude Sonnet 4's
+// measured generation rate on our grounded prompts is ~45-50 tok/s.
+// 2500 tokens costs ~50s, 3200 tokens costs ~65s (we hit the cap at
+// 3200). So 2500 is the per-call ceiling. Because a comprehensive
+// research answer does not fit in 2500 tokens at useful fidelity, the
+// 'synthesize' phase splits into two halves (sections 1-4 and 5-8),
+// each with its own 2500-token budget, and the frontend stitches them.
+// See handler() below for the split.
+const MAX_TOKENS = 2500;
 
 const invokeInProcess = async (handler, body) => {
   let captured = { status: 200, body: null };
@@ -393,20 +394,23 @@ OUTPUT FORMATTING RULES (enforce strictly — the user has explicitly complained
 - For every card (treatment / trial / candidate), use the exact fixed-field structure. Do not add prose between fields.
 `;
 
-const RESEARCH_PROMPT = (patient, audience) => `You are a comprehensive medical research assistant. Produce a SCANNABLE, evidence-based analysis of treatment options for the patient's primary condition, personalised to the patient profile.
+// Front-half sections (1-4): condition snapshot, centers & experts,
+// approved treatments (UI-parsed cards), clinical trials + access
+// programs. These are the "what the world currently offers this
+// patient" sections.
+const RESEARCH_PROMPT_FRONT = (patient, audience) => `You are a comprehensive medical research assistant. Produce SECTIONS 1-4 of a structured analysis for the patient's primary condition. Sections 5-8 will be produced by a separate call — do NOT write them now.
 
 ${audienceLine(audience)}
 
 PATIENT PROFILE:
 ${buildPatientContext(patient)}
 
-LENGTH BUDGET (HARD RULE — Vercel serverless gives us ~55s of Claude generation which is ~3,200 output tokens. Going over the budget truncates mid-sentence, which is worse than a shorter but complete answer):
-- You have exactly 8 sections below. Target ~400 output tokens (~300 words) per section, average.
+LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens):
+- Target ~600 output tokens (~450 words) per section across the 4 sections.
 - Dense bullets / tables. No paragraphs longer than 2 lines. No filler.
-- Inapplicable sections: heading + "**N/A for this condition** — <one-line reason>" and move on. Do NOT pad.
-- YOU MUST FINISH ALL 8 SECTIONS. If section 3 or 4 is running long, cut it shorter — do NOT starve sections 7-8 (Patient Plan + Red Flags are safety-critical).
+- YOU MUST FINISH ALL 4 SECTIONS. If section 3 is running long, cut it shorter.
 
-Your output MUST include ALL of the following 8 sections IN THIS ORDER. Missing a section is a failure.
+Your output MUST include the following 4 sections IN THIS ORDER, and nothing else. Do NOT add sections 5-8 — a separate call handles those.
 
 ## 1. Condition Snapshot
 - One-sentence definition.
@@ -449,6 +453,29 @@ REFERENCES: <2-3 URLs from the evidence pack, each with [ACCESS] tag>
 **C. Expanded Access / Compassionate Use:** For each EA record from the trials pull, one bullet: program name + NCT (or sponsor URL) · eligibility · how to apply · cost to patient. If none surfaced on CT.gov, check the dossier's landmarkTrials + your grounded knowledge for **industry-sponsored EAPs** (e.g. Ocugen's OCU400 for RP, lecanemab EAP for early AD). Name them with the sponsor-side URL and flag *"not listed on CT.gov — verify with sponsor."*
 
 **D. Pay-to-Access / Charitable:** Any paid post-trial access programs the patient should know about (e.g. the ~$40k tier some sponsors charge between trial completion and market launch). If you don't know of any, say so — do NOT invent programs.
+
+${FORMATTING_RULES}
+
+${SHARED_GUARDRAILS}`;
+
+// Back-half sections (5-8): drug repurposing + pipeline, cell/gene,
+// THIS patient's interaction & access plan, red flags. These are the
+// "what to do next / what to avoid" sections — safety-critical and
+// personalised.
+const RESEARCH_PROMPT_BACK = (patient, audience) => `You are a comprehensive medical research assistant. Produce SECTIONS 5-8 of a structured analysis for the patient's primary condition. Sections 1-4 were produced by a previous call — do NOT repeat them. Start straight at section 5.
+
+${audienceLine(audience)}
+
+PATIENT PROFILE:
+${buildPatientContext(patient)}
+
+LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens):
+- Target ~600 output tokens (~450 words) per section across the 4 sections.
+- Dense bullets / tables. No paragraphs longer than 2 lines. No filler.
+- YOU MUST FINISH ALL 4 SECTIONS. Sections 7-8 are safety-critical — do NOT starve them.
+- Begin your output with the "## 5." heading. Do NOT write any preamble.
+
+Your output MUST include the following 4 sections IN THIS ORDER, and nothing else.
 
 ## 5. Drug Repurposing + Pipeline Watch
 - **Repurposing teaser (2-3 candidates):** existing drugs/supplements with plausible mechanistic rationale. One line each. Point user to the dedicated Drug Repurposing tab for the full analysis.
@@ -590,6 +617,16 @@ export default async function handler(req, res) {
       //                         from the UI now uses gather→synthesize; the
       //                         single-shot path is still there for the API.
       phase = 'all',
+      // When phase='synthesize' for the research mode, the client runs
+      // TWO successive synth calls — each gets its own 60s Vercel slot
+      // so Claude always finishes its half without hitting max_tokens
+      // truncation.
+      //   half='front' → sections 1-4 (snapshot, centers, treatments,
+      //                  trials & access programs)
+      //   half='back'  → sections 5-8 (repurposing+pipeline, cell/gene,
+      //                  patient plan, red flags)
+      // The frontend stitches the two responses together.
+      half = 'front',
       providedDossier = null,
       providedEvidence = null,
       providedTrials = null
@@ -805,10 +842,16 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
         break;
       }
       case 'research':
-      default:
-        systemPrompt = RESEARCH_PROMPT(patient, audience) +
-          (extraContext ? `\n\n${extraContext}` : '');
+      default: {
+        // Research mode is split across two Claude calls (half='front'
+        // + half='back') so each fits under Vercel's 60s cap and
+        // neither hits stop_reason=max_tokens mid-answer.
+        const basePrompt = half === 'back'
+          ? RESEARCH_PROMPT_BACK(patient, audience)
+          : RESEARCH_PROMPT_FRONT(patient, audience);
+        systemPrompt = basePrompt + (extraContext ? `\n\n${extraContext}` : '');
         break;
+      }
     }
 
     const messages = [

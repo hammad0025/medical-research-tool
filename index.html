@@ -536,16 +536,67 @@
                   ? `${gathered.trials.returned || gathered.trials.total} trials (of ${gathered.trials.total} matched)`
                   : 'ClinicalTrials.gov scanned'
               });
-              // Phase 2: synthesize.
-              updateStep('synth', { status: 'running' });
-              data = await callResearch({
-                mode, patient, audience,
-                phase: 'synthesize',
-                providedDossier: gathered.dossier,
-                providedEvidence: gathered.evidence,
-                providedTrials: gathered.trials,
-                ...extra
-              });
+              // Phase 2: synthesize. For research mode we split Claude's
+              // work into TWO successive calls — each gets its own 60s
+              // Vercel slot so Claude always finishes its half without
+              // hitting stop_reason=max_tokens mid-section. Repurpose
+              // mode still runs a single synth call (its prompt is
+              // smaller and the max_tokens budget is enough).
+              updateStep('synth', { status: 'running', detail: mode === 'research' ? 'Part 1/2: sections 1-4' : undefined });
+              if (mode === 'research') {
+                // FRONT half: sections 1-4 (snapshot, centers,
+                // treatments, trials & access programs).
+                const front = await callResearch({
+                  mode, patient, audience,
+                  phase: 'synthesize',
+                  half: 'front',
+                  providedDossier: gathered.dossier,
+                  providedEvidence: gathered.evidence,
+                  providedTrials: gathered.trials,
+                  ...extra
+                });
+                updateStep('synth', { status: 'running', detail: 'Part 2/2: sections 5-8' });
+                // BACK half: sections 5-8 (repurposing/pipeline,
+                // cell/gene, patient plan, red flags).
+                const back = await callResearch({
+                  mode, patient, audience,
+                  phase: 'synthesize',
+                  half: 'back',
+                  providedDossier: gathered.dossier,
+                  providedEvidence: gathered.evidence,
+                  providedTrials: gathered.trials,
+                  ...extra
+                });
+                // Stitch the two halves back into a single `data` blob
+                // so the rest of the pipeline (text extraction, validation
+                // display, evidence pack update) is unchanged.
+                const frontText = (front.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+                const backText  = (back.content  || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+                const tokensFront = front.usage?.output_tokens || 0;
+                const tokensBack  = back.usage?.output_tokens  || 0;
+                data = {
+                  ...back,
+                  content: [{ type: 'text', text: frontText + '\n\n' + backText }],
+                  usage: {
+                    input_tokens:  (front.usage?.input_tokens  || 0) + (back.usage?.input_tokens  || 0),
+                    output_tokens: tokensFront + tokensBack
+                  },
+                  dossier:    back.dossier    || front.dossier,
+                  evidence:   back.evidence   || front.evidence,
+                  trials:     back.trials     || front.trials,
+                  validation: back.validation || front.validation || null
+                };
+              } else {
+                // Repurpose mode: single synth call.
+                data = await callResearch({
+                  mode, patient, audience,
+                  phase: 'synthesize',
+                  providedDossier: gathered.dossier,
+                  providedEvidence: gathered.evidence,
+                  providedTrials: gathered.trials,
+                  ...extra
+                });
+              }
               updateStep('synth', {
                 status: 'done',
                 detail: data.usage?.output_tokens
