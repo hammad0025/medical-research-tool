@@ -2265,13 +2265,6 @@
               </span>
               <span style={{
                 padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
-                background: `${theme.yellow}22`, color: theme.yellow, fontWeight: 700,
-                border: `1px solid ${theme.yellow}55`
-              }}>
-                {qb.countryConcernInPromptPack}/{qb.countryConcernInPool} integrity-concern country · in prompt / in pool
-              </span>
-              <span style={{
-                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
                 background: `${theme.green}22`, color: theme.green, fontWeight: 700,
                 border: `1px solid ${theme.green}55`
               }}>
@@ -2289,12 +2282,13 @@
               <div style={{ marginTop: '0.85rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}>
                 <div style={{ marginBottom: '0.5rem' }}>
                   <strong style={{ color: theme.text }}>How the screen works.</strong>
-                  {' '}Every source is scored by journal tier, citations, recency, publication
-                  type (RCT / meta-analysis > observational > opinion), and first-author
-                  institutional country. Retractions and papers from documented predatory
-                  publishers are EXCLUDED entirely. Preprints and first-author-from-integrity-concern
-                  jurisdictions (CN, RU, IR, PK, IN, VN) are kept but down-weighted and flagged
-                  so the AI treats them as weaker evidence.
+                  {' '}Every source is scored on <em>methodological</em> signals only:
+                  journal tier, citation count, recency, and publication type
+                  (RCT / meta-analysis &gt; observational &gt; opinion). Retracted papers
+                  and documented predatory publishers are EXCLUDED entirely. Preprints are
+                  kept but flagged as not-yet-peer-reviewed. We do NOT down-weight by author
+                  country — a well-conducted RCT is a well-conducted RCT regardless of where
+                  the first author sits.
                 </div>
                 {(qb.retractedTitles || []).length > 0 && (
                   <div style={{ marginTop: '0.6rem' }}>

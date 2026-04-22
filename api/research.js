@@ -217,13 +217,9 @@ const buildGroundingBlock = (evidence) => {
     else if (it.isSystematicReview) qualityTags.push('SYSTEMATIC-REVIEW');
     else if (it.isRCT) qualityTags.push('RCT');
     if (it.isPreprint) qualityTags.push('PREPRINT-NOT-PEER-REVIEWED');
-    // Country-of-research flag — rendered only when penalised. The country
-    // code is the first author's institutional country. This reflects a
-    // documented integrity-concern weighting, not a blanket dismissal.
-    const penalisedCountries = { CN: 'CHINA', RU: 'RUSSIA', IR: 'IRAN', PK: 'PAKISTAN', IN: 'INDIA', VN: 'VIETNAM' };
-    if (it.firstAuthorCountry && penalisedCountries[it.firstAuthorCountry]) {
-      qualityTags.push(`FIRST-AUTHOR-${penalisedCountries[it.firstAuthorCountry]}-INTEGRITY-CONCERN`);
-    }
+    // (First-author-country integrity flag removed 2026-04 per product
+    // decision; we no longer down-weight literature based on author
+    // country. Retraction + predatory-publisher flags still apply.)
     const qTag = qualityTags.length ? ` [${qualityTags.join(' · ')}]` : '';
     const src = (it.sources || []).join('+');
     const pubLine = it.publisher ? ` · Publisher: ${it.publisher}` : '';
@@ -357,7 +353,7 @@ CITATION RULES (absolute — the single biggest failure mode of AI in medical re
 - Every factual claim about efficacy, safety, interactions, or outcomes MUST reference at least one evidence-pack item by its number (e.g. "[#3]") and include a verbatim quoted passage from that item's Content and the exact URL.
 - If the evidence pack does not support a claim, write "No grounded evidence in pack" — DO NOT make one up.
 - Prefer A+ and A tier journals (NEJM, Lancet, JAMA, BMJ, Nature Medicine, Cochrane, ERJ, AJRCCM, Thorax, Chest) over B/C.
-- Weight evidence: US/Western Europe = full; other developed = moderate; China = low (flag explicitly). Mexico/Vietnam/India stem-cell sources should be flagged.
+- Weight evidence on METHODOLOGICAL grounds (RCT > observational > case report; meta-analysis > single study; larger n > smaller n; registered + pre-registered > not). Do NOT down-weight or up-weight by country of origin — a well-conducted RCT from any country is a well-conducted RCT.
 
 ACCESS-LEVEL HONESTY (critical — many high-impact medical journals are paywalled):
 - Every evidence item has an [ACCESS] tag: [FULL-TEXT], [ABSTRACT-ONLY], or [METADATA-ONLY].
@@ -685,42 +681,67 @@ export default async function handler(req, res) {
       evidence = providedEvidence || null;
       trials = providedTrials || null;
     } else {
-      if (effectiveCondition) {
-        dossier = await getDossier(effectiveCondition);
-      }
+      // Hard deadline for the entire gather phase. Vercel Hobby cuts us
+      // off at 60s; we give ourselves 48s of wall-clock so there's
+      // headroom for serialisation + network egress on the response.
+      // Anything still outstanding at the deadline is returned as its
+      // last-known value (null) and the client proceeds to synthesise
+      // with whatever arrived in time.
+      const GATHER_DEADLINE_MS = 48_000;
+      const withDeadline = (p, label) => Promise.race([
+        p.catch((e) => {
+          console.warn(`[research.gather] ${label} threw:`, e?.message || e);
+          return null;
+        }),
+        new Promise((resolve) => setTimeout(() => {
+          console.warn(`[research.gather] ${label} exceeded ${GATHER_DEADLINE_MS}ms — returning partial`);
+          resolve(null);
+        }, GATHER_DEADLINE_MS))
+      ]);
 
-      if (mode === 'research' || mode === 'repurpose') {
-        const drugs = (patient.medications || '')
-          .split(/[,;\n]/).map((s) => s.trim().split(/\s+/)[0]).filter(Boolean).slice(0, 6);
-
-        // Budgets tuned for the 60s Vercel cap. `limitPerSource` used to be 5
-        // and trials `pageSize` 60 — that produced >80 evidence items and >200
-        // trial blobs which the grounding formatter had to serialise into the
-        // Claude prompt, and every extra item chews a few extra ms on the
-        // wire and a few more tokens on Claude's generation. 3 + 30 gives us
-        // still-dense coverage (the dossier + KB fill in the gaps) while
-        // letting the whole pipeline finish under the deadline.
-        const [evidenceResult, trialsResult] = await Promise.all([
-          invokeEvidence({
+      // Kick off dossier + evidence + trials ALL IN PARALLEL. Evidence
+      // and trials each call getDossier() internally and, thanks to
+      // the in-flight promise dedup in disease-dossier.js, they share
+      // the same pending Claude call as the one research.js started.
+      // Net effect: one ~8-10s Claude dossier call runs concurrently
+      // with the PubMed/EPMC/OpenAlex fan-out and the ClinicalTrials
+      // API pull, instead of serially before them.
+      const drugs = (patient.medications || '')
+        .split(/[,;\n]/).map((s) => s.trim().split(/\s+/)[0]).filter(Boolean).slice(0, 6);
+      const needsEvidence = (mode === 'research' || mode === 'repurpose');
+      const dossierP = effectiveCondition
+        ? withDeadline(getDossier(effectiveCondition), 'dossier')
+        : Promise.resolve(null);
+      const evidenceP = needsEvidence
+        ? withDeadline(invokeEvidence({
             condition: effectiveCondition,
-            treatments: ['treatment', 'clinical trial', 'systematic review', 'meta-analysis'],
+            // Trimmed fan-out: 2 treatment cross-products instead of 4.
+            // The dossier's synonyms + KB cover the specificity loss.
+            treatments: ['treatment', 'systematic review'],
             drugs,
             manufacturers: [],
             limitPerSource: 3,
-            includeFullText: true,
-            dossier
-          }),
-          invokeTrials({
+            includeFullText: true
+            // NB: dossier intentionally NOT passed — evidence.js will
+            // fetch it via getDossier() and hit the in-flight cache so
+            // we still only make one Claude call total.
+          }), 'evidence')
+        : Promise.resolve(null);
+      const trialsP = needsEvidence
+        ? withDeadline(invokeTrials({
             condition: effectiveCondition,
             recruitingOnly: false,
             treatmentOnly: true,
-            pageSize: 30,
-            dossier
-          })
-        ]);
-        evidence = evidenceResult;
-        trials = trialsResult;
-      }
+            pageSize: 30
+          }), 'trials')
+        : Promise.resolve(null);
+
+      const [dossierResult, evidenceResult, trialsResult] = await Promise.all([
+        dossierP, evidenceP, trialsP
+      ]);
+      dossier = dossierResult;
+      evidence = evidenceResult;
+      trials = trialsResult;
     }
 
     // Phase='gather' short-circuits here. We hand the raw pools back to the

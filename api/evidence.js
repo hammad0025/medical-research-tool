@@ -94,65 +94,21 @@ const LOW_INTEGRITY_PUBLISHERS = [
 export const isPredatoryPublisher = (p) => PREDATORY_PUBLISHERS.some((r) => r.test(p || ''));
 export const isLowIntegrityPublisher = (p) => LOW_INTEGRITY_PUBLISHERS.some((r) => r.test(p || ''));
 
-// Country weighting. This is a deliberate, documented scientific-integrity
-// adjustment, NOT a statement about the people who live in those countries.
-// It reflects:
-//   - The Retraction Watch 2024 report on country-level retraction rates
-//     (CN, IR, RU, IN substantially above baseline for misconduct retractions)
-//   - The 2020-2024 wave of paper-mill investigations tracing manuscripts to
-//     specific industrial-scale operators in China and India
-//   - Documented widespread authorship-for-hire markets (Tadpole, etc.)
-//   - Weak institutional sanctions for fabrication in several jurisdictions
-// Papers from these countries still enter the pack — they are just ranked
-// below equivalent Western papers and carry a visible "FLAGGED" quality tag.
-const COUNTRY_WEIGHT = {
-  // Strong-integrity (bonus)
-  US: +5, CA: +5, GB: +5, DE: +5, FR: +4, NL: +5, SE: +5, CH: +5,
-  DK: +5, NO: +5, FI: +5, IE: +4, BE: +4, AT: +4, IT: +3, ES: +3,
-  AU: +5, NZ: +4, JP: +5, KR: +3, SG: +4, IL: +3,
-  // Neutral (no adjustment)
-  TW: 0, HK: 0, PT: 0, CZ: 0, PL: 0, GR: 0, BR: 0, MX: -5, AR: 0,
-  // Penalised — documented systemic integrity concerns
-  CN: -20,
-  IN: -8,
-  IR: -15,
-  RU: -15,
-  PK: -10,
-  TR: -5,
-  VN: -8,
-  SA: -3,
-  EG: -5
-};
+// Country weighting — DISABLED per product decision (2026-04).
+// Earlier versions of this file applied author-country penalties to rank
+// papers from certain jurisdictions below Western equivalents. Dorothy
+// (product lead) asked us to remove this rule: "let's not weight the
+// literature less if from china." We now rely exclusively on
+// publisher-level signals (retractions, predatory publisher blacklist,
+// journal tier) which are country-independent and apply to misconduct
+// regardless of where the first author sits. All countries return 0.
+// The constant is kept as an empty object so callers don't break; flip
+// individual entries back here if the policy changes.
+const COUNTRY_WEIGHT = {};
 
-// Take the WORST country signal in play. The rule is:
-//   - first-author country dominates (that's the PI's lab)
-//   - if first-author country is missing, take the worst penalty in the
-//     countries array
-//   - if a penalised country appears in the countries list even when first
-//     author is elsewhere, take 50% of that penalty (milder but still cited)
-export const countryAdjustment = (a) => {
-  const first = a.firstAuthorCountry;
-  const all = a.countries || [];
-  if (first && first in COUNTRY_WEIGHT) {
-    let adj = COUNTRY_WEIGHT[first];
-    // Co-authorship: if first is Western but a heavy-penalty country is on
-    // the paper, apply half the penalty.
-    if (adj >= 0) {
-      const worstCo = all
-        .filter((c) => c !== first && (COUNTRY_WEIGHT[c] || 0) < -10)
-        .map((c) => COUNTRY_WEIGHT[c])
-        .sort((a, b) => a - b)[0];
-      if (worstCo != null) adj += Math.floor(worstCo / 2);
-    }
-    return adj;
-  }
-  // No first-author country known. Take the worst in the set (conservative).
-  if (all.length) {
-    const worst = Math.min(...all.map((c) => COUNTRY_WEIGHT[c] ?? 0));
-    return worst;
-  }
-  return 0;
-};
+// Country-based scoring adjustment. DISABLED — always returns 0. See
+// COUNTRY_WEIGHT comment above for rationale.
+export const countryAdjustment = (_a) => 0;
 
 // Compile a human-readable list of quality flags for an article. These
 // surface in the UI as colored badges and get embedded in the grounding
@@ -164,8 +120,9 @@ export const computeQualityFlags = (a) => {
   if (a.isPreprint || (a.type === 'preprint')) flags.push({ key: 'preprint', severity: 'warning', label: 'Preprint (not peer-reviewed)' });
   if (isPredatoryPublisher(a.publisher)) flags.push({ key: 'predatory-publisher', severity: 'critical', label: `Predatory publisher: ${a.publisher}` });
   else if (isLowIntegrityPublisher(a.publisher)) flags.push({ key: 'low-integrity-publisher', severity: 'warning', label: `Lower-integrity publisher: ${a.publisher}` });
-  const first = a.firstAuthorCountry;
-  if (first && (COUNTRY_WEIGHT[first] ?? 0) <= -10) flags.push({ key: 'country-concern', severity: 'warning', label: `First-author country: ${first} (documented integrity concerns)` });
+  // (Country-of-first-author flag removed 2026-04 per product decision;
+  // we no longer down-weight literature by author country. See
+  // COUNTRY_WEIGHT comment above.)
   if (a.isMetaAnalysis) flags.push({ key: 'meta-analysis', severity: 'positive', label: 'Meta-analysis' });
   else if (a.isSystematicReview) flags.push({ key: 'systematic-review', severity: 'positive', label: 'Systematic review' });
   else if (a.isRCT) flags.push({ key: 'rct', severity: 'positive', label: 'Randomized controlled trial' });
@@ -276,20 +233,25 @@ export default async function handler(req, res) {
         : await getDossier(coreQuery);
 
     const canonical = dossier.canonical || coreQuery;
+    // Cap synonym fan-out at 2 (was 4). Each synonym is another 3-source
+    // round trip (PubMed throttled, EPMC throttled, OpenAlex parallel);
+    // on Vercel Hobby the extra 5s per synonym blows the 60s gather cap.
+    // The curated KB + dossier MeSH cover recall loss.
     const synonymSearches = [
       canonical,
       ...(dossier.synonyms || []).filter(
         (s) => s && s.toLowerCase() !== canonical.toLowerCase()
       )
-    ].slice(0, 4);
+    ].slice(0, 2);
 
     // For Cochrane, use the canonical form — Cochrane reviews index on
     // formal disease names, not abbreviations.
     const cochraneQuery = `${canonical} AND "Cochrane Database of Systematic Reviews"[journal]`;
 
-    // Full query set: canonical + up to 3 synonym variants + treatment-term
-    // cross-products on canonical only (to avoid combinatorial explosion).
-    const treatmentQueries = treatments.slice(0, 3).map((t) => `${canonical} ${t}`);
+    // Full query set: canonical + 1 synonym + up to 2 treatment-term
+    // cross-products on canonical. Total 4 queries × 3 sources = 12
+    // upstream hits, comfortably under the 48s gather deadline.
+    const treatmentQueries = treatments.slice(0, 2).map((t) => `${canonical} ${t}`);
     const queries = [...synonymSearches, ...treatmentQueries];
 
     // Curated knowledge base lookup. Uses the ORIGINAL condition text so
