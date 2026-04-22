@@ -19,6 +19,19 @@
       button:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(74, 158, 255, 0.25); }
       @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       .spin { animation: spin 1s linear infinite; }
+      @keyframes mrt-shimmer {
+        0%   { background-position: 0% 50%; }
+        100% { background-position: 200% 50%; }
+      }
+      .mrt-shimmer-bar {
+        background-size: 200% 100%;
+        animation: mrt-shimmer 2.2s linear infinite;
+      }
+      @keyframes mrt-pulse-dot {
+        0%, 100% { opacity: 0.35; transform: scale(0.85); }
+        50%      { opacity: 1;    transform: scale(1); }
+      }
+      .mrt-pulse-dot { animation: mrt-pulse-dot 1.2s ease-in-out infinite; }
       ::-webkit-scrollbar { width: 10px; height: 10px; }
       ::-webkit-scrollbar-track { background: rgba(15, 32, 39, 0.5); }
       ::-webkit-scrollbar-thumb { background: rgba(74, 158, 255, 0.4); border-radius: 5px; }
@@ -387,6 +400,20 @@
         const [evidencePack, setEvidencePack] = useState([]);
         const [dossier, setDossier] = useState(null);
 
+        // Deep-research progress state. When runResearch('research'|'repurpose')
+        // is in flight, `progress.active === true` and `progress.steps` tracks
+        // each stage of the pipeline (dossier, evidence, trials, synthesis,
+        // validation). The DeepResearchProgress component renders a ChatGPT-
+        // style stepped progress bar driven off this shape.
+        const [progress, setProgress] = useState(null);
+        const updateStep = (id, patch) => setProgress(p => {
+          if (!p) return p;
+          return {
+            ...p,
+            steps: p.steps.map(s => s.id === id ? { ...s, ...patch } : s)
+          };
+        });
+
         useEffect(() => saveLS('mrt_patient', patient), [patient]);
         useEffect(() => saveLS('mrt_audience', audience), [audience]);
         useEffect(() => saveLS('mrt_hipaa', acceptedHipaa), [acceptedHipaa]);
@@ -418,6 +445,34 @@
             return;
           }
           setBusy(mode);
+          // Seed deep-research progress for research/repurpose (the heavy,
+          // multi-phase modes). Chat / trials-analysis stay lightweight and
+          // just use the inline spinner.
+          const deepMode = (mode === 'research' || mode === 'repurpose');
+          if (deepMode) {
+            setProgress({
+              active: true,
+              mode,
+              startedAt: Date.now(),
+              steps: [
+                { id: 'dossier',  label: 'Build disease dossier',
+                  desc: 'Canonical name, synonyms, MeSH, top centers, landmark trials.',
+                  status: 'running' },
+                { id: 'evidence', label: 'Pull peer-reviewed evidence',
+                  desc: 'PubMed · Europe PMC · OpenAlex · Cochrane · openFDA · Unpaywall.',
+                  status: 'running' },
+                { id: 'trials',   label: 'Scan ClinicalTrials.gov',
+                  desc: 'Recruiting + expanded-access + open-label extension fan-out.',
+                  status: 'running' },
+                { id: 'synth',    label: 'Synthesise with Claude Sonnet',
+                  desc: '16-section grounded analysis tuned to your profile.',
+                  status: 'pending' },
+                { id: 'validate', label: 'Cross-AI fact-check (if configured)',
+                  desc: 'Second model audits every claim against the evidence pack.',
+                  status: 'pending' }
+              ]
+            });
+          }
           // Helper: POST /api/research with robust non-JSON error handling.
           // Vercel's 60s serverless cap, when hit, returns a plain-text error
           // page (FUNCTION_INVOCATION_TIMEOUT) which is NOT JSON — we detect
@@ -461,7 +516,28 @@
                 setEvidenceSummary(gathered.evidence);
                 setEvidencePack(gathered.evidence.topRanked || []);
               }
+              // Mark phase-1 steps as complete with real counts so the UI
+              // can show "Pulled 42 peer-reviewed sources" etc.
+              updateStep('dossier', {
+                status: 'done',
+                detail: gathered.dossier?.canonical
+                  ? `${gathered.dossier.canonical}${gathered.dossier.cacheHit ? ' (cached)' : ''}`
+                  : 'dossier built'
+              });
+              updateStep('evidence', {
+                status: 'done',
+                detail: gathered.evidence?.totalUnique
+                  ? `${gathered.evidence.totalUnique} unique peer-reviewed sources`
+                  : 'evidence pack ready'
+              });
+              updateStep('trials', {
+                status: 'done',
+                detail: gathered.trials?.total
+                  ? `${gathered.trials.returned || gathered.trials.total} trials (of ${gathered.trials.total} matched)`
+                  : 'ClinicalTrials.gov scanned'
+              });
               // Phase 2: synthesize.
+              updateStep('synth', { status: 'running' });
               data = await callResearch({
                 mode, patient, audience,
                 phase: 'synthesize',
@@ -469,6 +545,18 @@
                 providedEvidence: gathered.evidence,
                 providedTrials: gathered.trials,
                 ...extra
+              });
+              updateStep('synth', {
+                status: 'done',
+                detail: data.usage?.output_tokens
+                  ? `${data.usage.output_tokens.toLocaleString()} tokens generated`
+                  : 'analysis ready'
+              });
+              updateStep('validate', {
+                status: data.validation ? 'done' : 'skipped',
+                detail: data.validation
+                  ? `${data.validation.claims?.length || 0} claims audited`
+                  : 'no secondary model configured'
               });
             } else {
               data = await callResearch({ mode, patient, audience, ...extra });
@@ -492,9 +580,20 @@
               setDossier(data.dossier);
             }
           } catch (e) {
+            if (deepMode) {
+              setProgress(p => p ? ({
+                ...p, active: false, error: e.message,
+                steps: p.steps.map(s => s.status === 'running' ? { ...s, status: 'error', detail: e.message } : s)
+              }) : null);
+            }
             alert('Error: ' + e.message);
           } finally {
             setBusy(null);
+            if (deepMode) {
+              // Fade out the progress card a beat after completion so the
+              // user clearly sees every step hit "done" before it hides.
+              setTimeout(() => setProgress(p => p ? ({ ...p, active: false }) : null), 600);
+            }
           }
         };
 
@@ -613,7 +712,7 @@
                 patient={patient} busy={busy} runResearch={runResearch}
                 researchText={researchText} treatments={treatments}
                 validation={validations.research} evidenceSummary={evidenceSummary}
-                dossier={dossier}
+                dossier={dossier} progress={progress}
                 chatHistory={chatHistory} userQuery={userQuery}
                 setUserQuery={setUserQuery} sendChat={sendChat} />}
               {tab === 'trials' && <TrialsTab
@@ -624,7 +723,7 @@
               {tab === 'repurpose' && <RepurposeTab
                 patient={patient} busy={busy} runResearch={runResearch}
                 repurposeText={repurposeText} candidates={candidates}
-                validation={validations.repurpose} />}
+                validation={validations.repurpose} progress={progress} />}
               {tab === 'records' && <RecordsTab
                 patient={patient} audience={audience}
                 busy={busy} setBusy={setBusy}
@@ -1642,6 +1741,150 @@
       // so I put in IPF and then in realtime the agent does research?" Yes,
       // and here's exactly what it found — transparent by default, with an
       // uncertainty score so you know when to trust it vs when to push.
+      /* ==================== Deep Research Progress ==================== */
+      // ChatGPT-style stepped progress bar for the two-phase research
+      // pipeline. Driven off the `progress` state shape in App. Shows:
+      //   - Mode title + live elapsed-seconds counter
+      //   - Animated gradient progress bar (% = done steps / total steps)
+      //   - Stepped checklist: pending / running / done / skipped / error
+      //     with icon, label, one-line description and live detail text
+      //     (e.g. "42 unique peer-reviewed sources", "3200 tokens generated")
+      // Intentionally "honest" — nothing is faked. Every step corresponds
+      // to real work the backend is doing.
+      const DeepResearchProgress = ({ progress }) => {
+        if (!progress) return null;
+        const [now, setNow] = useState(Date.now());
+        useEffect(() => {
+          if (!progress.active) return;
+          const id = setInterval(() => setNow(Date.now()), 250);
+          return () => clearInterval(id);
+        }, [progress.active]);
+        const elapsed = Math.max(0, Math.round(((progress.active ? now : (progress.finishedAt || now)) - progress.startedAt) / 100) / 10);
+        const steps = progress.steps || [];
+        const doneCount = steps.filter(s => s.status === 'done' || s.status === 'skipped').length;
+        const totalCount = steps.length;
+        const pct = totalCount ? Math.max(6, Math.round((doneCount / totalCount) * 100)) : 0;
+        const isError = steps.some(s => s.status === 'error') || !!progress.error;
+        const isDone = !progress.active && !isError && doneCount === totalCount;
+        const modeLabel = progress.mode === 'repurpose' ? 'Drug Repurposing' : 'Deep Research';
+
+        const statusIcon = (s) => {
+          const sz = 16;
+          if (s.status === 'running') return <Loader size={sz} className="spin" color={theme.accent} />;
+          if (s.status === 'done')    return <CheckCircle size={sz} color={theme.green} />;
+          if (s.status === 'error')   return <XCircle size={sz} color="#f87171" />;
+          if (s.status === 'skipped') return <CheckCircle size={sz} color={theme.textDim} />;
+          // pending: empty circle
+          return (
+            <span style={{
+              display: 'inline-block', width: sz, height: sz, borderRadius: 999,
+              border: `2px solid ${theme.border}`, boxSizing: 'border-box'
+            }} />
+          );
+        };
+
+        return (
+          <div style={{
+            ...panelStyle,
+            background: `linear-gradient(180deg, rgba(74,158,255,0.08) 0%, ${panelStyle.background} 65%)`,
+            borderLeft: `3px solid ${isError ? '#f87171' : isDone ? theme.green : theme.accent}`
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.3rem' }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: `linear-gradient(135deg, ${theme.accent} 0%, #6ee7b7 100%)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                {isError ? <XCircle size={15} color="#0b1f2a" />
+                  : isDone ? <CheckCircle size={15} color="#0b1f2a" />
+                  : <Brain size={15} color="#0b1f2a" />}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: theme.text, fontFamily: '"Crimson Pro", Georgia, serif' }}>
+                  {modeLabel} · {isError ? 'failed' : isDone ? 'complete' : 'in progress'}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: theme.textDim }}>
+                  {doneCount} of {totalCount} stages · {elapsed.toFixed(1)}s elapsed
+                </div>
+              </div>
+              {progress.active && !isError && (
+                <span style={{
+                  fontSize: '0.72rem', color: theme.accent, fontWeight: 600,
+                  padding: '0.2rem 0.55rem', borderRadius: 999,
+                  background: `${theme.accent}18`, border: `1px solid ${theme.accent}44`,
+                  display: 'inline-flex', alignItems: 'center', gap: 6
+                }}>
+                  <span className="mrt-pulse-dot" style={{
+                    width: 6, height: 6, borderRadius: 999, background: theme.accent, display: 'inline-block'
+                  }} />
+                  live
+                </span>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            <div style={{
+              height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.05)',
+              overflow: 'hidden', margin: '0.7rem 0 1rem'
+            }}>
+              <div className={progress.active && !isError ? 'mrt-shimmer-bar' : ''} style={{
+                width: `${pct}%`, height: '100%', borderRadius: 999,
+                background: isError
+                  ? '#f87171'
+                  : `linear-gradient(90deg, ${theme.accent} 0%, #6ee7b7 50%, ${theme.accent} 100%)`,
+                transition: 'width 400ms ease'
+              }} />
+            </div>
+
+            {/* Stepped checklist */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+              {steps.map((s, i) => (
+                <div key={s.id} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                  opacity: s.status === 'pending' ? 0.5 : 1,
+                  transition: 'opacity 200ms ease'
+                }}>
+                  <div style={{ paddingTop: 2 }}>{statusIcon(s)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      display: 'flex', alignItems: 'baseline', gap: '0.4rem', flexWrap: 'wrap'
+                    }}>
+                      <span style={{
+                        fontSize: '0.88rem', fontWeight: 600,
+                        color: s.status === 'running' ? theme.accent : theme.text
+                      }}>
+                        {s.label}
+                      </span>
+                      {s.detail && (
+                        <span style={{ fontSize: '0.78rem', color: theme.green, fontWeight: 600 }}>
+                          — {s.detail}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: theme.textDim, marginTop: 1 }}>
+                      {s.desc}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {isError && (
+              <div style={{
+                marginTop: '0.9rem', padding: '0.6rem 0.8rem', borderRadius: 8,
+                background: 'rgba(248, 113, 113, 0.08)', border: '1px solid rgba(248, 113, 113, 0.35)',
+                fontSize: '0.82rem', color: '#fca5a5'
+              }}>
+                <strong>{progress.error || 'Something failed'}</strong>
+                <div style={{ marginTop: 3, color: theme.textDim }}>
+                  The dossier and upstream queries cache, so retrying is usually fast. If it keeps failing, check the Chat tab for a quick answer in the meantime.
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
       const DossierPanel = ({ dossier }) => {
         const [expanded, setExpanded] = useState(true);
         if (!dossier || !dossier.canonical) return null;
@@ -2160,7 +2403,7 @@
 
       /* ==================== Research Tab ==================== */
       const ResearchTab = ({ patient, busy, runResearch, researchText, treatments,
-                              validation, evidenceSummary, dossier,
+                              validation, evidenceSummary, dossier, progress,
                               chatHistory, userQuery, setUserQuery, sendChat }) => {
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
@@ -2210,6 +2453,8 @@
                 </p>
               )}
             </div>
+
+            <DeepResearchProgress progress={progress} />
 
             <DossierPanel dossier={dossier} />
 
@@ -2713,7 +2958,7 @@
         );
       };
 
-      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation }) => {
+      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation, progress }) => {
         const [showRaw, setShowRaw] = useState(false);
         const byStrength = {
           LARGE_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 6).length,
@@ -2726,6 +2971,8 @@
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <RepurposeHero patient={patient} busy={busy} runResearch={runResearch} />
+
+            <DeepResearchProgress progress={progress} />
 
             <ValidatorPanel validation={validation} />
 
