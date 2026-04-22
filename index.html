@@ -466,10 +466,23 @@
 
         const sendChat = async () => {
           if (!userQuery.trim()) return;
-          const q = userQuery;
+          const q = userQuery.trim();
           setUserQuery('');
           setChatHistory(h => [...h, { role: 'user', content: q }]);
           setBusy('chat');
+
+          // If the user typed a plausible disease name into chat and their
+          // patient profile has no condition yet, auto-populate it from the
+          // chat message. Lets them hit "Run Research" afterward without
+          // having to retype the condition into the profile tab. We keep the
+          // heuristic intentionally loose — the backend's dossier agent will
+          // sanity-check whatever we pass in anyway.
+          if (!patient.condition?.trim() && q.length <= 80 && !/[?]/.test(q)) {
+            const candidate = q.replace(/^(ok|hey|hi|hello|please|tell me about|give me info on|what is|info on)\s+/i, '').trim();
+            if (candidate.length >= 2 && candidate.length <= 80) {
+              setPatient(p => ({ ...p, condition: candidate }));
+            }
+          }
           try {
             // Pass the prior analyses + cached evidence pack so chat mode
             // has real context to answer from. Before this, chat ran with no
@@ -1882,12 +1895,22 @@
                     <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.55 }}>{m.content}</div>
                   </div>
                 ))}
+                {busy === 'chat' && (
+                  <div style={{
+                    padding: '0.75rem', borderRadius: 8, maxWidth: '85%', alignSelf: 'flex-start',
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                    display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.textDim, fontSize: '0.85rem'
+                  }}>
+                    <Loader size={14} className="spin" />
+                    <span>Researching… pulling trials + evidence pack + building dossier…</span>
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input value={userQuery} onChange={e => setUserQuery(e.target.value)}
-                  placeholder="Ask a follow-up (e.g. 'Why did you rate pirfenidone safer than nintedanib?')"
-                  onKeyDown={e => e.key === 'Enter' && !busy && sendChat()}
-                  style={{ ...inputStyle, flex: 1 }} disabled={!!busy} />
+                  placeholder={patient.condition ? `Ask about ${patient.condition}… or type a new disease to switch.` : "Type a disease to research (e.g. 'RP', 'LADA', 'Retinitis Pigmentosa') or ask a question."}
+                  onKeyDown={e => { if (e.key === 'Enter' && !busy && userQuery.trim()) { e.preventDefault(); sendChat(); } }}
+                  style={{ ...inputStyle, flex: 1 }} autoFocus />
                 <button style={btn('primary', !!busy || !userQuery.trim())}
                   disabled={!!busy || !userQuery.trim()} onClick={sendChat}>
                   {busy === 'chat' ? <Loader size={16} className="spin" /> : <Search size={16} />} Send

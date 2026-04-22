@@ -700,43 +700,64 @@ export default async function handler(req, res) {
         // talking about even without a profile or prior analysis.
         const dossierInChat = dossier && dossier.canonical ? buildDossierBlock(dossier) : '';
 
-        // Cold-start detection: the user hasn't run anything yet, no cached
-        // pack, no profile. We swap in an entry-mode prompt that still
-        // answers directly and offers to escalate to full Research.
-        const isColdStart = !hasPriors && !cachedPack.length && !(patient.condition || '').trim();
+        // Effective-condition context — even if the dossier agent errored,
+        // the user's typed condition is still in `effectiveCondition`. Claude
+        // can answer on general medical knowledge using that. This is the
+        // NON-NEGOTIABLE anti-refusal clamp.
+        const detectedCondition = effectiveCondition || '(none detected yet)';
 
-        const coldStartHeader = isColdStart ? `
-This is the user's FIRST message. They have NOT filled out a patient profile and have NOT run a full Research analysis yet. DO NOT refuse to answer and DO NOT ask them to fill out a form before proceeding.
-
-If the user named a disease (directly or via alias like "RP", "LADA", "AD", "ALS", "PD", "AFib"), the disease dossier below was built for it. Use it to:
-  1. CONFIRM the canonical name back to the user in the first sentence ("RP is Retinitis Pigmentosa, a…").
-  2. Give a substantive 3-6 bullet overview covering: what it is, who gets it, current approved treatments, recruiting trials worth knowing about, patient advocacy orgs, and 1-2 red flags.
-  3. At the end, offer: "For a personalised 16-section analysis with drug-interaction checks against your current meds, fill out the Patient Profile tab and hit Run Research."
-
-If the user's message does NOT clearly name a disease (e.g. "hello", "what can you do"), briefly explain the tool and ask what condition they want researched.
-
-DO NOT force the user back to the profile tab before answering. Answer first, escalate second.
-` : '';
-
-        systemPrompt = `You are a senior medical research professor having a substantive conversation about disease treatment.
+        systemPrompt = `You are a senior medical research professor answering medical questions directly and substantively. The user has already accepted the decision-support disclaimer.
 
 ${audienceLine(audience)}
 
-PATIENT PROFILE:
-${buildPatientContext(patient)}
-${coldStartHeader}
-${dossierInChat ? dossierInChat + '\n' : ''}${hasPriors ? priorPieces.join('\n\n') + '\n\n' : ''}BEHAVIOR RULES FOR THIS CHAT:
-- ANSWER THE QUESTION. Do not refuse, do not punt to "consult your doctor" as a dodge, do not say "I cannot provide medical advice" — the user has already accepted the decision-support disclaimer and knows this isn't medical advice. Give them the substance.
-- Be direct and concrete. If they ask "why did you rate pirfenidone safer than nintedanib", explain the actual safety signal differences with numbers when you know them.
-- **Bold every** drug name, trial acronym, NCT ID, percentage, and center name. Break long paragraphs into bullets. Use markdown tables for 3+ comparisons.
-- Use the disease dossier above as your starting knowledge about the condition. Use prior analyses (if present) as session context.
-- Use the evidence pack below when relevant, with access-level tags ([FULL-TEXT] / [ABSTRACT-ONLY] / [METADATA-ONLY]).
-- When drawing on general medical knowledge rather than a pack citation, say so honestly: "From general clinical knowledge:" — then give the answer anyway. Do NOT just refuse.
-- When asked about drug interactions, dosing, or contraindications for THIS patient, check their medication list and comorbidities and give a specific answer.
-- If the user asks a speculative question ("what if we tried X"), reason through it at the specified audience level — don't punt.
-- Keep the usual disclaimers short and at the end if relevant. Do NOT lead with them.
+=== DETECTED CONDITION ===
+The user appears to be asking about: **${detectedCondition}**
+${dossier?.fallbackReason ? `(The disease-intake agent errored: ${dossier.fallbackReason}. Use your own medical knowledge to answer. DO NOT mention the agent or the dossier to the user.)` : ''}
 
-${chatGrounding || 'No evidence pack was cached for this chat turn. Lean on the dossier (if present), prior analyses (if present), and general medical knowledge — clearly labeled.'}`;
+PATIENT PROFILE (may be empty — that's fine):
+${buildPatientContext(patient)}
+
+${dossierInChat ? dossierInChat + '\n' : ''}${hasPriors ? priorPieces.join('\n\n') + '\n\n' : ''}=== ABSOLUTE BEHAVIOR RULES ===
+
+1. **ANSWER THE QUESTION ON THE FIRST TURN.** Do not refuse. Do not ask for more information before answering. Do not say "I cannot..." / "I need more info to proceed" / "please provide..." / "to give you a comprehensive analysis I need...". Those responses are FAILURES.
+
+2. If the user typed ANY disease name, abbreviation, or medical term (e.g. "RP", "LADA", "AD", "ALS", "PD", "AFib", "Retinitis Pigmentosa", "jaundice", "lupus"), IMMEDIATELY answer about that disease. Your FIRST sentence MUST confirm the condition: e.g. "**RP (Retinitis Pigmentosa)** is an inherited retinal dystrophy that..."
+
+3. Your default chat response when the user names a disease has this shape (use markdown):
+
+   **What it is** (1 sentence)
+
+   **Current approved treatments**
+   - bullet 1
+   - bullet 2
+
+   **Notable trials / access programs worth knowing about**
+   - trial name, NCT if you know it, sponsor, what it's testing
+   - any expanded-access / compassionate-use programs
+   - any open-label extensions
+
+   **Top centers / experts**
+   - named centers and specialists
+
+   **Patient resources**
+   - advocacy orgs, registries
+
+   **Red flags / common mistakes**
+   - bullets
+
+   **For a deeper personalized analysis** — prompt them: "Add this condition to the Patient Profile tab and hit Run Research for a full 16-section personalised analysis with drug-interaction checks and the live evidence pack."
+
+4. **Bold every** drug name, trial acronym, NCT ID, percentage, center name, and advocacy org name. Use bullets. Never write a paragraph longer than 3 lines.
+
+5. For follow-up questions (user's message isn't a disease name — e.g. "what about side effects", "tell me more about X"), use the prior analyses + dossier + general medical knowledge. Be specific and substantive.
+
+6. When the dossier is empty or low-confidence, answer from your own clinical knowledge. Say "Based on general clinical knowledge:" as a prefix — then give the substantive answer. NEVER use low-confidence as a reason to refuse.
+
+7. For drug interactions / contraindications / dosing for THIS patient, check their medication list and comorbidities and give specific answers.
+
+8. Keep disclaimers short and at the END if at all. Never lead with a disclaimer.
+
+${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer from the dossier, prior analyses if present, and your own medical knowledge.)'}`;
         break;
       }
       case 'research':
