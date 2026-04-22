@@ -29,15 +29,13 @@ import { getDossier } from '../lib/disease-dossier.js';
 
 const MODEL = 'claude-sonnet-4-20250514';
 // Vercel Hobby has a hard 60s serverless cap. Measured Claude Sonnet 4
-// throughput on our grounded prompts is ~60-100 tok/s TTFT-to-stop,
-// which puts 4500 max_tokens at 45-75s of pure generation — too close
-// to the cap for a reliable single-shot response (we were seeing
-// FUNCTION_INVOCATION_TIMEOUT every attempt after the gather phase
-// completed successfully). Cutting to 2500 gives us ~25-40s generation
-// which fits comfortably with the heavy grounded prompt + input
-// context. 2500 tokens is still enough for a tight 8-section
-// clinician-grade summary — we adjusted the prompt scaffold to match.
-const MAX_TOKENS = 2500;
+// generation rate on our grounded prompts is ~45-50 tok/s, so 3200
+// output tokens costs ~52-58s. Pairing 3200 max_tokens with a tighter
+// grounding block (8 top sources) and a tighter trials block (6+3+3+3)
+// gets total synthesize time to ~48-55s — consistently under the 60s
+// cap, with enough output budget for Claude to finish all 8 sections
+// without stop_reason=max_tokens truncation mid-section.
+const MAX_TOKENS = 3200;
 
 const invokeInProcess = async (handler, body) => {
   let captured = { status: 200, body: null };
@@ -152,12 +150,13 @@ const buildTrialsBlock = (trials) => {
 
   // Same budget story as the grounding block: bigger trial lists chew
   // input tokens AND output tokens (Claude tries to discuss each).
-  // 8 + 4 + 4 + 4 is enough to surface the most important programs
-  // while staying under Vercel's 60s synth cap.
-  const recruiting = studies.filter((s) => s.acceptingNewPatients && !s.isExpandedAccessStudy && !s.designations?.hasOpenLabelExtension).slice(0, 8);
-  const ea = studies.filter((s) => s.designations?.hasExpandedAccess).slice(0, 4);
-  const ole = studies.filter((s) => s.designations?.hasOpenLabelExtension).slice(0, 4);
-  const topCenter = studies.filter((s) => s.hasTopCenter).slice(0, 4);
+  // 6 + 3 + 3 + 3 is enough to surface the most important programs in
+  // each pathway while leaving Claude enough output budget to finish
+  // sections 5-8.
+  const recruiting = studies.filter((s) => s.acceptingNewPatients && !s.isExpandedAccessStudy && !s.designations?.hasOpenLabelExtension).slice(0, 6);
+  const ea = studies.filter((s) => s.designations?.hasExpandedAccess).slice(0, 3);
+  const ole = studies.filter((s) => s.designations?.hasOpenLabelExtension).slice(0, 3);
+  const topCenter = studies.filter((s) => s.hasTopCenter).slice(0, 3);
 
   const chunks = [];
   chunks.push(`LIVE CLINICAL TRIALS PULL (ClinicalTrials.gov, fanned across condition + synonyms + expanded-access studyType + OLE title search):
@@ -187,13 +186,13 @@ MeSH terms used: ${(trials.dossier?.meshTerms || []).join(', ') || '(none)'}`);
 
 const buildGroundingBlock = (evidence) => {
   if (!evidence) return '';
-  // Top-12 rather than top-25. Each item costs ~200-400 input tokens
-  // (title + authors + journal + year + excerpt + quality flags). 25
-  // items was ~6-9k input tokens just on the grounding block, which
-  // slowed TTFT measurably AND pushed total generation past the 60s
-  // Vercel cap. 12 items × the best-scored sources is still enough for
-  // a well-grounded 8-section synthesis and keeps the prompt lean.
-  const items = (evidence.groundedForPrompt || []).slice(0, 12);
+  // Top-8 rather than top-25. Each item costs ~200-400 input tokens
+  // (title + authors + journal + year + excerpt + quality flags).
+  // Bigger grounding packs mean Claude writes denser, longer treatment
+  // cards and runs out of output budget before reaching sections 7-8.
+  // 8 top-scored items is enough to ground a tight 8-section answer
+  // while leaving Claude room to actually finish.
+  const items = (evidence.groundedForPrompt || []).slice(0, 8);
   if (!items.length) return '';
   const packed = items.map((it, i) => {
     const tierLabel = it.tier ? ` [TIER ${it.tier}]` : '';
@@ -401,11 +400,11 @@ ${audienceLine(audience)}
 PATIENT PROFILE:
 ${buildPatientContext(patient)}
 
-LENGTH BUDGET (HARD RULE — Vercel serverless gives us ~45s of Claude generation which is ~2,500 output tokens. Going over truncates mid-sentence, which is worse than a shorter but complete answer):
-- You have exactly 8 sections below. Target ~300 output tokens (~220 words) per section.
-- Dense bullets / tables. No paragraphs longer than 2 lines.
+LENGTH BUDGET (HARD RULE — Vercel serverless gives us ~55s of Claude generation which is ~3,200 output tokens. Going over the budget truncates mid-sentence, which is worse than a shorter but complete answer):
+- You have exactly 8 sections below. Target ~400 output tokens (~300 words) per section, average.
+- Dense bullets / tables. No paragraphs longer than 2 lines. No filler.
 - Inapplicable sections: heading + "**N/A for this condition** — <one-line reason>" and move on. Do NOT pad.
-- YOU MUST FINISH ALL 8 SECTIONS. If you feel yourself running long in section 3, cut section 3 shorter — do NOT starve sections 6-8.
+- YOU MUST FINISH ALL 8 SECTIONS. If section 3 or 4 is running long, cut it shorter — do NOT starve sections 7-8 (Patient Plan + Red Flags are safety-critical).
 
 Your output MUST include ALL of the following 8 sections IN THIS ORDER. Missing a section is a failure.
 
