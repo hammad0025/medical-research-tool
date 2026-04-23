@@ -12,10 +12,73 @@
     "IRD",
     "inherited retinal dystrophy"
   ],
-  "version": "2026-04",
+  "version": "2026-04b",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-22",
+  "lastUpdated": "2026-04-23",
   "editorialNote": "Landmark references for retinitis pigmentosa and the inherited retinal disease (IRD) pipeline. RP is genetically heterogeneous (100+ causative genes); the pipeline splits between gene-specific therapies (Luxturna for biallelic RPE65, gene-replacement candidates for RPGR, CEP290, USH2A, CNGA1, etc.) and gene-agnostic approaches (modifier gene therapy like OCU400, optogenetics like MCO-010, cell therapies like jCell, retinal prostheses). The most consequential gene-agnostic late-stage program is Ocugen OCU400 (NR2E3 nuclear hormone receptor modifier) in a phase 3 pivotal trial (liMeliGhT) that covers RP broadly rather than a single gene.",
+
+  "subspecialty": "Ophthalmology / Inherited Retinal Disease",
+  "icd10": "H35.52",
+  "meshTerms": [
+    "Retinitis Pigmentosa",
+    "Retinal Dystrophies",
+    "Leber Congenital Amaurosis",
+    "Genetic Therapy",
+    "Optogenetics"
+  ],
+  "topCenters": [
+    { "name": "Johns Hopkins Wilmer Eye Institute",                     "city": "Baltimore, MD",    "country": "USA", "why": "Peter Campochiaro — PI of the NAC Attack phase 3 trial and broader IRD program." },
+    { "name": "Bascom Palmer Eye Institute (University of Miami)",       "city": "Miami, FL",        "country": "USA", "why": "Byron Lam + Ninel Gregori — gene therapy and Luxturna center of excellence; Foundation Fighting Blindness partner." },
+    { "name": "Mass Eye and Ear / Harvard Ophthalmology",                "city": "Boston, MA",       "country": "USA", "why": "Eric Pierce — inherited retinal degeneration gene therapy program, jCell investigator site." },
+    { "name": "Casey Eye Institute (OHSU)",                              "city": "Portland, OR",     "country": "USA", "why": "Mark Pennesi — Luxturna high-volume center, OCU400 and CEP290 (EDIT-101) trial site." },
+    { "name": "National Eye Institute (NIH)",                            "city": "Bethesda, MD",     "country": "USA", "why": "NIH intramural IRD program; genotyping + natural-history studies." },
+    { "name": "Moorfields Eye Hospital",                                 "city": "London",           "country": "UK",  "why": "Michel Michaelides — European hub for gene therapy trials (RPGR, ABCA4, CNGA1)." },
+    { "name": "Retina Foundation of the Southwest",                      "city": "Dallas, TX",       "country": "USA", "why": "David Birch — natural-history and electrophysiology; jCyte/jCell and OCU400 trial site." },
+    { "name": "Kellogg Eye Center (University of Michigan)",             "city": "Ann Arbor, MI",    "country": "USA", "why": "Abigail Fahim — IRD genetics; OCU400 trial site." }
+  ],
+  "keyInvestigators": [
+    { "name": "Peter A. Campochiaro", "affiliation": "Johns Hopkins Wilmer",                     "why": "PI NAC Attack (NCT05537220) — oral NAC for RP, phase 3." },
+    { "name": "Jean Bennett",          "affiliation": "University of Pennsylvania (emerita)",    "why": "Developed voretigene neparvovec (Luxturna); founded Spark Therapeutics." },
+    { "name": "Albert Maguire",        "affiliation": "University of Pennsylvania",              "why": "Co-developer of Luxturna; RPE65 subretinal surgical technique." },
+    { "name": "Stephen Rose",          "affiliation": "Foundation Fighting Blindness (emeritus)","why": "Longtime scientific lead of the leading RP advocacy + funding org." },
+    { "name": "Byron L. Lam",          "affiliation": "Bascom Palmer Eye Institute",             "why": "Multiple RP trial site PI; rod-cone dystrophy clinician-scientist." },
+    { "name": "Michel Michaelides",    "affiliation": "Moorfields Eye Hospital / UCL",           "why": "European IRD gene therapy lead; RPGR, ABCA4, CNGA1 trial PI." },
+    { "name": "David G. Birch",        "affiliation": "Retina Foundation of the Southwest",       "why": "RP natural history + electrophysiology reference work." },
+    { "name": "Mark E. Pennesi",       "affiliation": "Casey Eye Institute (OHSU)",              "why": "EDIT-101 (CEP290 CRISPR), OCU400, Luxturna high-volume practice." }
+  ],
+  "patientAdvocacy": [
+    { "name": "Foundation Fighting Blindness",          "url": "https://www.fightingblindness.org",       "why": "Largest US funder of RP/IRD research; runs My Retina Tracker genetic-testing registry." },
+    { "name": "My Retina Tracker (FFB registry)",       "url": "https://www.myretinatracker.org",         "why": "Free genetic-testing program for qualifying US patients — essential for trial eligibility." },
+    { "name": "Usher Syndrome Coalition",               "url": "https://www.usher-syndrome.org",          "why": "For USH2A / USH1 / USH3 combined hearing-vision RP patients." },
+    { "name": "RP International",                       "url": "https://www.rpinternational.org",         "why": "Patient education + Helen Harris Memorial Low-Vision clinic." }
+  ],
+  "landmarkTrials": [
+    { "acronym": "Luxturna pivotal (302)",   "name": "Voretigene neparvovec for biallelic RPE65 mutation-associated retinal dystrophy", "topic": "FDA-approval-enabling trial for first gene therapy for an inherited disease (Russell 2017)." },
+    { "acronym": "liMeliGhT",                 "name": "OCU400 phase 3",                       "topic": "Ocugen modifier gene therapy — gene-agnostic across RP subtypes." },
+    { "acronym": "BRILLIANCE (EDIT-101)",     "name": "CRISPR in-vivo gene editing for CEP290 LCA10", "topic": "First in-vivo CRISPR human trial (paused by Editas 2024, reassigned)." },
+    { "acronym": "RESTORE (MCO-010)",          "name": "Multi-characteristic opsin optogenetic therapy", "topic": "Nanoscope gene-agnostic vision-restoration (phase 3 readout 2024)." },
+    { "acronym": "RESTORE VISION (jCell)",     "name": "Subretinal human retinal progenitor cells", "topic": "jCyte/jCell phase 2b/3 — cell therapy for advanced RP (NCT03073733)." },
+    { "acronym": "NAC Attack",                 "name": "Oral N-acetylcysteine in RP",          "topic": "Johns Hopkins phase 3 of cheap oral antioxidant (NCT05537220)." },
+    { "acronym": "Berson 1993",                "name": "Vitamin A palmitate in RP",            "topic": "Historic RCT — slowed ERG decline; must exclude ABCA4 (Stargardt)." }
+  ],
+  "commonComorbidities": [
+    "Cystoid macular edema (CME)",
+    "Posterior subcapsular cataract",
+    "Open-angle glaucoma (increased prevalence)",
+    "Hearing loss (Usher syndrome variants)",
+    "Vitamin A deficiency (symptomatic, uncommon)",
+    "Depression / anxiety (progressive vision loss)"
+  ],
+  "lifestyleCategories": [
+    "UV protection (daily sunglasses / hats; oxidative-damage mitigation)",
+    "Vitamin A palmitate 15,000 IU/day (ONLY if non-ABCA4 genotype confirmed; monitor LFTs + bone density)",
+    "Omega-3 DHA 1200 mg/day (Berson protocol co-supplement)",
+    "Genetic testing via My Retina Tracker or clinician-ordered panel (ESSENTIAL for trial eligibility)",
+    "Annual OCT + ERG + visual-field monitoring",
+    "Low-vision rehabilitation referral",
+    "Smoking cessation (smoking accelerates retinal oxidative damage)",
+    "Avoid high-dose vitamin A during pregnancy (teratogenic)"
+  ],
 
   "items": [
     {

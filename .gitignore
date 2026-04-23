@@ -1,1 +1,18 @@
 .vercel
+
+# Environment variables — these carry API keys (Anthropic, Perplexity,
+# OpenAI, xAI) and MUST NEVER be committed. Use `.env.local` for local
+# development and set the same vars in the Vercel dashboard for prod.
+.env
+.env.*
+!.env.example
+
+# OS / editor noise
+.DS_Store
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.idea/
+.vscode/
+*.swp

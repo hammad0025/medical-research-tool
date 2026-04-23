@@ -8,10 +8,70 @@
     "usual interstitial pneumonia",
     "idiopathic interstitial pneumonia"
   ],
-  "version": "2026-04b",
+  "version": "2026-04c",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-22",
+  "lastUpdated": "2026-04-23",
   "editorialNote": "Landmark references for IPF decision-support. All items below are pinned into every IPF query's evidence pack. Editorial summaries are written by the curator; keyPassages are verbatim from the source where available.",
+
+  "subspecialty": "Pulmonology / Interstitial Lung Disease",
+  "icd10": "J84.112",
+  "meshTerms": [
+    "Idiopathic Pulmonary Fibrosis",
+    "Lung Diseases, Interstitial",
+    "Pulmonary Fibrosis",
+    "Antifibrotic Agents"
+  ],
+  "topCenters": [
+    { "name": "UCSF Interstitial Lung Disease Program",                        "city": "San Francisco, CA", "country": "USA", "why": "One of the largest ILD referral programs in North America; home of the Collard group and the pirfenidone CAPACITY/ASCEND investigators." },
+    { "name": "UPMC Simmons Center for Interstitial Lung Disease (Pittsburgh)", "city": "Pittsburgh, PA",    "country": "USA", "why": "Dedicated ILD center founded by Kevin Gibson; deep IPF trial portfolio and transplant program." },
+    { "name": "Mayo Clinic Interstitial Lung Disease Clinic",                   "city": "Rochester, MN",     "country": "USA", "why": "Multidisciplinary ILD diagnosis with integrated pathology and radiology, plus transplant." },
+    { "name": "National Jewish Health",                                         "city": "Denver, CO",        "country": "USA", "why": "Largest respiratory-focused hospital in the US; ILD program runs phase 2/3 trials." },
+    { "name": "Cleveland Clinic Respiratory Institute — ILD",                   "city": "Cleveland, OH",     "country": "USA", "why": "Joseph Lasky / Daniel Culver — active IPF research and pragmatic antifibrotic clinic." },
+    { "name": "Duke Interstitial Lung Disease Program",                         "city": "Durham, NC",        "country": "USA", "why": "Scott Palmer, Lake Morrison; deep transplant program for end-stage IPF." },
+    { "name": "Royal Brompton Hospital ILD Unit",                               "city": "London",            "country": "UK",  "why": "Toby Maher and Athol Wells; FIBRONEER-IPF co-PI site." },
+    { "name": "Medizinische Hochschule Hannover (MHH) ILD Center",              "city": "Hannover",          "country": "Germany", "why": "Kreuter / Welte; key European IPF trial site." }
+  ],
+  "keyInvestigators": [
+    { "name": "Ganesh Raghu",        "affiliation": "University of Washington", "why": "First-author of the ATS/ERS/JRS/ALAT IPF guidelines (2011, 2015, 2018, 2022). Single most-cited clinician in modern IPF." },
+    { "name": "Toby Maher",          "affiliation": "USC Keck / Royal Brompton","why": "PI FIBRONEER-IPF, PI multiple phase 2/3 antifibrotic trials." },
+    { "name": "Kevin R. Flaherty",   "affiliation": "University of Michigan",   "why": "Co-PI INPULSIS, co-lead on progressive pulmonary fibrosis concept." },
+    { "name": "Fernando J. Martinez","affiliation": "Weill Cornell",            "why": "PI CAPACITY + ASCEND pirfenidone trials." },
+    { "name": "Luca Richeldi",       "affiliation": "Università Cattolica (Rome)","why": "INPULSIS PI; PDE4B-inhibitor trial lead." },
+    { "name": "Athol U. Wells",      "affiliation": "Royal Brompton",           "why": "ILD radiology and outcome-measure authority." }
+  ],
+  "patientAdvocacy": [
+    { "name": "Pulmonary Fibrosis Foundation",      "url": "https://www.pulmonaryfibrosis.org",        "why": "Largest US IPF advocacy org; care-center network registry." },
+    { "name": "Three Lakes Foundation",             "url": "https://www.threelakesfoundation.org",     "why": "IPF research funder + patient support programs." },
+    { "name": "European Idiopathic Pulmonary Fibrosis Federation (EU-IPFF)", "url": "https://www.eu-ipff.org", "why": "Umbrella for 20+ European IPF patient organisations." },
+    { "name": "PF Warriors",                        "url": "https://pfwarriors.org",                   "why": "Patient-run community and education." }
+  ],
+  "landmarkTrials": [
+    { "acronym": "CAPACITY 004/006",   "name": "Pirfenidone in IPF",               "topic": "FDA-approval-enabling trials for pirfenidone (Noble 2011)." },
+    { "acronym": "ASCEND",             "name": "Pirfenidone vs placebo",           "topic": "Confirmatory phase 3 pirfenidone (King 2014)." },
+    { "acronym": "INPULSIS-1 / INPULSIS-2", "name": "Nintedanib in IPF",           "topic": "FDA-approval trials for nintedanib (Richeldi 2014)." },
+    { "acronym": "PANTHER-IPF",        "name": "Triple therapy vs placebo",         "topic": "Showed HARM (mortality, hospitalisation) for prednisone+azathioprine+NAC; guideline inversion." },
+    { "acronym": "FIBRONEER-IPF",      "name": "Nerandomilast (BI 1015550) vs placebo", "topic": "Phase 3 positive readout Sept 2024 — first novel IPF drug in a decade." },
+    { "acronym": "INCREASE",           "name": "Inhaled treprostinil in PH-ILD",    "topic": "PH-ILD outcome; unexpected antifibrotic signal." },
+    { "acronym": "ZEPHYRUS-1",         "name": "Pamrevlumab (anti-CTGF)",           "topic": "Phase 3 FAILURE in IPF (2023); development halted for this indication." }
+  ],
+  "commonComorbidities": [
+    "GERD / laryngopharyngeal reflux",
+    "Obstructive sleep apnea",
+    "Pulmonary hypertension (PH-ILD)",
+    "Lung cancer (elevated risk in fibrotic lung)",
+    "Coronary artery disease",
+    "Emphysema (combined pulmonary fibrosis and emphysema, CPFE)",
+    "Depression / anxiety"
+  ],
+  "lifestyleCategories": [
+    "Smoking cessation (any ongoing exposure accelerates decline)",
+    "Pulmonary rehabilitation",
+    "Supplemental oxygen titration (ambulatory and nocturnal)",
+    "GERD management (PPI + positional, weight if applicable)",
+    "Vaccinations (flu, pneumococcal, COVID-19, RSV)",
+    "Avoidance of environmental triggers (avian antigens, mold, silica)",
+    "Early transplant referral when FVC falls below ~80% or with progressive disease"
+  ],
 
   "items": [
     {

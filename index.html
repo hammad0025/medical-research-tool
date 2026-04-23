@@ -964,6 +964,56 @@
           runResearch('trials', { trialsData });
         };
 
+        // On-demand cross-AI audit. Fires only when the user clicks the
+        // "Audit this analysis" button in one of the tabs (research /
+        // repurpose / trials). Keeps the validator out of the default
+        // run path — Perplexity/OpenAI cost is only incurred when a user
+        // actually wants the independent second opinion. See cost-cuts
+        // 2026-04-23 in api/research.js and api/validate.js.
+        const auditAnalysis = async (mode) => {
+          const analysisText =
+            mode === 'research'  ? researchText :
+            mode === 'repurpose' ? repurposeText :
+            mode === 'trials'    ? trialsText : '';
+          if (!analysisText) {
+            alert('Run the analysis first, then audit it.');
+            return;
+          }
+          setValidations((v) => ({ ...v, [mode]: { _auditing: true } }));
+          try {
+            const packForValidator = (evidencePack || []).slice(0, 18).map((a) => ({
+              id: a.doi || a.pmid || a.id,
+              title: a.title,
+              journal: a.journal,
+              tier: a.journalTier,
+              year: a.year,
+              sources: a.sources,
+              accessLevel: a.accessLevel,
+              url: a.pmcUrl || a.pubmedUrl || a.doiUrl || a.oaUrl || a.landingUrl || a.europePmcUrl,
+              text: (a.fullText || a.abstract || '').slice(0, 2000)
+            }));
+            const r = await fetch('/api/validate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                analysisText,
+                evidencePack: packForValidator,
+                patient,
+                condition: patient.condition || '',
+                audience
+              })
+            });
+            const data = await r.json();
+            if (!r.ok) {
+              setValidations((v) => ({ ...v, [mode]: { error: data.error || `HTTP ${r.status}`, hint: data.hint } }));
+              return;
+            }
+            setValidations((v) => ({ ...v, [mode]: data }));
+          } catch (err) {
+            setValidations((v) => ({ ...v, [mode]: { error: err.message } }));
+          }
+        };
+
         const sendChat = async () => {
           if (!userQuery.trim()) return;
           const q = userQuery.trim();
@@ -1046,16 +1096,19 @@
                 validation={validations.research} evidenceSummary={evidenceSummary}
                 dossier={dossier} progress={progress} coverageAudit={coverageAudit}
                 chatHistory={chatHistory} userQuery={userQuery}
-                setUserQuery={setUserQuery} sendChat={sendChat} />}
+                setUserQuery={setUserQuery} sendChat={sendChat}
+                onAudit={() => auditAnalysis('research')} />}
               {tab === 'trials' && <TrialsTab
                 patient={patient} busy={busy} trialsData={trialsData}
                 trialBlocks={trialBlocks} trialsText={trialsText}
                 validation={validations.trials}
-                runTrialsFetch={runTrialsFetch} runTrialsAnalysis={runTrialsAnalysis} />}
+                runTrialsFetch={runTrialsFetch} runTrialsAnalysis={runTrialsAnalysis}
+                onAudit={() => auditAnalysis('trials')} />}
               {tab === 'repurpose' && <RepurposeTab
                 patient={patient} busy={busy} runResearch={runResearch}
                 repurposeText={repurposeText} candidates={candidates}
-                validation={validations.repurpose} progress={progress} />}
+                validation={validations.repurpose} progress={progress}
+                onAudit={() => auditAnalysis('repurpose')} />}
               {tab === 'records' && <RecordsTab
                 patient={patient} audience={audience}
                 busy={busy} setBusy={setBusy}
@@ -2668,8 +2721,42 @@
         return theme.textDim;
       };
 
-      const ValidatorPanel = ({ validation }) => {
-        if (!validation) return null;
+      const ValidatorPanel = ({ validation, onAudit, canAudit }) => {
+        // When no validation has been requested yet and the analysis is
+        // ready, offer the audit button. The validator is opt-in so we
+        // only burn Perplexity tokens when the user actually wants the
+        // independent second opinion.
+        if (!validation) {
+          if (!canAudit || !onAudit) return null;
+          return (
+            <div style={panelStyle}>
+              <h3 style={{ marginTop: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Scales size={18} /> Independent Cross-AI Audit (optional)
+              </h3>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: '0 0 0.9rem' }}>
+                Run a second, independent AI (Perplexity with live web search) over this
+                analysis and the same grounded evidence pack. It will flag any unsupported
+                claims, broken citations, and missing perspectives. Typical runtime:
+                ~5-10 seconds.
+              </p>
+              <button onClick={onAudit} style={{ ...btn, background: theme.accent, color: '#fff', borderColor: theme.accent }}>
+                <Scales size={16} style={{ marginRight: 6 }} /> Audit this analysis
+              </button>
+            </div>
+          );
+        }
+        if (validation._auditing) {
+          return (
+            <div style={panelStyle}>
+              <h3 style={{ marginTop: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Scales size={18} /> Cross-AI Audit — running…
+              </h3>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: 0 }}>
+                The independent validator is re-checking every factual claim. Usually 5-10 seconds.
+              </p>
+            </div>
+          );
+        }
         if (validation.error) {
           return (
             <div style={panelStyle}>
@@ -2835,7 +2922,7 @@
       /* ==================== Research Tab ==================== */
       const ResearchTab = ({ patient, busy, runResearch, researchText, treatments,
                               validation, evidenceSummary, dossier, progress, coverageAudit,
-                              chatHistory, userQuery, setUserQuery, sendChat }) => {
+                              chatHistory, userQuery, setUserQuery, sendChat, onAudit }) => {
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
         const baseQuickPrompts = [
@@ -2986,7 +3073,7 @@
 
             <QualityPanel qb={evidenceSummary?.qualityBreakdown} />
 
-            <ValidatorPanel validation={validation} />
+            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!researchText} />
 
             {evidenceSummary && evidenceSummary.totalUnique > 0 && (
               <div style={panelStyle}>
@@ -3172,7 +3259,7 @@
 
       /* ==================== Clinical Trials Tab ==================== */
       const TrialsTab = ({ patient, busy, trialsData, trialBlocks, trialsText, validation,
-                           runTrialsFetch, runTrialsAnalysis }) => {
+                           runTrialsFetch, runTrialsAnalysis, onAudit }) => {
         const [filters, setFilters] = useState({ recruitingOnly: true, treatmentOnly: true, excludePlacebo: false });
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -3220,7 +3307,7 @@
 
             {trialBlocks.length > 0 && <RankedTrialsForPatient blocks={trialBlocks} />}
 
-            <ValidatorPanel validation={validation} />
+            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!trialsText} />
 
             {trialsText && (
               <div style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
@@ -3560,7 +3647,7 @@
         );
       };
 
-      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation, progress }) => {
+      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation, progress, onAudit }) => {
         const [showRaw, setShowRaw] = useState(false);
         const byStrength = {
           LARGE_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 6).length,
@@ -3576,7 +3663,7 @@
 
             <DeepResearchProgress progress={progress} />
 
-            <ValidatorPanel validation={validation} />
+            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!repurposeText} />
 
             {candidates.length > 0 && (
               <>

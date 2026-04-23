@@ -201,32 +201,29 @@ const buildRequiredMentionsBlock = (evidence) => {
   const excludedAgents = Array.isArray(evidence?.excludedAgents) ? evidence.excludedAgents : [];
   if (!pipelineDrugs.length && !excludedAgents.length) return '';
 
-  const drugLines = pipelineDrugs.map((d, i) => {
-    const aliases = Array.isArray(d.aliases) && d.aliases.length ? ` (aka ${d.aliases.join(', ')})` : '';
-    const bits = [];
-    if (d.mechanism) bits.push(`Mechanism: ${d.mechanism}`);
-    if (d.sponsor) bits.push(`Sponsor: ${d.sponsor}`);
-    if (d.status) bits.push(`Status: ${d.status}`);
-    if (d.approvalStatus) bits.push(`Approval: ${d.approvalStatus}`);
-    if (d.nct) bits.push(`NCT: ${d.nct}`);
-    if (d.pmid) bits.push(`PMID: ${d.pmid}`);
-    if (d.whyItMatters) bits.push(`Why it matters: ${d.whyItMatters}`);
-    return `  ${i + 1}. **${d.name}**${aliases}
-     ${bits.join(' · ')}`;
+  // Tight one-liner per drug. We dropped the sponsor + PMID + DOI + whyItMatters
+  // prose that was here before — it's already in the evidence pack below,
+  // plus the KB-curated grounding block. What matters for the anti-omission
+  // guardrail is the NAME, the aliases (so Claude doesn't skip by using a
+  // different synonym), and the approval status (so Claude knows which
+  // section to file it in). ~70% smaller than the previous block.
+  // Cost cut 2026-04-23: saves ~600-900 input tokens per synthesis call.
+  const drugLines = pipelineDrugs.map((d) => {
+    const aliases = Array.isArray(d.aliases) && d.aliases.length ? ` (${d.aliases.join(' / ')})` : '';
+    const status = d.approvalStatus ? ` — ${d.approvalStatus}` : '';
+    return `- **${d.name}**${aliases}${status}`;
   }).join('\n');
 
-  const excludedLines = excludedAgents.map((x, i) => {
-    return `  ${i + 1}. **${x.name}** — EXCLUDED BECAUSE: ${x.reason}`;
-  }).join('\n');
+  const excludedLines = excludedAgents.map((x) => `- **${x.name}** — ${x.reason}`).join('\n');
 
-  return `=== REQUIRED MENTIONS FOR THIS CONDITION (anti-omission guardrail) ===
-The curator has explicitly flagged the following agents as MANDATORY to discuss. They represent FDA-approved, phase 2b/3, or pivotal negative/discontinued agents for this condition. If you write an analysis that fails to mention any item in this list by name (or a listed alias) you have produced an INCOMPLETE analysis and the post-synthesis audit will reject your output and force a rewrite.
+  return `=== REQUIRED MENTIONS (anti-omission guardrail) ===
+Every pipeline drug below MUST appear by name (or listed alias) in your output. Approved agents belong in Section 3; investigational in Section 4 or 5; discontinued/failed in Section 8.
 
-PIPELINE DRUGS — EVERY NAME BELOW MUST APPEAR IN YOUR OUTPUT (section 3 "Approved Treatments" for approved agents, section 4 "Clinical Trials & Access Programs" or section 5 "Pipeline Watch" for investigational agents, section 8 "Red Flags" for discontinued/failed agents):
-${drugLines || '  (none)'}
+PIPELINE DRUGS:
+${drugLines || '- (none)'}
 
-EXCLUDED AGENTS — mention these in section 8 "Red Flags" with the reason:
-${excludedLines || '  (none)'}
+EXCLUDED AGENTS (mention in Section 8 with the reason):
+${excludedLines || '- (none)'}
 
 === END REQUIRED MENTIONS ===
 `;
@@ -279,13 +276,13 @@ const buildAgentsEvaluatedBlock = (claudeText, evidence) => {
 
 const buildGroundingBlock = (evidence) => {
   if (!evidence) return '';
-  // Top-8 rather than top-25. Each item costs ~200-400 input tokens
-  // (title + authors + journal + year + excerpt + quality flags).
-  // Bigger grounding packs mean Claude writes denser, longer treatment
-  // cards and runs out of output budget before reaching sections 7-8.
-  // 8 top-scored items is enough to ground a tight 8-section answer
-  // while leaving Claude room to actually finish.
-  const items = (evidence.groundedForPrompt || []).slice(0, 8);
+  // Top-6 rather than top-8 (or top-25 originally). Each item costs
+  // ~200-400 input tokens even with the tightened excerpt length.
+  // Empirically, Claude concentrates its citations in the top 3-5
+  // items anyway; items 7+ show up in maybe 15% of runs. Cost cut
+  // 2026-04-23: saves ~500-800 input tokens per synthesis call,
+  // which is ~8-12% of the pack's total input contribution.
+  const items = (evidence.groundedForPrompt || []).slice(0, 6);
   if (!items.length) return '';
   const packed = items.map((it, i) => {
     const tierLabel = it.tier ? ` [TIER ${it.tier}]` : '';
@@ -319,7 +316,7 @@ const buildGroundingBlock = (evidence) => {
     return `[#${i + 1}]${kbTag}${tierLabel}${access}${oa}${qTag} ${it.title || '(no title)'}
       Journal: ${it.journal || '?'}${pubLine} · Year: ${it.year || '?'} · Sources: ${src} · Citations: ${it.citations || 0}${countryLine}
       URL: ${it.url || '(no URL)'}
-      Content: ${(it.text || '').slice(0, 3000) || '(no text available — metadata only; you may name this paper but MUST NOT claim anything about its results, methods, or conclusions)'}`;
+      Content: ${(it.text || '').slice(0, 2000) || '(no text available — metadata only; you may name this paper but MUST NOT claim anything about its results, methods, or conclusions)'}`;
   }).join('\n\n');
 
   const fdaBits = [];
@@ -439,6 +436,16 @@ const audienceLine = (audience) =>
     ? 'AUDIENCE: Medical professional. Use precise clinical terminology, include pharmacology, dosing, and mechanism where relevant.'
     : 'AUDIENCE: Non-medical reader (high-school / 10th-grade education). Explain every medical term in plain language. Keep sentences short.';
 
+// Build the per-request dynamic header that is NEVER cached (it's different
+// on every call: audience, patient profile, condition-specific context).
+// Paired with the mode's *_STATIC scaffolding which IS cached. This is the
+// Anthropic prompt-caching split — static scaffold gets `cache_control:
+// ephemeral` and is served at 10% of the input-token price on cache hits.
+const buildDynamicHeader = (patient, audience) => `${audienceLine(audience)}
+
+PATIENT PROFILE:
+${buildPatientContext(patient)}`;
+
 const SHARED_GUARDRAILS = `
 CITATION RULES (absolute — the single biggest failure mode of AI in medical research is hallucinated citations):
 - CITE ONLY FROM THE GROUNDED EVIDENCE PACK provided below. Do not invent, paraphrase-without-URL, or cite from general knowledge.
@@ -489,12 +496,14 @@ OUTPUT FORMATTING RULES (enforce strictly — the user has explicitly complained
 // BACK half because bundling trial sub-tables with 5 treatment cards
 // kept blowing through max_tokens; BACK had 1000 tokens of headroom
 // to absorb it.)
-const RESEARCH_PROMPT_FRONT = (patient, audience) => `You are a comprehensive medical research assistant. Produce SECTIONS 1-3 of a structured analysis for the patient's primary condition. Sections 4-8 will be produced by a separate call — do NOT write them now.
-
-${audienceLine(audience)}
-
-PATIENT PROFILE:
-${buildPatientContext(patient)}
+//
+// Split into STATIC (cacheable) and a dynamic header built per-request
+// so we can attach `cache_control: { type: 'ephemeral' }` to the big
+// static block. Cost cut 2026-04-23: Anthropic prompt caching serves
+// cached input tokens at 10% of the normal rate, so repeat runs on
+// the same mode/half cost ~$0.006 instead of ~$0.06 for the static
+// part. Break-even is 1 cache hit within 5 minutes.
+const RESEARCH_PROMPT_FRONT_STATIC = `You are a comprehensive medical research assistant. Produce SECTIONS 1-3 of a structured analysis for the patient's primary condition. Sections 4-8 will be produced by a separate call — do NOT write them now.
 
 LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens across 3 sections):
 - Target ~800 output tokens (~600 words) per section on average.
@@ -541,12 +550,7 @@ ${SHARED_GUARDRAILS}`;
 // access plan, red flags. These are the "here's how to get into a
 // trial, what to try, and what to avoid" sections — safety-critical
 // and personalised.
-const RESEARCH_PROMPT_BACK = (patient, audience) => `You are a comprehensive medical research assistant. Produce SECTIONS 4-8 of a structured analysis for the patient's primary condition. Sections 1-3 were produced by a previous call — do NOT repeat them. Start straight at section 4.
-
-${audienceLine(audience)}
-
-PATIENT PROFILE:
-${buildPatientContext(patient)}
+const RESEARCH_PROMPT_BACK_STATIC = `You are a comprehensive medical research assistant. Produce SECTIONS 4-8 of a structured analysis for the patient's primary condition. Sections 1-3 were produced by a previous call — do NOT repeat them. Start straight at section 4.
 
 LENGTH BUDGET (HARD RULE — this call has ~2,500 output tokens across 5 sections):
 - Target ~500 output tokens (~375 words) per section on average. Section 4 (trials) may be larger; compensate by keeping 5-8 tighter.
@@ -597,18 +601,13 @@ ${FORMATTING_RULES}
 
 ${SHARED_GUARDRAILS}`;
 
-const REPURPOSE_PROMPT = (patient, audience) => `You are a medical research professor leading a graduate seminar. Your students are looking at an existing drug library and asking, for a specific patient condition, "Which already-approved medications or widely-available supplements might logically help this condition — even though no formal guideline endorses them yet?"
+const REPURPOSE_PROMPT_STATIC = `You are a medical research professor leading a graduate seminar. Your students are looking at an existing drug library and asking, for a specific patient condition, "Which already-approved medications or widely-available supplements might logically help this condition — even though no formal guideline endorses them yet?"
 
 This is the EveryCure / drug-repurposing methodology. Think outside the box. Reason from first principles about:
 - the pathophysiology of the primary condition
 - known mechanisms of action of existing drugs
 - shared molecular pathways with other conditions where a drug is already effective
 - supportive (not definitive) peer-reviewed evidence
-
-${audienceLine(audience)}
-
-PATIENT PROFILE:
-${buildPatientContext(patient)}
 
 Produce a ranked list of 6-12 candidate repurposed drugs or supplements. For EACH candidate output this exact block (the UI parses it):
 
@@ -871,11 +870,23 @@ export default async function handler(req, res) {
       .filter(Boolean)
       .join('\n\n');
 
-    let systemPrompt;
+    // `systemBlocks` is an array of content blocks sent to Anthropic.
+    // The first block (when present) is the STATIC mode scaffolding with
+    // `cache_control: { type: 'ephemeral' }` so it is served at 10% of
+    // normal input-token rate on repeat requests within the 5-minute
+    // cache window. The second block is the dynamic per-request header
+    // (audience, patient profile, grounded evidence, trials data) which
+    // is always fresh. Chat/trials modes bypass the cache split — chat
+    // is too dynamic and trials embeds a big JSON blob inline.
+    let systemBlocks = null;
+    let systemPrompt = null;
+
     switch (mode) {
       case 'repurpose':
-        systemPrompt = REPURPOSE_PROMPT(patient, audience) +
-          (extraContext ? `\n\n${extraContext}` : '');
+        systemBlocks = [
+          { type: 'text', text: REPURPOSE_PROMPT_STATIC, cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: buildDynamicHeader(patient, audience) + (extraContext ? `\n\n${extraContext}` : '') }
+        ];
         break;
       case 'trials':
         systemPrompt = TRIALS_PROMPT(patient, audience, trialsData || {});
@@ -973,10 +984,13 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
         // Research mode is split across two Claude calls (half='front'
         // + half='back') so each fits under Vercel's 60s cap and
         // neither hits stop_reason=max_tokens mid-answer.
-        const basePrompt = half === 'back'
-          ? RESEARCH_PROMPT_BACK(patient, audience)
-          : RESEARCH_PROMPT_FRONT(patient, audience);
-        systemPrompt = basePrompt + (extraContext ? `\n\n${extraContext}` : '');
+        const baseStatic = half === 'back'
+          ? RESEARCH_PROMPT_BACK_STATIC
+          : RESEARCH_PROMPT_FRONT_STATIC;
+        systemBlocks = [
+          { type: 'text', text: baseStatic, cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: buildDynamicHeader(patient, audience) + (extraContext ? `\n\n${extraContext}` : '') }
+        ];
         break;
       }
     }
@@ -999,7 +1013,11 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        system: systemPrompt,
+        // Prefer the cache-enabled `systemBlocks` array when the mode
+        // supports it (research + repurpose); fall back to a plain
+        // string for chat + trials modes where the prompt is too
+        // dynamic to benefit from caching.
+        system: systemBlocks || systemPrompt,
         messages
       })
     });
@@ -1082,9 +1100,7 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
           return `- **${d.name}**${aliases}: ${bits}. ${d.whyItMatters || ''}`;
         }).join('\n');
 
-        const repromptSystem = `${systemPrompt}
-
-=== COVERAGE AUDIT FAILURE — FORCED REWRITE ===
+        const repromptDirective = `=== COVERAGE AUDIT FAILURE — FORCED REWRITE ===
 Your previous draft FAILED the mandatory pipeline-drug coverage audit. The following agents were in the REQUIRED MENTIONS list but were NOT mentioned in your output. You MUST rewrite and return the complete analysis with each of these agents inserted in the appropriate section. Do not produce a partial response.
 
 MISSED AGENTS:
@@ -1096,6 +1112,17 @@ Where they must go:
 - Discontinued or pivotal-negative agents → Section 8 (Red Flags)
 
 Return the full corrected analysis now, beginning again at "## 1." (front half) or "## 4." (back half) depending on which half you are generating.`;
+
+        // Build the reprompt system in the same shape as the original — if
+        // the original used cached blocks, keep them cached on the reprompt
+        // (same 5-minute cache key) so we only pay for the appended
+        // directive as fresh input tokens.
+        const repromptSystem = systemBlocks
+          ? [
+              ...systemBlocks,
+              { type: 'text', text: repromptDirective }
+            ]
+          : `${systemPrompt}\n\n${repromptDirective}`;
 
         try {
           const reprompt = await fetch('https://api.anthropic.com/v1/messages', {
@@ -1171,10 +1198,17 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
     // over Claude's output + the same evidence pack to catch hallucinated
     // citations and unsupported claims. An LLM grading its own work is weak;
     // an independent second model with different training data is a much
-    // stronger safeguard. Skip for pure chat mode (no structured claims to
-    // audit) and when the caller opts out.
+    // stronger safeguard.
+    //
+    // COST CUT 2026-04-23: validator is now OPT-IN (default OFF). Previously
+    // this fired on every research run, burning ~$0.05 per request on the
+    // second LLM whether the user cared about the audit or not. Users who
+    // want it now click an "Audit this analysis" button in the UI, which
+    // POSTs to /api/validate directly with the analysis text + evidence
+    // pack. The inline call here still works if the caller explicitly
+    // passes `validate: true` — handy for automated pipelines.
     let validation = null;
-    const wantValidation = req.body?.validate !== false;
+    const wantValidation = req.body?.validate === true;
     const hasAnyValidatorKey =
       !!process.env.PERPLEXITY_API_KEY ||
       !!process.env.OPENAI_API_KEY ||
