@@ -1,0 +1,367 @@
+{
+  "condition": "Schizophrenia",
+  "slug": "schizophrenia",
+  "aliases": [
+    "schizophrenia",
+    "schizoaffective disorder",
+    "schizophreniform disorder",
+    "psychotic disorder",
+    "early-course psychosis",
+    "first-episode psychosis"
+  ],
+  "version": "2026-04a",
+  "curatedBy": "Syed Hammad Haque",
+  "lastUpdated": "2026-04-23",
+  "editorialNote": "Focused KB for schizophrenia. CRITICAL 2024 CHANGE: FDA approved xanomeline-trospium (KarXT, Cobenfy, BMS) September 2024 — FIRST new-mechanism antipsychotic in ~70 years, a muscarinic M1/M4 agonist that does not block dopamine D2. Any schizophrenia output that fails to mention Cobenfy is out of date. Two other recent muscarinic/novel-mechanism agents to flag: emraclidine (AbbVie/Cerevel M4 agonist) FAILED phase 2 EMPOWER trials November 2024; ulotaront (SEP-363856, TAAR1 agonist, Sumitomo) FAILED DIAMOND phase 3 July 2023. Clozapine remains unique for treatment-resistant schizophrenia.",
+
+  "subspecialty": "Psychiatry / Early Psychosis / Schizophrenia Spectrum Disorders",
+  "icd10": "F20.9",
+  "meshTerms": [
+    "Schizophrenia",
+    "Antipsychotic Agents",
+    "Psychotic Disorders",
+    "Clozapine",
+    "Muscarinic Agonists"
+  ],
+  "topCenters": [
+    { "name": "Columbia Center for Psychiatric Genetics (NYSPI)",           "city": "New York, NY",    "country": "USA", "why": "Jeffrey Lieberman (emeritus) / Ragy Girgis; OnTrackNY first-episode psychosis network." },
+    { "name": "Massachusetts General Hospital Center for Neuroscience",      "city": "Boston, MA",      "country": "USA", "why": "Joshua Roffman / Oliver Freudenreich; schizophrenia research + clozapine clinic." },
+    { "name": "UCLA Semel Institute",                                         "city": "Los Angeles, CA", "country": "USA", "why": "Stephen Marder; CATIE investigator; schizophrenia neuroscience." },
+    { "name": "Stanford Psychiatry — Translational Psychiatry Unit",           "city": "Stanford, CA",    "country": "USA", "why": "Stefan Haefeli / Alan Schatzberg; molecular-imaging biomarker work." },
+    { "name": "WUSTL Department of Psychiatry",                                "city": "St. Louis, MO",    "country": "USA", "why": "Daniel Mamah / Deanna Barch; Early Psychosis Intervention Center." },
+    { "name": "Northwell Health — The Zucker Hillside Hospital",                "city": "Queens, NY",      "country": "USA", "why": "John Kane (historic CATIE, Clozaril); early psychosis." },
+    { "name": "McLean Hospital / Harvard",                                       "city": "Belmont, MA",     "country": "USA", "why": "Dost Öngür; Early Psychosis + Cambridge/Youth program." },
+    { "name": "Institute of Psychiatry, Psychology & Neuroscience (KCL)",        "city": "London",          "country": "UK",  "why": "Robin Murray / Oliver Howes; UK reference site for schizophrenia research." }
+  ],
+  "keyInvestigators": [
+    { "name": "Jeffrey A. Lieberman",  "affiliation": "Columbia University",                  "why": "CATIE lead investigator." },
+    { "name": "Stephen R. Marder",      "affiliation": "UCLA Semel Institute",                  "why": "Antipsychotic trials authority." },
+    { "name": "John M. Kane",           "affiliation": "Zucker Hillside / Northwell",            "why": "Clozapine pioneer (Clozaril Study), CATIE investigator." },
+    { "name": "Oliver D. Howes",         "affiliation": "King's College London",                  "why": "Dopamine hypothesis imaging and treatment-resistant schizophrenia definition." },
+    { "name": "Christoph U. Correll",    "affiliation": "Zucker Hillside / Northwell",             "why": "Antipsychotic side-effect and LAI specialist." },
+    { "name": "Stephen R. Brannan",      "affiliation": "Karuna Therapeutics (now BMS)",           "why": "Xanomeline-trospium (KarXT/Cobenfy) clinical development lead." }
+  ],
+  "patientAdvocacy": [
+    { "name": "National Alliance on Mental Illness (NAMI)",    "url": "https://www.nami.org",                    "why": "Largest US family-and-consumer mental-illness advocacy org." },
+    { "name": "Schizophrenia and Psychosis Action Alliance (SPAA / S&PAA)", "url": "https://sczaction.org",        "why": "Policy-focused advocacy specific to schizophrenia." },
+    { "name": "Treatment Advocacy Center",                     "url": "https://www.treatmentadvocacycenter.org", "why": "Assisted outpatient treatment and legal issues for severe mental illness." },
+    { "name": "Mental Health America (MHA)",                    "url": "https://www.mhanational.org",             "why": "General mental-health advocacy + screening tools." },
+    { "name": "Schizophrenia Research Foundation (SCARF)",       "url": "https://www.scarfindia.org",             "why": "India-based RCT and community-care research." }
+  ],
+  "landmarkTrials": [
+    { "acronym": "CATIE",            "name": "Clinical Antipsychotic Trials of Intervention Effectiveness","topic": "Lieberman 2005 NEJM — FGA (perphenazine) vs SGAs; no clear SGA superiority other than olanzapine." },
+    { "acronym": "CUtLASS",            "name": "Cost Utility of the Latest Antipsychotic Drugs in Schizophrenia Study","topic": "UK companion to CATIE — same conclusion of limited SGA superiority." },
+    { "acronym": "Clozaril Study (Kane 1988)","name": "Clozapine in treatment-resistant schizophrenia",     "topic": "Foundation for clozapine's unique role — superior to chlorpromazine in TRS." },
+    { "acronym": "EMERGENT-2 / EMERGENT-3","name": "Xanomeline-trospium (KarXT/Cobenfy)",                   "topic": "Positive phase 3 trials; basis for FDA approval September 2024." },
+    { "acronym": "DIAMOND-1 / DIAMOND-2","name": "Ulotaront (SEP-363856, Sumitomo TAAR1 agonist)",           "topic": "Phase 3 FAILED July 2023; Sumitomo discontinued schizophrenia development for ulotaront." },
+    { "acronym": "EMPOWER-1 / EMPOWER-2","name": "Emraclidine (AbbVie/Cerevel M4 agonist)",                  "topic": "Phase 2 FAILED November 2024; AbbVie continues development but data disappointing." },
+    { "acronym": "RAISE-ETP",           "name": "Recovery After an Initial Schizophrenia Episode",           "topic": "Kane 2016 — coordinated specialty care superior to usual care for first-episode psychosis." }
+  ],
+  "commonComorbidities": [
+    "Major depressive disorder (comorbid or post-psychotic)",
+    "Substance use disorder (especially cannabis, nicotine, alcohol)",
+    "Cardiovascular disease (excess mortality; antipsychotic metabolic effects)",
+    "Type 2 diabetes / metabolic syndrome",
+    "Obesity (antipsychotic-associated)",
+    "Tardive dyskinesia (first-gen + long-term exposure risk)",
+    "Smoking (80%+ prevalence in many cohorts)",
+    "Sleep disorders",
+    "Suicidality (lifetime ~5-10%)",
+    "Hyperprolactinemia (risperidone, paliperidone, amisulpride)"
+  ],
+  "lifestyleCategories": [
+    "Coordinated specialty care / OnTrackNY-style early psychosis intervention",
+    "Long-acting injectable antipsychotic (LAI) if adherence is a barrier",
+    "Cognitive-behavioral therapy for psychosis (CBTp)",
+    "Family psychoeducation",
+    "Supported employment (IPS model)",
+    "Metabolic monitoring (weight, waist, fasting glucose/HbA1c, lipids, BP) at baseline and periodically",
+    "Smoking cessation (varenicline; NRT)",
+    "Regular physical activity",
+    "Substance use counseling (cannabis in particular)"
+  ],
+
+  "items": [
+    {
+      "id": "sz-apa-guideline-2020",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "The American Psychiatric Association Practice Guideline for the Treatment of Patients With Schizophrenia (Third Edition)",
+      "authors": "Keepers GA, Fochtmann LJ, Anzia JM, et al. (APA)",
+      "journal": "American Journal of Psychiatry / APA Publishing",
+      "year": 2020,
+      "doi": "10.1176/appi.books.9780890424841",
+      "pmid": "32911828",
+      "url": "https://psychiatryonline.org/doi/book/10.1176/appi.books.9780890424841",
+      "accessLevel": "abstract",
+      "summary": "Current APA guideline on schizophrenia pharmacotherapy + psychosocial interventions. Evidence-graded recommendations. Still the primary reference for US practice alongside 2009 Schizophrenia PORT and 2021 Royal Australian/New Zealand guideline.",
+      "keyPassages": []
+    },
+    {
+      "id": "sz-catie-lieberman-2005",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Effectiveness of Antipsychotic Drugs in Patients with Chronic Schizophrenia (CATIE)",
+      "authors": "Lieberman JA, Stroup TS, McEvoy JP, et al.",
+      "journal": "New England Journal of Medicine",
+      "year": 2005,
+      "doi": "10.1056/NEJMoa051688",
+      "pmid": "16172203",
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa051688",
+      "accessLevel": "abstract",
+      "summary": "Pragmatic RCT of 1,493 patients comparing perphenazine (FGA), olanzapine, risperidone, quetiapine, and ziprasidone. Primary endpoint was all-cause discontinuation at 18 months. Olanzapine had the lowest discontinuation but greatest metabolic impact. Perphenazine was similar to SGAs except olanzapine. Shaped modern practice: FGAs and SGAs have comparable efficacy outside of clozapine; metabolic side effects matter.",
+      "keyPassages": [
+        { "topic": "primary endpoint", "quote": "The time to the discontinuation of treatment for any cause was significantly longer in the olanzapine group than in the quetiapine or risperidone group." }
+      ]
+    },
+    {
+      "id": "sz-fda-label-cobenfy-2024",
+      "category": "fda-label",
+      "tier": "A+",
+      "title": "COBENFY (xanomeline and trospium chloride) — US FDA Prescribing Information",
+      "authors": "Karuna Therapeutics / Bristol Myers Squibb",
+      "journal": "US FDA",
+      "year": 2024,
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/217670s000lbl.pdf",
+      "accessLevel": "full-text",
+      "summary": "FDA-approved September 26, 2024. First antipsychotic with a non-D2 mechanism of action (muscarinic M1/M4 agonist xanomeline) combined with peripheral anticholinergic trospium to mitigate GI/urinary side effects. Indication: treatment of schizophrenia in adults. Dose-titration from 50/20 to 125/30 mg BID. Not approved in pediatric or for adjunctive use. Warnings: cholinergic/anticholinergic effects, urinary retention, hepatic dysfunction.",
+      "keyPassages": [
+        { "topic": "indication", "quote": "COBENFY is indicated for the treatment of schizophrenia in adults." },
+        { "topic": "mechanism", "quote": "Xanomeline is a muscarinic agonist with preferential activity at M1 and M4 receptors. The mechanism of action of xanomeline in the treatment of schizophrenia is not fully understood." }
+      ]
+    },
+    {
+      "id": "sz-emergent2-kaul-2024",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Efficacy and Safety of Xanomeline-Trospium Chloride (KarXT) in Acute Schizophrenia (EMERGENT-2)",
+      "authors": "Kaul I, Sawchak S, Correll CU, et al.",
+      "journal": "The Lancet",
+      "year": 2024,
+      "doi": "10.1016/S0140-6736(23)02190-6",
+      "pmid": "38103588",
+      "url": "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(23)02190-6/fulltext",
+      "accessLevel": "abstract",
+      "summary": "5-week phase 3 RCT in 252 acute schizophrenia inpatients. Primary endpoint (PANSS total change at week 5) significantly improved with KarXT vs placebo (-9.6 point adjusted difference, P<0.0001). Key nondopaminergic profile: no significant weight gain, no prolactin increase, no extrapyramidal symptoms. Most common AEs were cholinergic (constipation, dyspepsia, nausea, vomiting, dry mouth) and anticholinergic at titration.",
+      "keyPassages": [
+        { "topic": "primary endpoint", "quote": "KarXT led to significant reductions in PANSS total score compared with placebo at week 5 (adjusted least-squares mean difference -9.6, 95% CI -13.9 to -5.2; P<0.0001)." }
+      ]
+    },
+    {
+      "id": "sz-ulotaront-failure-2023",
+      "category": "regulatory",
+      "tier": "A",
+      "title": "Sumitomo Pharma announces DIAMOND-1 and DIAMOND-2 phase 3 ulotaront trials did not meet primary endpoints",
+      "authors": "Sumitomo Pharma press release",
+      "journal": "Sumitomo Pharma / Company Filing",
+      "year": 2023,
+      "url": "https://www.sumitomo-pharma.com/news/20230801-3.html",
+      "accessLevel": "full-text",
+      "summary": "August 2023 — Sumitomo Pharma announced that the phase 3 DIAMOND-1 and DIAMOND-2 trials of ulotaront (SEP-363856, TAAR1 agonist) in schizophrenia did NOT meet primary endpoints. This was a high-profile novel-mechanism candidate (Breakthrough Therapy designation 2019). Program for schizophrenia was subsequently deprioritized.",
+      "keyPassages": [
+        { "topic": "result", "quote": "Both DIAMOND-1 and DIAMOND-2 Phase 3 studies did not meet their primary endpoints of statistically significant reduction in PANSS total score compared to placebo." }
+      ]
+    },
+    {
+      "id": "sz-emraclidine-failure-2024",
+      "category": "regulatory",
+      "tier": "A",
+      "title": "AbbVie announces emraclidine EMPOWER phase 2 trials did not meet primary endpoints",
+      "authors": "AbbVie press release",
+      "journal": "AbbVie / Company Filing",
+      "year": 2024,
+      "url": "https://news.abbvie.com/2024-11-11-AbbVie-Announces-Topline-Results-from-Two-Phase-2-Trials-of-Emraclidine-in-Adults-with-Schizophrenia",
+      "accessLevel": "full-text",
+      "summary": "November 11, 2024 — AbbVie reported that the EMPOWER-1 and EMPOWER-2 phase 2 trials of emraclidine (Cerevel CVL-231, selective M4 muscarinic positive allosteric modulator) did not show statistically significant improvement vs placebo. This was a key asset from AbbVie's $8.7B Cerevel acquisition. Disappointing for the broader muscarinic-selective antipsychotic hypothesis (following KarXT's approval as dual-mechanism success).",
+      "keyPassages": [
+        { "topic": "result", "quote": "Emraclidine at both 10 mg once-daily and 30 mg once-daily did not demonstrate a statistically significant reduction from baseline in PANSS total score at week 6 compared to placebo." }
+      ]
+    },
+    {
+      "id": "sz-clozaril-kane-1988",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Clozapine for the Treatment-Resistant Schizophrenic",
+      "authors": "Kane J, Honigfeld G, Singer J, Meltzer H",
+      "journal": "Archives of General Psychiatry",
+      "year": 1988,
+      "doi": "10.1001/archpsyc.1988.01800330013001",
+      "pmid": "3046553",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/3046553/",
+      "accessLevel": "abstract",
+      "summary": "Foundational RCT establishing clozapine's unique efficacy in treatment-resistant schizophrenia (TRS) versus chlorpromazine. Response rate 30% (clozapine) vs 4% (chlorpromazine). Remains the basis for clozapine's gold-standard status for TRS, despite agranulocytosis monitoring burden.",
+      "keyPassages": [
+        { "topic": "TRS response", "quote": "By a priori criteria, 30 percent of the clozapine-treated patients met the criterion for improvement compared with 4 percent of the chlorpromazine-treated patients (P<.001)." }
+      ]
+    }
+  ],
+
+  "canonicalFacts": [
+    { "claim": "Xanomeline-trospium (Cobenfy, Karuna/BMS) was FDA-approved September 26, 2024 as the first antipsychotic with a non-D2 primary mechanism (muscarinic M1/M4 agonism) — first new mechanism approved in ~70 years.", "evidenceRefs": ["sz-fda-label-cobenfy-2024", "sz-emergent2-kaul-2024"] },
+    { "claim": "Clozapine is the unique evidence-based therapy for treatment-resistant schizophrenia; ~30% response rate in patients who have failed ≥2 other antipsychotics.", "evidenceRefs": ["sz-clozaril-kane-1988"] },
+    { "claim": "Ulotaront (SEP-363856, TAAR1 agonist, Sumitomo) FAILED the DIAMOND-1 and DIAMOND-2 phase 3 trials in July/August 2023; program for schizophrenia deprioritized.", "evidenceRefs": ["sz-ulotaront-failure-2023"] },
+    { "claim": "Emraclidine (AbbVie/Cerevel M4 positive allosteric modulator) FAILED EMPOWER-1 and EMPOWER-2 phase 2 trials November 2024.", "evidenceRefs": ["sz-emraclidine-failure-2024"] },
+    { "claim": "Outside of clozapine, no single antipsychotic is clearly superior; choice is driven by side-effect profile, formulation (LAI vs oral), and patient-specific factors (CATIE/CUtLASS).", "evidenceRefs": ["sz-catie-lieberman-2005"] }
+  ],
+
+  "lifestyleRecommendations": [
+    { "recommendation": "Coordinated specialty care (NAVIGATE / OnTrackNY) for first-episode psychosis — RAISE-ETP showed superiority over usual care.", "evidenceRefs": ["sz-apa-guideline-2020"] },
+    { "recommendation": "Consider long-acting injectable antipsychotic early if adherence is a concern; especially relevant after first hospitalization.", "evidenceRefs": ["sz-apa-guideline-2020"] },
+    { "recommendation": "CBT for psychosis (CBTp) as adjunct to medication for persistent positive symptoms.", "evidenceRefs": ["sz-apa-guideline-2020"] },
+    { "recommendation": "Family psychoeducation.", "evidenceRefs": ["sz-apa-guideline-2020"] },
+    { "recommendation": "Supported employment (IPS model) for vocational recovery.", "evidenceRefs": ["sz-apa-guideline-2020"] },
+    { "recommendation": "Metabolic monitoring (weight, waist, fasting glucose or HbA1c, lipids, BP) at baseline, 3 months, then yearly on antipsychotics — weight gain and dysglycemia are major contributors to excess cardiovascular mortality.", "evidenceRefs": ["sz-apa-guideline-2020"] },
+    { "recommendation": "Smoking cessation with varenicline and NRT; ~80% of patients smoke and life-expectancy gap is dominated by cardiopulmonary disease.", "evidenceRefs": [] },
+    { "recommendation": "Treat cannabis use disorder aggressively; cannabis use worsens psychosis trajectory.", "evidenceRefs": [] }
+  ],
+
+  "redFlags": [
+    "Do NOT delay clozapine initiation once treatment-resistance criteria are met (≥2 adequate antipsychotic trials) — delayed clozapine is a documented practice-quality gap.",
+    "Do NOT discontinue clozapine without psychiatric input — abrupt stop is associated with cholinergic rebound and relapse. Re-titration after gaps >48 hours requires slow re-initiation.",
+    "Do NOT combine typical and atypical antipsychotics routinely — poor evidence base, additive side effects.",
+    "Do NOT ignore tardive dyskinesia screening (AIMS at baseline and every 3-6 months); VMAT2 inhibitors (valbenazine, deutetrabenazine) are available.",
+    "Do NOT manage NMS (rigidity, fever, autonomic instability) as 'agitation' — stop antipsychotic, supportive care, dantrolene/bromocriptine if needed.",
+    "Do NOT prescribe Cobenfy (xanomeline-trospium) without counseling about cholinergic/anticholinergic side effects and urinary retention risk; avoid in narrow-angle glaucoma and urinary retention."
+  ],
+
+  "pipelineDrugs": [
+    {
+      "name": "Xanomeline-Trospium",
+      "aliases": ["KarXT", "Cobenfy", "TAK-071 (historical)"],
+      "mechanism": "Muscarinic M1/M4 agonist (xanomeline) + peripheral anticholinergic (trospium) to blunt GI/urinary cholinergic side effects",
+      "sponsor": "Karuna Therapeutics / Bristol Myers Squibb",
+      "status": "FDA-approved September 26, 2024 for schizophrenia in adults",
+      "approvalStatus": "approved",
+      "pmid": "38103588",
+      "doi": "10.1016/S0140-6736(23)02190-6",
+      "whyItMatters": "FIRST new-mechanism antipsychotic in ~70 years. Omitting this is the textbook AI-slop failure for schizophrenia."
+    },
+    {
+      "name": "Clozapine",
+      "aliases": ["Clozaril", "FazaClo", "Versacloz"],
+      "mechanism": "Mixed receptor antipsychotic; unique 5-HT2A, muscarinic, histaminergic, alpha-adrenergic profile; weak D2 binding",
+      "sponsor": "Generic",
+      "status": "FDA-approved 1989 for treatment-resistant schizophrenia",
+      "approvalStatus": "approved",
+      "whyItMatters": "Gold standard for TRS. Requires REMS for agranulocytosis monitoring (ANC). Underutilized across the US."
+    },
+    {
+      "name": "Lumateperone",
+      "aliases": ["Caplyta"],
+      "mechanism": "Dual-acting serotonin-dopamine modulator (5-HT2A antagonist + presynaptic D2 partial agonist)",
+      "sponsor": "Intra-Cellular Therapies",
+      "status": "FDA-approved December 2019 for schizophrenia; also approved for bipolar depression 2021",
+      "approvalStatus": "approved",
+      "whyItMatters": "Modern SGA with favorable metabolic profile relative to olanzapine/clozapine."
+    },
+    {
+      "name": "Olanzapine / Samidorphan",
+      "aliases": ["Lybalvi"],
+      "mechanism": "Olanzapine + opioid receptor antagonist to mitigate weight gain",
+      "sponsor": "Alkermes",
+      "status": "FDA-approved 2021 for schizophrenia and bipolar I",
+      "approvalStatus": "approved",
+      "whyItMatters": "Addresses olanzapine's major downside (weight gain) while preserving efficacy."
+    },
+    {
+      "name": "Long-acting injectable (LAI) antipsychotics",
+      "aliases": ["paliperidone palmitate (Invega Sustenna/Trinza/Hafyera)", "aripiprazole LAI (Abilify Maintena/Aristada)", "risperidone LAI (Perseris/Uzedy)", "olanzapine LAI (Zyprexa Relprevv)"],
+      "mechanism": "Depot antipsychotic formulations (monthly to 6-monthly dosing)",
+      "sponsor": "Janssen / Otsuka / Alkermes / Teva / Eli Lilly",
+      "status": "Approved; longest interval is Invega Hafyera (paliperidone palmitate q6mo)",
+      "approvalStatus": "approved",
+      "whyItMatters": "Cornerstone intervention for adherence-related relapse; mortality benefit in observational cohort data."
+    },
+    {
+      "name": "Risperidone, Aripiprazole, Paliperidone, Lurasidone, Cariprazine, Brexpiprazole, Ziprasidone, Quetiapine, Asenapine, Iloperidone",
+      "aliases": ["SGAs / atypicals"],
+      "mechanism": "Dopamine D2 + 5-HT2A antagonism with varying receptor profiles",
+      "sponsor": "Multiple",
+      "status": "Various FDA approvals; all considered first-line",
+      "approvalStatus": "approved",
+      "whyItMatters": "Mainstay for most schizophrenia patients; choice driven by side effects, formulation, cost."
+    },
+    {
+      "name": "Emraclidine",
+      "aliases": ["CVL-231"],
+      "mechanism": "Selective M4 muscarinic positive allosteric modulator",
+      "sponsor": "AbbVie (acquired Cerevel Therapeutics 2024)",
+      "status": "EMPOWER-1 and EMPOWER-2 phase 2 FAILED November 2024",
+      "approvalStatus": "investigational (phase 2 failure)",
+      "whyItMatters": "High-profile 2024 failure; tempers early enthusiasm for selective-M4 class following Cobenfy's approval."
+    },
+    {
+      "name": "Ulotaront",
+      "aliases": ["SEP-363856"],
+      "mechanism": "TAAR1 / 5-HT1A agonist",
+      "sponsor": "Sumitomo Pharma (formerly Sunovion)",
+      "status": "DIAMOND-1 and DIAMOND-2 phase 3 FAILED 2023; schizophrenia development deprioritized",
+      "approvalStatus": "discontinued (for schizophrenia)",
+      "whyItMatters": "Breakthrough Therapy 2019; failed 2023. Addressed as discontinued."
+    },
+    {
+      "name": "Iclepertin",
+      "aliases": ["BI 425809"],
+      "mechanism": "Glycine transporter-1 (GlyT1) inhibitor — targets cognitive symptoms",
+      "sponsor": "Boehringer Ingelheim",
+      "status": "CONNEX phase 3 program ongoing (cognitive impairment in schizophrenia)",
+      "approvalStatus": "investigational",
+      "whyItMatters": "Cognitive-symptom-targeted therapy is an unmet need; iclepertin is the most advanced candidate."
+    },
+    {
+      "name": "Pimavanserin (off-label for schizophrenia adjunct)",
+      "aliases": ["Nuplazid"],
+      "mechanism": "5-HT2A inverse agonist (approved for PD psychosis)",
+      "sponsor": "Acadia",
+      "status": "ADVANCE phase 2 positive for negative symptoms adjunct; phase 3 registrational program did not proceed",
+      "approvalStatus": "not approved (for schizophrenia)",
+      "whyItMatters": "Frequently asked about; not an approved schizophrenia therapy."
+    },
+    {
+      "name": "Valbenazine (for tardive dyskinesia in schizophrenia patients)",
+      "aliases": ["Ingrezza"],
+      "mechanism": "VMAT2 inhibitor",
+      "sponsor": "Neurocrine",
+      "status": "FDA-approved 2017 for TD",
+      "approvalStatus": "approved (for TD, not schizophrenia primary symptoms)",
+      "whyItMatters": "Major quality-of-life intervention for antipsychotic-induced TD."
+    },
+    {
+      "name": "Deutetrabenazine (for tardive dyskinesia in schizophrenia patients)",
+      "aliases": ["Austedo", "Austedo XR"],
+      "mechanism": "Deuterated VMAT2 inhibitor",
+      "sponsor": "Teva",
+      "status": "FDA-approved 2017 for TD; once-daily XR 2023",
+      "approvalStatus": "approved (for TD)",
+      "whyItMatters": "Alternative VMAT2 inhibitor for TD; clinician's choice vs valbenazine."
+    }
+  ],
+
+  "excludedAgents": [
+    {
+      "name": "Ulotaront (for schizophrenia)",
+      "reason": "DIAMOND-1/-2 phase 3 failed 2023; Sumitomo deprioritized schizophrenia indication.",
+      "evidenceRef": "sz-ulotaront-failure-2023"
+    },
+    {
+      "name": "Emraclidine (for schizophrenia, based on phase 2 data)",
+      "reason": "EMPOWER-1/-2 phase 2 failed November 2024; no approved indication; regulatory future uncertain.",
+      "evidenceRef": "sz-emraclidine-failure-2024"
+    },
+    {
+      "name": "Pimavanserin monotherapy for schizophrenia",
+      "reason": "Phase 3 not completed for schizophrenia; approved only for PD psychosis. Not supported as primary schizophrenia therapy.",
+      "evidenceRef": null
+    },
+    {
+      "name": "Ginkgo biloba for schizophrenia cognitive symptoms",
+      "reason": "No consistent RCT evidence; not a guideline recommendation.",
+      "evidenceRef": null
+    },
+    {
+      "name": "Coerced or unmonitored 'natural' cannabis 'anti-psychotic' regimens",
+      "reason": "Cannabis use worsens schizophrenia trajectory; promoting it is harmful.",
+      "evidenceRef": null
+    }
+  ]
+}

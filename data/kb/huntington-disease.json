@@ -1,0 +1,318 @@
+{
+  "condition": "Huntington Disease",
+  "slug": "huntington-disease",
+  "aliases": [
+    "HD",
+    "Huntington's disease",
+    "Huntington's chorea",
+    "Huntington chorea",
+    "Huntington disease"
+  ],
+  "version": "2026-04a",
+  "curatedBy": "Syed Hammad Haque",
+  "lastUpdated": "2026-04-23",
+  "editorialNote": "Focused KB for Huntington disease. CRITICAL: The late-stage disease-modifying pipeline has been devastating — tominersen (Roche GENERATION-HD1, halted March 2021), branaplam (Novartis VIBRANT-HD, halted August 2022 for neurotoxicity), and pridopidine (Prilenia PROOF-HD, failed March 2023) have all failed. Current approved HD-specific drugs all target chorea (tetrabenazine, deutetrabenazine, valbenazine). Any HD output that fails to mention the AMT-130 (uniQure AAV gene therapy) ongoing trial or that frames tominersen/pridopidine as current options is out of date.",
+
+  "subspecialty": "Neurology / Movement Disorders / Neurogenetics",
+  "icd10": "G10",
+  "meshTerms": [
+    "Huntington Disease",
+    "Trinucleotide Repeat Expansion",
+    "Chorea",
+    "Huntingtin Protein"
+  ],
+  "topCenters": [
+    { "name": "University of California San Diego HD Center of Excellence",  "city": "San Diego, CA",     "country": "USA", "why": "Jody Corey-Bloom; comprehensive HD clinic; PREDICT-HD investigator." },
+    { "name": "UCLA Huntington Disease Center of Excellence",                 "city": "Los Angeles, CA",    "country": "USA", "why": "Susan Perlman; large HD and neurogenetics practice." },
+    { "name": "Johns Hopkins HD Center",                                       "city": "Baltimore, MD",      "country": "USA", "why": "Russell Margolis / Christopher Ross; HD genetics and clinical research." },
+    { "name": "Columbia Huntington's Disease Center of Excellence",             "city": "New York, NY",      "country": "USA", "why": "Karen Marder; HD Clarity and Enroll-HD site." },
+    { "name": "University College London (UCL) Huntington's Disease Centre",    "city": "London",            "country": "UK",  "why": "Sarah Tabrizi; HD Young Adult Study, TRACK-HD; led HTTinatreat biomarker consortium." },
+    { "name": "Massachusetts General Hospital HD Center",                       "city": "Boston, MA",        "country": "USA", "why": "Diana Rosas; TRACK-HD and OLE investigator." },
+    { "name": "Leiden University Medical Center HD Clinic",                     "city": "Leiden",            "country": "Netherlands", "why": "Raymund Roos; European Enroll-HD coordinating center." }
+  ],
+  "keyInvestigators": [
+    { "name": "Sarah J. Tabrizi",        "affiliation": "UCL Queen Square / UCL Huntington's Disease Research Centre", "why": "TRACK-HD, HD-YAS, tominersen co-lead, AMT-130 co-investigator — most influential current HD clinician-scientist." },
+    { "name": "Christopher A. Ross",     "affiliation": "Johns Hopkins",                                               "why": "HD genetics, mouse models, PREDICT-HD." },
+    { "name": "Diana Rosas",              "affiliation": "Massachusetts General Hospital",                              "why": "TRACK-HD imaging co-lead." },
+    { "name": "Jean Paul G. Vonsattel",   "affiliation": "Columbia University",                                          "why": "HD neuropathology grading system (Vonsattel grades)." },
+    { "name": "Leslie M. Thompson",       "affiliation": "UC Irvine",                                                     "why": "Cell-based HD therapeutic development." },
+    { "name": "Mark Guttman",             "affiliation": "University of Toronto / Centre for Movement Disorders",         "why": "PROOF-HD North American PI; pridopidine." }
+  ],
+  "patientAdvocacy": [
+    { "name": "Huntington's Disease Society of America (HDSA)",      "url": "https://hdsa.org",                      "why": "Largest US HD advocacy + HDSA Centers of Excellence clinic network." },
+    { "name": "CHDI Foundation",                                      "url": "https://chdifoundation.org",             "why": "Private biotech-foundation funding HD therapeutic development; Enroll-HD sponsor." },
+    { "name": "Hereditary Disease Foundation",                        "url": "https://hdfoundation.org",               "why": "Historic HD research funder (Nancy Wexler)." },
+    { "name": "European Huntington Association (EHA)",                "url": "https://eurohuntington.org",              "why": "Umbrella for European HD patient organizations." },
+    { "name": "Help 4 HD International",                               "url": "https://help4hd-international.org",      "why": "Patient advocacy and community support." }
+  ],
+  "landmarkTrials": [
+    { "acronym": "PREDICT-HD / TRACK-HD",   "name": "Natural history in pre-manifest and early-manifest HD",    "topic": "Imaging + clinical biomarker cohorts; foundational for interventional trial design." },
+    { "acronym": "Enroll-HD",                 "name": "Global observational HD platform",                          "topic": "~25,000-patient longitudinal cohort; CHDI-sponsored; site readiness for trials." },
+    { "acronym": "GENERATION-HD1",            "name": "Tominersen in manifest HD",                                  "topic": "Phase 3 HALTED March 2021 for lack of benefit and possible harm at q8wk dosing." },
+    { "acronym": "GENERATION-HD2",            "name": "Tominersen in early manifest HD (lower dose)",               "topic": "Phase 2; Roche continuing with modified dosing after GENERATION-HD1 failure." },
+    { "acronym": "VIBRANT-HD",                 "name": "Branaplam (LMI070) in HD",                                    "topic": "Halted August 2022 due to peripheral neuropathy; Novartis discontinued for HD." },
+    { "acronym": "PROOF-HD",                   "name": "Pridopidine in early manifest HD",                            "topic": "Phase 3 FAILED primary endpoint March 2023; Prilenia pursuing other indications." },
+    { "acronym": "AMT-130 (uniQure)",           "name": "AAV5-miHTT gene therapy",                                      "topic": "Phase 1/2 intraparenchymal; continuing dose-escalation with promising CSF-NfL signals 2024; regulatory path via accelerated approval under discussion with FDA." },
+    { "acronym": "WVE-003",                    "name": "SNP-allele-selective ASO targeting mutant HTT",                "topic": "Wave Life Sciences phase 1b/2a SELECT-HD ongoing." }
+  ],
+  "commonComorbidities": [
+    "Major depression",
+    "Anxiety",
+    "Psychosis (especially early-onset HD)",
+    "Obsessive-compulsive symptoms",
+    "Suicidality (rate elevated across disease stages)",
+    "Dysphagia (aspiration pneumonia)",
+    "Weight loss",
+    "Chorea-related falls / injury",
+    "Cognitive decline / subcortical dementia"
+  ],
+  "lifestyleCategories": [
+    "Genetic counseling before any family member tests — mandatory",
+    "Enroll in Enroll-HD or HDSA Center of Excellence for trial access",
+    "Multidisciplinary care (neuro + psychiatry + PT/OT/speech + social work + genetic counselor)",
+    "Aerobic exercise (small trials suggest motor and cognitive benefits)",
+    "Nutrition with high-calorie diet to counter weight loss",
+    "Fall-prevention + home-safety assessment",
+    "Suicidality screening at every visit",
+    "Speech-language and swallowing evaluations proactively"
+  ],
+
+  "items": [
+    {
+      "id": "hd-hsg-guideline-2012",
+      "category": "clinical-guideline",
+      "tier": "A",
+      "title": "Huntington's Disease: A Clinical Review",
+      "authors": "Bates GP, Dorsey R, Gusella JF, et al.",
+      "journal": "Nature Reviews Disease Primers",
+      "year": 2015,
+      "doi": "10.1038/nrdp.2015.5",
+      "pmid": "27188817",
+      "url": "https://www.nature.com/articles/nrdp20155",
+      "accessLevel": "abstract",
+      "summary": "Consensus review on HD pathophysiology, clinical features, genetics, diagnosis, and management. Standard modern reference authored by the field's leading clinician-scientists.",
+      "keyPassages": []
+    },
+    {
+      "id": "hd-tominersen-halt-2021",
+      "category": "regulatory",
+      "tier": "A+",
+      "title": "Roche halts dosing in GENERATION-HD1 phase 3 tominersen trial",
+      "authors": "F. Hoffmann-La Roche / Roche press release",
+      "journal": "Roche / Company Filing",
+      "year": 2021,
+      "url": "https://www.roche.com/media/releases/med-cor-2021-03-22",
+      "accessLevel": "full-text",
+      "summary": "March 22, 2021 — Roche announced dosing halt in GENERATION-HD1 phase 3 trial of tominersen (intrathecal antisense oligonucleotide targeting HTT). Independent Data Monitoring Committee concluded the potential benefit did not outweigh risks at the q8wk dosing regimen studied. Program pivoted to lower-dose GENERATION-HD2 in early-manifest HD. This is the reference event for all HTT-lowering strategy.",
+      "keyPassages": [
+        { "topic": "halt", "quote": "Based on the recommendation of the independent Data Monitoring Committee, Roche has decided to discontinue dosing of tominersen in the GENERATION HD1 Phase III clinical trial." }
+      ]
+    },
+    {
+      "id": "hd-proof-hd-failure-2023",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Prilenia announces PROOF-HD phase 3 trial did not meet primary or secondary endpoints",
+      "authors": "Prilenia Therapeutics press release",
+      "journal": "Prilenia / Company Filing",
+      "year": 2023,
+      "url": "https://prilenia.com/prilenia-announces-topline-results-from-proof-hd-phase-3-trial/",
+      "accessLevel": "full-text",
+      "summary": "March 16, 2023 — Prilenia reported that the phase 3 PROOF-HD trial of pridopidine (sigma-1 receptor agonist) in early manifest HD did NOT meet the primary endpoint (cUHDRS change at 65 weeks) or key secondary endpoints. Development for HD paused; Prilenia pursuing ALS and other indications. Patients who heard positive phase 2 results should be told the phase 3 failed.",
+      "keyPassages": [
+        { "topic": "result", "quote": "PROOF-HD did not meet its primary endpoint of change from baseline in cUHDRS at week 65." }
+      ]
+    },
+    {
+      "id": "hd-fda-label-austedo-2017",
+      "category": "fda-label",
+      "tier": "A",
+      "title": "AUSTEDO (deutetrabenazine) — US FDA Prescribing Information",
+      "authors": "Teva",
+      "journal": "US FDA",
+      "year": 2017,
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2017/208082s000lbl.pdf",
+      "accessLevel": "full-text",
+      "summary": "VMAT2 inhibitor deutetrabenazine (deuterated version of tetrabenazine) approved April 2017 for HD chorea. Longer half-life than tetrabenazine, twice-daily dosing, better tolerability profile. Boxed warning for depression and suicidality. First-line VMAT2 choice for most HD patients today.",
+      "keyPassages": [
+        { "topic": "indication", "quote": "AUSTEDO is indicated for the treatment of chorea associated with Huntington's disease." }
+      ]
+    },
+    {
+      "id": "hd-fda-label-ingrezza-hd-2023",
+      "category": "fda-label",
+      "tier": "A",
+      "title": "INGREZZA (valbenazine) Huntington chorea label expansion — US FDA",
+      "authors": "Neurocrine Biosciences",
+      "journal": "US FDA",
+      "year": 2023,
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2023/209241s018lbl.pdf",
+      "accessLevel": "full-text",
+      "summary": "VMAT2 inhibitor valbenazine — originally approved 2017 for tardive dyskinesia — received label expansion August 2023 for chorea associated with Huntington's disease based on KINECT-HD phase 3 (AAN 2023; Ann Neurol 2023). Once-daily dosing. Boxed warning for depression and suicidality in HD patients.",
+      "keyPassages": [
+        { "topic": "indication", "quote": "INGREZZA is indicated for the treatment of chorea associated with Huntington's disease in adults." }
+      ]
+    },
+    {
+      "id": "hd-amt130-uniQure-2024",
+      "category": "expert-consensus",
+      "tier": "B",
+      "title": "uniQure AMT-130 HD gene therapy — interim phase 1/2 update",
+      "authors": "uniQure / CHDI presentations",
+      "journal": "CHDI HD Therapeutics Conference proceedings / company updates",
+      "year": 2024,
+      "url": "https://www.uniqure.com/programs/huntingtons-disease",
+      "accessLevel": "metadata-only",
+      "summary": "AMT-130 (AAV5-miHTT) is an intraparenchymal (surgical) gene therapy delivering microRNA that targets huntingtin mRNA. 2024 interim data in phase 1/2 dose-escalation showed dose-dependent CSF neurofilament light reduction compared to natural-history controls — first HD disease-modifying candidate with credible biomarker signal after tominersen's failure. FDA dialogue around accelerated-approval pathway based on NfL biomarker (as was done for tofersen in SOD1-ALS).",
+      "keyPassages": []
+    }
+  ],
+
+  "canonicalFacts": [
+    { "claim": "Tetrabenazine (Xenazine), deutetrabenazine (Austedo), and valbenazine (Ingrezza, 2023 HD label expansion) are the three FDA-approved drugs for HD chorea. Austedo and Ingrezza are generally preferred over tetrabenazine for tolerability.", "evidenceRefs": ["hd-fda-label-austedo-2017", "hd-fda-label-ingrezza-hd-2023"] },
+    { "claim": "Tominersen (HTT-lowering antisense) was halted in GENERATION-HD1 in March 2021; lower-dose GENERATION-HD2 is ongoing in early manifest HD.", "evidenceRefs": ["hd-tominersen-halt-2021"] },
+    { "claim": "Pridopidine (sigma-1 receptor agonist) FAILED the PROOF-HD phase 3 in March 2023; Prilenia paused HD development.", "evidenceRefs": ["hd-proof-hd-failure-2023"] },
+    { "claim": "Branaplam (Novartis LMI070) was discontinued for HD in August 2022 due to peripheral neuropathy signal.", "evidenceRefs": [] },
+    { "claim": "AMT-130 (uniQure AAV5-miHTT intraparenchymal gene therapy) is the most promising current disease-modifying candidate — 2024 interim data showed dose-dependent CSF NfL reduction.", "evidenceRefs": ["hd-amt130-uniQure-2024"] },
+    { "claim": "VMAT2 inhibitors for HD chorea carry boxed warnings for depression and suicidality; screen at every visit.", "evidenceRefs": ["hd-fda-label-austedo-2017", "hd-fda-label-ingrezza-hd-2023"] }
+  ],
+
+  "lifestyleRecommendations": [
+    { "recommendation": "Pre-test genetic counseling is mandatory; predictive testing decisions affect the at-risk family member for life.", "evidenceRefs": [] },
+    { "recommendation": "Enroll in Enroll-HD or an HDSA Center of Excellence; both enable trial access and structured longitudinal care.", "evidenceRefs": [] },
+    { "recommendation": "Aerobic exercise (small trials suggest motor + cognitive benefit); PT for gait and fall prevention.", "evidenceRefs": [] },
+    { "recommendation": "Psychiatric co-management from diagnosis — depression, anxiety, OCD, and suicidality are common and treatable.", "evidenceRefs": [] },
+    { "recommendation": "Nutrition consult; HD patients often lose weight despite adequate intake — high-calorie diet.", "evidenceRefs": [] },
+    { "recommendation": "Speech-language + swallow evaluations proactively to plan for dysphagia.", "evidenceRefs": [] }
+  ],
+
+  "redFlags": [
+    "Do NOT prescribe tominersen as a current treatment — the phase 3 was halted; lower-dose GENERATION-HD2 is investigational only.",
+    "Do NOT prescribe pridopidine for HD — PROOF-HD failed; it is not effective.",
+    "Screen for depression and suicidality at EVERY visit; VMAT2 inhibitors (Austedo/Ingrezza/Xenazine) carry boxed warnings.",
+    "Do NOT start tetrabenazine/deutetrabenazine/valbenazine in patients with active major depression or suicidal ideation without psychiatric co-management.",
+    "Do NOT perform predictive genetic testing on minors absent compelling clinical indication — ethical standard of care.",
+    "Stem-cell clinics (China, Mexico, Panama, India) offering IV MSC infusions for HD — no peer-reviewed efficacy data. Avoid."
+  ],
+
+  "pipelineDrugs": [
+    {
+      "name": "Tetrabenazine",
+      "aliases": ["Xenazine"],
+      "mechanism": "VMAT2 inhibitor",
+      "sponsor": "Lundbeck / generic",
+      "status": "FDA-approved 2008 for HD chorea — first HD-specific approval",
+      "approvalStatus": "approved",
+      "whyItMatters": "First HD-specific drug. Now largely supplanted by deutetrabenazine and valbenazine for better tolerability."
+    },
+    {
+      "name": "Deutetrabenazine",
+      "aliases": ["Austedo", "Austedo XR"],
+      "mechanism": "Deuterated VMAT2 inhibitor — longer half-life",
+      "sponsor": "Teva",
+      "status": "FDA-approved April 2017 for HD chorea; Austedo XR once-daily 2023",
+      "approvalStatus": "approved",
+      "whyItMatters": "Generally preferred first-line VMAT2 inhibitor for HD chorea."
+    },
+    {
+      "name": "Valbenazine",
+      "aliases": ["Ingrezza"],
+      "mechanism": "VMAT2 inhibitor — once daily",
+      "sponsor": "Neurocrine Biosciences",
+      "status": "HD chorea label expansion FDA-approved August 2023 (originally TD approval 2017)",
+      "approvalStatus": "approved",
+      "whyItMatters": "Newest FDA-approved chorea therapy for HD; once-daily dosing."
+    },
+    {
+      "name": "Tominersen",
+      "aliases": ["RG6042", "IONIS-HTTRx", "RO7234292"],
+      "mechanism": "Intrathecal antisense oligonucleotide targeting HTT mRNA (non-allele-selective)",
+      "sponsor": "Roche / Ionis",
+      "status": "GENERATION-HD1 HALTED March 2021; GENERATION-HD2 (lower dose, early-manifest HD) ongoing",
+      "approvalStatus": "investigational",
+      "whyItMatters": "Landmark HTT-lowering program. Must be framed correctly: HD1 halted, HD2 ongoing — NOT a current treatment."
+    },
+    {
+      "name": "AMT-130",
+      "aliases": ["uniQure AAV5-miHTT"],
+      "mechanism": "AAV5 delivery of microRNA targeting huntingtin mRNA; intraparenchymal (stereotactic)",
+      "sponsor": "uniQure",
+      "status": "Phase 1/2 ongoing; 2024 interim update showed dose-dependent CSF NfL reduction; FDA accelerated-approval discussions",
+      "approvalStatus": "investigational",
+      "whyItMatters": "Currently the most promising disease-modifying HD candidate. Omitting this is a major coverage gap."
+    },
+    {
+      "name": "WVE-003",
+      "aliases": ["Wave Life Sciences stereopure ASO"],
+      "mechanism": "Stereopure antisense oligonucleotide; SNP-allele-selective (targets mutant HTT while sparing wild-type)",
+      "sponsor": "Wave Life Sciences",
+      "status": "Phase 1b/2a SELECT-HD ongoing",
+      "approvalStatus": "investigational",
+      "whyItMatters": "Allele-selective approach avoids lowering wild-type huntingtin (which may have been contributory to tominersen's failure)."
+    },
+    {
+      "name": "Branaplam",
+      "aliases": ["LMI070", "NVS-SM1"],
+      "mechanism": "Oral small-molecule splice modulator reducing HTT",
+      "sponsor": "Novartis",
+      "status": "VIBRANT-HD phase 2b HALTED August 2022 for peripheral neuropathy; Novartis discontinued HD program",
+      "approvalStatus": "discontinued",
+      "whyItMatters": "Failed/halted. Must be addressed as discontinued for patients asking."
+    },
+    {
+      "name": "Pridopidine",
+      "aliases": ["TEV-45152", "ACR-16"],
+      "mechanism": "Sigma-1 receptor agonist",
+      "sponsor": "Prilenia Therapeutics",
+      "status": "PROOF-HD phase 3 FAILED primary endpoint March 2023; HD development paused",
+      "approvalStatus": "discontinued",
+      "whyItMatters": "Failed phase 3. Addressed as discontinued for HD."
+    },
+    {
+      "name": "PTC518",
+      "aliases": ["PTC Therapeutics HD oral splice modulator"],
+      "mechanism": "Oral small-molecule splice modulator reducing HTT (mechanism similar to branaplam but different tissue distribution aiming to avoid PNS toxicity)",
+      "sponsor": "PTC Therapeutics",
+      "status": "PIVOT-HD phase 2 ongoing; 2024 interim data showed dose-dependent CSF and peripheral HTT reduction",
+      "approvalStatus": "investigational",
+      "whyItMatters": "Orally-bioavailable HTT lowering; follow-up to branaplam's discontinued program, patent-protected."
+    },
+    {
+      "name": "ANX005",
+      "aliases": ["Annexon C1q antibody for HD"],
+      "mechanism": "Anti-C1q complement inhibitor",
+      "sponsor": "Annexon Biosciences",
+      "status": "Phase 2 completed; HD program future pending",
+      "approvalStatus": "investigational",
+      "whyItMatters": "Synapse-loss-focused mechanism; distinct from HTT lowering."
+    }
+  ],
+
+  "excludedAgents": [
+    {
+      "name": "Tominersen (as a current treatment)",
+      "reason": "GENERATION-HD1 phase 3 halted March 2021. Only available in ongoing GENERATION-HD2 investigational trial at lower dose.",
+      "evidenceRef": "hd-tominersen-halt-2021"
+    },
+    {
+      "name": "Pridopidine (for HD)",
+      "reason": "PROOF-HD phase 3 failed primary endpoint March 2023. Not effective for HD progression.",
+      "evidenceRef": "hd-proof-hd-failure-2023"
+    },
+    {
+      "name": "Branaplam (for HD)",
+      "reason": "VIBRANT-HD halted August 2022 due to peripheral neuropathy; Novartis discontinued HD program.",
+      "evidenceRef": null
+    },
+    {
+      "name": "Coenzyme Q10, creatine, ethyl-EPA for HD",
+      "reason": "Multiple prior RCTs (2CARE, CREST-E, HD-EPA) were negative. Not recommended as therapy.",
+      "evidenceRef": null
+    },
+    {
+      "name": "Stem-cell clinics offering IV MSC infusions for HD",
+      "reason": "No peer-reviewed efficacy data. FDA warning letters. Patient-safety concern.",
+      "evidenceRef": null
+    }
+  ]
+}

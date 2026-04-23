@@ -42,7 +42,9 @@
   "devDependencies": {},
   "scripts": {
     "info": "echo 'Medical Research Assistant - Phase 3 (curated KB + EveryCure repurpose + cross-AI audit)'",
-    "e2e": "node scripts/e2e-test.mjs"
+    "e2e": "node scripts/e2e-test.mjs",
+    "regression": "node scripts/regression-kb-coverage.mjs",
+    "regression:live": "REGRESSION_LIVE=1 node scripts/regression-kb-coverage.mjs"
   },
   "phase": "3",
   "status": "phase-3-shipped",
