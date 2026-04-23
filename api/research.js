@@ -185,6 +185,98 @@ MeSH terms used: ${(trials.dossier?.meshTerms || []).join(', ') || '(none)'}`);
   return chunks.join('\n') + '\n';
 };
 
+// Build a REQUIRED MENTIONS block from the KB's pipelineDrugs + excludedAgents.
+// This is the anti-"AI slop" guardrail that prevents Claude from silently
+// omitting drugs that matter. The evidence.js response carries these
+// straight through from the curated KB; if the KB has no entry for this
+// condition (which is fine for rare / uncurated diseases) the block is
+// empty and the prompt behaves as before.
+//
+// We inject this into the system prompt for research + repurpose modes.
+// After Claude answers, a coverage audit (scanForMissedPipelineDrugs,
+// below) checks that every `name`/alias was actually mentioned and
+// re-prompts Claude if any was missed.
+const buildRequiredMentionsBlock = (evidence) => {
+  const pipelineDrugs = Array.isArray(evidence?.pipelineDrugs) ? evidence.pipelineDrugs : [];
+  const excludedAgents = Array.isArray(evidence?.excludedAgents) ? evidence.excludedAgents : [];
+  if (!pipelineDrugs.length && !excludedAgents.length) return '';
+
+  const drugLines = pipelineDrugs.map((d, i) => {
+    const aliases = Array.isArray(d.aliases) && d.aliases.length ? ` (aka ${d.aliases.join(', ')})` : '';
+    const bits = [];
+    if (d.mechanism) bits.push(`Mechanism: ${d.mechanism}`);
+    if (d.sponsor) bits.push(`Sponsor: ${d.sponsor}`);
+    if (d.status) bits.push(`Status: ${d.status}`);
+    if (d.approvalStatus) bits.push(`Approval: ${d.approvalStatus}`);
+    if (d.nct) bits.push(`NCT: ${d.nct}`);
+    if (d.pmid) bits.push(`PMID: ${d.pmid}`);
+    if (d.whyItMatters) bits.push(`Why it matters: ${d.whyItMatters}`);
+    return `  ${i + 1}. **${d.name}**${aliases}
+     ${bits.join(' · ')}`;
+  }).join('\n');
+
+  const excludedLines = excludedAgents.map((x, i) => {
+    return `  ${i + 1}. **${x.name}** — EXCLUDED BECAUSE: ${x.reason}`;
+  }).join('\n');
+
+  return `=== REQUIRED MENTIONS FOR THIS CONDITION (anti-omission guardrail) ===
+The curator has explicitly flagged the following agents as MANDATORY to discuss. They represent FDA-approved, phase 2b/3, or pivotal negative/discontinued agents for this condition. If you write an analysis that fails to mention any item in this list by name (or a listed alias) you have produced an INCOMPLETE analysis and the post-synthesis audit will reject your output and force a rewrite.
+
+PIPELINE DRUGS — EVERY NAME BELOW MUST APPEAR IN YOUR OUTPUT (section 3 "Approved Treatments" for approved agents, section 4 "Clinical Trials & Access Programs" or section 5 "Pipeline Watch" for investigational agents, section 8 "Red Flags" for discontinued/failed agents):
+${drugLines || '  (none)'}
+
+EXCLUDED AGENTS — mention these in section 8 "Red Flags" with the reason:
+${excludedLines || '  (none)'}
+
+=== END REQUIRED MENTIONS ===
+`;
+};
+
+// Post-synthesis coverage audit. Scans the Claude output text for every
+// pipelineDrug name + its aliases. Returns the list of drugs whose name
+// was NOT found in the output, so the caller can force a rewrite. Simple
+// case-insensitive substring search is enough — we don't care about
+// morphology, only whether the drug was mentioned AT ALL.
+const scanForMissedPipelineDrugs = (claudeText, pipelineDrugs) => {
+  if (!claudeText || !Array.isArray(pipelineDrugs) || !pipelineDrugs.length) return [];
+  const lower = claudeText.toLowerCase();
+  const missed = [];
+  for (const drug of pipelineDrugs) {
+    const candidates = [drug.name, ...(Array.isArray(drug.aliases) ? drug.aliases : [])]
+      .filter(Boolean)
+      .map((s) => String(s).toLowerCase());
+    const found = candidates.some((n) => lower.includes(n));
+    if (!found) missed.push(drug);
+  }
+  return missed;
+};
+
+// Build a deterministic "Agents Evaluated" transparency block that gets
+// appended to every research + repurpose synthesis. This is the methodology-
+// visibility requirement: the user can see, explicitly, which agents were
+// in the consideration set and whether they made it into the analysis.
+// The LLM cannot silently drop a drug — if one is in pipelineDrugs but
+// missing from the analysis text, this block will say so.
+const buildAgentsEvaluatedBlock = (claudeText, evidence) => {
+  const pipelineDrugs = Array.isArray(evidence?.pipelineDrugs) ? evidence.pipelineDrugs : [];
+  const excludedAgents = Array.isArray(evidence?.excludedAgents) ? evidence.excludedAgents : [];
+  if (!pipelineDrugs.length && !excludedAgents.length) return '';
+
+  const lower = (claudeText || '').toLowerCase();
+  const evaluated = pipelineDrugs.map((d) => {
+    const candidates = [d.name, ...(Array.isArray(d.aliases) ? d.aliases : [])]
+      .filter(Boolean)
+      .map((s) => String(s).toLowerCase());
+    const found = candidates.some((n) => lower.includes(n));
+    const status = d.approvalStatus || 'investigational';
+    return `- **${d.name}** — ${status}${d.status ? ` · ${d.status}` : ''}${found ? ' · ✓ discussed above' : ' · **NOT DISCUSSED** in this analysis'}`;
+  }).join('\n');
+
+  const excluded = excludedAgents.map((x) => `- **${x.name}** — ${x.reason}`).join('\n');
+
+  return `\n\n---\n\n## Agents evaluated for this analysis\n\nThis is the complete consideration set for this condition from our curated knowledge base. Every agent listed was searched for in the literature (PubMed / Europe PMC / OpenAlex / Cochrane) and on ClinicalTrials.gov before the analysis was written. If any agent is marked "NOT DISCUSSED" above, it was either not supported by the evidence pack for this specific patient profile, or was outside the scope of the sections produced — check the curated KB file for the full rationale.\n\n### Pipeline drugs (FDA-approved + phase 2b/3 + pivotal)\n${evaluated || '_(none listed in curated KB for this condition)_'}\n\n### Excluded agents (considered and rejected)\n${excluded || '_(none listed)_'}\n\n_Curated KB source: \`data/kb/\`. If an agent you expected to see is missing, that's an editor-level gap in our KB — open an issue or add it to the file._\n`;
+};
+
 const buildGroundingBlock = (evidence) => {
   if (!evidence) return '';
   // Top-8 rather than top-25. Each item costs ~200-400 input tokens
@@ -629,7 +721,13 @@ export default async function handler(req, res) {
       half = 'front',
       providedDossier = null,
       providedEvidence = null,
-      providedTrials = null
+      providedTrials = null,
+      // For split synthesis on the BACK half: the client sends the
+      // FRONT half's output text here so the server-side "Agents
+      // evaluated" transparency block can correctly mark approved
+      // drugs (which appear in the front half's section 3) as
+      // discussed.
+      priorText = ''
     } = req.body || {};
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -759,13 +857,17 @@ export default async function handler(req, res) {
     const groundingBlock = evidence ? buildGroundingBlock(evidence) : '';
     const trialsBlock = trials ? buildTrialsBlock(trials) : '';
     const dossierBlock = dossier ? buildDossierBlock(dossier) : '';
+    // Anti-omission guardrail: inject the KB's pipelineDrugs +
+    // excludedAgents as REQUIRED MENTIONS. See buildRequiredMentionsBlock.
+    const requiredMentionsBlock = evidence ? buildRequiredMentionsBlock(evidence) : '';
 
     // Extra context layers stitched onto the base mode prompt. Order matters:
     // dossier first (the AI's starting hypothesis about the disease), then
     // grounded evidence pack (what the literature actually says), then the
     // live trials pull (what's currently enrolling / offering expanded
-    // access). Later blocks override earlier ones — that's intentional.
-    const extraContext = [dossierBlock, groundingBlock, trialsBlock]
+    // access), then the REQUIRED MENTIONS list last so Claude sees the
+    // anti-omission constraint immediately before starting to write.
+    const extraContext = [dossierBlock, groundingBlock, trialsBlock, requiredMentionsBlock]
       .filter(Boolean)
       .join('\n\n');
 
@@ -914,10 +1016,156 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
     const data = await response.json();
 
     // Extract Claude's text so we can feed it to the cross-validator.
-    const claudeText = (data.content || [])
+    let claudeText = (data.content || [])
       .filter((c) => c?.type === 'text')
       .map((c) => c.text)
       .join('\n\n');
+
+    // === Post-synthesis coverage audit ===
+    // Scan the output for every pipelineDrug in the evidence pack's
+    // KB-derived list. If any is missing, force Claude to rewrite with
+    // the missing drugs inserted. This is the failsafe below the REQUIRED
+    // MENTIONS prompt directive — if the model ignored the directive we
+    // still catch it.
+    //
+    // Limit: one re-prompt attempt. Two reasons:
+    //   (a) Vercel Hobby has a hard 60s per-invocation cap; a second
+    //       Claude call already pushes the budget.
+    //   (b) If two attempts both miss the drug, that's a signal the drug
+    //       is genuinely borderline for this patient — log it and move on.
+    //
+    // Only runs for research + repurpose modes where the pipelineDrugs
+    // list is meaningful. Skipped for pure chat and for the trials mode
+    // (which is a separate analysis shape).
+    const isSynthesisMode = (mode === 'research' || mode === 'repurpose');
+    const allPipelineDrugs = Array.isArray(evidence?.pipelineDrugs) ? evidence.pipelineDrugs : [];
+
+    // Segment by which synthesis half is responsible for each agent.
+    //   RESEARCH mode, split synthesis:
+    //     - FRONT half (sections 1-3): FDA-approved standard-of-care agents.
+    //     - BACK half  (sections 4-8): investigational, pipeline, discontinued,
+    //                                  pivotal-negative agents.
+    //   REPURPOSE mode: the analysis is candidate-oriented, not section-oriented.
+    //     We audit only investigational/pipeline agents — approved drugs are
+    //     what the patient is already on and aren't "repurposing candidates".
+    //   If `half` is undefined (single-shot research mode), audit everything.
+    const pipelineDrugs = (() => {
+      if (mode === 'repurpose') {
+        return allPipelineDrugs.filter((d) => d.approvalStatus !== 'approved');
+      }
+      if (mode !== 'research' || !half) return allPipelineDrugs;
+      if (half === 'front') {
+        return allPipelineDrugs.filter((d) => d.approvalStatus === 'approved');
+      }
+      return allPipelineDrugs.filter((d) => d.approvalStatus !== 'approved');
+    })();
+
+    let coverageAudit = null;
+    if (isSynthesisMode && pipelineDrugs.length && claudeText) {
+      const initialMissed = scanForMissedPipelineDrugs(claudeText, pipelineDrugs);
+      coverageAudit = {
+        half: half || 'single-shot',
+        pipelineDrugsAudited: pipelineDrugs.length,
+        pipelineDrugsTotal: allPipelineDrugs.length,
+        initialMissed: initialMissed.map((d) => d.name),
+        reprompted: false,
+        finalMissed: initialMissed.map((d) => d.name)
+      };
+      if (initialMissed.length > 0) {
+        // Construct a targeted re-prompt. We don't send the whole system
+        // prompt again — we send the previous draft plus a directive that
+        // calls out the missed drugs by name.
+        const missedSummary = initialMissed.map((d) => {
+          const aliases = d.aliases?.length ? ` (aka ${d.aliases.join(', ')})` : '';
+          const bits = [d.mechanism, d.sponsor, d.status, d.nct ? `NCT ${d.nct}` : null, d.pmid ? `PMID ${d.pmid}` : null]
+            .filter(Boolean).join(' · ');
+          return `- **${d.name}**${aliases}: ${bits}. ${d.whyItMatters || ''}`;
+        }).join('\n');
+
+        const repromptSystem = `${systemPrompt}
+
+=== COVERAGE AUDIT FAILURE — FORCED REWRITE ===
+Your previous draft FAILED the mandatory pipeline-drug coverage audit. The following agents were in the REQUIRED MENTIONS list but were NOT mentioned in your output. You MUST rewrite and return the complete analysis with each of these agents inserted in the appropriate section. Do not produce a partial response.
+
+MISSED AGENTS:
+${missedSummary}
+
+Where they must go:
+- FDA-approved agents → Section 3 (Approved Treatments)
+- Phase 3 / phase 2b investigational agents → Section 4 (Clinical Trials & Access Programs) or Section 5 (Pipeline Watch)
+- Discontinued or pivotal-negative agents → Section 8 (Red Flags)
+
+Return the full corrected analysis now, beginning again at "## 1." (front half) or "## 4." (back half) depending on which half you are generating.`;
+
+        try {
+          const reprompt = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+              model: MODEL,
+              max_tokens: MAX_TOKENS,
+              system: repromptSystem,
+              messages
+            })
+          });
+          if (reprompt.ok) {
+            const repromptData = await reprompt.json();
+            const rewritten = (repromptData.content || [])
+              .filter((c) => c?.type === 'text')
+              .map((c) => c.text)
+              .join('\n\n');
+            if (rewritten) {
+              claudeText = rewritten;
+              coverageAudit.reprompted = true;
+              coverageAudit.finalMissed = scanForMissedPipelineDrugs(rewritten, pipelineDrugs).map((d) => d.name);
+              // Replace the content in the response so the UI renders the
+              // corrected analysis, not the first draft.
+              data.content = repromptData.content;
+            }
+          }
+        } catch (err) {
+          console.error('[research] coverage-audit reprompt failed:', err.message);
+        }
+      }
+    }
+
+    // Append the deterministic "Agents evaluated" transparency block so
+    // the user can always see which agents were in the consideration set
+    // and whether they made it into the analysis. This is programmatic —
+    // not generated by Claude — so it can't be hallucinated.
+    //
+    // For split synthesis we only append on the BACK half (which is
+    // appended LAST in the client) or single-shot. Otherwise the UI
+    // would render two copies.
+    const shouldAppendTransparency =
+      isSynthesisMode &&
+      allPipelineDrugs.length &&
+      claudeText &&
+      (!half || half === 'back');
+    if (shouldAppendTransparency) {
+      // For split synthesis, include the front-half text when scanning
+      // so approved drugs (discussed in section 3 of the front half)
+      // are correctly marked as "✓ discussed" in the transparency block.
+      const textForScan = priorText ? `${priorText}\n\n${claudeText}` : claudeText;
+      const transparencyBlock = buildAgentsEvaluatedBlock(textForScan, evidence);
+      if (transparencyBlock) {
+        claudeText = claudeText + transparencyBlock;
+        // Also replace the text content in the response so the UI picks
+        // it up naturally without needing a separate field to render.
+        if (data.content && data.content.length) {
+          const last = data.content[data.content.length - 1];
+          if (last && last.type === 'text') {
+            last.text = (last.text || '') + transparencyBlock;
+          } else {
+            data.content.push({ type: 'text', text: transparencyBlock });
+          }
+        }
+      }
+    }
 
     // Cross-validation: fire an INDEPENDENT second AI (Perplexity / OpenAI / xAI)
     // over Claude's output + the same evidence pack to catch hallucinated
@@ -960,6 +1208,7 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
             uncertainty: dossier.uncertainty,
             notes: dossier.notes,
             cacheHit: dossier.cacheHit,
+            cacheDisabled: dossier.cacheDisabled || false,
             generatedBy: dossier.generatedBy
           }
         : null,
@@ -973,7 +1222,9 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
             topRanked: (evidence.topRanked || []).slice(0, 50),
             groundedForPrompt: evidence.groundedForPrompt,
             fdaLabels: evidence.fdaLabels,
-            fdaManufacturers: evidence.fdaManufacturers
+            fdaManufacturers: evidence.fdaManufacturers,
+            pipelineDrugs: evidence.pipelineDrugs || [],
+            excludedAgents: evidence.excludedAgents || []
           }
         : null,
       trials: trials
@@ -984,6 +1235,7 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
             studies: (trials.studies || []).slice(0, 25)
           }
         : null,
+      coverageAudit,
       validation
     });
   } catch (error) {

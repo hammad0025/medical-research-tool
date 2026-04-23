@@ -31,6 +31,7 @@
 
 import { isTopCenter, topCenterBoost, buildExtendedCenterMatcher } from '../lib/medical-lexicon.js';
 import { getDossier } from '../lib/disease-dossier.js';
+import { loadKb } from '../lib/kb.js';
 
 const CT_API = 'https://clinicaltrials.gov/api/v2/studies';
 
@@ -396,6 +397,35 @@ export default async function handler(req, res) {
       'pageSize': 40
     }));
 
+    // (e) Pipeline-drug fan-out. For every drug/NCT in the KB's
+    // pipelineDrugs array we query CT.gov explicitly — either by NCT id
+    // (most precise) or by drug name. This is what stops us missing
+    // Nerandomilast's FIBRONEER trials for IPF or Ocugen's OCU400
+    // liMeliGhT trial for RP even when the generic condition query
+    // fails to surface them. NCTs queried directly always return the
+    // exact trial record, bypassing relevance ranking.
+    const kb = await loadKb(condition);
+    const pipelineDrugs = Array.isArray(kb.meta?.pipelineDrugs) ? kb.meta.pipelineDrugs : [];
+    const pipelineDrugQueryLabels = [];
+    for (const drug of pipelineDrugs.slice(0, 6)) {
+      if (drug.nct) {
+        // Direct NCT lookup — guaranteed match.
+        queries.push(queryCtGov({ 'query.id': drug.nct, 'pageSize': 5 }));
+        pipelineDrugQueryLabels.push(`nct:${drug.nct}:${drug.name}`);
+      }
+      if (drug.name) {
+        // Intervention-text search. CT.gov's `query.intr` is the
+        // intervention field — guaranteed to hit trials that administer
+        // this drug, regardless of whether the condition term matches.
+        queries.push(queryCtGov({
+          'query.cond': primary,
+          'query.intr': drug.name,
+          'pageSize': 10
+        }));
+        pipelineDrugQueryLabels.push(`drug:${drug.name}`);
+      }
+    }
+
     // Run all of the above in parallel. Any individual failure does NOT kill
     // the whole request — we return what we have and mark which sub-queries
     // failed in the response so the UI can warn.
@@ -405,7 +435,8 @@ export default async function handler(req, res) {
       ...aliases.slice(0, 3).map((a) => `synonym:${a}`),
       ...meshTerms.slice(0, 2).map((m) => `mesh:${m}`),
       'expanded-access',
-      'ole-extension'
+      'ole-extension',
+      ...pipelineDrugQueryLabels
     ];
     const subQueryStats = [];
     const allRaw = [];

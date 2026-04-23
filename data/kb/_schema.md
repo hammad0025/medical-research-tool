@@ -54,6 +54,44 @@ Europe PMC / OpenAlex / FDA results. Claude sees KB items tagged
 
   "redFlags": [
     "Do NOT use prednisone + azathioprine + NAC triple therapy — PANTHER-IPF showed harm (increased mortality and hospitalization)."
+  ],
+
+  // Pipeline drugs / agents the synthesis MUST evaluate. This is the
+  // anti-"AI slop" guardrail: every drug listed here is (a) expanded into
+  // explicit drug-name search queries across PubMed/EPMC/OpenAlex and
+  // ClinicalTrials.gov so the evidence pack is guaranteed to include it,
+  // (b) injected as a REQUIRED MENTION into the synthesis prompt, and
+  // (c) checked against the final output by a post-synthesis coverage
+  // audit that forces Claude to rewrite the analysis if any listed drug
+  // was omitted.
+  //
+  // Include everything serious: FDA-approved, phase 3 active, phase 2b
+  // with positive readout, and any high-visibility pipeline agent a
+  // patient/physician might reasonably ask about.
+  "pipelineDrugs": [
+    {
+      "name": "Nerandomilast",
+      "aliases": ["BI 1015550", "BI1015550"],
+      "mechanism": "preferential PDE4B inhibitor (anti-inflammatory + anti-fibrotic)",
+      "sponsor": "Boehringer Ingelheim",
+      "status": "phase 3 — FIBRONEER-IPF met primary endpoint Sept 2024; FDA filing anticipated",
+      "approvalStatus": "investigational",
+      "pmid": "35569036",
+      "doi": "10.1056/NEJMoa2201737",
+      "nct": "NCT05321069",
+      "whyItMatters": "First mechanistically novel IPF agent to read out positive in phase 3 in a decade. Best-in-class pipeline candidate."
+    }
+  ],
+
+  // Agents explicitly excluded from recommendation, with reason. These
+  // appear in the "Agents evaluated" transparency block so users can see
+  // that we considered and rejected them — they are NOT silently dropped.
+  "excludedAgents": [
+    {
+      "name": "Triple therapy (prednisone + azathioprine + N-acetylcysteine)",
+      "reason": "PANTHER-IPF (2012) — early DSMB stop for increased mortality and hospitalization.",
+      "evidenceRef": "ipf-panther-2012"
+    }
   ]
 }
 ```

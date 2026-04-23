@@ -8,9 +8,9 @@
     "usual interstitial pneumonia",
     "idiopathic interstitial pneumonia"
   ],
-  "version": "2026-04",
+  "version": "2026-04b",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-21",
+  "lastUpdated": "2026-04-22",
   "editorialNote": "Landmark references for IPF decision-support. All items below are pinned into every IPF query's evidence pack. Editorial summaries are written by the curator; keyPassages are verbatim from the source where available.",
 
   "items": [
@@ -381,6 +381,24 @@
       "keyPassages": [
         { "topic": "definition", "quote": "Acute exacerbation of IPF is defined as an acute, clinically significant respiratory deterioration characterized by evidence of new widespread alveolar abnormality." }
       ]
+    },
+
+    {
+      "id": "ipf-nerandomilast-richeldi-2022",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Trial of a Preferential Phosphodiesterase 4B Inhibitor for Idiopathic Pulmonary Fibrosis (Phase 2)",
+      "authors": "Richeldi L, Azuma A, Cottin V, Hesslinger C, Stowasser S, Valenzuela C, Wijsenbeek MS, Zoz DF, Voss F, Maher TM",
+      "journal": "New England Journal of Medicine",
+      "year": 2022,
+      "doi": "10.1056/NEJMoa2201737",
+      "pmid": "35569036",
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa2201737",
+      "accessLevel": "abstract",
+      "summary": "Landmark phase 2 RCT of BI 1015550 (Nerandomilast), a preferential PDE4B inhibitor from Boehringer Ingelheim, in IPF. Dose-ranging study at 12 weeks demonstrated preservation of FVC vs placebo — a mechanistically novel anti-fibrotic beyond pirfenidone and nintedanib. This readout triggered the FIBRONEER-IPF phase 3 program (NCT05321069) and the companion FIBRONEER-ILD program for progressive pulmonary fibrosis (NCT05321082). FIBRONEER-IPF reported a positive primary endpoint in September 2024; FDA filing is anticipated. Nerandomilast is currently the most important new-mechanism IPF agent in development.",
+      "keyPassages": [
+        { "topic": "primary endpoint", "quote": "Treatment with BI 1015550, either alone or with background antifibrotic therapy, prevented a decrease in lung function in patients with idiopathic pulmonary fibrosis." }
+      ]
     }
   ],
 
@@ -470,5 +488,127 @@
     "Do NOT combine nintedanib with full-dose anticoagulation without specialist input — VEGFR inhibition increases bleeding risk, and fatal bleeding events are reported in post-marketing surveillance.",
     "Do NOT co-prescribe fluvoxamine, enoxacin, or other strong CYP1A2 inhibitors with pirfenidone — FDA label contraindication.",
     "Acute worsening of dyspnea <1 month with new bilateral ground-glass on HRCT = possible acute exacerbation of IPF. Hospital mortality ~50%. Urgent pulmonology/ICU referral."
+  ],
+
+  "pipelineDrugs": [
+    {
+      "name": "Nerandomilast",
+      "aliases": ["BI 1015550", "BI1015550"],
+      "mechanism": "Preferential PDE4B inhibitor — anti-inflammatory and anti-fibrotic",
+      "sponsor": "Boehringer Ingelheim",
+      "status": "Phase 3 — FIBRONEER-IPF met primary endpoint September 2024; FDA filing anticipated 2025-2026",
+      "approvalStatus": "investigational",
+      "pmid": "35569036",
+      "doi": "10.1056/NEJMoa2201737",
+      "nct": "NCT05321069",
+      "whyItMatters": "The first mechanistically novel IPF agent to read out positive in a pivotal phase 3 in over a decade. Currently the best-in-class investigational anti-fibrotic for IPF."
+    },
+    {
+      "name": "Pirfenidone",
+      "aliases": ["Esbriet", "Pirespa"],
+      "mechanism": "Pleiotropic anti-fibrotic; inhibits TGF-β-stimulated collagen synthesis and reduces fibroblast proliferation",
+      "sponsor": "Genentech / Roche",
+      "status": "FDA-approved 2014 (ASCEND, CAPACITY)",
+      "approvalStatus": "approved",
+      "pmid": "24836310",
+      "doi": "10.1056/NEJMoa1402582",
+      "whyItMatters": "One of two FDA-approved first-line antifibrotics. Reduces ≥10% FVC decline or death by ~48% over 52 weeks (ASCEND)."
+    },
+    {
+      "name": "Nintedanib",
+      "aliases": ["Ofev", "BIBF 1120"],
+      "mechanism": "Intracellular tyrosine kinase inhibitor — VEGFR, FGFR, PDGFR",
+      "sponsor": "Boehringer Ingelheim",
+      "status": "FDA-approved 2014 for IPF (INPULSIS); 2019 for PPF (INBUILD); 2020 for SSc-ILD (SENSCIS)",
+      "approvalStatus": "approved",
+      "pmid": "24836312",
+      "doi": "10.1056/NEJMoa1402584",
+      "whyItMatters": "The other FDA-approved first-line antifibrotic. Reduces annual FVC decline by ~100-125 mL/year vs placebo. Also approved for progressive pulmonary fibrosis and SSc-ILD."
+    },
+    {
+      "name": "BMS-986278",
+      "aliases": ["LPA1 antagonist (BMS)", "admilparant"],
+      "mechanism": "Lysophosphatidic acid receptor 1 (LPA1) antagonist — blocks pro-fibrotic LPA signaling",
+      "sponsor": "Bristol Myers Squibb",
+      "status": "Phase 3 (ALOFT-IPF / ALOFT-PPF) recruiting; positive phase 2 readout 2023",
+      "approvalStatus": "investigational",
+      "nct": "NCT06003426",
+      "whyItMatters": "LPA1 antagonism is a mechanistically distinct anti-fibrotic pathway. Phase 2 showed ~69% reduction in rate of FVC decline vs placebo at the 60 mg dose."
+    },
+    {
+      "name": "PRM-151 (zinpentraxin alfa)",
+      "aliases": ["zinpentraxin alfa", "pentraxin-2 recombinant"],
+      "mechanism": "Recombinant human pentraxin-2 — inhibits monocyte differentiation into fibrocytes",
+      "sponsor": "Roche/Promedior (Phase 3 discontinued 2022 for futility)",
+      "status": "Phase 3 STARSCAPE discontinued November 2022 for lack of efficacy — included for transparency",
+      "approvalStatus": "discontinued",
+      "nct": "NCT04552899",
+      "whyItMatters": "Once considered the third leg of the IPF antifibrotic stool. Failed in phase 3. Users asking about PRM-151 should know it was discontinued."
+    },
+    {
+      "name": "Pamrevlumab",
+      "aliases": ["FG-3019", "anti-CTGF"],
+      "mechanism": "Monoclonal antibody targeting connective tissue growth factor (CTGF/CCN2)",
+      "sponsor": "FibroGen",
+      "status": "Phase 3 ZEPHYRUS-1 failed primary endpoint (June 2023); development for IPF halted",
+      "approvalStatus": "discontinued",
+      "nct": "NCT03955146",
+      "whyItMatters": "High-profile failure in IPF. Patients who follow IPF news may still ask about it — needs to be addressed as discontinued for this indication."
+    },
+    {
+      "name": "Inhaled treprostinil",
+      "aliases": ["Tyvaso", "inhaled TRE"],
+      "mechanism": "Prostacyclin analog (inhaled)",
+      "sponsor": "United Therapeutics",
+      "status": "FDA-approved for PH-ILD (INCREASE trial, 2021); investigational as antifibrotic (TETON-1, TETON-2 phase 3)",
+      "approvalStatus": "approved (for PH-ILD); investigational (for IPF antifibrotic effect)",
+      "pmid": "33440107",
+      "nct": "NCT04708782",
+      "whyItMatters": "Unexpected signal in INCREASE suggested possible anti-fibrotic effect in addition to pulmonary hypertension benefit. TETON phase 3 trials tested this hypothesis head-on."
+    },
+    {
+      "name": "N-acetylcysteine (NAC)",
+      "aliases": ["NAC", "acetylcysteine"],
+      "mechanism": "Antioxidant / glutathione precursor",
+      "sponsor": "generic / OTC",
+      "status": "Failed in IPF (PANTHER-NAC 2014); under renewed investigation in TOLLIP-genotype-defined subgroup",
+      "approvalStatus": "not approved for IPF — OTC supplement",
+      "pmid": "24836311",
+      "doi": "10.1056/NEJMoa1401739",
+      "whyItMatters": "Monotherapy NAC was negative in PANTHER-NAC. Ongoing pharmacogenomic work suggests the TOLLIP TT genotype subgroup may respond. Currently an open research question, not a treatment recommendation."
+    }
+  ],
+
+  "excludedAgents": [
+    {
+      "name": "Triple therapy (prednisone + azathioprine + N-acetylcysteine)",
+      "reason": "PANTHER-IPF (2012) was stopped early by DSMB for increased mortality (11% vs 1%) and hospitalization (29% vs 8%) vs placebo. STRONG guideline-level recommendation against.",
+      "evidenceRef": "ipf-panther-2012"
+    },
+    {
+      "name": "Prednisone monotherapy for stable IPF",
+      "reason": "No benefit shown in controlled studies. Chronic steroid harm (bone, glucose, infection). Different from acute exacerbation management where empirical steroids may be used despite weak evidence.",
+      "evidenceRef": "ipf-ats-ers-2022"
+    },
+    {
+      "name": "N-acetylcysteine monotherapy (general IPF population)",
+      "reason": "PANTHER-NAC (2014) — no effect on FVC decline vs placebo in the overall IPF population. May be evaluated in TOLLIP TT-genotype subgroup (see pipelineDrugs).",
+      "evidenceRef": "ipf-panther-nac-2014"
+    },
+    {
+      "name": "Pamrevlumab (FG-3019)",
+      "reason": "ZEPHYRUS-1 phase 3 failed primary endpoint (June 2023). FibroGen halted development for IPF.",
+      "evidenceRef": null
+    },
+    {
+      "name": "PRM-151 (zinpentraxin alfa)",
+      "reason": "STARSCAPE phase 3 discontinued November 2022 for futility at interim analysis.",
+      "evidenceRef": null
+    },
+    {
+      "name": "Offshore stem-cell therapy (clinics in China / Vietnam / Mexico / India)",
+      "reason": "No peer-reviewed efficacy data for IPF. Multiple FDA warning letters. Patient-safety concern, not scientific integrity of the literature.",
+      "evidenceRef": "ipf-stemcells-review-2020"
+    }
   ]
 }

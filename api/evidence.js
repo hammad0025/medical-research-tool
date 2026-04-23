@@ -261,16 +261,36 @@ export default async function handler(req, res) {
     // formal disease names, not abbreviations.
     const cochraneQuery = `${canonical} AND "Cochrane Database of Systematic Reviews"[journal]`;
 
-    // Full query set: canonical + 1 synonym + up to 2 treatment-term
-    // cross-products on canonical. Total 4 queries × 3 sources = 12
-    // upstream hits, comfortably under the 48s gather deadline.
-    const treatmentQueries = treatments.slice(0, 2).map((t) => `${canonical} ${t}`);
-    const queries = [...synonymSearches, ...treatmentQueries];
-
-    // Curated knowledge base lookup. Uses the ORIGINAL condition text so
-    // aliased inputs ("RP") still match the ipf-style KB slug rules. The
-    // dossier is a separate realtime layer — KB matches are still authoritative.
+    // Curated knowledge base lookup. Must run BEFORE we assemble the query
+    // set so pipeline-drug expansion can fire below. Uses the ORIGINAL
+    // condition text so aliased inputs ("RP") still match the KB slug rules.
     const kb = await loadKb(coreQuery);
+
+    // Pipeline-drug query expansion — the "no-more-missed-drugs" guardrail.
+    // For every drug listed in the KB's pipelineDrugs array we generate an
+    // explicit `[canonical] [drug-name]` query so that Nerandomilast papers
+    // are GUARANTEED in the evidence pack for IPF, OCU400 papers are
+    // GUARANTEED in the pack for RP, etc. Without this, we were relying on
+    // a generic "IPF treatment" query to happen to rank a Nerandomilast
+    // paper highly — which did not reliably happen. See commits on this
+    // line for the root-cause analysis.
+    //
+    // Capped at 3 pipeline-drug queries to stay inside the 48s gather
+    // deadline (each query fans out across PubMed + EPMC + OpenAlex). We
+    // pick the top 3 from the KB's ordering — curators put the most
+    // important agents first.
+    const pipelineDrugNames = (kb.meta?.pipelineDrugs || [])
+      .map((d) => d.name)
+      .filter(Boolean);
+    const pipelineDrugQueries = pipelineDrugNames
+      .slice(0, 3)
+      .map((name) => `${canonical} ${name}`);
+
+    // Full query set: canonical + 1 synonym + up to 2 treatment cross-
+    // products + up to 3 pipeline-drug cross-products. Total 4-7 queries
+    // × 3 sources = 12-21 upstream hits, still under the 48s gather cap.
+    const treatmentQueries = treatments.slice(0, 2).map((t) => `${canonical} ${t}`);
+    const queries = [...synonymSearches, ...treatmentQueries, ...pipelineDrugQueries];
 
     // PubMed & Europe PMC are rate-limited for anonymous traffic (~3 req/s);
     // run them throttled. OpenAlex + openFDA are generous, we can parallelise.
@@ -495,12 +515,18 @@ export default async function handler(req, res) {
         subspecialty: dossier.subspecialty,
         uncertainty: dossier.uncertainty,
         cacheHit: dossier.cacheHit,
+        cacheDisabled: dossier.cacheDisabled || false,
         generatedBy: dossier.generatedBy,
         topCenters: dossier.topCenters || [],
         keyInvestigators: dossier.keyInvestigators || [],
         patientAdvocacy: dossier.patientAdvocacy || [],
         landmarkTrials: dossier.landmarkTrials || []
       },
+      // Pipeline-drug + excluded-agent guardrails (for research.js to
+      // inject into the synthesis prompt and to audit the final output).
+      pipelineDrugs: kb.meta?.pipelineDrugs || [],
+      excludedAgents: kb.meta?.excludedAgents || [],
+      pipelineDrugQueries, // for UI transparency / debugging
       totalUnique: merged.length,
       totalFetched,
       perSourceCounts,

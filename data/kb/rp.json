@@ -1,0 +1,364 @@
+{
+  "condition": "Retinitis Pigmentosa",
+  "slug": "rp",
+  "aliases": [
+    "RP",
+    "retinitis pigmentosa",
+    "rod-cone dystrophy",
+    "rod-cone degeneration",
+    "RCD",
+    "hereditary retinal dystrophy",
+    "inherited retinal disease",
+    "IRD",
+    "inherited retinal dystrophy"
+  ],
+  "version": "2026-04",
+  "curatedBy": "Syed Hammad Haque",
+  "lastUpdated": "2026-04-22",
+  "editorialNote": "Landmark references for retinitis pigmentosa and the inherited retinal disease (IRD) pipeline. RP is genetically heterogeneous (100+ causative genes); the pipeline splits between gene-specific therapies (Luxturna for biallelic RPE65, gene-replacement candidates for RPGR, CEP290, USH2A, CNGA1, etc.) and gene-agnostic approaches (modifier gene therapy like OCU400, optogenetics like MCO-010, cell therapies like jCell, retinal prostheses). The most consequential gene-agnostic late-stage program is Ocugen OCU400 (NR2E3 nuclear hormone receptor modifier) in a phase 3 pivotal trial (liMeliGhT) that covers RP broadly rather than a single gene.",
+
+  "items": [
+    {
+      "id": "rp-luxturna-label-2017",
+      "category": "fda-label",
+      "tier": "A+",
+      "title": "LUXTURNA (voretigene neparvovec-rzyl) — FDA Prescribing Information",
+      "authors": "Spark Therapeutics",
+      "journal": "FDA Approved Labeling",
+      "year": 2017,
+      "doi": null,
+      "pmid": null,
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2017/125610s000lbl.pdf",
+      "accessLevel": "full-text",
+      "summary": "First FDA-approved gene therapy for an inherited retinal disease. Subretinal AAV2-hRPE65v2 for patients with biallelic RPE65 mutation-associated retinal dystrophy. Landmark because it established the regulatory path for ocular gene therapy — but it covers only ~0.3-1% of RP patients (those with biallelic RPE65 mutations).",
+      "keyPassages": [
+        { "topic": "indication", "quote": "LUXTURNA is indicated for the treatment of patients with confirmed biallelic RPE65 mutation-associated retinal dystrophy." }
+      ]
+    },
+    {
+      "id": "rp-maguire-ascend-2019",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Efficacy, safety, and durability of voretigene neparvovec-rzyl in RPE65 mutation-associated inherited retinal dystrophy: Results of phase 1 and 3 trials",
+      "authors": "Maguire AM, Russell S, Wellman JA, Chung DC, et al.",
+      "journal": "Ophthalmology",
+      "year": 2019,
+      "doi": "10.1016/j.ophtha.2019.06.017",
+      "pmid": "31324366",
+      "url": "https://www.aaojournal.org/article/S0161-6420(19)31566-7/fulltext",
+      "accessLevel": "abstract",
+      "summary": "Pivotal phase 3 and long-term follow-up of voretigene neparvovec. Demonstrated functional vision improvement on multi-luminance mobility testing (MLMT) at 1 year with durability at 3-4 years. Established the clinical benchmark for subretinal AAV gene therapy in IRDs.",
+      "keyPassages": [
+        { "topic": "primary endpoint", "quote": "At year 1, subjects in the intervention group showed a mean bilateral MLMT change score of 1.8 light levels, compared with 0.2 in the control group (P=0.0013)." }
+      ]
+    },
+    {
+      "id": "rp-russell-lancet-2017",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Efficacy and safety of voretigene neparvovec (AAV2-hRPE65v2) in patients with RPE65-mediated inherited retinal dystrophy: a randomised, controlled, open-label, phase 3 trial",
+      "authors": "Russell S, Bennett J, Wellman JA, Chung DC, Yu ZF, et al.",
+      "journal": "The Lancet",
+      "year": 2017,
+      "doi": "10.1016/S0140-6736(17)31868-8",
+      "pmid": "28712537",
+      "url": "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(17)31868-8/fulltext",
+      "accessLevel": "abstract",
+      "summary": "The phase 3 RCT that led to Luxturna approval. Randomized 31 patients with biallelic RPE65 mutations 2:1 to bilateral subretinal AAV2-hRPE65v2 vs control. Primary endpoint was change in bilateral multi-luminance mobility testing (MLMT) at 1 year.",
+      "keyPassages": [
+        { "topic": "result", "quote": "At 1 year, mean bilateral MLMT change score was 1.8 (SD 1.1) light levels in the intervention group versus 0.2 (1.0) in the control group." }
+      ]
+    },
+    {
+      "id": "rp-berson-vita-1993",
+      "category": "rct",
+      "tier": "A",
+      "title": "A randomized trial of vitamin A and vitamin E supplementation for retinitis pigmentosa",
+      "authors": "Berson EL, Rosner B, Sandberg MA, Hayes KC, Nicholson BW, Weigel-DiFranco C, Willett W",
+      "journal": "Archives of Ophthalmology",
+      "year": 1993,
+      "doi": "10.1001/archopht.1993.01090060049022",
+      "pmid": "8512476",
+      "url": "https://jamanetwork.com/journals/jamaophthalmology/fullarticle/641136",
+      "accessLevel": "abstract",
+      "summary": "Landmark RCT supporting vitamin A palmitate 15,000 IU/day for slowing RP progression (measured by ERG 30-Hz cone flicker amplitude). The study also suggested vitamin E 400 IU/day may be harmful (faster decline). This is the historical basis for the 'take vitamin A, not vitamin E' advice common in RP care — although the finding is debated and not applicable to all subtypes (notably harmful in ABCA4/Stargardt, a related but distinct IRD).",
+      "keyPassages": [
+        { "topic": "vitamin A", "quote": "On average, those receiving 15,000 IU/day of vitamin A had a slower annual rate of decline of ERG amplitude than those not receiving this dose." },
+        { "topic": "vitamin E harm", "quote": "Among the subjects who received vitamin E, there was on average a slightly faster rate of decline of ERG amplitude than among those not receiving this supplement." }
+      ]
+    },
+    {
+      "id": "rp-dha-2004",
+      "category": "rct",
+      "tier": "B",
+      "title": "Clinical trial of docosahexaenoic acid in patients with retinitis pigmentosa receiving vitamin A treatment",
+      "authors": "Berson EL, Rosner B, Sandberg MA, Weigel-DiFranco C, Moser A, Brockhurst RJ, et al.",
+      "journal": "Archives of Ophthalmology",
+      "year": 2004,
+      "doi": "10.1001/archopht.122.9.1297",
+      "pmid": "15364708",
+      "url": "https://jamanetwork.com/journals/jamaophthalmology/fullarticle/417031",
+      "accessLevel": "abstract",
+      "summary": "DHA supplementation in RP patients already on vitamin A. Overall trial did not show slowing of ERG decline, but subgroup analysis suggested benefit in patients new to vitamin A in the first 2 years.",
+      "keyPassages": []
+    },
+    {
+      "id": "rp-nac-campochiaro-2020",
+      "category": "rct",
+      "tier": "A",
+      "title": "Oral N-acetylcysteine in Patients with Retinitis Pigmentosa — A randomized phase 1 open-label dose-escalation trial (Johns Hopkins)",
+      "authors": "Campochiaro PA, Iftikhar M, Hafiz G, Akhlaq A, Tsai G, Wehling D, Lu L, Wall GM, Lin MM, Kaja S, et al.",
+      "journal": "American Journal of Ophthalmology",
+      "year": 2020,
+      "doi": "10.1016/j.ajo.2019.11.008",
+      "pmid": "31734129",
+      "url": "https://www.sciencedirect.com/science/article/pii/S0002939419305732",
+      "accessLevel": "abstract",
+      "summary": "Johns Hopkins open-label trial of oral N-acetylcysteine (NAC) in RP patients. Rationale: oxidative stress-driven cone death is a final common pathway in RP regardless of genetic cause. Results showed improved visual acuity and macular sensitivity over 24 weeks at the highest dose. Led to the subsequent NAC Attack phase 3 (NCT05537220) — the gene-agnostic antioxidant hypothesis in RP. Separately, the lipid-permeable analog N-acetylcysteine amide (NACA) is being developed by Nacuity Pharmaceuticals.",
+      "keyPassages": [
+        { "topic": "rationale", "quote": "Oxidative stress is a cause of cone cell death in animal models of RP, suggesting that antioxidant therapy may be beneficial." }
+      ]
+    },
+    {
+      "id": "rp-scholl-sciencetranslational-2016",
+      "category": "review",
+      "tier": "A",
+      "title": "Emerging therapies for inherited retinal degeneration",
+      "authors": "Scholl HP, Strauss RW, Singh MS, et al.",
+      "journal": "Science Translational Medicine",
+      "year": 2016,
+      "doi": "10.1126/scitranslmed.aaf2838",
+      "pmid": "27733558",
+      "url": "https://www.science.org/doi/10.1126/scitranslmed.aaf2838",
+      "accessLevel": "abstract",
+      "summary": "Foundational review of the IRD therapeutic pipeline: gene augmentation, gene editing, optogenetics, cell therapy, and neuroprotection. Useful orientation document for any RP discussion.",
+      "keyPassages": []
+    },
+    {
+      "id": "rp-retnet-genes",
+      "category": "expert-consensus",
+      "tier": "A",
+      "title": "RetNet — Retinal Information Network (summary of RP-associated genes)",
+      "authors": "Daiger SP, Sullivan LS, Bowne SJ",
+      "journal": "University of Texas Health Science Center",
+      "year": 2025,
+      "doi": null,
+      "pmid": null,
+      "url": "https://web.sph.uth.edu/RetNet/",
+      "accessLevel": "full-text",
+      "summary": "Canonical reference for RP gene discovery. As of 2025, >100 genes have been associated with non-syndromic RP (autosomal dominant, autosomal recessive, X-linked, mitochondrial). Most common gene for each inheritance pattern: adRP = RHO; arRP = USH2A; X-linked = RPGR. Syndromic forms include Usher syndrome (RP + hearing loss), Bardet-Biedl syndrome, and Leber congenital amaurosis (LCA, the most severe early-onset end of the IRD spectrum).",
+      "keyPassages": []
+    },
+    {
+      "id": "rp-argus-ii-2015",
+      "category": "review",
+      "tier": "B",
+      "title": "Five-Year Safety and Performance Results from the Argus II Retinal Prosthesis System Clinical Trial",
+      "authors": "da Cruz L, Dorn JD, Humayun MS, et al.",
+      "journal": "Ophthalmology",
+      "year": 2016,
+      "doi": "10.1016/j.ophtha.2016.06.049",
+      "pmid": "27555109",
+      "url": "https://www.aaojournal.org/article/S0161-6420(16)30568-4/fulltext",
+      "accessLevel": "abstract",
+      "summary": "Long-term follow-up of the Argus II epiretinal prosthesis. Second Sight (the manufacturer) went bankrupt and stopped supporting devices in 2020 — patients with implanted devices were left without upgrades or replacement parts. Cautionary tale for any retinal prosthesis recommendation today. Newer devices in development (PRIMA subretinal implant from Pixium, now Science Corp) are the relevant modern options.",
+      "keyPassages": []
+    }
+  ],
+
+  "canonicalFacts": [
+    {
+      "claim": "Retinitis pigmentosa is a group of >100 genetically distinct inherited retinal dystrophies causing progressive rod-then-cone photoreceptor degeneration, with typical progression from night blindness → peripheral visual field constriction → central vision loss.",
+      "evidenceRefs": ["rp-retnet-genes", "rp-scholl-sciencetranslational-2016"]
+    },
+    {
+      "claim": "Voretigene neparvovec-rzyl (Luxturna) is FDA-approved ONLY for biallelic RPE65-mediated retinal dystrophy (~0.3-1% of RP patients). It does not treat other genetic causes of RP.",
+      "evidenceRefs": ["rp-luxturna-label-2017", "rp-russell-lancet-2017"]
+    },
+    {
+      "claim": "Oral vitamin A palmitate 15,000 IU/day slowed ERG decline in the 1993 Berson trial. Vitamin E 400 IU/day may accelerate decline in RP (but not all subtypes). Vitamin A is contraindicated in Stargardt disease (ABCA4-related) due to A2E accumulation.",
+      "evidenceRefs": ["rp-berson-vita-1993"]
+    },
+    {
+      "claim": "Oxidative stress-driven cone cell death is hypothesized to be a gene-agnostic final common pathway in RP, motivating antioxidant therapy (NAC, NACA) as a strategy that could work regardless of underlying gene.",
+      "evidenceRefs": ["rp-nac-campochiaro-2020"]
+    }
+  ],
+
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Genetic testing is ESSENTIAL before any therapy. Available through free programs (Spark Therapeutics' ID YOUR IRD, Invitae/Labcorp ENTRY, My Retina Tracker). Identifies the causative gene, clarifies inheritance and family counseling, and determines eligibility for Luxturna, ongoing gene-specific trials, and the gene-agnostic programs.",
+      "evidenceRefs": ["rp-retnet-genes"]
+    },
+    {
+      "recommendation": "Register with the Foundation Fighting Blindness 'My Retina Tracker' registry and a patient-matching service (such as ClinicalTrials.gov alerts) — new RP trials open often and access is typically by geography + gene.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Wear UV-blocking + blue-light-filtering sunglasses outdoors. Photoreceptor damage from light exposure is a reasonable concern in an already-fragile retina.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Discuss vitamin A palmitate 15,000 IU/day with a retinal specialist (Berson protocol) — and confirm the disease is NOT Stargardt (ABCA4) or cone-rod dystrophy before starting. Not appropriate in pregnancy or in patients with liver disease. Monitor liver function.",
+      "evidenceRefs": ["rp-berson-vita-1993"]
+    },
+    {
+      "recommendation": "Consider low-vision services and orientation & mobility training early, not at end-stage. Best-corrected visual acuity is only one dimension — peripheral field loss has major implications for driving, stairs, and unfamiliar environments.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Evaluate for cataract — patients with RP develop posterior subcapsular cataracts earlier and more often. Cataract surgery can meaningfully improve central vision even in advanced RP.",
+      "evidenceRefs": []
+    }
+  ],
+
+  "redFlags": [
+    "Do NOT take vitamin A palmitate without confirming the diagnosis is RP (and not Stargardt disease / ABCA4-related retinopathy or cone-rod dystrophy). Vitamin A accelerates A2E accumulation in ABCA4 patients.",
+    "Do NOT seek stem-cell therapy from offshore clinics (China, Vietnam, Mexico, India, or cash-pay US 'regenerative medicine' operators outside of FDA-registered trials). There is NO peer-reviewed efficacy data for RP, there are documented cases of blindness from these procedures, and the FDA has issued warning letters. The legitimate cell therapy path for RP is through ClinicalTrials.gov-listed IRB-approved trials (e.g. jCell / jCyte, CPCB-RPE1).",
+    "Do NOT start Luxturna without biallelic RPE65 genetic confirmation — it does not work in any other genotype and is contraindicated without the indication being met.",
+    "Acute vision loss, flashes, or a new 'curtain' in the visual field in an RP patient may represent retinal detachment — urgent ophthalmology evaluation within 24 hours."
+  ],
+
+  "pipelineDrugs": [
+    {
+      "name": "OCU400",
+      "aliases": ["OCU-400", "modifier gene therapy NR2E3", "AAV5-hNR2E3"],
+      "mechanism": "Gene-agnostic modifier gene therapy — subretinal AAV5 delivery of the nuclear hormone receptor NR2E3, which broadly regulates rod and cone homeostasis. Aims to treat RP regardless of the underlying causative mutation.",
+      "sponsor": "Ocugen, Inc. (Malvern, PA)",
+      "status": "Phase 3 pivotal (liMeliGhT, NCT06388200) actively enrolling at multiple US sites; FDA granted Regenerative Medicine Advanced Therapy (RMAT) designation and Orphan Drug Designation. Phase 1/2 data reported in 2023-2024 showed favorable safety and preserved/improved retinal function across multiple RP genotypes (RHO, NR2E3, USH2A, CEP290, PDE6B, CNGA1, CNGB1, EYS, and others).",
+      "approvalStatus": "investigational — phase 3",
+      "nct": "NCT06388200",
+      "whyItMatters": "The most important gene-agnostic late-stage program in RP. Unlike Luxturna (RPE65 only), OCU400 is being developed to treat RP broadly across genotypes. If the phase 3 is positive, it would be the first therapy that could address the majority of RP patients regardless of which of the 100+ causative genes they carry."
+    },
+    {
+      "name": "Voretigene neparvovec-rzyl (Luxturna)",
+      "aliases": ["Luxturna", "voretigene", "AAV2-hRPE65v2"],
+      "mechanism": "Subretinal AAV2 gene replacement for biallelic RPE65 mutations",
+      "sponsor": "Spark Therapeutics (Roche)",
+      "status": "FDA-approved 2017 (first ocular gene therapy approval in the US)",
+      "approvalStatus": "approved — limited indication (biallelic RPE65 only)",
+      "pmid": "28712537",
+      "doi": "10.1016/S0140-6736(17)31868-8",
+      "whyItMatters": "Proof of concept for ocular gene therapy, but covers only ~0.3-1% of RP patients. Requires genetic confirmation of biallelic RPE65 mutations."
+    },
+    {
+      "name": "MCO-010 (sonpiretigene isteparvovec)",
+      "aliases": ["MCO-010", "sonpiretigene", "multi-characteristic opsin optogenetics"],
+      "mechanism": "Optogenetic gene therapy — intravitreal AAV2 delivering a multi-characteristic opsin (MCO) to bipolar cells, converting them into light-sensitive cells when photoreceptors are gone. Gene-agnostic.",
+      "sponsor": "Nanoscope Therapeutics (Dallas, TX)",
+      "status": "Phase 2b RESTORE trial (NCT04945772) primary endpoint data reported 2023. BLA filing announced 2024 for RP with severe vision loss. FDA accepted or in review.",
+      "approvalStatus": "investigational — BLA stage",
+      "nct": "NCT04945772",
+      "whyItMatters": "Potential first-in-class optogenetics for late-stage RP (patients who have lost most photoreceptors). Gene-agnostic. Competes with GenSight Biologics GS030 optogenetics."
+    },
+    {
+      "name": "jCell (jCyte — human retinal progenitor cells)",
+      "aliases": ["jCell", "jCyte", "hRPC", "human retinal progenitor cells"],
+      "mechanism": "Intravitreal injection of allogeneic human retinal progenitor cells — paracrine neurotrophic support, not cell replacement. Gene-agnostic.",
+      "sponsor": "jCyte, Inc. (acquired by Santen 2024, then spun back to jCyte)",
+      "status": "Phase 2b data reported 2022 showed improvement in mobility test and visual acuity in a subset; phase 3 planning. RMAT designation.",
+      "approvalStatus": "investigational — phase 2b/3",
+      "nct": "NCT03073733",
+      "whyItMatters": "Gene-agnostic cell therapy for RP. Unlike the offshore stem-cell clinics, this is a properly-run IRB trial with defined cells and endpoints — the legitimate cell therapy path for RP."
+    },
+    {
+      "name": "Nerandomilast-unrelated — Ocugen OCU410 (dry AMD / geographic atrophy)",
+      "aliases": ["OCU-410", "AAV5-hRORA", "nuclear receptor RORA"],
+      "mechanism": "Gene-agnostic modifier gene therapy — AAV5-RORA for dry age-related macular degeneration / geographic atrophy",
+      "sponsor": "Ocugen, Inc.",
+      "status": "Phase 2 ArMaDa trial ongoing. Mentioned here because Ocugen patients and investors often conflate OCU400 (RP) and OCU410 (AMD/GA). They are distinct programs on the same modifier-gene-therapy platform.",
+      "approvalStatus": "investigational",
+      "whyItMatters": "Included for disambiguation — OCU410 is for dry AMD / geographic atrophy, NOT for RP. If a patient with RP asks about OCU410, the answer is 'wrong program — you want OCU400.'"
+    },
+    {
+      "name": "N-acetylcysteine amide (NACA)",
+      "aliases": ["NACA", "nacuity", "NPI-001"],
+      "mechanism": "Lipid-permeable amide analog of N-acetylcysteine; antioxidant; gene-agnostic",
+      "sponsor": "Nacuity Pharmaceuticals (Fort Worth, TX)",
+      "status": "Phase 2 in RP (NCT05392179) and a separate Usher 2A program. Rationale is gene-agnostic antioxidant protection of cones. Parent compound NAC is in the phase 3 NAC Attack trial (NCT05537220, Johns Hopkins lead).",
+      "approvalStatus": "investigational — phase 2",
+      "nct": "NCT05392179",
+      "whyItMatters": "Gene-agnostic antioxidant approach to RP. Companion to Johns Hopkins' NAC Attack phase 3. If either succeeds, it would be a disease-modifying therapy available to the ~99% of RP patients who are not RPE65."
+    },
+    {
+      "name": "MeiraGTx/Janssen AAV5-RPGR (botaretigene sparoparvovec, LUMEOS)",
+      "aliases": ["AAV5-RPGR", "botaretigene sparoparvovec", "LUMEOS", "AAV-RPGR"],
+      "mechanism": "Gene replacement for X-linked RP caused by RPGR mutations",
+      "sponsor": "MeiraGTx / Janssen (J&J)",
+      "status": "Phase 3 LUMEOS (NCT04671433) fully enrolled; readouts expected 2024-2025. Janssen announced strategic decision to return rights to MeiraGTx in 2024.",
+      "approvalStatus": "investigational — phase 3",
+      "nct": "NCT04671433",
+      "whyItMatters": "Largest gene-specific phase 3 program in X-linked RP (RPGR is the most common X-linked RP gene). Parallel programs at AGTC and Biogen have faced setbacks, making this the leading RPGR candidate."
+    },
+    {
+      "name": "Editas EDIT-101 (CEP290 / LCA10)",
+      "aliases": ["EDIT-101", "CRISPR CEP290", "EDIT-101 BRILLIANCE"],
+      "mechanism": "In vivo CRISPR-Cas9 subretinal gene editing for the CEP290 IVS26 intronic mutation (LCA10 / early-onset severe RP)",
+      "sponsor": "Editas Medicine",
+      "status": "Phase 1/2 BRILLIANCE (NCT03872479). Editas announced in 2022 that it was pausing new enrollment and seeking a partner. Clinical signal in treated patients was real but development was slowed.",
+      "approvalStatus": "investigational — phase 1/2 (paused for partnering)",
+      "nct": "NCT03872479",
+      "whyItMatters": "First in vivo CRISPR trial in humans for any disease. Proof that in vivo CRISPR editing is clinically feasible. Even if this specific program is paused, it is scientifically pivotal and patients/clinicians commonly ask about it."
+    },
+    {
+      "name": "ProQR QR-421a (sepofarsen / ultevursen) — USH2A exon 13",
+      "aliases": ["QR-421a", "ultevursen", "sepofarsen"],
+      "mechanism": "Antisense oligonucleotide — exon 13 skipping for USH2A-related RP / Usher syndrome type 2A",
+      "sponsor": "Laboratoires Théa (acquired from ProQR 2023)",
+      "status": "Phase 2/3 SIRIUS and CELESTE trials. Mixed phase 2 readouts; program continuing under Théa.",
+      "approvalStatus": "investigational",
+      "nct": "NCT05176717",
+      "whyItMatters": "Targets USH2A (the most common autosomal recessive RP gene and most common Usher 2 gene). Antisense rather than gene replacement. A positive readout would establish ASO skipping as a path for RP."
+    },
+    {
+      "name": "Vitamin A palmitate 15,000 IU/day (Berson protocol)",
+      "aliases": ["vitamin A palmitate", "retinyl palmitate", "Berson vitamin A"],
+      "mechanism": "Dietary retinoid supplement; proposed mechanism uncertain (possibly support for photoreceptor RPE visual cycle)",
+      "sponsor": "generic / OTC",
+      "status": "Established by the 1993 Berson trial (Harvard/Mass Eye and Ear). Controversial but still part of many retinal specialists' standard-of-care recommendation for typical non-ABCA4 RP.",
+      "approvalStatus": "not FDA-approved for RP; used off-label / as a dietary supplement",
+      "pmid": "8512476",
+      "doi": "10.1001/archopht.1993.01090060049022",
+      "whyItMatters": "One of the few interventions with RCT data showing slowed ERG decline in RP. Must confirm non-ABCA4 genotype before starting. Common question from RP patients."
+    },
+    {
+      "name": "Oral N-acetylcysteine (NAC Attack — Johns Hopkins)",
+      "aliases": ["NAC", "N-acetylcysteine", "NAC Attack trial"],
+      "mechanism": "Antioxidant / glutathione precursor; gene-agnostic strategy targeting oxidative cone death",
+      "sponsor": "Johns Hopkins Wilmer Eye Institute (Peter Campochiaro, PI)",
+      "status": "Phase 3 NAC Attack (NCT05537220) recruiting; builds on the 2020 phase 1 AJO publication showing visual acuity and macular sensitivity improvement.",
+      "approvalStatus": "investigational — phase 3",
+      "nct": "NCT05537220",
+      "pmid": "31734129",
+      "whyItMatters": "Cheap generic, gene-agnostic, potentially disease-modifying. If NAC Attack is positive, it could be the most broadly accessible RP therapy. Oral drug — much lower bar to use than surgical gene therapy."
+    }
+  ],
+
+  "excludedAgents": [
+    {
+      "name": "Vitamin E 400 IU/day",
+      "reason": "Berson 1993 trial signaled accelerated ERG decline in the vitamin E arm. Not recommended as an isolated supplement for RP.",
+      "evidenceRef": "rp-berson-vita-1993"
+    },
+    {
+      "name": "Vitamin A palmitate in ABCA4/Stargardt disease",
+      "reason": "Vitamin A accelerates A2E and lipofuscin accumulation in RPE in ABCA4-related disease. Contraindicated in Stargardt. Confirm genotype before recommending the Berson protocol.",
+      "evidenceRef": null
+    },
+    {
+      "name": "Offshore stem cell clinics (China, Vietnam, Mexico, India, and cash-pay US 'regenerative medicine' operators)",
+      "reason": "No peer-reviewed efficacy data for RP. Multiple FDA warning letters. Documented cases of blindness (bilateral central retinal occlusion) following intravitreal adipose-derived 'stem cell' injections. The legitimate cell therapy path is the jCell/jCyte phase 2b/3 trial (NCT03073733) and the CPCB-RPE1 subretinal patch trial.",
+      "evidenceRef": null
+    },
+    {
+      "name": "Argus II retinal prosthesis (new implantation)",
+      "reason": "Second Sight (manufacturer) ended support in 2020. Existing patients have been left without upgrades. New implantations are not appropriate. Current modern retinal-prosthesis investigational options include the PRIMA subretinal implant (Science Corp / formerly Pixium).",
+      "evidenceRef": "rp-argus-ii-2015"
+    },
+    {
+      "name": "Acetazolamide or topical dorzolamide for cystoid macular edema in RP WITHOUT confirmed CME",
+      "reason": "Acetazolamide and topical CAIs (dorzolamide) are used to treat RP-associated cystoid macular edema when it is documented on OCT. Empiric use without OCT-confirmed CME is not indicated.",
+      "evidenceRef": null
+    }
+  ]
+}
