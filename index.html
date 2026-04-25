@@ -278,6 +278,15 @@
         <line x1="12" y1="16" x2="12" y2="12" />
         <line x1="12" y1="8" x2="12.01" y2="8" />
       </>);
+      const Languages = mkIcon(<>
+        <path d="M5 8h6" />
+        <path d="M4 12h4" />
+        <path d="M9 4c0 4-2 8-5 10" />
+        <path d="M8 4c0 4 2 8 5 10" />
+        <path d="M14 10h7" />
+        <path d="M17.5 4v14" />
+        <path d="M14 18h7" />
+      </>);
       const ExternalLink = mkIcon(<>
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
         <polyline points="15 3 21 3 21 9" />
@@ -624,6 +633,17 @@
       /* ==================== Storage ==================== */
       const loadLS = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
       const saveLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+      // Dorothy language set. We keep English as default and run translation
+      // on-demand so we don't add cost/latency to every base research call.
+      const TRANSLATION_LANGS = [
+        'English',
+        'Spanish',
+        'French',
+        'Chinese',
+        'Japanese',
+        'German'
+      ];
 
       /* ============================================================== */
       /* =========================== APP ============================== */
@@ -2151,6 +2171,151 @@
         );
       };
 
+      const WordExportButton = ({ getElement, filename, label, disabled }) => {
+        const [busy, setBusy] = useState(false);
+        const onClick = async () => {
+          if (busy || disabled) return;
+          const el = typeof getElement === 'function' ? getElement() : null;
+          if (!el) { alert('Nothing to export yet — run the analysis first.'); return; }
+          setBusy(true);
+          try {
+            const clone = el.cloneNode(true);
+            clone.style.background = '#ffffff';
+            clone.style.color = '#111827';
+            clone.style.padding = '18px';
+            clone.querySelectorAll('[data-pdf-exclude], button').forEach((n) => n.remove());
+            // Word can open HTML files with a .doc extension. This isn't
+            // perfect DOCX fidelity, but it's zero-dependency and works well
+            // for "print / email to doctor / annotate" workflows.
+            const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Medical Analysis</title></head><body>${clone.innerHTML}</body></html>`;
+            const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || 'medical-research-analysis.doc';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+          } catch (err) {
+            console.error('[word] export failed', err);
+            alert('Word export failed: ' + (err?.message || err));
+          } finally {
+            setBusy(false);
+          }
+        };
+        return (
+          <button
+            onClick={onClick}
+            disabled={busy || disabled}
+            title="Download this analysis as a Word document"
+            style={{
+              background: 'transparent',
+              border: `1px solid ${theme.border}`,
+              color: (busy || disabled) ? theme.textDim : theme.accent,
+              padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.75rem',
+              cursor: (busy || disabled) ? 'not-allowed' : 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '0.35rem'
+            }}
+          >
+            <FileText size={13} /> {busy ? 'Generating…' : (label || 'Download Word')}
+          </button>
+        );
+      };
+
+      const AnalysisLanguageToolbar = ({
+        sourceText, translatedText, setTranslatedText,
+        exportElementId, exportBaseFilename
+      }) => {
+        const [lang, setLang] = useState('English');
+        const [busy, setBusy] = useState(false);
+        const [error, setError] = useState('');
+
+        useEffect(() => {
+          // New analysis text invalidates old translations.
+          setTranslatedText('');
+          setLang('English');
+          setError('');
+        }, [sourceText]);
+
+        const translateTo = async (targetLanguage) => {
+          if (!sourceText) return;
+          if (targetLanguage === 'English') {
+            setTranslatedText('');
+            setError('');
+            return;
+          }
+          setBusy(true);
+          setError('');
+          try {
+            const r = await fetch('/api/translate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                text: sourceText,
+                sourceLanguage: 'English',
+                targetLanguage
+              })
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+            setTranslatedText(d.translatedText || '');
+          } catch (err) {
+            setError(err.message || 'Translation failed');
+          } finally {
+            setBusy(false);
+          }
+        };
+
+        const onChangeLang = async (nextLang) => {
+          setLang(nextLang);
+          await translateTo(nextLang);
+        };
+
+        const exportName = `${exportBaseFilename || 'analysis'}-${lang.toLowerCase()}`;
+        const displayText = translatedText || sourceText;
+
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }} data-pdf-exclude="1">
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.35rem',
+              background: theme.panel, border: `1px solid ${theme.border}`,
+              borderRadius: 6, padding: '0.2rem 0.45rem'
+            }}>
+              <Languages size={13} color={theme.textDim} />
+              <select
+                value={lang}
+                onChange={e => onChangeLang(e.target.value)}
+                disabled={!sourceText || busy}
+                style={{
+                  background: 'transparent', color: theme.text, border: 'none',
+                  outline: 'none', fontFamily: 'inherit', fontSize: '0.75rem', cursor: 'pointer'
+                }}
+                title="Translate this analysis on-demand"
+              >
+                {TRANSLATION_LANGS.map((l) => (
+                  <option key={l} value={l} style={{ background: theme.panelSolid, color: theme.text }}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <WordExportButton
+              getElement={() => document.getElementById(exportElementId)}
+              filename={`${exportName}.doc`}
+              disabled={!displayText}
+            />
+            <PdfExportButton
+              getElement={() => document.getElementById(exportElementId)}
+              filename={`${exportName}.pdf`}
+              disabled={!displayText}
+            />
+            {busy && <span style={{ fontSize: '0.72rem', color: theme.textDim }}>Translating…</span>}
+            {error && <span style={{ fontSize: '0.72rem', color: theme.red }}>Translate error: {error}</span>}
+          </div>
+        );
+      };
+
       /* ==================== Repurpose Explainer ====================
          Dorothy's exact words: "when they click on 'repurpose' have an
          explanation: Sometimes drugs already exist which may help a
@@ -3088,6 +3253,8 @@
                               chatHistory, userQuery, setUserQuery, sendChat, onAudit }) => {
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
+        const [translatedText, setTranslatedText] = useState('');
+        const renderedResearchText = translatedText || researchText;
         const baseQuickPrompts = [
           `Why did you rank the top treatment #1 over the others? Walk me through the tradeoff.`,
           `Check every treatment you recommended against my current medications for interactions.`,
@@ -3220,19 +3387,28 @@
                   </h3>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <button
-                      onClick={() => { try { navigator.clipboard.writeText(researchText); } catch (e) {} }}
+                      onClick={() => { try { navigator.clipboard.writeText(renderedResearchText); } catch (e) {} }}
                       style={{ background: 'transparent', border: `1px solid ${theme.border}`, color: theme.textDim, padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.75rem', cursor: 'pointer' }}
                       title="Copy markdown to clipboard"
+                      data-pdf-exclude="1"
                     >
                       Copy
                     </button>
-                    <PdfExportButton
-                      getElement={() => document.getElementById('mrt-research-export-target')}
-                      filename={`research-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.pdf`}
+                    <AnalysisLanguageToolbar
+                      sourceText={researchText}
+                      translatedText={translatedText}
+                      setTranslatedText={setTranslatedText}
+                      exportElementId="mrt-research-export-target"
+                      exportBaseFilename={`research-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
                     />
                   </div>
                 </div>
-                <Markdown text={researchText} />
+                {translatedText && (
+                  <div data-pdf-exclude="1" style={{ marginBottom: '0.6rem', fontSize: '0.78rem', color: theme.textDim }}>
+                    Viewing translated output. Source English text remains unchanged.
+                  </div>
+                )}
+                <Markdown text={renderedResearchText} />
               </div>
             )}
 
@@ -3430,6 +3606,8 @@
       const TrialsTab = ({ patient, busy, trialsData, trialBlocks, trialsText, validation,
                            runTrialsFetch, runTrialsAnalysis, onAudit }) => {
         const [filters, setFilters] = useState({ recruitingOnly: true, treatmentOnly: true, excludePlacebo: false });
+        const [translatedText, setTranslatedText] = useState('');
+        const renderedTrialsText = translatedText || trialsText;
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={panelStyle}>
@@ -3484,12 +3662,20 @@
                   <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Brain size={18} /> Full per-patient analysis
                   </h3>
-                  <PdfExportButton
-                    getElement={() => document.getElementById('mrt-trials-export-target')}
-                    filename={`trials-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.pdf`}
+                  <AnalysisLanguageToolbar
+                    sourceText={trialsText}
+                    translatedText={translatedText}
+                    setTranslatedText={setTranslatedText}
+                    exportElementId="mrt-trials-export-target"
+                    exportBaseFilename={`trials-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
                   />
                 </div>
-                <Markdown text={trialsText} />
+                {translatedText && (
+                  <div data-pdf-exclude="1" style={{ marginBottom: '0.6rem', fontSize: '0.78rem', color: theme.textDim }}>
+                    Viewing translated output. Source English text remains unchanged.
+                  </div>
+                )}
+                <Markdown text={renderedTrialsText} />
               </div>
             )}
           </div>
@@ -3824,6 +4010,8 @@
 
       const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation, progress, onAudit }) => {
         const [showRaw, setShowRaw] = useState(false);
+        const [translatedText, setTranslatedText] = useState('');
+        const renderedRepurposeText = translatedText || repurposeText;
         const byStrength = {
           LARGE_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 6).length,
           SMALL_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 5).length,
@@ -3884,16 +4072,23 @@
                     }}>
                       {showRaw ? 'Hide' : 'Show'} raw
                     </button>
-                    <PdfExportButton
-                      getElement={() => document.getElementById('mrt-repurpose-export-target')}
-                      filename={`repurpose-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.pdf`}
-                      label="Download PDF (candidates + narrative)"
+                    <AnalysisLanguageToolbar
+                      sourceText={repurposeText}
+                      translatedText={translatedText}
+                      setTranslatedText={setTranslatedText}
+                      exportElementId="mrt-repurpose-export-target"
+                      exportBaseFilename={`repurpose-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
                     />
                   </div>
                 </div>
                 {showRaw && (
                   <div style={{ marginTop: '0.6rem' }}>
-                    <Markdown text={repurposeText} />
+                    {translatedText && (
+                      <div data-pdf-exclude="1" style={{ marginBottom: '0.6rem', fontSize: '0.78rem', color: theme.textDim }}>
+                        Viewing translated output. Source English text remains unchanged.
+                      </div>
+                    )}
+                    <Markdown text={renderedRepurposeText} />
                   </div>
                 )}
               </div>
