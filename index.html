@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="cache-control" content="no-cache">
-    <title>Medical Research Assistant</title>
+    <title>researchingmycondition.com</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -677,6 +677,8 @@
         const [chatHistory, setChatHistory] = useState([]);
         const [userQuery, setUserQuery] = useState('');
         const [busy, setBusy] = useState(null);
+        const [runtimeConfig, setRuntimeConfig] = useState(null);
+        const [usageInfo, setUsageInfo] = useState(null);
 
         // Cross-AI audit results per mode — a second model independently
         // audits Claude's output against the same evidence pack.
@@ -708,6 +710,25 @@
         useEffect(() => saveLS('mrt_patient', patient), [patient]);
         useEffect(() => saveLS('mrt_audience', audience), [audience]);
         useEffect(() => saveLS('mrt_hipaa', acceptedHipaa), [acceptedHipaa]);
+        useEffect(() => {
+          const loadRuntime = async () => {
+            try {
+              const [cfgRes, usageRes] = await Promise.all([
+                fetch('/api/runtime-config').catch(() => null),
+                fetch('/api/usage').catch(() => null)
+              ]);
+              if (cfgRes && cfgRes.ok) {
+                const cfg = await cfgRes.json();
+                setRuntimeConfig(cfg);
+              }
+              if (usageRes && usageRes.ok) {
+                const u = await usageRes.json();
+                setUsageInfo(u);
+              }
+            } catch (_) {}
+          };
+          loadRuntime();
+        }, []);
 
         /* -------- Derived / parsed data -------- */
         const treatments = useMemo(() => parseTreatments(researchText), [researchText]);
@@ -786,7 +807,19 @@
                   : `Server returned non-JSON (HTTP ${res.status}): ${raw.slice(0, 140)}`
               );
             }
-            if (!res.ok) throw new Error(data.error || `Request failed (HTTP ${res.status})`);
+            if (!res.ok) {
+              if (data?.upgradeRequired) {
+                const price = data?.pricing?.paidPriceUsd;
+                const paidRuns = data?.pricing?.paidRunsPerMonth;
+                const upgradeUrl = data?.pricing?.upgradeUrl;
+                throw new Error(
+                  `${data.error || 'Usage limit reached.'} ` +
+                  `Paid plan: $${price || 10}/month for up to ${paidRuns || 15} runs.` +
+                  (upgradeUrl ? ` Upgrade here: ${upgradeUrl}` : ' Ask admin for upgrade code.')
+                );
+              }
+              throw new Error(data.error || `Request failed (HTTP ${res.status})`);
+            }
             return data;
           };
           try {
@@ -941,6 +974,10 @@
             if (data.coverageAudit) {
               setCoverageAudit(data.coverageAudit);
             }
+            try {
+              const u = await fetch('/api/usage');
+              if (u.ok) setUsageInfo(await u.json());
+            } catch (_) {}
           } catch (e) {
             if (deepMode) {
               setProgress(p => p ? ({
@@ -949,6 +986,10 @@
               }) : null);
             }
             alert('Error: ' + e.message);
+            try {
+              const u = await fetch('/api/usage');
+              if (u.ok) setUsageInfo(await u.json());
+            } catch (_) {}
           } finally {
             setBusy(null);
             if (deepMode) {
@@ -1113,7 +1154,8 @@
             fontFamily: '"Crimson Pro", Georgia, serif', color: theme.text }}>
             <Header patient={patient} audience={audience} setAudience={setAudience}
               user={user} setUser={setUser}
-              themeMode={themeMode} setThemeMode={setThemeMode} />
+              themeMode={themeMode} setThemeMode={setThemeMode}
+              runtimeConfig={runtimeConfig} usageInfo={usageInfo} />
             {!acceptedHipaa && <HipaaGate onAccept={() => setAcceptedHipaa(true)} />}
 
             <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 2rem' }}>
@@ -1121,7 +1163,14 @@
 
               {tab === 'profile' && <PatientTab patient={patient} setPatient={setPatient}
                 audience={audience} setAudience={setAudience}
-                setTab={setTab} runResearch={runResearch} busy={busy} />}
+                setTab={setTab} runResearch={runResearch} busy={busy}
+                runtimeConfig={runtimeConfig} usageInfo={usageInfo}
+                refreshUsage={async () => {
+                  try {
+                    const u = await fetch('/api/usage');
+                    if (u.ok) setUsageInfo(await u.json());
+                  } catch (_) {}
+                }} />}
               {tab === 'research' && <ResearchTab
                 patient={patient} busy={busy} runResearch={runResearch}
                 researchText={researchText} treatments={treatments}
@@ -1129,18 +1178,21 @@
                 dossier={dossier} progress={progress} coverageAudit={coverageAudit}
                 chatHistory={chatHistory} userQuery={userQuery}
                 setUserQuery={setUserQuery} sendChat={sendChat}
-                onAudit={() => auditAnalysis('research')} />}
+                onAudit={() => auditAnalysis('research')}
+                runtimeConfig={runtimeConfig} />}
               {tab === 'trials' && <TrialsTab
                 patient={patient} busy={busy} trialsData={trialsData}
                 trialBlocks={trialBlocks} trialsText={trialsText}
                 validation={validations.trials}
                 runTrialsFetch={runTrialsFetch} runTrialsAnalysis={runTrialsAnalysis}
-                onAudit={() => auditAnalysis('trials')} />}
+                onAudit={() => auditAnalysis('trials')}
+                runtimeConfig={runtimeConfig} />}
               {tab === 'repurpose' && <RepurposeTab
                 patient={patient} busy={busy} runResearch={runResearch}
                 repurposeText={repurposeText} candidates={candidates}
                 validation={validations.repurpose} progress={progress}
-                onAudit={() => auditAnalysis('repurpose')} />}
+                onAudit={() => auditAnalysis('repurpose')}
+                runtimeConfig={runtimeConfig} />}
               {tab === 'records' && <RecordsTab
                 patient={patient} audience={audience}
                 busy={busy} setBusy={setBusy}
@@ -1148,7 +1200,7 @@
               {tab === 'chart' && <ChartTab treatments={treatments} candidates={candidates} />}
               {tab === 'refs' && <RefsTab references={references} evidencePack={evidencePack} evidenceSummary={evidenceSummary} />}
             </div>
-            <Footer />
+            <Footer runtimeConfig={runtimeConfig} />
           </div>
         );
       };
@@ -1167,7 +1219,7 @@
         } catch { return null; }
       };
 
-      const Header = ({ patient, audience, setAudience, user, setUser, themeMode, setThemeMode }) => {
+      const Header = ({ patient, audience, setAudience, user, setUser, themeMode, setThemeMode, runtimeConfig, usageInfo }) => {
         const [menuOpen, setMenuOpen] = useState(false);
         const [signInOpen, setSignInOpen] = useState(false);
         useEffect(() => {
@@ -1221,7 +1273,7 @@
                         fontFamily: '"Crimson Pro", Georgia, serif',
                         fontWeight: 700, fontSize: '1.1rem', color: theme.text, letterSpacing: '-0.01em'
                       }}>
-                        Medical Research
+                        {runtimeConfig?.branding?.productName || 'researchingmycondition.com'}
                       </span>
                       <span style={{
                         fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em',
@@ -1233,7 +1285,7 @@
                       </span>
                     </div>
                     <span style={{ fontSize: '0.72rem', color: theme.textDim }}>
-                      AI-assisted clinical literature &amp; trial discovery
+                      AI-assisted condition research, trials, and treatment discovery
                     </span>
                   </div>
                 </div>
@@ -1316,7 +1368,9 @@
                   display: 'inline-flex', alignItems: 'center', gap: '0.3rem'
                 }}>
                   <span style={{ width: 6, height: 6, borderRadius: 999, background: theme.green, display: 'inline-block' }} />
-                  Free during beta
+                  {usageInfo?.usage
+                    ? `${usageInfo.usage.plan === 'paid' ? 'Paid' : 'Free'} plan · ${usageInfo.usage.remaining}/${usageInfo.usage.limit} left`
+                    : 'Free plan'}
                 </div>
 
                 {/* User menu */}
@@ -1624,8 +1678,10 @@
       };
 
       /* ==================== Patient Tab ==================== */
-      const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runResearch, busy }) => {
+      const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runResearch, busy, runtimeConfig, usageInfo, refreshUsage }) => {
         const set = (k, v) => setPatient(p => ({ ...p, [k]: v }));
+        const [upgradeCode, setUpgradeCode] = useState('');
+        const [upgradeBusy, setUpgradeBusy] = useState(false);
         const loadSample = (key) => {
           const s = SAMPLE_PATIENTS[key];
           if (!s) return;
@@ -1638,6 +1694,26 @@
           }
           setTab && setTab('research');
           setTimeout(() => runResearch && runResearch('research'), 50);
+        };
+        const activatePaidPlan = async () => {
+          if (!upgradeCode.trim()) { alert('Enter your upgrade code first.'); return; }
+          setUpgradeBusy(true);
+          try {
+            const r = await fetch('/api/activate-plan', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: upgradeCode.trim() })
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || 'Activation failed');
+            setUpgradeCode('');
+            await (refreshUsage ? refreshUsage() : Promise.resolve());
+            alert('Paid plan activated for this IP.');
+          } catch (err) {
+            alert('Upgrade error: ' + err.message);
+          } finally {
+            setUpgradeBusy(false);
+          }
         };
         // `type` can be 'text' | 'number' | 'select'. Select fields also
         // supply `options` (array of {value,label}). Most free-form clinical
@@ -1687,6 +1763,48 @@
               All fields are optional except <strong>Primary Condition</strong>. The more you provide,
               the better the safety / interaction checks. This data is saved only in your browser.
             </p>
+            <div style={{
+              marginBottom: '1rem',
+              padding: '0.8rem 0.9rem',
+              borderRadius: 8,
+              border: `1px solid ${theme.border}`,
+              background: theme.panel
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: theme.text }}>
+                    Pricing & monthly limits
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: theme.textDim, marginTop: 2 }}>
+                    Free: {runtimeConfig?.monetization?.freeRunsPerMonth ?? 4} runs/month per IP.
+                    Paid: ${runtimeConfig?.monetization?.paidPriceUsd ?? 10}/month for up to {runtimeConfig?.monetization?.paidRunsPerMonth ?? 15} runs.
+                  </div>
+                  {usageInfo?.usage && (
+                    <div style={{ fontSize: '0.8rem', color: theme.accent, marginTop: 4, fontWeight: 600 }}>
+                      Current IP usage: {usageInfo.usage.used}/{usageInfo.usage.limit} this month ({usageInfo.usage.plan} plan).
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {runtimeConfig?.monetization?.upgradeUrl && (
+                    <a href={runtimeConfig.monetization.upgradeUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ ...btn('ghost', false), textDecoration: 'none' }}>
+                      Upgrade ($ {runtimeConfig?.monetization?.paidPriceUsd ?? 10}/mo)
+                    </a>
+                  )}
+                  <input
+                    value={upgradeCode}
+                    onChange={e => setUpgradeCode(e.target.value)}
+                    placeholder="Upgrade code"
+                    style={{ ...inputStyle, width: 140, padding: '0.45rem 0.55rem', fontSize: '0.8rem' }}
+                  />
+                  <button onClick={activatePaidPlan} disabled={upgradeBusy || !upgradeCode.trim()}
+                    style={btn('primary', upgradeBusy || !upgradeCode.trim())}>
+                    {upgradeBusy ? <><Loader size={14} className="spin" /> Activating…</> : 'Activate'}
+                  </button>
+                </div>
+              </div>
+            </div>
             <div style={{
               display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
               padding: '0.6rem 0.8rem', background: `${theme.accent}0e`,
@@ -2312,6 +2430,57 @@
             />
             {busy && <span style={{ fontSize: '0.72rem', color: theme.textDim }}>Translating…</span>}
             {error && <span style={{ fontSize: '0.72rem', color: theme.red }}>Translate error: {error}</span>}
+          </div>
+        );
+      };
+
+      const AdSlot = ({ runtimeConfig, slotKey, minHeight = 90 }) => {
+        const ads = runtimeConfig?.ads;
+        if (!ads?.enabled) return null;
+        const slot = ads?.slots?.[slotKey] || '';
+        const client = ads?.adsenseClient || '';
+
+        useEffect(() => {
+          if (!client) return;
+          const scriptSrc = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`;
+          let script = document.querySelector(`script[src="${scriptSrc}"]`);
+          if (!script) {
+            script = document.createElement('script');
+            script.async = true;
+            script.src = scriptSrc;
+            script.crossOrigin = 'anonymous';
+            document.head.appendChild(script);
+          }
+        }, [client]);
+
+        return (
+          <div style={{
+            ...panelStyle,
+            padding: '0.7rem 0.8rem',
+            borderStyle: 'dashed',
+            minHeight
+          }}>
+            <div style={{ fontSize: '0.7rem', color: theme.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
+              Sponsored
+            </div>
+            {client && slot ? (
+              <ins
+                className="adsbygoogle"
+                style={{ display: 'block', minHeight: `${Math.max(60, minHeight - 28)}px` }}
+                data-ad-client={client}
+                data-ad-slot={slot}
+                data-ad-format="auto"
+                data-full-width-responsive="true"
+                ref={(el) => {
+                  if (!el) return;
+                  try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (_) {}
+                }}
+              />
+            ) : (
+              <div style={{ fontSize: '0.82rem', color: theme.textDim }}>
+                Ads are enabled, but this slot is not configured yet.
+              </div>
+            )}
           </div>
         );
       };
@@ -3250,7 +3419,7 @@
       /* ==================== Research Tab ==================== */
       const ResearchTab = ({ patient, busy, runResearch, researchText, treatments,
                               validation, evidenceSummary, dossier, progress, coverageAudit,
-                              chatHistory, userQuery, setUserQuery, sendChat, onAudit }) => {
+                              chatHistory, userQuery, setUserQuery, sendChat, onAudit, runtimeConfig }) => {
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
         const [translatedText, setTranslatedText] = useState('');
@@ -3278,6 +3447,7 @@
         const quickPrompts = isIpf ? ipfQuickPrompts : baseQuickPrompts;
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <AdSlot runtimeConfig={runtimeConfig} slotKey="researchTop" />
             <div style={panelStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                 <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -3604,12 +3774,13 @@
 
       /* ==================== Clinical Trials Tab ==================== */
       const TrialsTab = ({ patient, busy, trialsData, trialBlocks, trialsText, validation,
-                           runTrialsFetch, runTrialsAnalysis, onAudit }) => {
+                           runTrialsFetch, runTrialsAnalysis, onAudit, runtimeConfig }) => {
         const [filters, setFilters] = useState({ recruitingOnly: true, treatmentOnly: true, excludePlacebo: false });
         const [translatedText, setTranslatedText] = useState('');
         const renderedTrialsText = translatedText || trialsText;
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <AdSlot runtimeConfig={runtimeConfig} slotKey="trialsTop" />
             <div style={panelStyle}>
               <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Beaker size={22} /> Clinical Trials (live ClinicalTrials.gov)
@@ -4008,7 +4179,7 @@
         );
       };
 
-      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation, progress, onAudit }) => {
+      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation, progress, onAudit, runtimeConfig }) => {
         const [showRaw, setShowRaw] = useState(false);
         const [translatedText, setTranslatedText] = useState('');
         const renderedRepurposeText = translatedText || repurposeText;
@@ -4022,6 +4193,7 @@
         };
         return (
           <div id="mrt-repurpose-export-target" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <AdSlot runtimeConfig={runtimeConfig} slotKey="repurposeTop" />
             <RepurposeHero patient={patient} busy={busy} runResearch={runResearch} />
 
             <RepurposeExplainer />
@@ -4497,14 +4669,15 @@
       };
 
       /* ==================== Footer ==================== */
-      const Footer = () => (
+      const Footer = ({ runtimeConfig }) => (
         <footer style={{
           maxWidth: 1400, margin: '0 auto', padding: '1.5rem 2rem 2.5rem',
           color: theme.textDim, fontSize: '0.78rem'
         }}>
+          <AdSlot runtimeConfig={runtimeConfig} slotKey="footer" minHeight={80} />
           <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '1rem', lineHeight: 1.65 }}>
             <div style={{ marginBottom: '0.6rem' }}>
-              <strong>Medical decision-support research only.</strong> This tool is not medical advice
+              <strong>Medical decision-support research only.</strong> researchingmycondition.com is not medical advice
               and does not create a doctor-patient relationship. All recommendations require review
               by a licensed physician before any treatment decision is made. This prototype is not
               HIPAA-compliant — do not enter personally identifying information.

@@ -1,10 +1,10 @@
-# Medical Research Assistant
+# researchingmycondition.com
 
 ![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-Phase%203-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-Proprietary-red.svg)
 
-An AI-powered medical research platform that gives patients, caregivers, and
+An AI-powered medical research platform (researchingmycondition.com) that gives patients, caregivers, and
 clinicians evidence-based treatment research for any condition — grounded in
 peer-reviewed literature, cross-audited by a second AI model, and personalized
 to the patient's actual medications, comorbidities, and labs.

@@ -26,6 +26,7 @@ import evidenceHandler from './evidence.js';
 import validateHandler from '../lib/validate.js';
 import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
+import { consumeResearchCredit, limits as usageLimits } from '../lib/usage-store.js';
 
 const MODEL = 'claude-sonnet-4-20250514';
 // Vercel Hobby has a hard 60s serverless cap. Claude Sonnet 4's
@@ -56,6 +57,12 @@ const invokeInProcess = async (handler, body) => {
 const invokeEvidence = (body) => invokeInProcess(evidenceHandler, body);
 const invokeValidate = (body) => invokeInProcess(validateHandler, body);
 const invokeTrials = (body) => invokeInProcess(trialsHandler, body);
+
+const getClientIp = (req) => {
+  const xff = String(req.headers?.['x-forwarded-for'] || '').trim();
+  if (xff) return xff.split(',')[0].trim();
+  return String(req.headers?.['x-real-ip'] || req.socket?.remoteAddress || 'unknown').trim();
+};
 
 // Build a Claude-readable digest of the disease-intake dossier. This is the
 // AI's "what do I know about this disease" context — canonical name, synonyms,
@@ -728,6 +735,36 @@ export default async function handler(req, res) {
       // discussed.
       priorText = ''
     } = req.body || {};
+
+    // Monthly per-IP gate:
+    // - free: first 4 runs/month
+    // - paid: up to 15 runs/month
+    //
+    // IMPORTANT: research mode calls this endpoint multiple times per
+    // user action (gather + synth + back half). We meter ONLY entry
+    // requests (phase=all or phase=gather) so one "Run Full Research"
+    // counts once, not 2-3x.
+    const isBillableMode = mode === 'research' || mode === 'repurpose' || mode === 'trials';
+    const shouldMeter = isBillableMode && (phase === 'all' || phase === 'gather');
+    if (shouldMeter) {
+      const ip = getClientIp(req);
+      const quota = await consumeResearchCredit(ip);
+      if (!quota.allowed) {
+        const lim = usageLimits();
+        return res.status(402).json({
+          error: `Monthly limit reached for this IP (${quota.used}/${quota.limit}). Free plan allows ${lim.free} runs/month. Upgrade to paid for up to ${lim.paid} runs/month.`,
+          code: 'USAGE_LIMIT_REACHED',
+          upgradeRequired: true,
+          usage: quota,
+          pricing: {
+            freeRunsPerMonth: lim.free,
+            paidRunsPerMonth: lim.paid,
+            paidPriceUsd: Number(process.env.MRT_PAID_PRICE_USD || 10),
+            upgradeUrl: String(process.env.MRT_UPGRADE_URL || '').trim()
+          }
+        });
+      }
+    }
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {

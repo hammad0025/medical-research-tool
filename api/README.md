@@ -8,7 +8,7 @@ Research Assistant.
 ```
 api/
 ├── research.js        # Main Anthropic pipeline. Modes: research | repurpose | trials | chat
-│                       # Fetches grounded evidence + auto-runs cross-AI audit after Claude
+│                       # Fetches grounded evidence + optional cross-AI audit after Claude
 ├── trials.js          # Live ClinicalTrials.gov v2 pull with structured enrichment
 ├── pubmed.js          # NCBI E-utilities (esearch + esummary + efetch abstracts)
 ├── europe-pmc.js      # Europe PMC — includes OA full-text retrieval
@@ -16,6 +16,10 @@ api/
 ├── openfda.js         # openFDA — drug labels, FAERS, enforcement actions
 ├── evidence.js        # Fan-out orchestrator: builds a grounded evidence pack
 ├── validate.js        # Cross-AI validator (Perplexity / OpenAI / xAI)
+├── usage.js           # Monthly per-IP usage status (free vs paid limits)
+├── activate-plan.js   # Activate paid plan for current IP via upgrade code
+├── runtime-config.js  # Frontend monetization + ad runtime toggles
+├── translate.js       # On-demand analysis translation endpoint
 └── records-audit.js   # Anthropic-based medical-records audit
 ```
 
@@ -51,11 +55,28 @@ against Claude's output and the same grounded evidence pack. Returns verdicts
 per claim: CONFIRMED / DISPUTED / UNSUPPORTED / HALLUCINATED-CITATION.
 
 This is the safeguard against hallucinated references — it's the explicit
-"have Perplexity cross-check Claude" pattern. It runs automatically after
-every `/api/research` call (research / repurpose / trials modes) and the
-result is returned in the `validation` field of the response.
+"have Perplexity cross-check Claude" pattern. It can run on-demand from the
+frontend (Audit button) and can also run in-process when explicitly requested.
 
 Perplexity is preferred because `sonar-reasoning-pro` has built-in live web
+### GET /api/usage
+Returns monthly IP usage and active plan:
+`{ usage: { used, limit, remaining, plan }, pricing: ... }`
+
+### POST /api/activate-plan
+Body: `{ code }`
+Activates paid plan for the caller IP if code is valid (codes configured via
+`MRT_PAID_CODES` env var).
+
+### GET /api/runtime-config
+Returns frontend runtime settings for branding, monetization limits, upgrade
+URL, and ad slots (for ad provider scripts).
+
+### POST /api/translate
+Body: `{ text, targetLanguage, sourceLanguage? }`
+Translates markdown analysis output on-demand while preserving links, trial
+IDs, drug names, and structure.
+
 search — it can actually open the URLs Claude cites and confirm whether the
 paper exists and says what was claimed.
 
@@ -90,6 +111,15 @@ Optional:
 - `PERPLEXITY_API_KEY` — enables the cross-AI audit via Perplexity `sonar-reasoning-pro` (recommended primary validator — has live web search so it can actually open cited URLs)
 - `OPENAI_API_KEY` — cross-AI audit fallback (GPT-4.1)
 - `XAI_API_KEY` — cross-AI audit fallback (Grok)
+- `MRT_FREE_LIMIT` — monthly free runs per IP (default 4)
+- `MRT_PAID_LIMIT` — monthly paid runs per IP (default 15)
+- `MRT_PAID_PRICE_USD` — displayed paid price in UI (default 10)
+- `MRT_PAID_CODES` — comma-separated activation codes for paid-plan unlock
+- `MRT_PAID_IPS` — comma-separated always-paid IP allowlist
+- `MRT_UPGRADE_URL` — checkout/payment URL shown to users
+- `MRT_ADS_ENABLED` — `1` to enable ad slots in UI
+- `MRT_ADSENSE_CLIENT` — Adsense client id (e.g. `ca-pub-xxxx`)
+- `MRT_AD_SLOT_RESEARCH_TOP`, `MRT_AD_SLOT_REPURPOSE_TOP`, `MRT_AD_SLOT_TRIALS_TOP`, `MRT_AD_SLOT_FOOTER`
 
 Set in Vercel:
 ```bash
