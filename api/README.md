@@ -16,10 +16,6 @@ api/
 ├── openfda.js         # openFDA — drug labels, FAERS, enforcement actions
 ├── evidence.js        # Fan-out orchestrator: builds a grounded evidence pack
 ├── validate.js        # Cross-AI validator (Perplexity / OpenAI / xAI)
-├── usage.js           # Monthly per-IP usage status (free vs paid limits)
-├── activate-plan.js   # Activate paid plan for current IP via upgrade code
-├── runtime-config.js  # Frontend monetization + ad runtime toggles
-├── translate.js       # On-demand analysis translation endpoint
 └── records-audit.js   # Anthropic-based medical-records audit
 ```
 
@@ -59,23 +55,15 @@ This is the safeguard against hallucinated references — it's the explicit
 frontend (Audit button) and can also run in-process when explicitly requested.
 
 Perplexity is preferred because `sonar-reasoning-pro` has built-in live web
-### GET /api/usage
-Returns monthly IP usage and active plan:
-`{ usage: { used, limit, remaining, plan }, pricing: ... }`
+### Utility modes via POST /api/research
+To stay within Vercel Hobby function limits, utility endpoints are multiplexed
+through `/api/research` with a mode field:
 
-### POST /api/activate-plan
-Body: `{ code }`
-Activates paid plan for the caller IP if code is valid (codes configured via
-`MRT_PAID_CODES` env var).
-
-### GET /api/runtime-config
-Returns frontend runtime settings for branding, monetization limits, upgrade
-URL, and ad slots (for ad provider scripts).
-
-### POST /api/translate
-Body: `{ text, targetLanguage, sourceLanguage? }`
-Translates markdown analysis output on-demand while preserving links, trial
-IDs, drug names, and structure.
+- `mode: "usage"` → monthly IP usage + plan status
+- `mode: "activate-plan"` + `{ code }` → activate paid plan for caller IP
+- `mode: "runtime-config"` → branding/monetization/ad runtime config
+- `mode: "translate"` + `{ text, targetLanguage, sourceLanguage? }` → on-demand translation
+- `mode: "benchmark-models"` → single-run Sonnet vs Opus speed comparison
 
 search — it can actually open the URLs Claude cites and confirm whether the
 paper exists and says what was claimed.

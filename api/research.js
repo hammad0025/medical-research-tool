@@ -26,7 +26,13 @@ import evidenceHandler from './evidence.js';
 import validateHandler from '../lib/validate.js';
 import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
-import { consumeResearchCredit, limits as usageLimits } from '../lib/usage-store.js';
+import {
+  consumeResearchCredit,
+  limits as usageLimits,
+  getUsage,
+  verifyPaidCode,
+  activatePaidForIp
+} from '../lib/usage-store.js';
 
 // Primary synthesis model. User requested "Opus instead of Sonnet" support:
 // set ANTHROPIC_RESEARCH_MODEL in env to any Anthropic model your account has
@@ -69,6 +75,10 @@ const getClientIp = (req) => {
   if (xff) return xff.split(',')[0].trim();
   return String(req.headers?.['x-real-ip'] || req.socket?.remoteAddress || 'unknown').trim();
 };
+
+const TRANSLATE_MODEL = process.env.ANTHROPIC_TRANSLATE_MODEL || 'claude-3-5-haiku-20241022';
+const TRANSLATE_MAX_CHARS = 65000;
+const sanitize = (v) => (v == null ? '' : String(v).trim());
 
 // Build a Claude-readable digest of the disease-intake dossier. This is the
 // AI's "what do I know about this disease" context — canonical name, synonyms,
@@ -743,6 +753,169 @@ export default async function handler(req, res) {
     } = req.body || {};
     const model = String(req.body?.model || DEFAULT_MODEL);
     const maxTokens = resolveMaxTokens(model);
+
+    // ============================================================
+    // Utility modes consolidated into /api/research so we stay
+    // within Vercel Hobby's 12-function cap.
+    // ============================================================
+    if (mode === 'runtime-config') {
+      const adsEnabled = String(process.env.MRT_ADS_ENABLED || '').trim() === '1';
+      const adsenseClient = String(process.env.MRT_ADSENSE_CLIENT || '').trim();
+      return res.status(200).json({
+        branding: { productName: 'researchingmycondition.com' },
+        ai: { researchModel: String(process.env.ANTHROPIC_RESEARCH_MODEL || DEFAULT_MODEL) },
+        monetization: {
+          freeRunsPerMonth: Number(process.env.MRT_FREE_LIMIT || 4),
+          paidRunsPerMonth: Number(process.env.MRT_PAID_LIMIT || 15),
+          paidPriceUsd: Number(process.env.MRT_PAID_PRICE_USD || 10),
+          upgradeUrl: String(process.env.MRT_UPGRADE_URL || '').trim()
+        },
+        ads: {
+          enabled: adsEnabled,
+          provider: adsEnabled ? 'google-adsense' : 'none',
+          adsenseClient,
+          slots: {
+            researchTop: String(process.env.MRT_AD_SLOT_RESEARCH_TOP || '').trim(),
+            repurposeTop: String(process.env.MRT_AD_SLOT_REPURPOSE_TOP || '').trim(),
+            trialsTop: String(process.env.MRT_AD_SLOT_TRIALS_TOP || '').trim(),
+            footer: String(process.env.MRT_AD_SLOT_FOOTER || '').trim()
+          }
+        }
+      });
+    }
+
+    if (mode === 'usage') {
+      try {
+        const usage = await getUsage(getClientIp(req));
+        return res.status(200).json({
+          ok: true,
+          usage,
+          limits: usageLimits(),
+          pricing: {
+            freeTier: `${usageLimits().free} runs / month`,
+            paidTier: `$${Number(process.env.MRT_PAID_PRICE_USD || 10)}/month for up to ${usageLimits().paid} runs`
+          }
+        });
+      } catch (err) {
+        return res.status(500).json({ error: err?.message || 'Failed to fetch usage' });
+      }
+    }
+
+    if (mode === 'activate-plan') {
+      const code = String(req.body?.code || '').trim();
+      if (!code) return res.status(400).json({ error: 'code is required' });
+      if (!verifyPaidCode(code)) return res.status(403).json({ error: 'Invalid upgrade code' });
+      try {
+        const ip = getClientIp(req);
+        await activatePaidForIp(ip);
+        const usage = await getUsage(ip);
+        return res.status(200).json({
+          ok: true,
+          message: 'Paid plan activated for this IP.',
+          usage
+        });
+      } catch (err) {
+        return res.status(500).json({ error: err?.message || 'Plan activation failed' });
+      }
+    }
+
+    if (mode === 'translate') {
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY missing' });
+      const rawText = sanitize(req.body?.text);
+      const targetLanguage = sanitize(req.body?.targetLanguage);
+      const sourceLanguage = sanitize(req.body?.sourceLanguage) || 'English';
+      if (!rawText) return res.status(400).json({ error: 'text is required' });
+      if (!targetLanguage) return res.status(400).json({ error: 'targetLanguage is required' });
+      if (rawText.length > TRANSLATE_MAX_CHARS) {
+        return res.status(400).json({ error: `text too long (${rawText.length} chars). Max ${TRANSLATE_MAX_CHARS}.` });
+      }
+      const translatePrompt = [
+        `Translate the following medical-analysis markdown from ${sourceLanguage} to ${targetLanguage}.`,
+        'STRICT RULES:',
+        '- Preserve ALL markdown structure (headers, bullets, numbering, links).',
+        '- Do NOT omit or add clinical claims.',
+        '- Keep drug names, trial IDs (NCT numbers), gene names, acronyms, and dosages unchanged.',
+        '- Keep URLs unchanged.',
+        '- Translate explanatory prose naturally for native readers.',
+        '- Return ONLY the translated markdown text (no preface, no code fences).',
+        '',
+        rawText
+      ].join('\n');
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: TRANSLATE_MODEL,
+            max_tokens: 2800,
+            temperature: 0,
+            messages: [{ role: 'user', content: translatePrompt }]
+          })
+        });
+        const raw = await r.text();
+        let j;
+        try { j = JSON.parse(raw); }
+        catch {
+          return res.status(502).json({ error: `Anthropic returned non-JSON (HTTP ${r.status})`, raw: raw.slice(0, 200) });
+        }
+        if (!r.ok) return res.status(502).json({ error: j?.error?.message || `Anthropic error (HTTP ${r.status})` });
+        const translatedText = (j.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+        if (!translatedText) return res.status(502).json({ error: 'Translation returned empty output' });
+        return res.status(200).json({ translatedText, model: TRANSLATE_MODEL, sourceLanguage, targetLanguage });
+      } catch (err) {
+        return res.status(500).json({ error: err?.message || 'Translation failed' });
+      }
+    }
+
+    if (mode === 'benchmark-models') {
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY missing' });
+      const SONNET_MODEL = process.env.ANTHROPIC_BENCHMARK_SONNET_MODEL || 'claude-sonnet-4-20250514';
+      const OPUS_MODEL = process.env.ANTHROPIC_BENCHMARK_OPUS_MODEL || process.env.ANTHROPIC_RESEARCH_MODEL || 'claude-opus-4-20250514';
+      const MAX_BENCH_TOKENS = Number(process.env.ANTHROPIC_BENCHMARK_MAX_TOKENS || 700);
+      const BENCH_PROMPT = 'Write 6 concise bullets on idiopathic pulmonary fibrosis: standard of care, one pipeline agent, one safety monitoring point, one trial-access note. Under 350 words.';
+      const runOne = async (m) => {
+        const started = Date.now();
+        const rr = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: m,
+            max_tokens: MAX_BENCH_TOKENS,
+            temperature: 0.1,
+            messages: [{ role: 'user', content: BENCH_PROMPT }]
+          })
+        });
+        const elapsedMs = Date.now() - started;
+        const raw = await rr.text();
+        let j;
+        try { j = JSON.parse(raw); } catch { return { ok: false, model: m, elapsedMs, error: `Non-JSON HTTP ${rr.status}` }; }
+        if (!rr.ok) return { ok: false, model: m, elapsedMs, error: j?.error?.message || `HTTP ${rr.status}` };
+        const out = Number(j?.usage?.output_tokens || 0);
+        return { ok: true, model: m, elapsedMs, outputTokens: out, tokensPerSec: elapsedMs > 0 ? Number((out / (elapsedMs / 1000)).toFixed(2)) : null };
+      };
+      const sonnet = await runOne(SONNET_MODEL);
+      const opus = await runOne(OPUS_MODEL);
+      const ratio = sonnet.ok && opus.ok && sonnet.elapsedMs > 0 ? Number((opus.elapsedMs / sonnet.elapsedMs).toFixed(2)) : null;
+      return res.status(200).json({
+        ok: true,
+        sonnet,
+        opus,
+        comparison: {
+          opusVsSonnetLatencyRatio: ratio,
+          note: ratio ? `Opus latency is ${ratio}x Sonnet in this deployment.` : 'Could not compute latency ratio.'
+        }
+      });
+    }
 
     // Monthly per-IP gate:
     // - free: first 4 runs/month

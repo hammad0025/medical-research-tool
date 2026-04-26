@@ -706,6 +706,16 @@
             steps: p.steps.map(s => s.id === id ? { ...s, ...patch } : s)
           };
         });
+        const callResearchMode = async (mode, payload = {}) => {
+          const r = await fetch('/api/research', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode, ...payload })
+          });
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+          return d;
+        };
 
         useEffect(() => saveLS('mrt_patient', patient), [patient]);
         useEffect(() => saveLS('mrt_audience', audience), [audience]);
@@ -713,18 +723,12 @@
         useEffect(() => {
           const loadRuntime = async () => {
             try {
-              const [cfgRes, usageRes] = await Promise.all([
-                fetch('/api/runtime-config').catch(() => null),
-                fetch('/api/usage').catch(() => null)
+              const [cfg, usage] = await Promise.all([
+                callResearchMode('runtime-config').catch(() => null),
+                callResearchMode('usage').catch(() => null)
               ]);
-              if (cfgRes && cfgRes.ok) {
-                const cfg = await cfgRes.json();
-                setRuntimeConfig(cfg);
-              }
-              if (usageRes && usageRes.ok) {
-                const u = await usageRes.json();
-                setUsageInfo(u);
-              }
+              if (cfg) setRuntimeConfig(cfg);
+              if (usage) setUsageInfo(usage);
             } catch (_) {}
           };
           loadRuntime();
@@ -975,8 +979,7 @@
               setCoverageAudit(data.coverageAudit);
             }
             try {
-              const u = await fetch('/api/usage');
-              if (u.ok) setUsageInfo(await u.json());
+              setUsageInfo(await callResearchMode('usage'));
             } catch (_) {}
           } catch (e) {
             if (deepMode) {
@@ -987,8 +990,7 @@
             }
             alert('Error: ' + e.message);
             try {
-              const u = await fetch('/api/usage');
-              if (u.ok) setUsageInfo(await u.json());
+              setUsageInfo(await callResearchMode('usage'));
             } catch (_) {}
           } finally {
             setBusy(null);
@@ -1166,10 +1168,7 @@
                 setTab={setTab} runResearch={runResearch} busy={busy}
                 runtimeConfig={runtimeConfig} usageInfo={usageInfo}
                 refreshUsage={async () => {
-                  try {
-                    const u = await fetch('/api/usage');
-                    if (u.ok) setUsageInfo(await u.json());
-                  } catch (_) {}
+                  try { setUsageInfo(await callResearchMode('usage')); } catch (_) {}
                 }} />}
               {tab === 'research' && <ResearchTab
                 patient={patient} busy={busy} runResearch={runResearch}
@@ -1699,13 +1698,7 @@
           if (!upgradeCode.trim()) { alert('Enter your upgrade code first.'); return; }
           setUpgradeBusy(true);
           try {
-            const r = await fetch('/api/activate-plan', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ code: upgradeCode.trim() })
-            });
-            const d = await r.json();
-            if (!r.ok) throw new Error(d.error || 'Activation failed');
+            await callResearchMode('activate-plan', { code: upgradeCode.trim() });
             setUpgradeCode('');
             await (refreshUsage ? refreshUsage() : Promise.resolve());
             alert('Paid plan activated for this IP.');
@@ -2366,17 +2359,20 @@
           setBusy(true);
           setError('');
           try {
-            const r = await fetch('/api/translate', {
+            const d = await fetch('/api/research', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
+                mode: 'translate',
                 text: sourceText,
                 sourceLanguage: 'English',
                 targetLanguage
               })
+            }).then(async (r) => {
+              const body = await r.json();
+              if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+              return body;
             });
-            const d = await r.json();
-            if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
             setTranslatedText(d.translatedText || '');
           } catch (err) {
             setError(err.message || 'Translation failed');
