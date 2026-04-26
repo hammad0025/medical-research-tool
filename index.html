@@ -4023,12 +4023,41 @@
 
       const TrialsTable = ({ data }) => {
         const [sortMode, setSortMode] = useState('promise');
+        const [openWhy, setOpenWhy] = useState(null); // nctId currently expanded
+        const WESTERN = new Set([
+          'United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Italy',
+          'Spain', 'Netherlands', 'Sweden', 'Denmark', 'Norway', 'Finland', 'Belgium',
+          'Switzerland', 'Ireland', 'Austria', 'Australia', 'New Zealand', 'Japan'
+        ]);
+        const CHINA_LIKE = new Set(['China', 'Vietnam', 'Mexico', 'India']);
         const phaseRank = (s) => {
           const p = (s.phases || []).join(',');
           if (p.includes('PHASE3')) return 4;
           if (p.includes('PHASE2')) return 3;
           if (p.includes('PHASE1')) return 2;
           return 1;
+        };
+        const promiseBreakdown = (s) => {
+          const phase = (s.phases || []).join(',');
+          const chunks = [];
+          if (phase.includes('PHASE3')) chunks.push({ label: 'Phase 3', value: 40, color: theme.green });
+          else if (phase.includes('PHASE2')) chunks.push({ label: 'Phase 2', value: 25, color: theme.green });
+          else if (phase.includes('PHASE1')) chunks.push({ label: 'Phase 1', value: 10, color: theme.yellow });
+          if (s.acceptingNewPatients) chunks.push({ label: 'Accepting', value: 15, color: theme.green });
+          if (!s.hasPlacebo) chunks.push({ label: 'No placebo', value: 10, color: theme.green });
+          if (s.designations?.fastTrack) chunks.push({ label: 'Fast Track', value: 5, color: theme.accent });
+          if (s.designations?.breakthrough) chunks.push({ label: 'Breakthrough', value: 8, color: theme.accent });
+          if (s.designations?.orphan) chunks.push({ label: 'Orphan', value: 3, color: theme.accent });
+          if (s.designations?.hasExpandedAccess) chunks.push({ label: 'Expanded Access', value: 20, color: theme.green });
+          if (s.designations?.hasOpenLabelExtension) chunks.push({ label: 'OLE', value: 15, color: theme.green });
+          if (s.designations?.hasPostTrialAccess) chunks.push({ label: 'PTA', value: 6, color: theme.yellow });
+          if ((s.topCenterScore || 0) > 0) chunks.push({ label: 'Top-center match', value: s.topCenterScore, color: theme.accent });
+          const westernHit = (s.countries || []).some(c => WESTERN.has(c));
+          const chinaHit = (s.countries || []).some(c => CHINA_LIKE.has(c));
+          if (westernHit) chunks.push({ label: 'Western-site bonus', value: 10, color: theme.accent });
+          if (chinaHit) chunks.push({ label: 'High-risk jurisdiction penalty', value: -15, color: theme.red });
+          if (s.oversight?.oversightHasDMC) chunks.push({ label: 'DSMB', value: 4, color: theme.green });
+          return chunks;
         };
         const efficacyProxyScore = (s) => {
           let n = 0;
@@ -4086,42 +4115,85 @@
                 </tr>
               </thead>
               <tbody>
-                {rows.slice(0, 25).map(s => (
-                  <tr key={s.nctId} style={{ borderBottom: `1px solid ${theme.border}`, verticalAlign: 'top' }}>
-                    <td style={{ padding: '0.6rem', maxWidth: 360 }}>
-                      <div style={{ color: theme.accent, fontWeight: 600 }}>{s.briefTitle}</div>
-                      <div style={{ color: theme.textDim, fontSize: '0.75rem' }}>{s.nctId} · {s.sponsor || ''}</div>
-                    </td>
-                    <td style={{ padding: '0.6rem' }}>{(s.phases || []).join(', ') || '—'}</td>
-                    <td style={{ padding: '0.6rem' }}>{s.status}</td>
-                    <td style={{ padding: '0.6rem', color: s.acceptingNewPatients ? theme.green : theme.textDim }}>
-                      {s.acceptingNewPatients ? 'Yes' : 'No'}
-                    </td>
-                    <td style={{ padding: '0.6rem', color: s.hasPlacebo ? theme.yellow : theme.green }}>
-                      {s.hasPlacebo ? 'Yes' : 'No'}
-                    </td>
-                    <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                        {s.designations?.hasOpenLabelExtension && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.accent}55`, color: theme.accent }}>OLE</span>}
-                        {s.designations?.hasExpandedAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Expanded Access</span>}
-                        {s.designations?.hasExpandedAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Compassionate Use</span>}
-                        {s.designations?.hasPostTrialAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.yellow}55`, color: theme.yellow }}>PTA</span>}
-                        {s.designations?.hasPayToAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.red}55`, color: theme.red }}>Pay-to-access</span>}
-                        {!s.designations?.hasOpenLabelExtension && !s.designations?.hasExpandedAccess && !s.designations?.hasPostTrialAccess && !s.designations?.hasPayToAccess && <span>—</span>}
-                      </div>
-                    </td>
-                    <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>{(s.countries || []).join(', ') || '—'}</td>
-                    <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
-                      {s.oversight?.oversightHasDMC ? 'DSMB ✓' : ''} {s.oversight?.fdaRegulatedDrug ? 'FDA ✓' : ''}
-                    </td>
-                    <td style={{ padding: '0.6rem', fontWeight: 700 }}>{s.promiseScore}</td>
-                    <td style={{ padding: '0.6rem' }}>
-                      <a href={s.url} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
-                        Open <ExternalLink size={12} />
-                      </a>
-                    </td>
-                  </tr>
-                ))}
+                {rows.slice(0, 25).map((s, idx) => {
+                  const rowKey = s.nctId || `${s.briefTitle || 'trial'}-${idx}`;
+                  const why = promiseBreakdown(s);
+                  return (
+                    <React.Fragment key={rowKey}>
+                      <tr style={{ borderBottom: `1px solid ${theme.border}`, verticalAlign: 'top' }}>
+                        <td style={{ padding: '0.6rem', maxWidth: 360 }}>
+                          <div style={{ color: theme.accent, fontWeight: 600 }}>{s.briefTitle}</div>
+                          <div style={{ color: theme.textDim, fontSize: '0.75rem' }}>{s.nctId} · {s.sponsor || ''}</div>
+                        </td>
+                        <td style={{ padding: '0.6rem' }}>{(s.phases || []).join(', ') || '—'}</td>
+                        <td style={{ padding: '0.6rem' }}>{s.status}</td>
+                        <td style={{ padding: '0.6rem', color: s.acceptingNewPatients ? theme.green : theme.textDim }}>
+                          {s.acceptingNewPatients ? 'Yes' : 'No'}
+                        </td>
+                        <td style={{ padding: '0.6rem', color: s.hasPlacebo ? theme.yellow : theme.green }}>
+                          {s.hasPlacebo ? 'Yes' : 'No'}
+                        </td>
+                        <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                            {s.designations?.hasOpenLabelExtension && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.accent}55`, color: theme.accent }}>OLE</span>}
+                            {s.designations?.hasExpandedAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Expanded Access</span>}
+                            {s.designations?.hasExpandedAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Compassionate Use</span>}
+                            {s.designations?.hasPostTrialAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.yellow}55`, color: theme.yellow }}>PTA</span>}
+                            {s.designations?.hasPayToAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.red}55`, color: theme.red }}>Pay-to-access</span>}
+                            {!s.designations?.hasOpenLabelExtension && !s.designations?.hasExpandedAccess && !s.designations?.hasPostTrialAccess && !s.designations?.hasPayToAccess && <span>—</span>}
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>{(s.countries || []).join(', ') || '—'}</td>
+                        <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
+                          {s.oversight?.oversightHasDMC ? 'DSMB ✓' : ''} {s.oversight?.fdaRegulatedDrug ? 'FDA ✓' : ''}
+                        </td>
+                        <td style={{ padding: '0.6rem', fontWeight: 700 }}>
+                          <div>{s.promiseScore}</div>
+                          <button
+                            onClick={() => setOpenWhy((v) => (v === rowKey ? null : rowKey))}
+                            style={{
+                              marginTop: 4,
+                              background: 'transparent', border: `1px solid ${theme.border}`,
+                              color: theme.textDim, borderRadius: 6, padding: '0.08rem 0.35rem',
+                              fontSize: '0.68rem', cursor: 'pointer'
+                            }}
+                            title="Show numeric score breakdown"
+                          >
+                            {openWhy === rowKey ? 'hide' : 'why?'}
+                          </button>
+                        </td>
+                        <td style={{ padding: '0.6rem' }}>
+                          <a href={s.url} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
+                            Open <ExternalLink size={12} />
+                          </a>
+                        </td>
+                      </tr>
+                      {openWhy === rowKey && (
+                        <tr style={{ borderBottom: `1px solid ${theme.border}` }}>
+                          <td colSpan={10} style={{ padding: '0.5rem 0.6rem 0.65rem', background: `${theme.accent}08` }}>
+                            <div style={{ fontSize: '0.72rem', color: theme.textDim, marginBottom: 5 }}>
+                              Promise score breakdown (current backend weights):
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                              {why.map((c, i) => (
+                                <span key={i} style={{
+                                  padding: '0.16rem 0.48rem', borderRadius: 999,
+                                  border: `1px solid ${c.color}55`, color: c.color, background: `${c.color}15`,
+                                  fontSize: '0.72rem', fontWeight: 700
+                                }}>
+                                  {c.label} {c.value >= 0 ? `+${c.value}` : c.value}
+                                </span>
+                              ))}
+                              {why.length === 0 && (
+                                <span style={{ fontSize: '0.72rem', color: theme.textDim }}>No scoring components detected.</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
