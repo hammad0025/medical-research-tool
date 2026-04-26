@@ -107,6 +107,8 @@ Required:
 - `ANTHROPIC_API_KEY` — Your Anthropic API key (used by `research.js` and `records-audit.js`)
 
 Optional:
+- `ANTHROPIC_RESEARCH_MODEL` — primary model for `/api/research` synthesis (default `claude-sonnet-4-20250514`; can be set to an Opus model if your account has access)
+- `ANTHROPIC_MAX_TOKENS` — overrides per-call output token cap for research synthesis
 - `NCBI_API_KEY` — NCBI E-utilities key (raises PubMed rate limit from 3 to 10 req/s)
 - `PERPLEXITY_API_KEY` — enables the cross-AI audit via Perplexity `sonar-reasoning-pro` (recommended primary validator — has live web search so it can actually open cited URLs)
 - `OPENAI_API_KEY` — cross-AI audit fallback (GPT-4.1)

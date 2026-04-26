@@ -15,6 +15,9 @@ export default async function handler(req, res) {
     branding: {
       productName: 'researchingmycondition.com'
     },
+    ai: {
+      researchModel: String(process.env.ANTHROPIC_RESEARCH_MODEL || 'claude-sonnet-4-20250514')
+    },
     monetization: {
       freeRunsPerMonth: Number(process.env.MRT_FREE_LIMIT || 4),
       paidRunsPerMonth: Number(process.env.MRT_PAID_LIMIT || 15),

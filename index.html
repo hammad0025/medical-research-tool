@@ -776,8 +776,8 @@
                 { id: 'trials',   label: 'Scan ClinicalTrials.gov',
                   desc: 'Recruiting + expanded-access + open-label extension fan-out.',
                   status: 'running' },
-                { id: 'synth',    label: 'Synthesise with Claude Sonnet',
-                  desc: '16-section grounded analysis tuned to your profile.',
+                { id: 'synth',    label: 'Synthesise with Claude',
+                  desc: `16-section grounded analysis tuned to your profile (model: ${runtimeConfig?.ai?.researchModel || 'claude-sonnet-4-20250514'}).`,
                   status: 'pending' },
                 { id: 'validate', label: 'Cross-AI fact-check (if configured)',
                   desc: 'Second model audits every claim against the evidence pack.',
@@ -803,7 +803,7 @@
               const isTimeout = /FUNCTION_INVOCATION_TIMEOUT|An error occurred with your deployment/i.test(raw);
               throw new Error(
                 isTimeout
-                  ? `Step timed out (60s cap). The ${payload.phase || 'full'} phase is too heavy for the free tier — try again, it'll usually pass on the second attempt because the dossier and upstream queries cache.`
+                  ? `Step timed out at the serverless limit. The ${payload.phase || 'full'} phase was too heavy for this run — retry once (cache usually helps), and if it keeps happening switch to a faster model or lower token budget.`
                   : `Server returned non-JSON (HTTP ${res.status}): ${raw.slice(0, 140)}`
               );
             }

@@ -28,16 +28,22 @@ import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { consumeResearchCredit, limits as usageLimits } from '../lib/usage-store.js';
 
-const MODEL = 'claude-sonnet-4-20250514';
-// Vercel Hobby has a hard 60s serverless cap. Claude Sonnet 4's
-// measured generation rate on our grounded prompts is ~45-50 tok/s.
-// 2500 tokens costs ~50s, 3200 tokens costs ~65s (we hit the cap at
-// 3200). So 2500 is the per-call ceiling. Because a comprehensive
-// research answer does not fit in 2500 tokens at useful fidelity, the
-// 'synthesize' phase splits into two halves (sections 1-4 and 5-8),
-// each with its own 2500-token budget, and the frontend stitches them.
-// See handler() below for the split.
-const MAX_TOKENS = 2500;
+// Primary synthesis model. User requested "Opus instead of Sonnet" support:
+// set ANTHROPIC_RESEARCH_MODEL in env to any Anthropic model your account has
+// access to (e.g. an Opus model). Defaults to Sonnet for speed/cost balance.
+const DEFAULT_MODEL = process.env.ANTHROPIC_RESEARCH_MODEL || 'claude-sonnet-4-20250514';
+
+// Serverless timeout safety: Opus is typically slower token/sec than Sonnet,
+// so we cap max_tokens lower by default to reduce timeout risk. You can still
+// override directly with ANTHROPIC_MAX_TOKENS if needed.
+const resolveMaxTokens = (model) => {
+  const forced = Number(process.env.ANTHROPIC_MAX_TOKENS || 0);
+  if (forced > 0) return forced;
+  const m = String(model || '').toLowerCase();
+  if (m.includes('opus')) return 1400;
+  if (m.includes('sonnet')) return 2000;
+  return 2200; // haiku / unknown
+};
 
 const invokeInProcess = async (handler, body) => {
   let captured = { status: 200, body: null };
@@ -735,6 +741,8 @@ export default async function handler(req, res) {
       // discussed.
       priorText = ''
     } = req.body || {};
+    const model = String(req.body?.model || DEFAULT_MODEL);
+    const maxTokens = resolveMaxTokens(model);
 
     // Monthly per-IP gate:
     // - free: first 4 runs/month
@@ -885,6 +893,8 @@ export default async function handler(req, res) {
     if (phase === 'gather') {
       return res.status(200).json({
         phase: 'gather',
+        model,
+        maxTokens,
         dossier,
         evidence,
         trials
@@ -1048,8 +1058,8 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
+        model,
+        max_tokens: maxTokens,
         // Prefer the cache-enabled `systemBlocks` array when the mode
         // supports it (research + repurpose); fall back to a plain
         // string for chat + trials modes where the prompt is too
@@ -1170,8 +1180,8 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
               'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-              model: MODEL,
-              max_tokens: MAX_TOKENS,
+              model,
+              max_tokens: maxTokens,
               system: repromptSystem,
               messages
             })
@@ -1262,6 +1272,8 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
 
     return res.status(200).json({
       ...data,
+      model,
+      maxTokens,
       dossier: dossier
         ? {
             canonical: dossier.canonical,
