@@ -632,7 +632,7 @@ This is the EveryCure / drug-repurposing methodology. Think outside the box. Rea
 - shared molecular pathways with other conditions where a drug is already effective
 - supportive (not definitive) peer-reviewed evidence
 
-Produce a ranked list of 6-12 candidate repurposed drugs or supplements. For EACH candidate output this exact block (the UI parses it):
+Produce a ranked list of 12-25 candidate repurposed drugs or supplements. For EACH candidate output this exact block (the UI parses it):
 
 CANDIDATE: <name>
 CLASS: <drug class or supplement category>

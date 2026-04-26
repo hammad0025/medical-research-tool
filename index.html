@@ -142,6 +142,11 @@
         50%      { opacity: 1;    transform: scale(1); }
       }
       .mrt-pulse-dot { animation: mrt-pulse-dot 1.2s ease-in-out infinite; }
+      @keyframes mrtLoadPulse {
+        0%   { transform: translateX(-35%); opacity: 0.8; }
+        50%  { transform: translateX(60%);  opacity: 1; }
+        100% { transform: translateX(180%); opacity: 0.8; }
+      }
       /* Rendered-markdown container for AI analysis blocks. The AI emits
          headings (## 1. ...), tables, bullets, bold, links. Without these
          styles the browser defaults would look like raw HTML test-page —
@@ -504,10 +509,8 @@
       };
       // Apply the persisted preference before React mounts.
       try {
-        const stored = localStorage.getItem('mrt-theme-mode');
-        if (stored === 'light' || stored === 'dark') applyThemeMode(stored);
-        else applyThemeMode('dark');
-      } catch { applyThemeMode('dark'); }
+        applyThemeMode('light');
+      } catch { applyThemeMode('light'); }
 
       /* ==================== Parsers ==================== */
       const collectBlock = (text, startIdx, terminators) => {
@@ -644,6 +647,7 @@
         'Japanese',
         'German'
       ];
+      const MEDICAL_DISCLAIMER = 'Disclaimer: This is educational medical research support, not medical advice. Please review all information with your licensed medical provider before making treatment decisions.';
 
       /* ============================================================== */
       /* =========================== APP ============================== */
@@ -1323,39 +1327,13 @@
                   </select>
                 </div>
 
-                {/* Theme toggle. Not a ChatGPT-clone sun/moon — rendered as
-                    a compact pill that shows BOTH icons with the active
-                    one highlighted, so the current mode is always clear
-                    at a glance (vs having to remember "moon means I'm
-                    in dark" vs "moon means click for dark"). */}
                 <div style={{
                   display: 'inline-flex', alignItems: 'center',
-                  padding: 3, borderRadius: 999,
-                  background: softPanelBg, border: `1px solid ${theme.border}`
-                }} title={`Theme: ${isLight ? 'light' : 'dark'} — click to switch`}>
-                  {[
-                    { mode: 'light', Icon: Sun,  label: 'Light' },
-                    { mode: 'dark',  Icon: Moon, label: 'Dark'  }
-                  ].map(({ mode, Icon, label }) => {
-                    const active = themeMode === mode;
-                    return (
-                      <button key={mode}
-                        onClick={() => setThemeMode(mode)}
-                        aria-label={`Switch to ${label.toLowerCase()} mode`}
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
-                          padding: '0.32rem 0.6rem', borderRadius: 999,
-                          background: active ? theme.accent : 'transparent',
-                          color: active ? theme.primaryText : theme.textDim,
-                          border: 'none', cursor: 'pointer',
-                          fontFamily: 'inherit', fontSize: '0.72rem', fontWeight: 700,
-                          letterSpacing: '0.03em'
-                        }}>
-                        <Icon size={13} color={active ? theme.primaryText : theme.textDim} />
-                        {label}
-                      </button>
-                    );
-                  })}
+                  padding: '0.28rem 0.6rem', borderRadius: 999,
+                  background: softPanelBg, border: `1px solid ${theme.border}`,
+                  color: theme.textDim, fontSize: '0.72rem', fontWeight: 700
+                }}>
+                  Light mode
                 </div>
 
                 {/* Free-use pill. Uses theme.green (adjusted per palette)
@@ -2243,6 +2221,16 @@
             // Some buttons inside the clone (Copy, Audit, etc.) don't
             // belong in the printout.
             clone.querySelectorAll('[data-pdf-exclude], button').forEach((n) => n.remove());
+            const disclaimer = document.createElement('div');
+            disclaimer.style.marginBottom = '12px';
+            disclaimer.style.padding = '8px 10px';
+            disclaimer.style.border = '1px solid #e5e7eb';
+            disclaimer.style.borderRadius = '6px';
+            disclaimer.style.background = '#f9fafb';
+            disclaimer.style.fontSize = '12px';
+            disclaimer.style.color = '#374151';
+            disclaimer.textContent = MEDICAL_DISCLAIMER;
+            clone.prepend(disclaimer);
             const wrapper = document.createElement('div');
             wrapper.appendChild(clone);
             await window.html2pdf()
@@ -2295,10 +2283,11 @@
             clone.style.color = '#111827';
             clone.style.padding = '18px';
             clone.querySelectorAll('[data-pdf-exclude], button').forEach((n) => n.remove());
+            const disclaimer = `<div style="margin-bottom:12px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#f9fafb;font-size:12px;color:#374151;">${MEDICAL_DISCLAIMER}</div>`;
             // Word can open HTML files with a .doc extension. This isn't
             // perfect DOCX fidelity, but it's zero-dependency and works well
             // for "print / email to doctor / annotate" workflows.
-            const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Medical Analysis</title></head><body>${clone.innerHTML}</body></html>`;
+            const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Medical Analysis</title></head><body>${disclaimer}${clone.innerHTML}</body></html>`;
             const blob = new Blob([html], { type: 'application/msword;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -2330,6 +2319,39 @@
             }}
           >
             <FileText size={13} /> {busy ? 'Generating…' : (label || 'Download Word')}
+          </button>
+        );
+      };
+
+      const TextExportButton = ({ text, filename, label, disabled }) => {
+        const onClick = () => {
+          if (disabled || !text) return;
+          const payload = `${MEDICAL_DISCLAIMER}\n\n${text}`;
+          const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename || 'medical-research-analysis.txt';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        };
+        return (
+          <button
+            onClick={onClick}
+            disabled={disabled || !text}
+            title="Download this analysis as a text file"
+            style={{
+              background: 'transparent',
+              border: `1px solid ${theme.border}`,
+              color: (disabled || !text) ? theme.textDim : theme.accent,
+              padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.75rem',
+              cursor: (disabled || !text) ? 'not-allowed' : 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '0.35rem'
+            }}
+          >
+            <FileText size={13} /> {label || 'Download Text'}
           </button>
         );
       };
@@ -2419,6 +2441,11 @@
               filename={`${exportName}.doc`}
               disabled={!displayText}
             />
+            <TextExportButton
+              text={displayText}
+              filename={`${exportName}.txt`}
+              disabled={!displayText}
+            />
             <PdfExportButton
               getElement={() => document.getElementById(exportElementId)}
               filename={`${exportName}.pdf`}
@@ -2426,6 +2453,11 @@
             />
             {busy && <span style={{ fontSize: '0.72rem', color: theme.textDim }}>Translating…</span>}
             {error && <span style={{ fontSize: '0.72rem', color: theme.red }}>Translate error: {error}</span>}
+            {!busy && !error && (
+              <span style={{ fontSize: '0.68rem', color: theme.textDim }}>
+                Exports include a medical disclaimer.
+              </span>
+            )}
           </div>
         );
       };
@@ -2975,8 +3007,19 @@
                 )}
                 {dossier.topCenters?.length > 0 && (
                   <div>
-                    <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+                    <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       Top centers (disease-specific)
+                      <span
+                        title="These centers come from the disease dossier (curated KB when available; otherwise AI dossier extraction). They are ranked by disease-specific leadership signals and landmark-trial relevance, not general hospital brand fame."
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 15, height: 15, borderRadius: '50%',
+                          border: `1px solid ${theme.border}`, color: theme.textDim,
+                          fontSize: '0.65rem', cursor: 'help', lineHeight: 1
+                        }}
+                      >
+                        ?
+                      </span>
                     </div>
                     <div style={{ display: 'grid', gap: '0.3rem' }}>
                       {dossier.topCenters.map((c, i) => (
@@ -3553,9 +3596,13 @@
                   </h3>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <button
-                      onClick={() => { try { navigator.clipboard.writeText(renderedResearchText); } catch (e) {} }}
+                      onClick={() => {
+                        try {
+                          navigator.clipboard.writeText(`${MEDICAL_DISCLAIMER}\n\n${renderedResearchText}`);
+                        } catch (e) {}
+                      }}
                       style={{ background: 'transparent', border: `1px solid ${theme.border}`, color: theme.textDim, padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.75rem', cursor: 'pointer' }}
-                      title="Copy markdown to clipboard"
+                      title="Copy markdown to clipboard (includes disclaimer)"
                       data-pdf-exclude="1"
                     >
                       Copy
@@ -3815,6 +3862,21 @@
               </div>
             </div>
 
+            {(busy === 'trials-fetch' || busy === 'trials') && (
+              <div style={{ ...panelStyle, padding: '0.75rem 0.9rem' }}>
+                <div style={{ fontSize: '0.82rem', color: theme.textDim, marginBottom: 6 }}>
+                  {busy === 'trials-fetch' ? 'Scanning ClinicalTrials.gov…' : 'Analyzing top trials for this patient…'}
+                </div>
+                <div style={{ width: '100%', height: 8, borderRadius: 999, background: theme.accentSoft, overflow: 'hidden' }}>
+                  <div style={{
+                    width: '42%', height: '100%',
+                    background: `linear-gradient(90deg, ${theme.accent}, ${theme.secondary})`,
+                    borderRadius: 999, animation: 'mrtLoadPulse 1.25s ease-in-out infinite'
+                  }} />
+                </div>
+              </div>
+            )}
+
             <Glossary />
 
             {trialsData && <TrialsTable data={trialsData} />}
@@ -3870,11 +3932,61 @@
         </div>
       );
 
-      const TrialsTable = ({ data }) => (
+      const TrialsTable = ({ data }) => {
+        const [sortMode, setSortMode] = useState('promise');
+        const phaseRank = (s) => {
+          const p = (s.phases || []).join(',');
+          if (p.includes('PHASE3')) return 4;
+          if (p.includes('PHASE2')) return 3;
+          if (p.includes('PHASE1')) return 2;
+          return 1;
+        };
+        const efficacyProxyScore = (s) => {
+          let n = 0;
+          n += phaseRank(s) * 30;
+          if (!s.hasPlacebo) n += 15;
+          if (s.acceptingNewPatients) n += 10;
+          if (s.oversight?.oversightHasDMC) n += 6;
+          return n;
+        };
+        const rows = [...(data.studies || [])].sort((a, b) => {
+          if (sortMode === 'efficacy') return efficacyProxyScore(b) - efficacyProxyScore(a);
+          if (sortMode === 'access') {
+            const aScore = (a.designations?.hasExpandedAccess ? 3 : 0) + (a.designations?.hasOpenLabelExtension ? 2 : 0) + (a.designations?.hasPostTrialAccess ? 1 : 0) + (a.acceptingNewPatients ? 2 : 0);
+            const bScore = (b.designations?.hasExpandedAccess ? 3 : 0) + (b.designations?.hasOpenLabelExtension ? 2 : 0) + (b.designations?.hasPostTrialAccess ? 1 : 0) + (b.acceptingNewPatients ? 2 : 0);
+            return bScore - aScore;
+          }
+          return (b.promiseScore || 0) - (a.promiseScore || 0);
+        });
+        return (
         <div style={panelStyle}>
-          <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>
-            {data.returned} trial{data.returned === 1 ? '' : 's'} returned (of {data.total} matching on ClinicalTrials.gov) · ranked by promise score
+          <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+            Top 25 clinical trials shown (of {data.returned} returned / {data.total} matching on ClinicalTrials.gov) · ranked by promise score
+            <span
+              title="Promise score combines: trial phase, recruiting status, placebo exposure, FDA/DSMB oversight, expanded-access/OLE/PTA flags, and top-center match. Higher score = better practical access + stronger trial design signals."
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 16, height: 16, borderRadius: '50%',
+                border: `1px solid ${theme.border}`, color: theme.textDim,
+                fontSize: '0.68rem', cursor: 'help', lineHeight: 1
+              }}
+            >
+              ?
+            </span>
           </h3>
+          <div style={{ marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.78rem', color: theme.textDim }}>Sort by:</span>
+            <select
+              value={sortMode}
+              onChange={(e) => setSortMode(e.target.value)}
+              style={{ ...inputStyle, width: 'auto', padding: '0.3rem 0.5rem', fontSize: '0.78rem' }}
+              title="Choose ranking emphasis"
+            >
+              <option value="promise">Balanced promise score</option>
+              <option value="efficacy">Efficacy-focused proxy</option>
+              <option value="access">Access-focused (EA/OLE/PTA)</option>
+            </select>
+          </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
@@ -3885,7 +3997,7 @@
                 </tr>
               </thead>
               <tbody>
-                {data.studies.map(s => (
+                {rows.slice(0, 25).map(s => (
                   <tr key={s.nctId} style={{ borderBottom: `1px solid ${theme.border}`, verticalAlign: 'top' }}>
                     <td style={{ padding: '0.6rem', maxWidth: 360 }}>
                       <div style={{ color: theme.accent, fontWeight: 600 }}>{s.briefTitle}</div>
@@ -3900,7 +4012,14 @@
                       {s.hasPlacebo ? 'Yes' : 'No'}
                     </td>
                     <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
-                      {Object.entries(s.designations).filter(([,v]) => v).map(([k]) => k).join(', ') || '—'}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                        {s.designations?.hasOpenLabelExtension && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.accent}55`, color: theme.accent }}>OLE</span>}
+                        {s.designations?.hasExpandedAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Expanded Access</span>}
+                        {s.designations?.hasExpandedAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Compassionate Use</span>}
+                        {s.designations?.hasPostTrialAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.yellow}55`, color: theme.yellow }}>PTA</span>}
+                        {s.designations?.hasPayToAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.red}55`, color: theme.red }}>Pay-to-access</span>}
+                        {!s.designations?.hasOpenLabelExtension && !s.designations?.hasExpandedAccess && !s.designations?.hasPostTrialAccess && !s.designations?.hasPayToAccess && <span>—</span>}
+                      </div>
                     </td>
                     <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>{(s.countries || []).join(', ') || '—'}</td>
                     <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
@@ -3919,6 +4038,7 @@
           </div>
         </div>
       );
+      };
 
       const RankedTrialsForPatient = ({ blocks }) => (
         <div style={panelStyle}>
