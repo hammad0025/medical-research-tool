@@ -116,6 +116,14 @@
         margin: 0;
         color: var(--mrt-text);
         transition: color 0.2s ease;
+        /* Leave space at the bottom for the fixed-position sticky
+           "NOT MEDICAL ADVICE" disclaimer banner so no content is
+           hidden underneath it. The banner is ~78px tall on desktop
+           and ~110px on narrow mobile (wraps to 2-3 lines). */
+        padding-bottom: 130px;
+      }
+      @media (min-width: 720px) {
+        body { padding-bottom: 88px; }
       }
       * { box-sizing: border-box; }
       input::placeholder, textarea::placeholder { color: var(--mrt-placeholder); }
@@ -205,6 +213,61 @@
     <div id="root"></div>
     <script type="text/babel" data-presets="env,react">
       const { useState, useRef, useEffect, useMemo } = React;
+
+      /* ==================== Access passcode gate ====================
+         Dorothy explicitly required: "no one could stumble upon it and
+         use it accidentally at this point." Implementation:
+
+         1. Server side: every /api/* endpoint imports lib/access-gate.js
+            and rejects with 401 + code='ACCESS_GATE_BLOCKED' unless the
+            caller presents the configured passcode.
+         2. Client side: this block patches window.fetch ONCE to inject
+            the stored passcode as the x-access-passcode header for all
+            /api/* requests, and dispatches a 'mrt:access-denied' event
+            when the server rejects so the AccessGate component can
+            re-show the entry screen.
+         3. When the env var MRT_ACCESS_PASSCODE is unset the server is
+            fail-open (so local dev + tests work). In that case the gate
+            screen is skipped automatically — see probeAccessGate().
+      ============================================================== */
+      const MRT_PASSCODE_KEY = 'mrt_access_passcode_v1';
+      const getStoredPasscode = () => {
+        try { return localStorage.getItem(MRT_PASSCODE_KEY) || ''; }
+        catch { return ''; }
+      };
+      const setStoredPasscode = (v) => {
+        try {
+          if (v) localStorage.setItem(MRT_PASSCODE_KEY, v);
+          else localStorage.removeItem(MRT_PASSCODE_KEY);
+        } catch {}
+      };
+
+      const __mrtNativeFetch = window.fetch.bind(window);
+      window.fetch = async (input, init = {}) => {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        const isApi = /^\/api\//.test(url) || /\/api\//.test(url);
+        if (isApi) {
+          const passcode = getStoredPasscode();
+          if (passcode) {
+            const headers = new Headers(init.headers || (typeof input !== 'string' && input.headers) || {});
+            headers.set('x-access-passcode', passcode);
+            init = { ...init, headers };
+          }
+        }
+        const res = await __mrtNativeFetch(input, init);
+        if (isApi && res.status === 401) {
+          // Clone first so callers can still read the body.
+          try {
+            const clone = res.clone();
+            const body = await clone.json().catch(() => null);
+            if (body && body.code === 'ACCESS_GATE_BLOCKED') {
+              setStoredPasscode('');
+              window.dispatchEvent(new CustomEvent('mrt:access-denied'));
+            }
+          } catch {}
+        }
+        return res;
+      };
 
       /* ==================== Inline icon components ==================== */
       const mkIcon = (paths) => ({ size = 20, color = 'currentColor', ...rest }) => (
@@ -689,6 +752,13 @@
         const [validations, setValidations] = useState({
           research: null, repurpose: null, trials: null
         });
+        // Token usage + model + wall-clock per last run for the cost meter.
+        // Dorothy asked: "how much more is Opus vs Sonnet, and per 1k users?"
+        // This is the answer surface — we render it as a small CostMeter
+        // strip above each analysis using real per-run numbers, not estimates.
+        const [lastRunMeta, setLastRunMeta] = useState({
+          research: null, repurpose: null, trials: null
+        });
         const [evidenceSummary, setEvidenceSummary] = useState(null);
         // Methodology transparency state. Surfaces the post-synthesis
         // pipeline-drug coverage audit result (whether any KB-listed
@@ -808,10 +878,10 @@
             let data;
             try { data = JSON.parse(raw); }
             catch {
-              const isTimeout = /FUNCTION_INVOCATION_TIMEOUT|An error occurred with your deployment/i.test(raw);
+              const isTimeout = /FUNCTION_INVOCATION_TIMEOUT|An error occurred with your deployment|504|Gateway Time-out/i.test(raw);
               throw new Error(
                 isTimeout
-                  ? `Step timed out at the serverless limit. The ${payload.phase || 'full'} phase was too heavy for this run — retry once (cache usually helps), and if it keeps happening switch to a faster model or lower token budget.`
+                  ? `Server timeout on the ${payload.phase || 'full'} phase. The dossier + evidence pools should still be cached from your last attempt, so a second run will be much faster. If it keeps timing out, switch the model to Sonnet (faster than Opus) or tighten the patient context.`
                   : `Server returned non-JSON (HTTP ${res.status}): ${raw.slice(0, 140)}`
               );
             }
@@ -971,6 +1041,17 @@
             }
             if (mode !== 'chat' && data.validation) {
               setValidations((v) => ({ ...v, [mode]: data.validation }));
+            }
+            if (mode !== 'chat' && data.usage) {
+              setLastRunMeta((m) => ({
+                ...m,
+                [mode]: {
+                  inputTokens: data.usage.input_tokens || 0,
+                  outputTokens: data.usage.output_tokens || 0,
+                  model: data.model || '',
+                  at: Date.now()
+                }
+              }));
             }
             if (data.evidence) {
               setEvidenceSummary(data.evidence);
@@ -1182,20 +1263,23 @@
                 chatHistory={chatHistory} userQuery={userQuery}
                 setUserQuery={setUserQuery} sendChat={sendChat}
                 onAudit={() => auditAnalysis('research')}
-                runtimeConfig={runtimeConfig} />}
+                runtimeConfig={runtimeConfig}
+                runMeta={lastRunMeta.research} />}
               {tab === 'trials' && <TrialsTab
                 patient={patient} busy={busy} trialsData={trialsData}
                 trialBlocks={trialBlocks} trialsText={trialsText}
                 validation={validations.trials}
                 runTrialsFetch={runTrialsFetch} runTrialsAnalysis={runTrialsAnalysis}
                 onAudit={() => auditAnalysis('trials')}
-                runtimeConfig={runtimeConfig} />}
+                runtimeConfig={runtimeConfig}
+                runMeta={lastRunMeta.trials} />}
               {tab === 'repurpose' && <RepurposeTab
                 patient={patient} busy={busy} runResearch={runResearch}
                 repurposeText={repurposeText} candidates={candidates}
                 validation={validations.repurpose} progress={progress}
                 onAudit={() => auditAnalysis('repurpose')}
-                runtimeConfig={runtimeConfig} />}
+                runtimeConfig={runtimeConfig}
+                runMeta={lastRunMeta.repurpose} />}
               {tab === 'records' && <RecordsTab
                 patient={patient} audience={audience}
                 busy={busy} setBusy={setBusy}
@@ -3455,10 +3539,70 @@
         </div>
       );
 
+      /* ==================== Cost Meter ====================
+         Dorothy's question from the WhatsApp thread: "how much more
+         expensive is Opus, and what does it cost per 1k users?" This
+         strip renders a live, per-run, numeric answer using the
+         token-usage payload the server already returns. Pricing is a
+         rough on-device lookup — the real number for Dorothy is the
+         per-run cost on the model you actually shipped.
+      ===================================================== */
+      // Approximate Anthropic public pricing snapshot. These are
+      // intentionally inline so the meter degrades to "model unknown"
+      // gracefully when a future model isn't in the table. Update when
+      // Anthropic ships new tier pricing.
+      //   { in: USD per 1M input tokens, out: USD per 1M output tokens }
+      const MODEL_PRICES_USD_PER_M = [
+        { match: /opus/i,           in: 15.00, out: 75.00 },
+        { match: /sonnet-4|sonnet/i, in: 3.00,  out: 15.00 },
+        { match: /haiku/i,           in: 0.80,  out: 4.00  }
+      ];
+      const priceFor = (model) => {
+        if (!model) return null;
+        return MODEL_PRICES_USD_PER_M.find((p) => p.match.test(model)) || null;
+      };
+      const fmtUsd = (n) => {
+        if (n == null || !isFinite(n)) return '—';
+        if (n >= 1)   return `$${n.toFixed(2)}`;
+        if (n >= 0.1) return `$${n.toFixed(3)}`;
+        return `$${n.toFixed(4)}`;
+      };
+      const CostMeter = ({ meta, label }) => {
+        if (!meta || !meta.outputTokens) return null;
+        const p = priceFor(meta.model);
+        const inCost  = p ? (meta.inputTokens  / 1_000_000) * p.in  : null;
+        const outCost = p ? (meta.outputTokens / 1_000_000) * p.out : null;
+        const runCost = inCost != null && outCost != null ? inCost + outCost : null;
+        const projection1k = runCost != null ? runCost * 1000 : null;
+        return (
+          <div data-pdf-exclude="1" style={{
+            ...panelStyle,
+            padding: '0.6rem 0.85rem',
+            display: 'flex', flexWrap: 'wrap', gap: '0.65rem 1.2rem', alignItems: 'center',
+            fontSize: '0.78rem', color: theme.textDim,
+            borderLeft: `3px solid ${theme.accent}55`
+          }}>
+            <strong style={{ color: theme.accent, fontSize: '0.78rem', letterSpacing: '0.04em' }}>
+              {label || 'Run cost'}
+            </strong>
+            <span>Model: <strong style={{ color: theme.text }}>{meta.model || 'unknown'}</strong></span>
+            <span>Input: <strong style={{ color: theme.text }}>{(meta.inputTokens || 0).toLocaleString()}</strong> tok</span>
+            <span>Output: <strong style={{ color: theme.text }}>{(meta.outputTokens || 0).toLocaleString()}</strong> tok</span>
+            <span title="Approximate Anthropic list price; excludes cross-AI validator + evidence-pack API calls">
+              This run: <strong style={{ color: theme.text }}>{fmtUsd(runCost)}</strong>
+            </span>
+            <span title="Linear projection: same run × 1000 users. Excludes prompt-cache savings on repeats.">
+              × 1k users: <strong style={{ color: theme.text }}>{fmtUsd(projection1k)}</strong>
+            </span>
+          </div>
+        );
+      };
+
       /* ==================== Research Tab ==================== */
       const ResearchTab = ({ patient, busy, runResearch, researchText, treatments,
                               validation, evidenceSummary, dossier, progress, coverageAudit,
-                              chatHistory, userQuery, setUserQuery, sendChat, onAudit, runtimeConfig }) => {
+                              chatHistory, userQuery, setUserQuery, sendChat, onAudit, runtimeConfig,
+                              runMeta }) => {
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
         const [translatedText, setTranslatedText] = useState('');
@@ -3588,6 +3732,8 @@
                 what Claude actually wrote. Moved to the top of the
                 result stack so it's the first thing visible after
                 progress completes. */}
+            <CostMeter meta={runMeta} label="Research run cost" />
+
             {researchText && (
               <div id="mrt-research-export-target" style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem', gap: '0.6rem', flexWrap: 'wrap' }}>
@@ -3595,6 +3741,28 @@
                     <Brain size={18} /> Analysis for {patient.condition || 'this condition'}
                   </h3>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => {
+                        // Dorothy: "do we have the ability to ask it why
+                        // it missed something or got something wrong?"
+                        // This primes the follow-up chat with that exact
+                        // question pattern and scrolls to the chat box.
+                        const c = patient.condition || 'this condition';
+                        setUserQuery(`The analysis above doesn't mention <PASTE TREATMENT NAME, e.g. CAR-T therapy>. Why was it left out for ${c}? Walk me through whether (a) you considered it but rejected it, (b) the evidence pack didn't surface it, or (c) it's genuinely not relevant for this patient. If you DID miss it, give me the same structured treatment-card analysis for it now.`);
+                        setTimeout(() => {
+                          const el = document.querySelector('input[placeholder^="Ask about"], input[placeholder^="Type a disease"]');
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            el.focus();
+                          }
+                        }, 50);
+                      }}
+                      style={{ background: theme.accentSoft, border: `1px solid ${theme.accentEdge}`, color: theme.accent, padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
+                      title="Ask the AI why a specific treatment was missing or got something wrong"
+                      data-pdf-exclude="1"
+                    >
+                      Ask AI why it missed X
+                    </button>
                     <button
                       onClick={() => {
                         try {
@@ -3817,7 +3985,7 @@
 
       /* ==================== Clinical Trials Tab ==================== */
       const TrialsTab = ({ patient, busy, trialsData, trialBlocks, trialsText, validation,
-                           runTrialsFetch, runTrialsAnalysis, onAudit, runtimeConfig }) => {
+                           runTrialsFetch, runTrialsAnalysis, onAudit, runtimeConfig, runMeta }) => {
         const [filters, setFilters] = useState({ recruitingOnly: true, treatmentOnly: true, excludePlacebo: false });
         const [translatedText, setTranslatedText] = useState('');
         const renderedTrialsText = translatedText || trialsText;
@@ -3886,6 +4054,8 @@
             {trialBlocks.length > 0 && <RankedTrialsForPatient blocks={trialBlocks} />}
 
             <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!trialsText} />
+
+            <CostMeter meta={runMeta} label="Trials analysis cost" />
 
             {trialsText && (
               <div id="mrt-trials-export-target" style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
@@ -4456,7 +4626,7 @@
         );
       };
 
-      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation, progress, onAudit, runtimeConfig }) => {
+      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation, progress, onAudit, runtimeConfig, runMeta }) => {
         const [showRaw, setShowRaw] = useState(false);
         const [translatedText, setTranslatedText] = useState('');
         const renderedRepurposeText = translatedText || repurposeText;
@@ -4508,6 +4678,8 @@
                 </div>
               </>
             )}
+
+            <CostMeter meta={runMeta} label="Repurpose run cost" />
 
             {repurposeText && (
               <div style={panelStyle}>
@@ -4971,7 +5143,244 @@
         </footer>
       );
 
-      ReactDOM.render(<App />, document.getElementById('root'));
+      /* ==================== Sticky disclaimer banner ====================
+         Dorothy explicitly asked: "can we have a banner at the bottom of
+         everything that says this is not medical advice... nothing
+         discovered on this site should be relied upon in the absence of
+         a medical doctor." This bar sits fixed at the bottom of the
+         viewport on every screen (incl. gate, profile, results). The
+         body padding-bottom is bumped so content never hides behind it.
+      ================================================================== */
+      const StickyDisclaimer = () => (
+        <div
+          role="contentinfo"
+          aria-label="Medical disclaimer"
+          style={{
+            position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9999,
+            background: 'rgba(120, 20, 20, 0.96)',
+            color: '#fff5f5',
+            borderTop: '2px solid rgba(255, 255, 255, 0.25)',
+            boxShadow: '0 -4px 18px rgba(0,0,0,0.35)',
+            padding: '0.55rem 0.9rem',
+            fontSize: '0.78rem',
+            lineHeight: 1.45,
+            textAlign: 'center'
+          }}
+        >
+          <strong style={{ color: '#fff' }}>NOT MEDICAL ADVICE.</strong>{' '}
+          This research tool is for educational decision-support only.
+          Nothing discovered on this site should be relied upon in the
+          absence of a licensed medical doctor. No information here creates
+          a doctor-patient relationship. Always verify with your physician
+          before any treatment decision.
+        </div>
+      );
+
+      /* ==================== Access gate UI ====================
+         The first screen the user sees on a fresh device. If the deploy
+         has MRT_ACCESS_PASSCODE set, the user MUST enter a matching
+         passcode before the app loads. If the gate is OFF on the server
+         (env var unset) we let the app render immediately — that path
+         is for local dev and the test harness.
+      ======================================================== */
+      const probeAccessGate = async () => {
+        // Cheap GET-like probe via the runtime-config mode of /api/research.
+        // Returns 200 when gate is off or passcode is valid, 401 when blocked.
+        try {
+          const r = await __mrtNativeFetch('/api/research', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(getStoredPasscode() ? { 'x-access-passcode': getStoredPasscode() } : {})
+            },
+            body: JSON.stringify({ mode: 'runtime-config' })
+          });
+          if (r.status === 401) {
+            const body = await r.json().catch(() => null);
+            return { ok: false, gateEnabled: true, reason: body?.error || 'Access denied.' };
+          }
+          if (!r.ok) return { ok: false, gateEnabled: false, reason: `Probe HTTP ${r.status}` };
+          return { ok: true, gateEnabled: false };
+        } catch (e) {
+          return { ok: false, gateEnabled: false, reason: e?.message || 'Network error' };
+        }
+      };
+
+      const AccessGate = () => {
+        // 'probing' on first paint so we don't flash either screen.
+        const [state, setState] = useState({ status: 'probing' });
+        const [input, setInput] = useState('');
+        const [submitting, setSubmitting] = useState(false);
+        const [error, setError] = useState('');
+
+        const runProbe = async () => {
+          const result = await probeAccessGate();
+          if (result.ok) {
+            setState({ status: 'allowed' });
+          } else if (result.gateEnabled) {
+            setStoredPasscode('');
+            setState({ status: 'blocked', reason: result.reason });
+          } else {
+            // Network error or non-gate failure — let the app render
+            // anyway so the existing in-app error UI can surface details.
+            setState({ status: 'allowed' });
+          }
+        };
+
+        useEffect(() => { runProbe(); }, []);
+
+        useEffect(() => {
+          const onDenied = () => {
+            setStoredPasscode('');
+            setState({ status: 'blocked', reason: 'Access passcode rejected. Please re-enter.' });
+          };
+          window.addEventListener('mrt:access-denied', onDenied);
+          return () => window.removeEventListener('mrt:access-denied', onDenied);
+        }, []);
+
+        const submit = async (e) => {
+          e?.preventDefault?.();
+          const v = input.trim();
+          if (!v) return;
+          setSubmitting(true);
+          setError('');
+          try {
+            const r = await __mrtNativeFetch('/api/research', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-access-passcode': v },
+              body: JSON.stringify({ mode: 'runtime-config' })
+            });
+            if (r.ok) {
+              setStoredPasscode(v);
+              setState({ status: 'allowed' });
+            } else if (r.status === 401) {
+              setError('That passcode was rejected. Double-check with the admin.');
+            } else {
+              setError(`Server returned HTTP ${r.status}. Try again in a moment.`);
+            }
+          } catch (err) {
+            setError(err?.message || 'Network error.');
+          } finally {
+            setSubmitting(false);
+          }
+        };
+
+        if (state.status === 'probing') {
+          return (
+            <>
+              <div style={{
+                minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#9bb4c0', fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+                fontSize: '0.95rem'
+              }}>
+                Checking access…
+              </div>
+              <StickyDisclaimer />
+            </>
+          );
+        }
+        if (state.status === 'blocked') {
+          return (
+            <>
+              <div style={{
+                minHeight: '100vh',
+                background: 'radial-gradient(ellipse at top, #0d2030 0%, #061018 55%, #030910 100%)',
+                color: '#eef5fa',
+                fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '2rem 1rem 5rem'
+              }}>
+                <form onSubmit={submit} style={{
+                  maxWidth: 460, width: '100%',
+                  background: 'rgba(16, 38, 56, 0.92)',
+                  border: '1px solid rgba(125, 211, 252, 0.22)',
+                  borderRadius: 12,
+                  padding: '2rem 1.75rem',
+                  boxShadow: '0 24px 60px rgba(0, 0, 0, 0.55)'
+                }}>
+                  <h1 style={{
+                    margin: '0 0 0.4rem', fontSize: '1.45rem',
+                    fontFamily: '"Crimson Pro", Georgia, serif', color: '#22d3ee'
+                  }}>
+                    Private preview
+                  </h1>
+                  <p style={{ margin: '0 0 1.25rem', color: '#b8cdd9', lineHeight: 1.5, fontSize: '0.92rem' }}>
+                    researchingmycondition.com is restricted to invited testers.
+                    Enter the access passcode you were given to continue.
+                  </p>
+                  <label htmlFor="mrt-passcode" style={{
+                    display: 'block', fontSize: '0.78rem', color: '#b8cdd9',
+                    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6
+                  }}>
+                    Access passcode
+                  </label>
+                  <input
+                    id="mrt-passcode"
+                    type="password"
+                    autoComplete="off"
+                    autoFocus
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Enter passcode"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '0.7rem 0.85rem', fontSize: '0.95rem',
+                      background: 'rgba(3, 10, 18, 0.55)',
+                      border: '1px solid rgba(125, 211, 252, 0.32)',
+                      color: '#f5fafd', borderRadius: 8, outline: 'none'
+                    }}
+                  />
+                  {error && (
+                    <div style={{
+                      marginTop: '0.7rem', color: '#fda4af', fontSize: '0.85rem'
+                    }}>
+                      {error}
+                    </div>
+                  )}
+                  {state.reason && !error && (
+                    <div style={{
+                      marginTop: '0.7rem', color: '#fcd34d', fontSize: '0.82rem', opacity: 0.85
+                    }}>
+                      {state.reason}
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={submitting || !input.trim()}
+                    style={{
+                      marginTop: '1.25rem', width: '100%',
+                      padding: '0.75rem 1rem', fontSize: '0.95rem',
+                      background: submitting || !input.trim() ? 'rgba(34, 211, 238, 0.35)' : '#22d3ee',
+                      color: '#062032',
+                      border: 'none', borderRadius: 8, fontWeight: 600,
+                      cursor: submitting || !input.trim() ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {submitting ? 'Checking…' : 'Unlock'}
+                  </button>
+                  <p style={{
+                    marginTop: '1.25rem', fontSize: '0.75rem', color: '#7c97a3', lineHeight: 1.5
+                  }}>
+                    If you don't have a passcode, contact the project owner
+                    (shaque025@gmail.com). Your passcode is stored only on
+                    this device.
+                  </p>
+                </form>
+              </div>
+              <StickyDisclaimer />
+            </>
+          );
+        }
+        // allowed → render the real app + persistent disclaimer.
+        return (
+          <>
+            <App />
+            <StickyDisclaimer />
+          </>
+        );
+      };
+
+      ReactDOM.render(<AccessGate />, document.getElementById('root'));
     </script>
 </body>
 </html>

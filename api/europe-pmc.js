@@ -9,6 +9,8 @@
 //
 // API docs: https://europepmc.org/RestfulWebService
 
+import { requireAccess } from '../lib/access-gate.js';
+
 const SEARCH = 'https://www.ebi.ac.uk/europepmc/webservices/rest/search';
 const FULLTEXT = (id) =>
   `https://www.ebi.ac.uk/europepmc/webservices/rest/${id}/fullTextXML`;
@@ -23,10 +25,12 @@ const stripXml = (xml) =>
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Access-Passcode');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST' && req.method !== 'GET')
     return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!requireAccess(req, res)) return;
 
   try {
     const body = req.method === 'POST' ? req.body : req.query;

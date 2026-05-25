@@ -18,6 +18,7 @@ import {
   isConfigured,
   backendName
 } from '../lib/alerts-store.js';
+import { requireAccess } from '../lib/access-gate.js';
 
 const randomId = (len = 16) => {
   const bytes = new Uint8Array(len);
@@ -44,8 +45,10 @@ const sanitisePatientContext = (p = {}) => ({
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Access-Passcode');
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  if (!requireAccess(req, res)) return;
 
   try {
     const action = String(req.query?.action || '').toLowerCase();

@@ -159,6 +159,7 @@ See [api/README.md](api/README.md) for full endpoint documentation.
 | `UPSTASH_REDIS_REST_URL`    | Persistent subscription store. Free tier at upstash.com.      |
 | `UPSTASH_REDIS_REST_TOKEN`  | Paired with the URL above.                                    |
 | `CRON_SECRET`               | Gates `/api/alerts-cron` against unauthenticated invocations. |
+| `MRT_ACCESS_PASSCODE`       | Private-preview access gate. Comma-separate to issue multiple passcodes (one per tester). Every `/api/*` endpoint requires a matching `x-access-passcode` header. Fail-open when unset. |
 
 ### Weekly email digests
 

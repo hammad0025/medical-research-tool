@@ -7,6 +7,8 @@
 //
 // API docs: https://docs.openalex.org/
 
+import { requireAccess } from '../lib/access-gate.js';
+
 const API = 'https://api.openalex.org/works';
 
 // Tier-A = top-quality peer-reviewed medical journals. We don't try to keep
@@ -36,10 +38,12 @@ const TIER = (name = '') => {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Access-Passcode');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST' && req.method !== 'GET')
     return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!requireAccess(req, res)) return;
 
   try {
     const body = req.method === 'POST' ? req.body : req.query;

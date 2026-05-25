@@ -32,6 +32,7 @@
 import { isTopCenter, topCenterBoost, buildExtendedCenterMatcher } from '../lib/medical-lexicon.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb } from '../lib/kb.js';
+import { requireAccess } from '../lib/access-gate.js';
 
 const CT_API = 'https://clinicaltrials.gov/api/v2/studies';
 
@@ -291,7 +292,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Access-Passcode'
   );
 
   if (req.method === 'OPTIONS') {
@@ -302,6 +303,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  if (!requireAccess(req, res)) return;
 
   try {
     const body = req.method === 'POST' ? req.body : req.query;

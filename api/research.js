@@ -33,6 +33,7 @@ import {
   verifyPaidCode,
   activatePaidForIp
 } from '../lib/usage-store.js';
+import { requireAccess } from '../lib/access-gate.js';
 
 // Primary synthesis model. User requested "Opus instead of Sonnet" support:
 // set ANTHROPIC_RESEARCH_MODEL in env to any Anthropic model your account has
@@ -649,11 +650,27 @@ HOW_TO_DISCUSS_WITH_DOCTOR: <practical script / questions the patient should ask
 
 After the candidate list, include:
 
+## Combination Candidates
+Dorothy explicitly asked: "is it looking at drug combinations that may not have actually been researched for possible treatments?" — answer that question here.
+
+Produce 5-10 combination candidates (pairings or triples of agents from the list above, or pairings of a listed candidate with a standard-of-care drug). For EACH combo output this exact block (the UI parses it):
+
+COMBO: <Agent A + Agent B [+ Agent C]>
+RATIONALE: <one or two sentences on why the mechanisms are complementary or synergistic for THIS condition — pathway diagram in words>
+EVIDENCE_TIER: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
+SUPPORTING_EVIDENCE: <verbatim quotes + URLs from the evidence pack, or "Mechanistic hypothesis only — no human combo data yet" if there is no grounded evidence.>
+INTERACTION_RISK: <severity LOW | MODERATE | HIGH plus the specific pharmacokinetic / pharmacodynamic interaction; reference FDA label drug-interaction text when available>
+PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's current medications + comorbidities; if none, write "None identified">
+CONFIDENCE: <1-100>% — <overall confidence that this combo is worth physician discussion>
+HOW_TO_DISCUSS_WITH_DOCTOR: <practical script — "I read about combining X and Y for [condition] because [pathway]; can we discuss whether monitoring [labs/AEs] would let us trial it?">
+
+Combinations are HYPOTHESIS-GENERATION ONLY. Many real-world combos are dangerous (additive QT prolongation, serotonin syndrome, bleeding risk). Be honest when the safest answer is "do NOT combine — interaction risk dominates any plausible benefit" — list those as confidence < 25% and INTERACTION_RISK: HIGH.
+
 ## Reasoning Summary
-Explain the top 3 candidates in plain language.
+Explain the top 3 single-agent candidates and the top 2 combination candidates in plain language.
 
 ## What This Is NOT
-Clearly say this is hypothesis-generation, not a prescription, and must be discussed with a physician before any change.
+Clearly say this is hypothesis-generation, not a prescription, and must be discussed with a physician before any change. Combinations carry compounding risk even when each agent is individually safe.
 
 ${SHARED_GUARDRAILS}`;
 
@@ -712,6 +729,11 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Site-wide access gate. When MRT_ACCESS_PASSCODE is set, the caller
+  // must present a matching x-access-passcode header. Fail-open when
+  // the env var is unset so local dev + tests keep working.
+  if (!requireAccess(req, res)) return;
 
   try {
     const {
@@ -996,13 +1018,16 @@ export default async function handler(req, res) {
       evidence = providedEvidence || null;
       trials = providedTrials || null;
     } else {
-      // Hard deadline for the entire gather phase. Vercel Hobby cuts us
-      // off at 60s; we give ourselves 48s of wall-clock so there's
-      // headroom for serialisation + network egress on the response.
-      // Anything still outstanding at the deadline is returned as its
-      // last-known value (null) and the client proceeds to synthesise
-      // with whatever arrived in time.
-      const GATHER_DEADLINE_MS = 48_000;
+      // Hard deadline for the entire gather phase. We now run on Vercel
+      // Pro (maxDuration=300s in vercel.json), so we give the gather
+      // phase a comfortable 90s and still leave 200+s of headroom for
+      // the synthesize call on the same client-side run. The previous
+      // 48s cap was tuned for Hobby's 60s function limit and was the
+      // root cause of "synthesize phase too heavy" timeouts when one
+      // of the database fan-outs (PubMed in particular) hit a slow
+      // upstream day. Anything still outstanding at the deadline is
+      // returned as null and the client synthesises with what arrived.
+      const GATHER_DEADLINE_MS = Number(process.env.MRT_GATHER_DEADLINE_MS || 90_000);
       const withDeadline = (p, label) => Promise.race([
         p.catch((e) => {
           console.warn(`[research.gather] ${label} threw:`, e?.message || e);

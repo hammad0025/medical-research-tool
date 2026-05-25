@@ -9,6 +9,8 @@
 // No API key needed; NCBI recommends including a `tool` and `email` parameter,
 // which we set below. For higher rate limits you can add NCBI_API_KEY env var.
 
+import { requireAccess } from '../lib/access-gate.js';
+
 const ESEARCH = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi';
 const ESUMMARY = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi';
 const EFETCH = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi';
@@ -136,7 +138,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Content-Type'
+    'X-CSRF-Token, X-Requested-With, Accept, Content-Type, X-Access-Passcode'
   );
 
   if (req.method === 'OPTIONS') {
@@ -147,6 +149,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  if (!requireAccess(req, res)) return;
 
   try {
     const body = req.method === 'POST' ? req.body : req.query;
