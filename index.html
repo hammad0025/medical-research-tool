@@ -731,6 +731,444 @@
       const MEDICAL_DISCLAIMER = 'Disclaimer: This is educational medical research support, not medical advice. Please review all information with your licensed medical provider before making treatment decisions.';
 
       /* ============================================================== */
+      /* ===================== FLOATING CHAT ========================== */
+      /* ============================================================== */
+      /* Persistent chat surface anchored to the bottom-right of every
+         tab. The in-tab "Follow-up chat" inside ResearchTab stays for
+         users who want it inline; this widget is the second surface
+         that is available everywhere (Profile, Research, Trials,
+         Repurpose, Records, Comparison Chart, References).
+
+         Sits ABOVE the sticky red "NOT MEDICAL ADVICE" banner — the
+         banner is ~78px on desktop / ~110px on narrow mobile, so the
+         FAB and panel use a 100px bottom offset to clear it with a
+         comfortable air gap. On iOS, env(safe-area-inset-bottom) plus
+         a visualViewport listener push the input above the soft
+         keyboard when it pops open.
+
+         History is persisted to localStorage under
+         mrt_floating_chat_v1 (last 50 turns) so a refresh / tab switch
+         does not wipe the conversation. State is kept entirely on the
+         App component so it survives mounting / unmounting of any
+         single tab. */
+      const FLOATING_CHAT_LS_KEY = 'mrt_floating_chat_v1';
+      const FLOATING_CHAT_QUICK_STARTS = [
+        "Why didn't you discuss CAR-T therapy?",
+        "Are there drugs you considered and rejected for this condition?",
+        "What evidence is your top recommendation based on?",
+        "Did you check my medications for interactions?"
+      ];
+
+      const FloatingChat = ({
+        open, setOpen,
+        history, busy, onSend,
+        patient, researchText, repurposeText, trialsText, evidencePack,
+        hasUnread
+      }) => {
+        const [draft, setDraft] = useState('');
+        const [isMobile, setIsMobile] = useState(
+          () => typeof window !== 'undefined'
+                 && window.matchMedia
+                 && window.matchMedia('(max-width: 720px)').matches
+        );
+        // Bottom inset (px) that the panel pads itself by so the input
+        // row stays visible above the iOS soft keyboard. Driven off
+        // visualViewport.height vs window.innerHeight.
+        const [kbInset, setKbInset] = useState(0);
+        const scrollRef = useRef(null);
+        const inputRef = useRef(null);
+
+        useEffect(() => {
+          if (typeof window === 'undefined' || !window.matchMedia) return;
+          const mql = window.matchMedia('(max-width: 720px)');
+          const onChange = (e) => setIsMobile(e.matches);
+          try { mql.addEventListener('change', onChange); }
+          catch { mql.addListener(onChange); }
+          return () => {
+            try { mql.removeEventListener('change', onChange); }
+            catch { mql.removeListener(onChange); }
+          };
+        }, []);
+
+        // iOS keyboard inset compensation. visualViewport.height shrinks
+        // by the keyboard height when the input is focused; we pad the
+        // panel's bottom so the input row floats above the keyboard
+        // instead of being hidden behind it.
+        useEffect(() => {
+          if (!open) { setKbInset(0); return; }
+          const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+          if (!vv) return;
+          const recompute = () => {
+            const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            setKbInset(inset);
+          };
+          recompute();
+          vv.addEventListener('resize', recompute);
+          vv.addEventListener('scroll', recompute);
+          return () => {
+            vv.removeEventListener('resize', recompute);
+            vv.removeEventListener('scroll', recompute);
+          };
+        }, [open]);
+
+        // Auto-scroll to the latest message whenever a turn lands.
+        useEffect(() => {
+          if (!open) return;
+          const el = scrollRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
+        }, [open, history.length, busy]);
+
+        const contextText = useMemo(() => {
+          const bits = [];
+          const cond = patient?.condition?.trim();
+          if (cond) {
+            const ageBit = patient.age ? String(patient.age).trim() : '';
+            const sexBit = patient.gender
+              ? String(patient.gender).trim().charAt(0).toUpperCase()
+              : '';
+            const dem = `${ageBit}${sexBit}`;
+            bits.push(`profile (${cond}${dem ? `, ${dem}` : ''})`);
+          }
+          const analyses = [];
+          if (researchText) analyses.push('research');
+          if (repurposeText) analyses.push('repurpose');
+          if (trialsText) analyses.push('trials');
+          if (analyses.length) {
+            bits.push(`${analyses.join(' + ')} analysis`);
+          }
+          const sources = Math.min((evidencePack || []).length, 18);
+          if (sources) bits.push(`${sources} evidence sources`);
+          if (!bits.length) return 'Context: no profile yet — ask anything to get started.';
+          return 'Context: ' + bits.join(' + ');
+        }, [patient, researchText, repurposeText, trialsText, evidencePack]);
+
+        const submit = (overrideText) => {
+          const t = (overrideText != null ? overrideText : draft).trim();
+          if (!t || busy) return;
+          setDraft('');
+          onSend(t);
+        };
+
+        // ---- Closed state: just the FAB ----
+        if (!open) {
+          return (
+            <button
+              type="button"
+              aria-label="Open chat assistant"
+              onClick={() => setOpen(true)}
+              style={{
+                position: 'fixed',
+                right: 20,
+                bottom: 100,
+                zIndex: 10000,
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background: theme.accent,
+                color: theme.primaryText,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `0 8px 28px ${theme.accentGlow}, 0 0 0 1px ${theme.accentEdge}`,
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+              }}
+            >
+              <MessageCircle size={26} color={theme.primaryText} />
+              {hasUnread && (
+                <span
+                  className="mrt-pulse-dot"
+                  aria-hidden="true"
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    background: theme.secondary,
+                    border: `2px solid ${theme.panelSolid}`,
+                    boxShadow: `0 0 8px ${theme.secondary}`
+                  }}
+                />
+              )}
+            </button>
+          );
+        }
+
+        // ---- Open state: backdrop (mobile only) + panel ----
+        const panelW = isMobile ? 'calc(100vw - 16px)' : 380;
+        // Cap height on both axes so the panel never overflows the
+        // viewport on short laptop screens. The 160-180px reserve
+        // accounts for the bottom disclaimer (~88-130px) plus a
+        // breathing margin on the top.
+        const panelH = isMobile
+          ? `min(70vh, calc(100vh - 160px))`
+          : `min(560px, calc(100vh - 180px))`;
+        // On mobile we lift the panel as the keyboard rises. On desktop
+        // the keyboard concept is irrelevant.
+        const panelBottom = isMobile
+          ? Math.max(100, kbInset + 20)
+          : 100;
+        const panelRight = isMobile ? 8 : 20;
+
+        return (
+          <>
+            {isMobile && (
+              <div
+                onClick={() => setOpen(false)}
+                aria-hidden="true"
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 9998,
+                  background: 'rgba(0, 0, 0, 0.35)',
+                  backdropFilter: 'blur(2px)',
+                  WebkitBackdropFilter: 'blur(2px)'
+                }}
+              />
+            )}
+            <div
+              role="dialog"
+              aria-label="AI chat assistant"
+              style={{
+                position: 'fixed',
+                right: panelRight,
+                bottom: panelBottom,
+                width: panelW,
+                height: panelH,
+                maxWidth: '100vw',
+                zIndex: 10001,
+                background: theme.panelSolid,
+                borderRadius: 14,
+                border: `1px solid ${theme.border}`,
+                backdropFilter: 'blur(18px)',
+                WebkitBackdropFilter: 'blur(18px)',
+                boxShadow: `0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px ${theme.border}`,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}
+            >
+              {/* Header */}
+              <div style={{
+                padding: '0.85rem 1rem',
+                borderBottom: `1px solid ${theme.border}`,
+                background: theme.accentSoft,
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+                flexShrink: 0
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    color: theme.accent,
+                    fontWeight: 700,
+                    fontSize: '1rem'
+                  }}>
+                    <MessageCircle size={18} /> Ask the AI
+                  </div>
+                  <div style={{
+                    color: theme.textDim,
+                    fontSize: '0.75rem',
+                    marginTop: 2,
+                    lineHeight: 1.4
+                  }}>
+                    Uses your patient profile and any analyses you've run.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close chat"
+                  onClick={() => setOpen(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: theme.text,
+                    cursor: 'pointer',
+                    fontSize: '1.5rem',
+                    lineHeight: 1,
+                    padding: '0 0.35rem',
+                    flexShrink: 0
+                  }}
+                >×</button>
+              </div>
+
+              {/* Context indicator */}
+              <div style={{
+                padding: '0.5rem 1rem',
+                borderBottom: `1px solid ${theme.border}`,
+                color: theme.textDim,
+                fontSize: '0.72rem',
+                background: theme.panel,
+                flexShrink: 0,
+                lineHeight: 1.4
+              }}>
+                {contextText}
+              </div>
+
+              {/* Messages */}
+              <div
+                ref={scrollRef}
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  overflowY: 'auto',
+                  padding: '0.75rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem'
+                }}
+              >
+                {history.length === 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <div style={{
+                      color: theme.textDim,
+                      fontSize: '0.82rem',
+                      lineHeight: 1.5,
+                      marginBottom: 4
+                    }}>
+                      Try one of these to get started, or type your own question:
+                    </div>
+                    {FLOATING_CHAT_QUICK_STARTS.map((p, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setDraft(p);
+                          inputRef.current?.focus();
+                        }}
+                        style={{
+                          ...btn('ghost'),
+                          width: '100%',
+                          justifyContent: 'flex-start',
+                          textAlign: 'left',
+                          fontSize: '0.82rem',
+                          padding: '0.55rem 0.7rem',
+                          whiteSpace: 'normal',
+                          lineHeight: 1.4
+                        }}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {history.map((m, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      padding: '0.6rem 0.75rem',
+                      borderRadius: 10,
+                      maxWidth: '88%',
+                      alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                      background: m.role === 'user' ? theme.accentSoft : theme.panel,
+                      border: `1px solid ${m.role === 'user' ? theme.accentEdge : theme.border}`
+                    }}
+                  >
+                    <div style={{
+                      fontSize: '0.7rem',
+                      color: theme.accent,
+                      fontWeight: 600,
+                      marginBottom: 4
+                    }}>
+                      {m.role === 'user' ? 'You' : 'Assistant'}
+                    </div>
+                    {m.role === 'user'
+                      ? (
+                        <div style={{
+                          whiteSpace: 'pre-wrap',
+                          fontSize: '0.88rem',
+                          lineHeight: 1.55
+                        }}>{m.content}</div>
+                      )
+                      : <Markdown text={m.content} />}
+                  </div>
+                ))}
+                {busy && (
+                  <div style={{
+                    padding: '0.6rem 0.75rem',
+                    borderRadius: 10,
+                    maxWidth: '85%',
+                    alignSelf: 'flex-start',
+                    background: theme.panel,
+                    border: `1px solid ${theme.border}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    color: theme.textDim,
+                    fontSize: '0.82rem'
+                  }}>
+                    <Loader size={14} className="spin" />
+                    <span>Thinking…</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Input row */}
+              <div style={{
+                padding: '0.6rem 0.7rem',
+                paddingBottom: `max(0.6rem, env(safe-area-inset-bottom, 0))`,
+                borderTop: `1px solid ${theme.border}`,
+                background: theme.panelSolid,
+                display: 'flex',
+                gap: '0.5rem',
+                alignItems: 'flex-end',
+                flexShrink: 0
+              }}>
+                <textarea
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      submit();
+                    }
+                  }}
+                  placeholder={
+                    patient?.condition
+                      ? `Ask about ${patient.condition}…`
+                      : 'Type a question…'
+                  }
+                  rows={1}
+                  style={{
+                    ...inputStyle,
+                    flex: 1,
+                    minHeight: 38,
+                    maxHeight: 120,
+                    resize: 'none',
+                    padding: '0.5rem 0.65rem',
+                    fontSize: '0.88rem',
+                    lineHeight: 1.4
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={busy || !draft.trim()}
+                  onClick={() => submit()}
+                  style={{
+                    ...btn('primary', busy || !draft.trim()),
+                    padding: '0.55rem 0.85rem',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  {busy
+                    ? <Loader size={14} className="spin" />
+                    : <Search size={14} />} Send
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      };
+
+      /* ============================================================== */
       /* =========================== APP ============================== */
       /* ============================================================== */
       const App = () => {
@@ -770,6 +1208,16 @@
         const [chatHistory, setChatHistory] = useState([]);
         const [userQuery, setUserQuery] = useState('');
         const [busy, setBusy] = useState(null);
+        // Floating chat surface — independent of the in-tab Follow-up
+        // Chat (which uses chatHistory above) so the two surfaces don't
+        // fight over the same message stream. History is persisted in
+        // localStorage so a refresh / tab switch doesn't wipe context.
+        const [floatingChatOpen, setFloatingChatOpen] = useState(false);
+        const [floatingChatHistory, setFloatingChatHistory] = useState(
+          () => loadLS(FLOATING_CHAT_LS_KEY, [])
+        );
+        const [floatingChatBusy, setFloatingChatBusy] = useState(false);
+        const [floatingChatUnread, setFloatingChatUnread] = useState(false);
         const [runtimeConfig, setRuntimeConfig] = useState(null);
         const [usageInfo, setUsageInfo] = useState(null);
 
@@ -820,6 +1268,25 @@
         useEffect(() => saveLS('mrt_patient', patient), [patient]);
         useEffect(() => saveLS('mrt_audience', audience), [audience]);
         useEffect(() => saveLS('mrt_hipaa', acceptedHipaa), [acceptedHipaa]);
+        // Persist floating chat history (cap at 50 turns so localStorage
+        // doesn't grow unbounded — long sessions still keep useful recent
+        // context, and chatHistory.slice(-10) is what we actually send
+        // upstream anyway).
+        useEffect(() => {
+          saveLS(FLOATING_CHAT_LS_KEY, floatingChatHistory.slice(-50));
+        }, [floatingChatHistory]);
+        // Unread indicator: light up the FAB when an assistant message
+        // arrives while the panel is closed; clear it when opened.
+        useEffect(() => {
+          if (floatingChatOpen) {
+            setFloatingChatUnread(false);
+            return;
+          }
+          const last = floatingChatHistory[floatingChatHistory.length - 1];
+          if (last && last.role === 'assistant') {
+            setFloatingChatUnread(true);
+          }
+        }, [floatingChatHistory, floatingChatOpen]);
         useEffect(() => {
           const loadRuntime = async () => {
             try {
@@ -1262,6 +1729,70 @@
           }
         };
 
+        // Floating chat send. Mirrors sendChat's payload shape so the
+        // backend's chat-mode handler can use the same priorAnalyses +
+        // evidencePack context, but is fully independent of the in-tab
+        // chat state so the two surfaces don't stomp on each other.
+        const sendFloatingChat = async (text) => {
+          const q = String(text || '').trim();
+          if (!q || floatingChatBusy) return;
+          // Capture history BEFORE appending so the prior turns we send
+          // upstream don't include the user's brand-new message twice.
+          const baseHistory = floatingChatHistory.slice(-10);
+          setFloatingChatHistory(h => [...h, { role: 'user', content: q }]);
+          setFloatingChatBusy(true);
+          try {
+            const packForChat = (evidencePack || []).slice(0, 18).map((a) => ({
+              id: a.doi || a.pmid || a.id,
+              title: a.title,
+              journal: a.journal,
+              tier: a.journalTier,
+              year: a.year,
+              sources: a.sources,
+              accessLevel: a.accessLevel,
+              url: a.pmcUrl || a.pubmedUrl || a.doiUrl || a.oaUrl || a.landingUrl || a.europePmcUrl,
+              text: (a.fullText || a.abstract || '').slice(0, 2500)
+            })).filter((a) => a.title);
+            const res = await fetch('/api/research', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                mode: 'chat', patient, audience, userQuery: q,
+                chatHistory: baseHistory,
+                priorAnalyses: {
+                  research: researchText || undefined,
+                  repurpose: repurposeText || undefined,
+                  trials: trialsText || undefined
+                },
+                evidencePack: packForChat
+              })
+            });
+            // Robust non-JSON handling: Vercel's 60s timeout returns a
+            // plaintext FUNCTION_INVOCATION_TIMEOUT page, not JSON.
+            // Detect that and surface a friendlier message instead of
+            // 'Unexpected token A ... is not valid JSON'.
+            const raw = await res.text();
+            let data;
+            try { data = JSON.parse(raw); }
+            catch {
+              const isTimeout = /FUNCTION_INVOCATION_TIMEOUT|An error occurred with your deployment|504|Gateway Time-out/i.test(raw);
+              throw new Error(
+                isTimeout
+                  ? 'Server timeout. Try again in a moment — your evidence pack should still be cached, so the retry will be faster.'
+                  : `Server returned non-JSON (HTTP ${res.status}): ${raw.slice(0, 140)}`
+              );
+            }
+            if (!res.ok) throw new Error(data.error || 'Chat failed');
+            const answer = (data.content || [])
+              .filter(b => b.type === 'text').map(b => b.text).join('\n');
+            setFloatingChatHistory(h => [...h, { role: 'assistant', content: answer }]);
+          } catch (e) {
+            setFloatingChatHistory(h => [...h, { role: 'assistant', content: 'Error: ' + e.message }]);
+          } finally {
+            setFloatingChatBusy(false);
+          }
+        };
+
         return (
           <div style={{ minHeight: '100vh', background: theme.bg,
             fontFamily: '"Crimson Pro", Georgia, serif', color: theme.text }}>
@@ -1314,6 +1845,24 @@
               {tab === 'refs' && <RefsTab references={references} evidencePack={evidencePack} evidenceSummary={evidenceSummary} />}
             </div>
             <Footer runtimeConfig={runtimeConfig} />
+            {/* Floating chat widget — anchored at the App root so it is
+                available on every tab (Profile, Research, Trials,
+                Repurpose, Records, Comparison Chart, References). The
+                in-tab Follow-up Chat inside ResearchTab is intentionally
+                kept too — both surfaces coexist. */}
+            <FloatingChat
+              open={floatingChatOpen}
+              setOpen={setFloatingChatOpen}
+              history={floatingChatHistory}
+              busy={floatingChatBusy}
+              onSend={sendFloatingChat}
+              patient={patient}
+              researchText={researchText}
+              repurposeText={repurposeText}
+              trialsText={trialsText}
+              evidencePack={evidencePack}
+              hasUnread={floatingChatUnread}
+            />
           </div>
         );
       };
