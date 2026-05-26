@@ -721,7 +721,15 @@
           condition: 'Idiopathic Pulmonary Fibrosis', stage: '',
           age: '', gender: '', weight: '',
           smoking: '', exercise: '',
-          diagnoses: '', medications: '', symptoms: '', labWork: '', scans: ''
+          diagnoses: '', medications: '', symptoms: '', labWork: '', scans: '',
+          // Genetic mutation / variant — critical for gene-therapy eligibility
+          // (e.g. Luxturna is only for biallelic RPE65, OCU400 takes any RP
+          // gene including USH2A, jCell/PTK-7 take rod-cone dystrophy without
+          // requiring a specific mutation, Tofersen is only for SOD1 ALS,
+          // Elevidys is only for confirmed exon-deleted DMD). If we don't
+          // capture this, the analysis silently recommends therapies the
+          // patient can't actually qualify for.
+          geneticVariant: ''
         }));
         const [audience, setAudience] = useState(() => loadLS('mrt_audience', 'layperson'));
         const [acceptedHipaa, setAcceptedHipaa] = useState(() => loadLS('mrt_hipaa', false));
@@ -1707,7 +1715,8 @@
             medications: 'Pantoprazole 40 mg daily, lisinopril 10 mg daily, atorvastatin 20 mg nightly, aspirin 81 mg daily, vitamin D3 2000 IU daily',
             symptoms: 'Progressive exertional dyspnea (~2 years), dry cough, fatigue, mild finger clubbing',
             labWork: 'FVC 68% predicted (declined from 78% a year ago), DLCO 48% predicted, 6-minute walk distance 385 m with desat to 88% on room air',
-            scans: 'HRCT 3/2026: bilateral subpleural basal reticulation with honeycombing and traction bronchiectasis — definite UIP pattern. No ground-glass. No pleural effusion. Mild coronary calcifications.'
+            scans: 'HRCT 3/2026: bilateral subpleural basal reticulation with honeycombing and traction bronchiectasis — definite UIP pattern. No ground-glass. No pleural effusion. Mild coronary calcifications.',
+            geneticVariant: 'Not tested. (For IPF: ~20% have a familial / telomere-gene mutation — TERT, TERC, RTEL1, PARN — that informs antifibrotic + transplant decisions.)'
           }
         },
         ipfAdvanced: {
@@ -1725,7 +1734,27 @@
             medications: 'Pirfenidone 801 mg TID, apixaban 5 mg BID, metoprolol succinate 50 mg daily, alendronate 70 mg weekly, sertraline 50 mg daily, calcium 600 mg + vitamin D3 1000 IU daily',
             symptoms: 'Dyspnea at rest worsening over 6 months, chronic dry cough, severe fatigue, weight loss 8 lb in 4 months',
             labWork: 'FVC 46% predicted, DLCO 28% predicted, 6MWT 220 m with desat to 82% on 2 L/min O2, SpO2 resting 91% on room air',
-            scans: 'HRCT 1/2026: end-stage honeycomb lung, traction bronchiectasis, no acute consolidation, normal heart size'
+            scans: 'HRCT 1/2026: end-stage honeycomb lung, traction bronchiectasis, no acute consolidation, normal heart size',
+            geneticVariant: 'TERT pathogenic variant on panel — short telomere syndrome. Relevant for transplant evaluation and family screening.'
+          }
+        },
+        rpUsher: {
+          label: 'RP — USH2A',
+          icon: '👁️',
+          data: {
+            condition: 'Retinitis Pigmentosa',
+            stage: 'Mid-stage; central acuity preserved, peripheral field <20°',
+            age: '34',
+            gender: 'Female',
+            weight: '140 lb / 64 kg',
+            smoking: 'Never',
+            exercise: 'Yoga 3x/week; walks daily; mobility cane outdoors at dusk',
+            diagnoses: 'Retinitis Pigmentosa (Usher syndrome type IIA), bilateral sensorineural hearing loss (mild-moderate, hearing aids), anxiety',
+            medications: 'Vitamin A palmitate 15,000 IU daily, lutein 20 mg + zeaxanthin 4 mg daily, omega-3 (DHA 800 mg) daily, escitalopram 10 mg daily',
+            symptoms: 'Nyctalopia since teens, progressive peripheral field constriction over 10 years, photophobia in bright light, no central vision loss yet',
+            labWork: 'Visual acuity 20/30 OD, 20/25 OS. Goldmann visual field <15° remaining both eyes. ERG: severely reduced rod responses, cone responses preserved but reduced. OCT: outer retinal atrophy with preserved central fovea.',
+            scans: 'Fundus photo: classic bone-spicule pigmentation in mid-periphery, attenuated retinal vessels, waxy pallor of optic disc. Audiogram: bilateral high-frequency SNHL.',
+            geneticVariant: 'USH2A compound heterozygous: c.2299delG (p.Glu767SerfsTer21) and c.7595-2144A>G (deep intronic). Confirmed via clinical panel at Bascom Palmer (3/2026). USH2A is the most common Usher IIA gene — relevant for OCU400, jCell, antisense oligonucleotide trials (QR-421a / ultevursen). NOT eligible for Luxturna (which is RPE65-only).'
           }
         },
         empty: {
@@ -1733,7 +1762,8 @@
           icon: '🧹',
           data: {
             condition: '', stage: '', age: '', gender: '', weight: '', smoking: '',
-            exercise: '', diagnoses: '', medications: '', symptoms: '', labWork: '', scans: ''
+            exercise: '', diagnoses: '', medications: '', symptoms: '', labWork: '', scans: '',
+            geneticVariant: ''
           }
         }
       };
@@ -1797,7 +1827,9 @@
           { k: 'labWork',    l: 'Lab Work / PFTs / Other Studies',  ta: true,
             ph: 'e.g. FVC 58% predicted, DLCO 42%, 6MWT 350m' },
           { k: 'scans',      l: 'Recent Imaging / Scans',           ta: true,
-            ph: 'e.g. HRCT 3/2025: UIP pattern, honeycombing basal/peripheral' }
+            ph: 'e.g. HRCT 3/2025: UIP pattern, honeycombing basal/peripheral' },
+          { k: 'geneticVariant', l: 'Genetic Mutation / Variant (if known)', ta: true,
+            ph: 'e.g. USH2A compound heterozygous (RP / Usher), RPE65 biallelic (LCA / RP), SOD1 A4V (ALS), DMD exon 51 deletion, BRCA1 pathogenic, HTT 44 CAG repeats. Critical for gene-therapy eligibility.' }
         ];
         return (
           <div style={panelStyle}>
@@ -4210,23 +4242,38 @@
         const promiseBreakdown = (s) => {
           const phase = (s.phases || []).join(',');
           const chunks = [];
-          if (phase.includes('PHASE3')) chunks.push({ label: 'Phase 3', value: 40, color: theme.green });
-          else if (phase.includes('PHASE2')) chunks.push({ label: 'Phase 2', value: 25, color: theme.green });
-          else if (phase.includes('PHASE1')) chunks.push({ label: 'Phase 1', value: 10, color: theme.yellow });
-          if (s.acceptingNewPatients) chunks.push({ label: 'Accepting', value: 15, color: theme.green });
-          if (!s.hasPlacebo) chunks.push({ label: 'No placebo', value: 10, color: theme.green });
-          if (s.designations?.fastTrack) chunks.push({ label: 'Fast Track', value: 5, color: theme.accent });
-          if (s.designations?.breakthrough) chunks.push({ label: 'Breakthrough', value: 8, color: theme.accent });
-          if (s.designations?.orphan) chunks.push({ label: 'Orphan', value: 3, color: theme.accent });
-          if (s.designations?.hasExpandedAccess) chunks.push({ label: 'Expanded Access', value: 20, color: theme.green });
-          if (s.designations?.hasOpenLabelExtension) chunks.push({ label: 'OLE', value: 15, color: theme.green });
-          if (s.designations?.hasPostTrialAccess) chunks.push({ label: 'PTA', value: 6, color: theme.yellow });
-          if ((s.topCenterScore || 0) > 0) chunks.push({ label: 'Top-center match', value: s.topCenterScore, color: theme.accent });
+          if (phase.includes('PHASE3')) chunks.push({ label: 'Phase 3', value: 40, color: theme.green,
+            why: 'Phase 3 is the largest, most rigorous trial stage — what FDA looks at for approval. The drug has already shown safety + early efficacy signals, and this trial is the one that decides if it works.' });
+          else if (phase.includes('PHASE2')) chunks.push({ label: 'Phase 2', value: 25, color: theme.green,
+            why: 'Phase 2 tests if the drug actually works (not just whether it is safe). Smaller than Phase 3 but the first place real efficacy signal shows up.' });
+          else if (phase.includes('PHASE1')) chunks.push({ label: 'Phase 1', value: 10, color: theme.yellow,
+            why: 'Phase 1 is mostly safety + dose-finding. You can join, but efficacy is unproven and the drug may not move forward.' });
+          if (s.acceptingNewPatients) chunks.push({ label: 'Accepting', value: 15, color: theme.green,
+            why: 'The trial is actively enrolling — you can reach out to a site today and start the screening process.' });
+          if (!s.hasPlacebo) chunks.push({ label: 'No placebo', value: 10, color: theme.green,
+            why: 'Every participant gets the actual drug (no sugar-pill arm). You are guaranteed treatment, not a coin flip.' });
+          if (s.designations?.fastTrack) chunks.push({ label: 'Fast Track', value: 5, color: theme.accent,
+            why: 'FDA granted Fast Track because the drug addresses an unmet need. The agency commits to more frequent meetings + rolling review, shortening time-to-approval.' });
+          if (s.designations?.breakthrough) chunks.push({ label: 'Breakthrough', value: 8, color: theme.accent,
+            why: 'FDA Breakthrough Therapy designation — the strongest signal a drug has shown substantial improvement over existing options on a clinically significant endpoint. Reserved for rare, promising programs.' });
+          if (s.designations?.orphan) chunks.push({ label: 'Orphan', value: 3, color: theme.accent,
+            why: 'Orphan-drug status means the FDA recognized this is a rare disease. Sponsor gets tax credits + 7-year market exclusivity, which makes them more likely to actually finish development for small patient populations.' });
+          if (s.designations?.hasExpandedAccess) chunks.push({ label: 'Expanded Access', value: 20, color: theme.green,
+            why: 'You can get the drug OUTSIDE the trial — typically for patients who do not qualify (too sick, geographic, comorbid). This is the "compassionate use" path. Very few drugs offer this.' });
+          if (s.designations?.hasOpenLabelExtension) chunks.push({ label: 'OLE', value: 15, color: theme.green,
+            why: 'Open-Label Extension: patients who finish the main trial can keep taking the drug long-term, without going back on placebo. Critical for chronic diseases where you do not want the drug withdrawn after the study ends.' });
+          if (s.designations?.hasPostTrialAccess) chunks.push({ label: 'PTA', value: 6, color: theme.yellow,
+            why: 'Post-Trial Access: the sponsor commits to providing the drug after the trial ends but before FDA approval. Better than nothing, but sometimes involves a fee or limited supply.' });
+          if ((s.topCenterScore || 0) > 0) chunks.push({ label: 'Top-center match', value: s.topCenterScore, color: theme.accent,
+            why: 'At least one trial site is a peer-recognized top center for THIS specific disease (from the disease dossier, e.g. Pittsburgh Simmons for ILD, Bascom Palmer for RP, MGH for ALS). The care + workup at these centers is usually best-in-class.' });
           const westernHit = (s.countries || []).some(c => WESTERN.has(c));
           const chinaHit = (s.countries || []).some(c => CHINA_LIKE.has(c));
-          if (westernHit) chunks.push({ label: 'Western-site bonus', value: 10, color: theme.accent });
-          if (chinaHit) chunks.push({ label: 'High-risk jurisdiction penalty', value: -15, color: theme.red });
-          if (s.oversight?.oversightHasDMC) chunks.push({ label: 'DSMB', value: 4, color: theme.green });
+          if (westernHit) chunks.push({ label: 'Western-site bonus', value: 10, color: theme.accent,
+            why: 'Trial has at least one US / Canada / Western Europe site — easier logistics, IRB oversight you can verify, FDA-regulated drug supply chain, and your insurance is more likely to cover travel.' });
+          if (chinaHit) chunks.push({ label: 'High-risk jurisdiction penalty', value: -15, color: theme.red,
+            why: 'Trial has sites only (or primarily) in jurisdictions with documented systemic regulatory-integrity concerns. You may still be able to participate, but oversight, drug-supply provenance, and data quality are harder to verify from the US.' });
+          if (s.oversight?.oversightHasDMC) chunks.push({ label: 'DSMB', value: 4, color: theme.green,
+            why: 'Data Safety Monitoring Board (DSMB) is overseeing the trial — an independent panel that can halt the study early if safety signals emerge. Standard for high-quality, ethics-board-reviewed studies.' });
           return chunks;
         };
         const efficacyProxyScore = (s) => {
@@ -4340,24 +4387,44 @@
                       </tr>
                       {openWhy === rowKey && (
                         <tr style={{ borderBottom: `1px solid ${theme.border}` }}>
-                          <td colSpan={10} style={{ padding: '0.5rem 0.6rem 0.65rem', background: `${theme.accent}08` }}>
-                            <div style={{ fontSize: '0.72rem', color: theme.textDim, marginBottom: 5 }}>
-                              Promise score breakdown (current backend weights):
+                          <td colSpan={10} style={{ padding: '0.6rem 0.8rem 0.85rem', background: `${theme.accent}08` }}>
+                            <div style={{ fontSize: '0.78rem', color: theme.text, marginBottom: 8, fontWeight: 600 }}>
+                              Why this trial scored {s.promiseScore}
                             </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                              {why.map((c, i) => (
-                                <span key={i} style={{
-                                  padding: '0.16rem 0.48rem', borderRadius: 999,
-                                  border: `1px solid ${c.color}55`, color: c.color, background: `${c.color}15`,
-                                  fontSize: '0.72rem', fontWeight: 700
-                                }}>
-                                  {c.label} {c.value >= 0 ? `+${c.value}` : c.value}
-                                </span>
-                              ))}
-                              {why.length === 0 && (
-                                <span style={{ fontSize: '0.72rem', color: theme.textDim }}>No scoring components detected.</span>
-                              )}
+                            <div style={{ fontSize: '0.72rem', color: theme.textDim, marginBottom: 10, lineHeight: 1.45 }}>
+                              Each factor below contributed to (or subtracted from) the promise score. The score
+                              is meant to surface trials that are <em>practically</em> accessible and rigorously
+                              designed — not just "matches your disease." Hover or read the plain-English reason
+                              under each chip.
                             </div>
+                            {why.length === 0 ? (
+                              <span style={{ fontSize: '0.78rem', color: theme.textDim }}>
+                                No scoring components detected for this trial — it placed in the top 25 only
+                                because it matched the condition query.
+                              </span>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                                {why.map((c, i) => (
+                                  <div key={i} style={{
+                                    display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                                    padding: '0.45rem 0.6rem', borderRadius: 8,
+                                    border: `1px solid ${c.color}44`, background: `${c.color}10`
+                                  }}>
+                                    <span style={{
+                                      flex: '0 0 auto', minWidth: 96, textAlign: 'center',
+                                      padding: '0.16rem 0.48rem', borderRadius: 999,
+                                      border: `1px solid ${c.color}77`, color: c.color, background: `${c.color}20`,
+                                      fontSize: '0.74rem', fontWeight: 700
+                                    }}>
+                                      {c.label} {c.value >= 0 ? `+${c.value}` : c.value}
+                                    </span>
+                                    <span style={{ fontSize: '0.78rem', color: theme.text, lineHeight: 1.5 }}>
+                                      {c.why || 'Scoring factor — no plain-English explanation available.'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       )}

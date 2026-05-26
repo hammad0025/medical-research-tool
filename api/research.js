@@ -452,6 +452,17 @@ const buildPatientContext = (p = {}) => {
   if (p.symptoms) lines.push(`Current symptoms: ${p.symptoms}`);
   if (p.labWork) lines.push(`Lab work / pulmonary function / other studies: ${p.labWork}`);
   if (p.scans) lines.push(`Recent imaging / scans: ${p.scans}`);
+  // Genetic variant — critical for gene-therapy eligibility. We label it
+  // CONFIRMED GENETIC MUTATION/VARIANT and instruct the model to filter
+  // gene-targeted therapies by this variant explicitly. Without this the
+  // model has historically suggested e.g. Luxturna (RPE65-only) for an
+  // RP patient who actually carries USH2A — wrong eligibility, wasted
+  // hope. This block tells the model: if a gene therapy targets a
+  // different gene, say so out loud and don't recommend it.
+  if (p.geneticVariant) {
+    lines.push(`CONFIRMED GENETIC MUTATION / VARIANT (use this to gate gene-therapy and gene-targeted small-molecule recommendations): ${p.geneticVariant}
+  → For EVERY gene-targeted therapy you mention, you MUST explicitly check whether the therapy targets the SAME gene as the patient's variant. If yes, call out the eligibility match. If no, write "NOT ELIGIBLE — therapy targets <other gene>, patient carries <patient's gene>." Do not silently recommend gene therapies for the wrong gene.`);
+  }
   return lines.length ? lines.join('\n') : 'No patient context provided.';
 };
 
