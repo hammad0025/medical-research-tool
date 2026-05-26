@@ -692,16 +692,94 @@
         return out;
       };
 
+      // Auto-link bare URLs, PMIDs, NCT IDs, and DOIs so findings are
+      // always clickable even when the model omits markdown link syntax.
+      const linkifyMedicalIds = (text) => {
+        if (!text) return '';
+        let s = String(text);
+        const placeholders = [];
+        s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (m) => {
+          const key = `__MDLINK_${placeholders.length}__`;
+          placeholders.push(m);
+          return key;
+        });
+        s = s.replace(/\b(NCT\d{8})\b/gi, (m) => {
+          const id = m.toUpperCase();
+          return `[${id}](https://clinicaltrials.gov/study/${id})`;
+        });
+        s = s.replace(/\bPMID[:\s#]*(\d{7,8})\b/gi, (m, id) =>
+          `[PMID ${id}](https://pubmed.ncbi.nlm.nih.gov/${id}/)`);
+        s = s.replace(/\b(?:doi[:\s]*)(10\.\d{4,9}\/[^\s)\]"']+)/gi, (m, doi) =>
+          `[${doi}](https://doi.org/${doi})`);
+        s = s.replace(/(?<![(\[])(https?:\/\/[^\s)\]"']+)/g, (url) => {
+          const clean = url.replace(/[.,;)]+$/, '');
+          const label = clean.replace(/^https?:\/\//, '').slice(0, 60);
+          return `[${label}${clean.length > 60 ? '…' : ''}](${clean})`;
+        });
+        placeholders.forEach((m, i) => { s = s.replace(`__MDLINK_${i}__`, m); });
+        return s;
+      };
+
+      const extractLinksFromText = (text) => {
+        if (!text) return [];
+        const links = [];
+        const seen = new Set();
+        const add = (url, label) => {
+          const u = String(url || '').trim();
+          if (!u || seen.has(u)) return;
+          seen.add(u);
+          links.push({ url: u, label: label || u });
+        };
+        const mdRe = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+        let m;
+        while ((m = mdRe.exec(text)) !== null) add(m[2], m[1]);
+        const urlRe = /(https?:\/\/[^\s)\]"']+)/g;
+        while ((m = urlRe.exec(text)) !== null) add(m[1].replace(/[.,;)]+$/, ''));
+        const nctRe = /\b(NCT\d{8})\b/gi;
+        while ((m = nctRe.exec(text)) !== null) {
+          const id = m[1].toUpperCase();
+          add(`https://clinicaltrials.gov/study/${id}`, id);
+        }
+        const pmidRe = /\bPMID[:\s#]*(\d{7,8})\b/gi;
+        while ((m = pmidRe.exec(text)) !== null) {
+          add(`https://pubmed.ncbi.nlm.nih.gov/${m[1]}/`, `PMID ${m[1]}`);
+        }
+        const doiRe = /\b(?:doi[:\s]*)(10\.\d{4,9}\/[^\s)\]"']+)/gi;
+        while ((m = doiRe.exec(text)) !== null) {
+          add(`https://doi.org/${m[1]}`, `DOI ${m[1]}`);
+        }
+        return links;
+      };
+
       const parseReferences = (text) => {
-        const urlRe = /(https?:\/\/[^\s)]+)(?:\s*[-—:]\s*["“]([^"”]+)["”])?/g;
         const refs = [];
         const seen = new Set();
+        const add = (url, quote = '') => {
+          const u = String(url || '').trim();
+          if (!u || seen.has(u)) return;
+          seen.add(u);
+          refs.push({ url: u, quote });
+        };
+        if (!text) return refs;
+        const mdRe = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
         let m;
+        while ((m = mdRe.exec(text)) !== null) add(m[2], m[1]);
+        const urlRe = /(https?:\/\/[^\s)]+)(?:\s*[-—:]\s*["“]([^"”]+)["”])?/g;
         while ((m = urlRe.exec(text)) !== null) {
-          const url = m[1].replace(/[.,;)]+$/, '');
-          if (seen.has(url)) continue;
-          seen.add(url);
-          refs.push({ url, quote: m[2] || '' });
+          add(m[1].replace(/[.,;)]+$/, ''), m[2] || '');
+        }
+        const nctRe = /\b(NCT\d{8})\b/gi;
+        while ((m = nctRe.exec(text)) !== null) {
+          const id = m[1].toUpperCase();
+          add(`https://clinicaltrials.gov/study/${id}`, id);
+        }
+        const pmidRe = /\bPMID[:\s#]*(\d{7,8})\b/gi;
+        while ((m = pmidRe.exec(text)) !== null) {
+          add(`https://pubmed.ncbi.nlm.nih.gov/${m[1]}/`, `PMID ${m[1]}`);
+        }
+        const doiRe = /\b(?:doi[:\s]*)(10\.\d{4,9}\/[^\s)\]"']+)/gi;
+        while ((m = doiRe.exec(text)) !== null) {
+          add(`https://doi.org/${m[1]}`, `DOI ${m[1]}`);
         }
         return refs;
       };
@@ -1457,7 +1535,7 @@
                   providedTrials: gathered.trials,
                   ...extra
                 });
-                updateStep('synth', { status: 'running', detail: 'Part 2/2: trials, access, patient plan, red flags' });
+                updateStep('synth', { status: 'running', detail: 'Part 2/2: trials, access, patient plan, safety considerations' });
                 // BACK half: sections 5-8 (repurposing/pipeline,
                 // cell/gene, patient plan, red flags).
                 //
@@ -2875,11 +2953,9 @@
       const Markdown = ({ text }) => {
         const html = useMemo(() => {
           if (!text) return '';
+          const linked = linkifyMedicalIds(text);
           if (typeof window === 'undefined' || !window.marked) {
-            // Fallback while marked is still loading (rare): strip the
-            // most visually jarring syntax so the screen isn't full of
-            // asterisks.
-            return String(text)
+            return String(linked)
               .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
               .replace(/\n/g, '<br/>');
           }
@@ -2890,9 +2966,29 @@
             const out = origLink(href, title, label);
             return out.replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
           };
-          return window.marked.parse(String(text), { renderer });
+          return window.marked.parse(String(linked), { renderer });
         }, [text]);
         return <div className="mrt-markdown" dangerouslySetInnerHTML={{ __html: html }} />;
+      };
+
+      const SourceLinks = ({ text, label = 'Sources' }) => {
+        const links = useMemo(() => extractLinksFromText(text), [text]);
+        if (!links.length) return null;
+        return (
+          <div style={{ marginTop: '0.5rem' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: theme.textDim, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+              {label}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+              {links.map((l, i) => (
+                <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '0.78rem', color: theme.accent, wordBreak: 'break-all' }}>
+                  {l.label} ↗
+                </a>
+              ))}
+            </div>
+          </div>
+        );
       };
 
       /* ==================== PDF Export ====================
@@ -3351,7 +3447,7 @@
             {redFlags.length > 0 && (
               <div style={{ marginTop: '0.75rem' }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 600, color: theme.red, marginBottom: '0.35rem' }}>
-                  Red flags / contraindications
+                  Safety considerations reported in literature
                 </div>
                 <ul style={{ margin: 0, paddingLeft: '1.1rem', color: theme.textDim, fontSize: '0.85rem', lineHeight: 1.55 }}>
                   {redFlags.map((r, i) => <li key={i}>{r}</li>)}
@@ -3374,7 +3470,7 @@
               color: theme.accent, padding: '0.35rem 0.8rem', borderRadius: 6,
               fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600
             }}>
-              {expanded ? 'Show less' : `Show all facts, red flags, and lifestyle guidance`}
+              {expanded ? 'Show less' : `Show all facts, safety considerations, and lifestyle guidance`}
             </button>
           </div>
         );
@@ -3797,7 +3893,7 @@
                 {dossier.redFlags?.length > 0 && (
                   <div>
                     <div style={{ fontWeight: 700, color: theme.red, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
-                      Red flags — common mistakes for this disease
+                      Safety considerations reported in literature
                     </div>
                     <ul style={{ margin: 0, paddingLeft: '1.2rem', color: theme.text }}>
                       {dossier.redFlags.map((r, i) => (
@@ -4236,7 +4332,7 @@
           `What is the single most important question I should ask my doctor next week?`,
           `What are the realistic side effects I should actually expect, ranked by how common they are?`,
           `If I only had one treatment option to pursue next month, which one and why?`,
-          `What are warning signs I should stop a treatment and call my doctor immediately?`,
+          `What adverse effects reported in the literature should prompt an urgent call to my physician?`,
           `Non-drug practical things I can start doing this week for ${cond}.`,
           `What does the evidence say about combining the top 2 treatments?`
         ];
@@ -5208,7 +5304,8 @@
                 icon={<Database size={13} />}
                 color={theme.green}
               >
-                {c.supporting_evidence}
+                <Markdown text={c.supporting_evidence} />
+                <SourceLinks text={c.supporting_evidence} />
               </Disclosure>
             )}
             {c.patient_specific_risks && (
@@ -5587,7 +5684,8 @@
               { k: 'safety_pct',        h: 'Safety',              w: 110, bar: true },
               { k: 'risks',             h: 'Risks',               w: 220 },
               { k: 'interactions',      h: 'Interactions',        w: 180 },
-              { k: 'cost',              h: 'Cost / Insurance',    w: 140 }
+              { k: 'cost',              h: 'Cost / Insurance',    w: 140 },
+              { k: 'references',        h: 'References',          w: 200, links: true }
             ]
           : [
               { k: 'candidate',                 h: 'Candidate',       w: 160 },
@@ -5596,7 +5694,8 @@
               { k: 'repurpose_rationale',       h: 'Why it might help', w: 280 },
               { k: 'efficacy_hypothesis_pct',   h: 'Hypothesized efficacy', w: 110, bar: true },
               { k: 'safety_pct',                h: 'Safety',          w: 110, bar: true },
-              { k: 'patient_specific_risks',    h: 'Your-specific risks', w: 220 }
+              { k: 'patient_specific_risks',    h: 'Your-specific risks', w: 220 },
+              { k: 'supporting_evidence',       h: 'Sources',             w: 200, links: true }
             ];
         return (
           <div style={{ overflowX: 'auto', marginTop: '0.75rem' }}>
@@ -5649,6 +5748,27 @@
                           </td>
                         );
                       }
+                      if (c.links) {
+                        const cellLinks = extractLinksFromText(v);
+                        if (!cellLinks.length && !v) return <td key={c.k} style={{ padding: '0.6rem', lineHeight: 1.5 }}>—</td>;
+                        if (!cellLinks.length) return (
+                          <td key={c.k} style={{ padding: '0.6rem', lineHeight: 1.5 }}>
+                            <Markdown text={v} />
+                          </td>
+                        );
+                        return (
+                          <td key={c.k} style={{ padding: '0.6rem', lineHeight: 1.5 }}>
+                            <div style={{ display: 'grid', gap: '0.25rem' }}>
+                              {cellLinks.map((l, j) => (
+                                <a key={j} href={l.url} target="_blank" rel="noopener noreferrer"
+                                  style={{ color: theme.accent, fontSize: '0.78rem', wordBreak: 'break-all' }}>
+                                  {l.label} ↗
+                                </a>
+                              ))}
+                            </div>
+                          </td>
+                        );
+                      }
                       return <td key={c.k} style={{ padding: '0.6rem', lineHeight: 1.5 }}>{v || '—'}</td>;
                     })}
                   </tr>
@@ -5679,7 +5799,7 @@
                 }}>
                   <a href={r.url} target="_blank" rel="noopener"
                     style={{ fontSize: '0.88rem', wordBreak: 'break-all' }}>
-                    {r.url}
+                    {r.quote || r.url}
                   </a>
                   {r.quote && <div style={{ fontSize: '0.85rem', fontStyle: 'italic', marginTop: '0.3rem', color: theme.textDim }}>
                     “{r.quote}”

@@ -131,7 +131,7 @@ const buildDossierBlock = (dossier) => {
     lines.push(`  Common comorbidities to screen for: ${dossier.commonComorbidities.join(', ')}`);
   }
   if ((dossier.redFlags || []).length) {
-    lines.push(`  Common misdiagnoses / red flags (cover these in the "Red Flags / Don't Do This" section):`);
+    lines.push(`  Literature safety considerations (cover these in Section 8 "Safety Considerations Reported in Literature"):`);
     dossier.redFlags.forEach((r) => lines.push(`    - ${r}`));
   }
   if (dossier.notes) lines.push(`  Agent notes: ${dossier.notes}`);
@@ -241,12 +241,12 @@ const buildRequiredMentionsBlock = (evidence) => {
   const excludedLines = excludedAgents.map((x) => `- **${x.name}** — ${x.reason}`).join('\n');
 
   return `=== REQUIRED MENTIONS (anti-omission guardrail) ===
-Every pipeline drug below MUST appear by name (or listed alias) in your output. Approved agents belong in Section 3; investigational in Section 4 or 5; discontinued/failed in Section 8.
+Every pipeline drug below MUST appear by name (or listed alias) in your output. Approved agents belong in Section 3; investigational in Section 4 or 5; discontinued/failed in Section 8 (Safety Considerations Reported in Literature).
 
 PIPELINE DRUGS:
 ${drugLines || '- (none)'}
 
-EXCLUDED AGENTS (mention in Section 8 with the reason):
+EXCLUDED AGENTS (mention in Section 8 — Safety Considerations Reported in Literature — with the reason):
 ${excludedLines || '- (none)'}
 
 === END REQUIRED MENTIONS ===
@@ -381,10 +381,10 @@ ${facts.map((f, i) => `  - ${f.claim}  [refs: ${(f.evidenceRefs || []).join(', '
 LIFESTYLE / NON-DRUG GUIDANCE:
 ${lifestyle.map((l) => `  - ${l.recommendation}`).join('\n') || '  (none)'}
 
-ABSOLUTE RED FLAGS (these are established contraindications — do not recommend them):
+LITERATURE SAFETY CONSIDERATIONS (established concerns from guidelines/trials — report as cited evidence for physician discussion; NEVER as directives like "do not take"):
 ${redFlags.map((r) => `  - ${r}`).join('\n') || '  (none)'}
 
-Use these canonical facts and red flags as your backbone. Live evidence supplements them. If a live item contradicts a canonical fact, say so explicitly and weigh the quality of each.
+Use these canonical facts and safety considerations as your backbone. Live evidence supplements them. If a live item contradicts a canonical fact, say so explicitly and weigh the quality of each.
 `;
   }
 
@@ -484,7 +484,8 @@ ${buildPatientContext(patient)}`;
 const SHARED_GUARDRAILS = `
 CITATION RULES (absolute — the single biggest failure mode of AI in medical research is hallucinated citations):
 - CITE ONLY FROM THE GROUNDED EVIDENCE PACK provided below. Do not invent, paraphrase-without-URL, or cite from general knowledge.
-- Every factual claim about efficacy, safety, interactions, or outcomes MUST reference at least one evidence-pack item by its number (e.g. "[#3]") and include a verbatim quoted passage from that item's Content and the exact URL.
+- Every factual claim about efficacy, safety, interactions, or outcomes MUST reference at least one evidence-pack item by its number (e.g. "[#3]") and include a verbatim quoted passage from that item's Content AND a clickable markdown link: [short title](url).
+- EVERY treatment, trial, drug, paper, guideline, and center mention MUST include a clickable markdown link when a URL exists in the evidence pack or trials pull. Bare URLs are acceptable only if markdown link syntax is impossible; prefer [title](url) always.
 - If the evidence pack does not support a claim, write "No grounded evidence in pack" — DO NOT make one up.
 - Prefer A+ and A tier journals (NEJM, Lancet, JAMA, BMJ, Nature Medicine, Cochrane, ERJ, AJRCCM, Thorax, Chest) over B/C.
 - Weight evidence on METHODOLOGICAL grounds (RCT > observational > case report; meta-analysis > single study; larger n > smaller n; registered + pre-registered > not). Do NOT down-weight or up-weight by country of origin — a well-conducted RCT from any country is a well-conducted RCT.
@@ -496,10 +497,16 @@ ACCESS-LEVEL HONESTY (critical — many high-impact medical journals are paywall
 - For [METADATA-ONLY] papers: you may name the paper but you must NOT claim what it found. Say "a peer-reviewed paper exists but the abstract/full text were not available to me in this pack."
 - If a claim cannot be supported without overreaching past abstract content, state the limitation explicitly: "Based on the abstract; the full methods/results were not accessible."
 
+LANGUAGE TONE (critical — legal/educational framing):
+- This tool is educational decision-support, NOT medical advice or a prescription service.
+- NEVER use imperative directives to patients: "do not take", "avoid", "stop", "DO NOT DO THIS", "you must not".
+- Instead use literature-framed language: "Literature reports…", "Physicians often caution against…", "Evidence suggests caution regarding…", "Discuss with your physician before considering…", "Guidelines generally do not recommend…".
+- Safety information must be preserved and cited — reframe it, do not delete it.
+
 PATIENT-SPECIFIC SAFETY (critical):
-- Before recommending any drug, check the patient's current medication list for interactions and contraindications. Name the specific interaction and severity.
+- When discussing any drug, check the patient's current medication list for interactions and contraindications. Name the specific interaction and severity.
 - Consider age, comorbidities, labs/PFTs, and scans when assessing suitability.
-- Flag treatments that are contraindicated for this specific patient even if they are effective in the general population.
+- Note treatments that literature or guidelines flag as concerning for this specific patient profile, even if effective in the general population — frame as "worth discussing with your physician."
 
 GEOGRAPHIC / SOURCING RULES:
 - For stem cell therapies, clinics in China, Vietnam, Mexico, or India must be excluded unless explicitly requested. Prefer US/Western Europe clinics whose source lab has no active FDA warning letter.
@@ -507,7 +514,7 @@ GEOGRAPHIC / SOURCING RULES:
 - Do not rely on a clinic's own advertising or press releases.
 
 DISCLAIMERS:
-- This is decision-support research, not medical advice. Final choices require a licensed physician.
+- This is educational decision-support research, not medical advice. Final choices require a licensed physician.
 `;
 
 // Formatting rules that apply to EVERY section. Pulled out so the user's
@@ -520,7 +527,8 @@ OUTPUT FORMATTING RULES (enforce strictly — the user has explicitly complained
 - NO paragraphs longer than 3 lines. Break them into bullets.
 - When comparing ≥3 items, USE A MARKDOWN TABLE, not prose.
 - No filler words ("Furthermore", "Additionally", "It is worth noting that", "In conclusion"). Every sentence either gives a fact, a number, a name, or an action the patient can take.
-- Every URL MUST be a real clickable markdown link: [clinicaltrials.gov/NCT01234567](https://clinicaltrials.gov/study/NCT01234567).
+- Every URL MUST be a real clickable markdown link: [PANTHER-IPF trial (NEJM 2012)](https://pubmed.ncbi.nlm.nih.gov/...) or [NCT01234567](https://clinicaltrials.gov/study/NCT01234567).
+- Every drug name, trial, and paper mention in prose MUST also carry its link inline — users need to verify every finding.
 - For every card (treatment / trial / candidate), use the exact fixed-field structure. Do not add prose between fields.
 `;
 
@@ -574,7 +582,7 @@ SAFETY: <1-100>% — <higher = safer, one-line justification>
 RISKS: <serious AEs + THIS patient's risk given meds/comorbidities>
 INTERACTIONS: <named interactions vs this patient's meds, or "None identified">
 COST: <USD range, US insurance coverage note>
-REFERENCES: <2-3 URLs from the evidence pack, each with [ACCESS] tag>
+REFERENCES: <2-3 clickable markdown links from the evidence pack, e.g. [NEJM 2014 — pirfenidone](https://...) [ABSTRACT-ONLY]; never plain text URLs without link syntax>
 
 ${FORMATTING_RULES}
 
@@ -624,13 +632,13 @@ Tailored to **this specific patient profile**:
 - **Patient advocacy:** 2-4 orgs / registries / foundations from the dossier's patientAdvocacy list, with homepage URLs.
 - **Insurance & cost:** what US commercial / Medicare typically covers. Rough out-of-pocket. Red-flag overseas clinics with undisclosed pricing.
 
-## 8. Red Flags — DO NOT DO THIS
-From the dossier's redFlags + your grounded-evidence knowledge. Concrete "don't" bullets:
-- e.g. IPF: *"Do NOT use prednisone+azathioprine+NAC — increased mortality per PANTHER-IPF (NEJM 2012)."*
-- e.g. LADA: *"Do NOT treat as T2D with sulfonylurea — accelerates beta-cell failure."*
-- e.g. RP: *"Do NOT take high-dose vitamin A palmitate if pregnancy is possible — teratogenic."*
+## 8. Safety Considerations Reported in Literature
+From the dossier's redFlags + your grounded-evidence knowledge. Frame each item as cited literature for physician discussion — NEVER as patient directives:
+- e.g. IPF: *"Literature reports increased mortality with prednisone+azathioprine+NAC triple therapy ([PANTHER-IPF, NEJM 2012](url)) — physicians generally avoid this combination; discuss with your doctor before considering it."*
+- e.g. LADA: *"Evidence suggests sulfonylureas may accelerate beta-cell failure in LADA when misclassified as type 2 diabetes ([citation](url)) — worth verifying diagnosis and treatment approach with an endocrinologist."*
+- e.g. RP: *"High-dose vitamin A palmitate carries teratogenic risk reported in literature ([citation](url)) — pregnancy planning should be discussed with a physician before use."*
 
-Plus: overseas clinic warnings, unproven 'cures,' and anything contradicted by the grounded evidence.
+Also cover: overseas clinic concerns (with source URLs where available), unproven 'cures' contradicted by grounded evidence, and excluded agents from the REQUIRED MENTIONS list — each with a clickable link.
 
 ${FORMATTING_RULES}
 
@@ -652,7 +660,7 @@ APPROVED_FOR: <current FDA-approved or common use>
 MECHANISM_TARGET: <the specific molecular target, pathway, or biological mechanism relevant to the condition (e.g. "TGF-β signalling", "AMPK activation / autophagy", "vitamin D receptor → anti-fibrotic gene expression")>
 REPURPOSE_RATIONALE: <the mechanistic logic — why would this help the primary condition? Explain the biology step-by-step, at the specified audience level.>
 EVIDENCE_STRENGTH: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
-SUPPORTING_EVIDENCE: <peer-reviewed support: animal studies, case reports, observational, off-label use. List URLs from the evidence pack with verbatim quoted passages. If no grounded evidence exists in the pack, say "Mechanistic hypothesis only — no human data yet".>
+SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. If no grounded evidence exists in the pack, say "Mechanistic hypothesis only — no human data yet".>
 EFFICACY_HYPOTHESIS: <1-100>% — <one-line justification>
 SAFETY: <1-100>% — <higher = safer; reference FDA label / FAERS reactions if available>
 CONFIDENCE: <1-100>% — <overall confidence that this is worth physician discussion>
@@ -669,13 +677,13 @@ Produce 5-10 combination candidates (pairings or triples of agents from the list
 COMBO: <Agent A + Agent B [+ Agent C]>
 RATIONALE: <one or two sentences on why the mechanisms are complementary or synergistic for THIS condition — pathway diagram in words>
 EVIDENCE_TIER: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
-SUPPORTING_EVIDENCE: <verbatim quotes + URLs from the evidence pack, or "Mechanistic hypothesis only — no human combo data yet" if there is no grounded evidence.>
+SUPPORTING_EVIDENCE: <verbatim quotes + clickable markdown links [title](url) from the evidence pack, or "Mechanistic hypothesis only — no human combo data yet" if there is no grounded evidence.>
 INTERACTION_RISK: <severity LOW | MODERATE | HIGH plus the specific pharmacokinetic / pharmacodynamic interaction; reference FDA label drug-interaction text when available>
 PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's current medications + comorbidities; if none, write "None identified">
 CONFIDENCE: <1-100>% — <overall confidence that this combo is worth physician discussion>
 HOW_TO_DISCUSS_WITH_DOCTOR: <practical script — "I read about combining X and Y for [condition] because [pathway]; can we discuss whether monitoring [labs/AEs] would let us trial it?">
 
-Combinations are HYPOTHESIS-GENERATION ONLY. Many real-world combos are dangerous (additive QT prolongation, serotonin syndrome, bleeding risk). Be honest when the safest answer is "do NOT combine — interaction risk dominates any plausible benefit" — list those as confidence < 25% and INTERACTION_RISK: HIGH.
+Combinations are HYPOTHESIS-GENERATION ONLY. Many real-world combos carry significant interaction risk (additive QT prolongation, serotonin syndrome, bleeding risk). When literature or pharmacology suggests interaction risk may dominate any plausible benefit, report that honestly with citations — list those as confidence < 25% and INTERACTION_RISK: HIGH. Frame as "physicians generally caution against combining… — discuss with your doctor."
 
 ## Reasoning Summary
 Explain the top 3 single-agent candidates and the top 2 combination candidates in plain language.
@@ -1217,8 +1225,8 @@ ${dossierInChat ? dossierInChat + '\n' : ''}${hasPriors ? priorPieces.join('\n\n
    **Patient resources**
    - advocacy orgs, registries
 
-   **Red flags / common mistakes**
-   - bullets
+   **Safety considerations reported in literature**
+   - bullets with clickable links where available; frame as evidence for physician discussion, not directives
 
    **For a deeper personalized analysis** — prompt them: "Add this condition to the Patient Profile tab and hit Run Research for a full 16-section personalised analysis with drug-interaction checks and the live evidence pack."
 
@@ -1365,7 +1373,7 @@ ${missedSummary}
 Where they must go:
 - FDA-approved agents → Section 3 (Approved Treatments)
 - Phase 3 / phase 2b investigational agents → Section 4 (Clinical Trials & Access Programs) or Section 5 (Pipeline Watch)
-- Discontinued or pivotal-negative agents → Section 8 (Red Flags)
+- Discontinued or pivotal-negative agents → Section 8 (Safety Considerations Reported in Literature)
 
 Return the full corrected analysis now, beginning again at "## 1." (front half) or "## 4." (back half) depending on which half you are generating.`;
 
