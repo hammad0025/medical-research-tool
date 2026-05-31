@@ -666,6 +666,20 @@
         );
       };
 
+      const isMechanisticEvidence = (value) => {
+        const v = String(value || '').toUpperCase().trim();
+        return v.includes('MECHANISTIC_ONLY') || v.includes('PRECLINICAL');
+      };
+      const partitionCandidates = (candidates) => {
+        const mechanistic = [];
+        const withEvidence = [];
+        (candidates || []).forEach(c => {
+          if (isMechanisticEvidence(c.evidence_strength)) mechanistic.push(c);
+          else withEvidence.push(c);
+        });
+        return { mechanistic, withEvidence };
+      };
+
       const TRIAL_KEYS = [
         'TRIAL:', 'NCT:', 'URL:', 'PHASE:', 'STATUS:', 'ACCEPTING:', 'PLACEBO:',
         'TREATMENT_ONLY:', 'COUNTRY:', 'OVERSIGHT:', 'DESIGNATIONS:',
@@ -2906,22 +2920,26 @@
       };
       const EvidenceStrengthBadge = ({ value }) => {
         const m = evidenceMeta(value);
+        const isHypothesisOnly = m.key === 'MECHANISTIC_ONLY';
         return (
-          <span title={`Evidence strength: ${m.label} (rank ${m.rank}/6)`} style={{
+          <span title={`Evidence strength: ${isHypothesisOnly ? 'Hypothesis only — no direct human data for this condition' : m.label} (rank ${m.rank}/6)`} style={{
             display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
             padding: '0.25rem 0.65rem', borderRadius: 999, fontSize: '0.72rem',
-            border: `1px solid ${m.color}88`, background: `${m.color}1f`,
+            border: isHypothesisOnly ? `2px dashed ${m.color}` : `1px solid ${m.color}88`,
+            background: isHypothesisOnly ? `${m.color}12` : `${m.color}1f`,
             color: m.color, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase'
           }}>
-            <span style={{ display: 'inline-flex', gap: 1.5 }}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <span key={i} style={{
-                  width: 4, height: 8, borderRadius: 1,
-                  background: i < m.rank ? m.color : `${m.color}33`
-                }} />
-              ))}
-            </span>
-            {m.label}
+            {!isHypothesisOnly && (
+              <span style={{ display: 'inline-flex', gap: 1.5 }}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <span key={i} style={{
+                    width: 4, height: 8, borderRadius: 1,
+                    background: i < m.rank ? m.color : `${m.color}33`
+                  }} />
+                ))}
+              </span>
+            )}
+            {isHypothesisOnly ? 'Hypothesis only' : m.label}
           </span>
         );
       };
@@ -5217,13 +5235,14 @@
       );
 
       // Individual repurposing-candidate card. One per drug/supplement.
-      const CandidateCard = ({ c, rank }) => {
+      const CandidateCard = ({ c, rank, highlightMechanistic }) => {
+        const mechanistic = highlightMechanistic || isMechanisticEvidence(c.evidence_strength);
         return (
           <div style={{
             padding: '1rem 1.1rem',
             background: theme.panel,
             borderRadius: 12,
-            border: `1px solid ${theme.border}`,
+            border: mechanistic ? `2px dashed ${theme.accent}88` : `1px solid ${theme.border}`,
             position: 'relative',
             overflow: 'hidden'
           }}>
@@ -5363,6 +5382,17 @@
               (mechanistic hypothesis → large RCT), safety, confidence, and any interaction with
               the medications in your patient profile.
             </p>
+            <div style={{
+              margin: '0 0 1rem', padding: '0.75rem 0.9rem', borderRadius: 10,
+              border: `1px solid ${theme.accent}55`, background: `${theme.accent}10`,
+              fontSize: '0.85rem', lineHeight: 1.55, color: theme.text
+            }}>
+              <strong style={{ color: theme.accent }}>Two buckets of candidates:</strong>{' '}
+              <span style={{ color: theme.textDim }}>
+                (1) <strong style={{ color: theme.text }}>Logic-based ideas</strong> — drugs that could plausibly help from pathway reasoning even when there is no formal research on {cond} yet; labeled <em>Hypothesis only</em> or <em>Preclinical</em>.
+                (2) <strong style={{ color: theme.text }}>Published support</strong> — candidates with observational data or trials (case reports through large RCTs).
+              </span>
+            </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1.1rem' }}>
               {[
                 { icon: <Brain size={13} />,    label: 'First-principles mechanistic reasoning' },
@@ -5400,6 +5430,7 @@
         const [showRaw, setShowRaw] = useState(false);
         const [translatedText, setTranslatedText] = useState('');
         const renderedRepurposeText = translatedText || repurposeText;
+        const { mechanistic, withEvidence } = useMemo(() => partitionCandidates(candidates), [candidates]);
         const byStrength = {
           LARGE_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 6).length,
           SMALL_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 5).length,
@@ -5408,6 +5439,7 @@
           PRECLINICAL:      candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 2).length,
           MECHANISTIC_ONLY: candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 1).length
         };
+        const hasRun = !!repurposeText || candidates.length > 0;
         return (
           <div id="mrt-repurpose-export-target" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AdSlot runtimeConfig={runtimeConfig} slotKey="repurposeTop" />
@@ -5420,33 +5452,88 @@
             <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!repurposeText} />
 
             {candidates.length > 0 && (
-              <>
-                <div style={panelStyle}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
-                    <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem' }}>
-                      {candidates.length} candidate{candidates.length === 1 ? '' : 's'}
-                      <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem', marginLeft: '0.5rem' }}>
-                        · ranked by overall confidence
-                      </span>
-                    </h3>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
-                    {EVIDENCE_LADDER.slice().reverse().map(l => byStrength[l.key] ? (
-                      <span key={l.key} title={l.label} style={{
-                        padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.7rem',
-                        border: `1px solid ${l.color}66`, background: `${l.color}18`,
-                        color: l.color, fontWeight: 700
-                      }}>
-                        {byStrength[l.key]} × {l.label}
-                      </span>
-                    ) : null)}
-                  </div>
+              <div style={panelStyle}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
+                  <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem' }}>
+                    {candidates.length} candidate{candidates.length === 1 ? '' : 's'}
+                    <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem', marginLeft: '0.5rem' }}>
+                      · {mechanistic.length} logic-based · {withEvidence.length} with published support
+                    </span>
+                  </h3>
                 </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
+                  {EVIDENCE_LADDER.slice().reverse().map(l => byStrength[l.key] ? (
+                    <span key={l.key} title={l.label} style={{
+                      padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.7rem',
+                      border: `1px solid ${l.color}66`, background: `${l.color}18`,
+                      color: l.color, fontWeight: 700
+                    }}>
+                      {byStrength[l.key]} × {l.label}
+                    </span>
+                  ) : null)}
+                </div>
+              </div>
+            )}
 
+            <div style={{
+              ...panelStyle,
+              borderLeft: `4px solid ${theme.accent}`,
+              background: `linear-gradient(90deg, ${theme.accent}12 0%, ${theme.panel} 55%)`
+            }}>
+              <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <Brain size={18} />
+                Logic-based candidates (no formal research on this condition yet)
+              </h3>
+              <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                These are hypothesis-generation ideas from pathway reasoning — not prescriptions. Every item is labeled by evidence tier.
+              </p>
+              {mechanistic.length > 0 ? (
                 <div style={{ display: 'grid', gap: '0.85rem' }}>
-                  {candidates.map((c, i) => <CandidateCard key={i} c={c} rank={i + 1} />)}
+                  {mechanistic.map((c, i) => (
+                    <CandidateCard key={`m-${i}`} c={c} rank={i + 1} highlightMechanistic={true} />
+                  ))}
                 </div>
-              </>
+              ) : hasRun ? (
+                <div style={{
+                  textAlign: 'center', padding: '1.25rem', color: theme.textDim,
+                  border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
+                }}>
+                  No mechanistic-only or preclinical candidates were parsed. Re-run Repurpose analysis — the AI is instructed to include logic-based candidates with honest &ldquo;no human data for this condition yet&rdquo; labeling.
+                </div>
+              ) : (
+                <div style={{
+                  textAlign: 'center', padding: '1.25rem', color: theme.textDim,
+                  border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
+                }}>
+                  Run Repurpose analysis — the AI is instructed to include mechanistic-only candidates.
+                </div>
+              )}
+            </div>
+
+            {(withEvidence.length > 0 || (hasRun && mechanistic.length > 0)) && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Database size={18} />
+                  Candidates with published support (observational / trial data)
+                </h3>
+                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  Drugs with case reports, observational studies, or randomized trials relevant to this condition — ranked by overall confidence.
+                </p>
+                {withEvidence.length > 0 ? (
+                  <div style={{ display: 'grid', gap: '0.85rem' }}>
+                    {withEvidence.map((c, i) => (
+                      <CandidateCard key={`e-${i}`} c={c} rank={i + 1} />
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{
+                    textAlign: 'center', padding: '1rem', color: theme.textDim,
+                    border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
+                  }}>
+                    All parsed candidates fell in the logic-based bucket for this run.
+                  </div>
+                )}
+              </div>
             )}
 
             <CostMeter meta={runMeta} label="Repurpose run cost" />
@@ -5664,6 +5751,9 @@
                     <h3 style={{ color: theme.accent, marginTop: '1.25rem', fontSize: '1rem' }}>
                       Repurposing candidates (hypothesis)
                     </h3>
+                    <p style={{ color: theme.textDim, fontSize: '0.82rem', margin: '0.25rem 0 0' }}>
+                      Logic-based rows use dashed <em>Hypothesis only</em> / Preclinical badges; published-support rows show observational or trial tiers.
+                    </p>
                     <ComparisonTable rows={candidates} variant="candidate" />
                   </>
                 )}
@@ -5689,6 +5779,7 @@
             ]
           : [
               { k: 'candidate',                 h: 'Candidate',       w: 160 },
+              { k: 'evidence_strength',         h: 'Evidence tier',   w: 130, badge: true },
               { k: 'class',                     h: 'Class',           w: 140 },
               { k: 'approved_for',              h: 'Approved for',    w: 180 },
               { k: 'repurpose_rationale',       h: 'Why it might help', w: 280 },
@@ -5713,6 +5804,13 @@
                   <tr key={i} style={{ borderBottom: `1px solid ${theme.border}`, verticalAlign: 'top' }}>
                     {cols.map(c => {
                       const v = r[c.k];
+                      if (c.badge) {
+                        return (
+                          <td key={c.k} style={{ padding: '0.6rem', lineHeight: 1.5 }}>
+                            {v ? <EvidenceStrengthBadge value={v} /> : '—'}
+                          </td>
+                        );
+                      }
                       if (c.bar) {
                         const n = typeof v === 'number' ? v : null;
                         const col = ratingColor(n);

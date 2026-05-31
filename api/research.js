@@ -652,7 +652,24 @@ This is the EveryCure / drug-repurposing methodology. Think outside the box. Rea
 - shared molecular pathways with other conditions where a drug is already effective
 - supportive (not definitive) peer-reviewed evidence
 
-Produce a ranked list of 12-25 candidate repurposed drugs or supplements. For EACH candidate output this exact block (the UI parses it):
+## Mechanistic Hypotheses (no direct disease research required)
+Produce 5-8 candidates where EVIDENCE_STRENGTH is MECHANISTIC_ONLY or PRECLINICAL.
+These MUST be drugs/supplements with plausible pathway logic for THIS condition even if
+zero human trials exist for this indication. Examples of the thinking we want:
+- Anti-inflammatory already used in Condition B → shared pathway with patient's condition
+- Metabolic drug → overlaps with disease pathophysiology
+- Supplement targeting oxidative stress when disease involves ROS
+
+For EACH mechanistic candidate, SUPPORTING_EVIDENCE must say explicitly:
+"Mechanistic hypothesis only — no human data for [condition] yet" when true.
+Still cite adjacent-condition papers or pathway reviews from the evidence pack when available.
+
+Output these mechanistic/preclinical candidates FIRST, each using the CANDIDATE block format below.
+Then continue with additional candidates that may have observational or trial data.
+
+QUOTA (mandatory): At least 30% of your 12-25 total candidates MUST have EVIDENCE_STRENGTH of MECHANISTIC_ONLY or PRECLINICAL. Do NOT fill the list only with drugs that already have RCTs on this condition — the user specifically wants logic-based ideas with honest "no human data for this condition yet" labeling when that is true.
+
+Produce a ranked list of 12-25 candidate repurposed drugs or supplements total. For EACH candidate output this exact block (the UI parses it):
 
 CANDIDATE: <name>
 CLASS: <drug class or supplement category>
