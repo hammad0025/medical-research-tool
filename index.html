@@ -307,11 +307,25 @@
         return res;
       };
 
+      const isLocalDevHost = () => {
+        try {
+          return /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+        } catch { return false; }
+      };
+      const localApiDevHint =
+        'Start the API from the project root: npm run dev (or vercel dev). Then open http://localhost:3000 — do not open index.html as a file. See README.';
+      if (typeof location !== 'undefined' && location.protocol === 'file:') {
+        console.warn('[MRT] Opened as file:// — /api/* will not work. ' + localApiDevHint);
+      }
+
       // Shared non-JSON / edge-error parser for all /api/research callers.
       const parseApiJsonResponse = (res, raw, { timeoutMsg } = {}) => {
         let data;
         try { data = JSON.parse(raw); }
         catch {
+          if (isLocalDevHost() && (res.status === 501 || res.status === 404)) {
+            throw new Error(localApiDevHint);
+          }
           if (res.status === 501) {
             throw new Error('Server unavailable — deployment may still be building. Try again in 1 minute or contact admin.');
           }
@@ -1816,6 +1830,10 @@
             let data;
             try { data = JSON.parse(raw); }
             catch {
+              if (isLocalDevHost() && (r.status === 501 || r.status === 404)) {
+                setValidations((v) => ({ ...v, [mode]: { error: localApiDevHint } }));
+                return;
+              }
               if (r.status === 501) {
                 setValidations((v) => ({ ...v, [mode]: { error: 'Server unavailable — deployment may still be building. Try again in 1 minute or contact admin.' } }));
                 return;

@@ -41,6 +41,7 @@
   "dependencies": {},
   "devDependencies": {},
   "scripts": {
+    "dev": "vercel dev",
     "info": "echo 'Medical Research Assistant - Phase 3 (curated KB + EveryCure repurpose + cross-AI audit)'",
     "e2e": "node scripts/e2e-test.mjs",
     "regression": "node scripts/regression-kb-coverage.mjs",

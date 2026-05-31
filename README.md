@@ -194,14 +194,35 @@ curl "https://YOUR-APP.vercel.app/api/alerts-cron?onlyEmail=you@example.com&secr
 
 ### Local development
 
+The UI and `/api/*` serverless functions only work together when served by
+the Vercel dev server. **Do not** open `index.html` directly (`file://`) or
+use `python -m http.server` — those serve static files only and every
+`/api/*` call will 404 or fail with a generic server error.
+
 ```bash
 git clone https://github.com/hammad0025/medical-research-tool.git
 cd medical-research-tool
-vercel env pull .env.local
-vercel dev
+npm i -g vercel   # if needed
+vercel env pull .env.local   # must include ANTHROPIC_API_KEY
+npm run dev        # same as: vercel dev
 ```
 
-Or run the end-to-end test harness against the local functions:
+Then open **http://localhost:3000** (not the file path).
+
+**Port 3000 already in use?** Another app may be bound to it (common on
+Mac). Stop that process or run on another port:
+
+```bash
+vercel dev --listen 3001
+# open http://localhost:3001
+```
+
+**501 / "Server unavailable" on localhost** usually means `vercel dev` is
+not running, you opened the wrong port, or something other than Vercel is
+listening on that port (e.g. a React dev server that does not proxy
+`/api/research`).
+
+Or run the end-to-end test harness against the local functions (no browser):
 
 ```bash
 npm run e2e
