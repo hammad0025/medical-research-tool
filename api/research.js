@@ -442,7 +442,7 @@ Use these canonical facts and safety considerations as your backbone. Live evide
       bits.push(`${qb.retractedExcluded} retracted paper(s) were FOUND in the initial pool and EXCLUDED from this pack. Do not cite these titles from memory: ${qb.retractedTitles.map((r) => `"${(r.title || '').slice(0, 80)}"`).join('; ')}.`);
     }
     if (qb.predatoryExcluded > 0) {
-      bits.push(`${qb.predatoryExcluded} paper(s) from documented predatory publishers were EXCLUDED.`);
+      bits.push(`${qb.predatoryExcluded} paper(s) from publishers with documented integrity concerns were filtered from this prompt pack.`);
     }
     if (qb.preprintsInPool > 0) {
       bits.push(`${qb.preprintsInPool} preprint(s) are still present but tagged — flag them to the user as "preprint, not peer-reviewed".`);

@@ -255,7 +255,7 @@
           body: 'To the fullest extent permitted by law, the operators of researchingmycondition.com and their contributors shall not be liable for any direct, indirect, incidental, special, consequential, or punitive damages arising from your use of or reliance on this tool or its outputs.' }
       ];
 
-      const PREDATORY_PUBLISHER_EXAMPLES = [
+      const INTEGRITY_FLAGGED_PUBLISHER_EXAMPLES = [
         'OMICS International',
         'Hindawi (mass-retractions 2023–2024)',
         'Scientific Research Publishing (SciRP)',
@@ -1518,7 +1518,7 @@
                   desc: 'Canonical name, synonyms, MeSH, top centers, landmark trials.',
                   status: 'running' },
                 { id: 'evidence', label: 'Pull peer-reviewed evidence',
-                  desc: 'Searches ~250k journals worldwide via PubMed · Europe PMC · OpenAlex · Cochrane · openFDA · Unpaywall. Academic / peer-reviewed venues only; paper mills excluded.',
+                  desc: 'Searches ~250k journals worldwide via PubMed · Europe PMC · OpenAlex · Cochrane · openFDA · Unpaywall. Academic / peer-reviewed venues only; integrity-flagged venues filtered from the prompt pack.',
                   status: 'running' },
                 { id: 'trials',   label: 'Scan ClinicalTrials.gov',
                   desc: 'Recruiting + expanded-access + open-label extension fan-out.',
@@ -3045,7 +3045,7 @@
               <strong style={{ color: theme.text }}>{patient.condition || '(no condition set above)'}</strong>,
               diff the results against what you've already seen, and email you only what's NEW —
               new RCTs and meta-analyses first, then other peer-reviewed research, new clinical trials,
-              and any FDA actions. Retracted and predatory-publisher papers are excluded before emailing,
+              and any FDA actions. Retracted papers and papers from integrity-flagged publishers are filtered from the prompt pack before emailing,
               same as the webapp.
             </p>
             <p style={{
@@ -3835,7 +3835,7 @@
       // what api/evidence.js computeQualityFlags() emits:
       //   positive = evidence-strength boost (RCT, Cochrane, A+ journal, KB)
       //   warning  = integrity concern (preprint, country-penalised, low-integrity)
-      //   critical = hard-exclusion class (retracted, predatory publisher)
+      //   critical = hard-exclusion class (retracted, integrity-flagged publisher)
       const FLAG_COLORS = {
         positive: theme.green,
         warning: theme.yellow,
@@ -4277,12 +4277,12 @@
         );
       };
 
-      // Quality-breakdown panel: "we screened 58 sources, excluded 2 retracted,
-      // 1 predatory-publisher paper, and down-weighted 4 from integrity-concern
+      // Quality-breakdown panel: "we screened 58 sources, filtered 2 retracted,
+      // 1 integrity-flagged publisher paper, and down-weighted 4 from integrity-concern
       // jurisdictions in the prompt pack we fed Claude."
       const QualityPanel = ({ qb }) => {
         const [expanded, setExpanded] = useState(false);
-        const [predatoryOpen, setPredatoryOpen] = useState(false);
+        const [integrityFlaggedOpen, setIntegrityFlaggedOpen] = useState(false);
         if (!qb) return null;
         const hasExclusions = (qb.retractedExcluded || 0) > 0 || (qb.predatoryExcluded || 0) > 0;
         return (
@@ -4308,14 +4308,14 @@
                 background: `${theme.red}22`, color: theme.red, fontWeight: 700,
                 border: `1px solid ${theme.red}55`
               }}>
-                {qb.retractedExcluded} retracted · EXCLUDED
+                {qb.retractedExcluded} retracted · not included in AI prompt pack
               </span>
               <span style={{
                 padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
                 background: `${theme.red}22`, color: theme.red, fontWeight: 700,
                 border: `1px solid ${theme.red}55`
               }}>
-                {qb.predatoryExcluded} predatory-publisher · EXCLUDED
+                {qb.predatoryExcluded} integrity-flagged publisher · filtered from prompt pack
               </span>
               <span style={{
                 padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
@@ -4340,24 +4340,26 @@
               </span>
             </div>
             <details
-              open={predatoryOpen}
-              onToggle={(e) => setPredatoryOpen(e.target.open)}
+              open={integrityFlaggedOpen}
+              onToggle={(e) => setIntegrityFlaggedOpen(e.target.open)}
               style={{ marginTop: '0.65rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}
             >
               <summary style={{ cursor: 'pointer', color: theme.accent, fontWeight: 600 }}>
-                What is a predatory publisher?
+                What are integrity-flagged publishers?
               </summary>
               <div style={{ marginTop: '0.45rem' }}>
-                This is <strong style={{ color: theme.text }}>not</strong> the same as country of origin — we do not hide papers
-                from any country. Predatory publishers are venues with documented pay-to-publish or mass-retraction problems
-                (not country-based). Examples on our blocklist include:
+                <strong style={{ color: theme.text }}>Publishers flagged for documented integrity concerns.</strong>
+                {' '}These are venues with publicly documented pay-to-publish practices, mass retractions, or similar
+                integrity issues — not a judgment about any country or author. This is{' '}
+                <strong style={{ color: theme.text }}>not</strong> the same as country of origin — we do not hide papers
+                from any country. Examples frequently cited in integrity watchlists include:
                 <ul style={{ margin: '0.45rem 0', paddingLeft: '1.2rem' }}>
-                  {PREDATORY_PUBLISHER_EXAMPLES.map((name) => (
+                  {INTEGRITY_FLAGGED_PUBLISHER_EXAMPLES.map((name) => (
                     <li key={name}>{name}</li>
                   ))}
                 </ul>
-                Papers from any country remain searchable; the predatory flag affects ranking only, not removal from literature search.
-                We exclude flagged predatory-publisher papers from the AI prompt pack when identified; well-conducted
+                Papers from any country remain searchable; the integrity flag is a ranking adjustment only, not removal from literature search.
+                We do not include flagged papers from these venues in the AI prompt pack when identified; well-conducted
                 research from any region remains eligible on its merits.
               </div>
             </details>
@@ -4368,7 +4370,8 @@
                   {' '}Every source is scored on <em>methodological</em> signals only:
                   journal tier, citation count, recency, and publication type
                   (RCT / meta-analysis &gt; observational &gt; opinion). Retracted papers
-                  and documented predatory publishers are EXCLUDED entirely. Preprints are
+                  and papers from publishers with documented integrity concerns are not included in the AI prompt pack.
+                  Preprints are
                   kept but flagged as not-yet-peer-reviewed. We do NOT down-weight by author
                   country — a well-conducted RCT is a well-conducted RCT regardless of where
                   the first author sits.
@@ -4376,7 +4379,7 @@
                 {(qb.retractedTitles || []).length > 0 && (
                   <div style={{ marginTop: '0.6rem' }}>
                     <div style={{ color: theme.red, fontWeight: 700, marginBottom: '0.25rem' }}>
-                      Retracted papers EXCLUDED from prompt pack:
+                      Retracted papers not included in AI prompt pack:
                     </div>
                     <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
                       {qb.retractedTitles.map((r, i) => (
@@ -4390,7 +4393,7 @@
                 {(qb.predatoryTitles || []).length > 0 && (
                   <div style={{ marginTop: '0.6rem' }}>
                     <div style={{ color: theme.red, fontWeight: 700, marginBottom: '0.25rem' }}>
-                      Predatory-publisher papers EXCLUDED:
+                      Papers from integrity-flagged publishers filtered from prompt pack:
                     </div>
                     <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
                       {qb.predatoryTitles.map((r, i) => (
