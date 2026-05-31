@@ -231,6 +231,44 @@
             screen is skipped automatically — see probeAccessGate().
       ============================================================== */
       const MRT_PASSCODE_KEY = 'mrt_access_passcode_v1';
+      const MRT_TERMS_KEY = 'mrt_terms_accepted_v1';
+
+      /* Inline Terms of Use (mirrors docs/TERMS_OF_USE.md for the modal). */
+      const TERMS_OF_USE_SECTIONS = [
+        { title: 'Educational decision-support only — not medical advice',
+          body: 'This tool summarizes published medical literature and clinical-trial registries to help you explore treatment options and research directions. It is not medical advice, a diagnosis, or a treatment recommendation. Nothing here replaces consultation with a licensed physician or other qualified healthcare provider.' },
+        { title: 'No doctor–patient relationship',
+          body: 'Use of this site does not create a doctor–patient, clinician–patient, or any other professional healthcare relationship between you and the operators of this tool.' },
+        { title: 'Not HIPAA-compliant',
+          body: 'This prototype is not HIPAA-compliant. Do not enter names, dates of birth, medical record numbers, addresses, phone numbers, or other personally identifying information. Patient profile data you enter stays in your browser only; text submitted for AI analysis is sent to third-party services.' },
+        { title: 'No guarantee of accuracy; AI may hallucinate',
+          body: 'Medical literature is complex and evolving. AI-generated summaries may be incomplete, outdated, or incorrect — including hallucinated citations (references that do not exist or do not support the stated claim). We do not guarantee the accuracy, completeness, or suitability of any output.' },
+        { title: 'Your responsibility to verify links and claims',
+          body: 'You are responsible for independently verifying every citation, link, trial listing, and factual claim before relying on it. Open source links (PubMed, ClinicalTrials.gov, DOI resolvers, etc.) and discuss findings with your care team.' },
+        { title: 'Email alerts — server-side storage',
+          body: 'If you subscribe to weekly email digests, we store your email address and condition of interest on our server (Upstash) to send those emails. Do not include names, MRNs, or other identifying information in alert subscriptions.' },
+        { title: 'Age requirement',
+          body: 'You must be 18 years or older to use this tool, or use it only with a parent or guardian who accepts these terms on your behalf.' },
+        { title: 'Disclaimer of warranties',
+          body: 'This tool is provided “as is” and “as available” without warranties of any kind, whether express or implied, including merchantability, fitness for a particular purpose, and non-infringement.' },
+        { title: 'Limitation of liability',
+          body: 'To the fullest extent permitted by law, the operators of researchingmycondition.com and their contributors shall not be liable for any direct, indirect, incidental, special, consequential, or punitive damages arising from your use of or reliance on this tool or its outputs.' }
+      ];
+
+      const PREDATORY_PUBLISHER_EXAMPLES = [
+        'OMICS International',
+        'Hindawi (mass-retractions 2023–2024)',
+        'Scientific Research Publishing (SciRP)',
+        'Bentham Open / Bentham Science',
+        'MedCrave Group',
+        'Scholink',
+        'IISTE',
+        'Juniper Publishers'
+      ];
+
+      const CHAT_SESSION_FOOTNOTE = 'Answers use this session\u2019s context. Feedback does not automatically update our knowledge base.';
+
+      const TermsContext = React.createContext({ openTerms: () => {} });
       const getStoredPasscode = () => {
         try { return localStorage.getItem(MRT_PASSCODE_KEY) || ''; }
         catch { return ''; }
@@ -1255,6 +1293,17 @@
                     : <Search size={14} />} Send
                 </button>
               </div>
+              <div style={{
+                padding: '0.45rem 0.85rem',
+                borderTop: `1px solid ${theme.border}`,
+                fontSize: '0.65rem',
+                color: theme.textDim,
+                lineHeight: 1.45,
+                flexShrink: 0,
+                background: theme.panel
+              }}>
+                {CHAT_SESSION_FOOTNOTE}
+              </div>
             </div>
           </>
         );
@@ -1280,7 +1329,7 @@
           geneticVariant: ''
         }));
         const [audience, setAudience] = useState(() => loadLS('mrt_audience', 'layperson'));
-        const [acceptedHipaa, setAcceptedHipaa] = useState(() => loadLS('mrt_hipaa', false));
+        const [acceptedHipaa, setAcceptedHipaa] = useState(() => loadLS('mrt_hipaa', false) || loadLS(MRT_TERMS_KEY, false));
         const [user, setUser] = useState(() => loadStoredUser());
         // Theme mode. The actual palette lives on module-level mutable
         // bindings (theme/panelStyle/inputStyle/labelStyle/btn) which are
@@ -1918,8 +1967,6 @@
               user={user} setUser={setUser}
               themeMode={themeMode} setThemeMode={setThemeMode}
               runtimeConfig={runtimeConfig} usageInfo={usageInfo} />
-            {!acceptedHipaa && <HipaaGate onAccept={() => setAcceptedHipaa(true)} />}
-
             <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 2rem' }}>
               <Tabs tab={tab} setTab={setTab} />
 
@@ -1927,6 +1974,7 @@
                 audience={audience} setAudience={setAudience}
                 setTab={setTab} runResearch={runResearch} busy={busy}
                 runtimeConfig={runtimeConfig} usageInfo={usageInfo}
+                acceptedHipaa={acceptedHipaa} setAcceptedHipaa={setAcceptedHipaa}
                 refreshUsage={async () => {
                   try { setUsageInfo(await callResearchMode('usage')); } catch (_) {}
                 }} />}
@@ -2273,7 +2321,7 @@
                     {mode === 'signin' ? 'Sign in' : 'Create account'}
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.78rem', color: theme.textDim }}>
-                    Free during beta · your data stays on your device
+                    Demo sign-in · local-only identity (not synced to servers)
                   </p>
                 </div>
               </div>
@@ -2306,14 +2354,167 @@
                 </button>
               </p>
               <p style={{ marginTop: '0.75rem', marginBottom: 0, fontSize: '0.7rem', color: theme.textDim, textAlign: 'center', fontStyle: 'italic' }}>
-                Accounts are free and currently local-only. We don't sync, don't share, and don't sell.
+                This is a local-only demo identity stored in your browser. We do not sync accounts to our servers yet.
               </p>
             </div>
           </div>
         );
       };
 
-      /* ==================== HIPAA Gate ==================== */
+      /* ==================== Terms of Use gate ==================== */
+      const TermsOfUseBody = () => (
+        <div style={{ maxHeight: '42vh', overflowY: 'auto', paddingRight: '0.35rem', lineHeight: 1.6 }}>
+          {TERMS_OF_USE_SECTIONS.map((s, i) => (
+            <div key={i} style={{ marginBottom: '0.85rem' }}>
+              <div style={{ fontWeight: 700, color: theme.text, fontSize: '0.88rem', marginBottom: '0.25rem' }}>{s.title}</div>
+              <div style={{ color: theme.textDim, fontSize: '0.82rem' }}>{s.body}</div>
+            </div>
+          ))}
+          <p style={{ margin: 0, fontSize: '0.78rem', color: theme.textDim, fontStyle: 'italic' }}>
+            Full text also available at{' '}
+            <a href="/docs/TERMS_OF_USE.md" target="_blank" rel="noopener noreferrer" style={{ color: theme.accent }}>
+              docs/TERMS_OF_USE.md
+            </a>
+          </p>
+        </div>
+      );
+
+      const TermsModal = ({ mode = 'accept', checked, setChecked, onAccept, onDecline, onClose }) => (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 110,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.25rem'
+        }}>
+          <div style={{ ...panelStyle, maxWidth: 680, width: '100%', background: theme.panelSolid, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
+            role="dialog" aria-modal="true" aria-labelledby="mrt-terms-title">
+            <h2 id="mrt-terms-title" style={{ marginTop: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.15rem' }}>
+              <Shield size={22} /> Terms of Use
+            </h2>
+            <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: 0 }}>
+              Please read before using this educational research tool. By continuing you agree to these terms.
+            </p>
+            <TermsOfUseBody />
+            {mode === 'accept' && (
+              <>
+                <label style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '0.55rem', marginTop: '0.75rem',
+                  fontSize: '0.85rem', color: theme.text, cursor: 'pointer'
+                }}>
+                  <input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)}
+                    style={{ marginTop: 3, accentColor: theme.accent }} />
+                  <span>I have read and understand these Terms of Use. I am 18 or older (or using this with a guardian who accepts on my behalf).</span>
+                </label>
+                <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                  <button style={btn('primary', !checked)} disabled={!checked} onClick={onAccept}>
+                    I understand and agree
+                  </button>
+                  <button style={btn('ghost', false)} onClick={onDecline}>Decline</button>
+                </div>
+              </>
+            )}
+            {mode === 'view' && (
+              <div style={{ marginTop: '1rem' }}>
+                <button style={btn('primary', false)} onClick={onClose}>Close</button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+
+      const TermsAcceptanceGate = ({ children }) => {
+        const [accepted, setAccepted] = useState(() => loadLS(MRT_TERMS_KEY, false));
+        const [checked, setChecked] = useState(false);
+        const [declined, setDeclined] = useState(false);
+        const [viewOpen, setViewOpen] = useState(false);
+
+        const acceptTerms = () => {
+          saveLS(MRT_TERMS_KEY, true);
+          saveLS('mrt_hipaa', true);
+          setAccepted(true);
+        };
+
+        const openTerms = () => setViewOpen(true);
+
+        if (declined) {
+          return (
+            <>
+              <div style={{
+                minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '2rem', background: theme.bg, color: theme.text
+              }}>
+                <div style={{ ...panelStyle, maxWidth: 520, textAlign: 'center' }}>
+                  <AlertCircle size={32} color={theme.red} style={{ marginBottom: '0.75rem' }} />
+                  <h2 style={{ marginTop: 0, color: theme.text }}>Terms not accepted</h2>
+                  <p style={{ color: theme.textDim, lineHeight: 1.6 }}>
+                    You must accept the Terms of Use to use this tool. Close this window or contact{' '}
+                    <a href="mailto:shaque025@gmail.com" style={{ color: theme.accent }}>shaque025@gmail.com</a>.
+                  </p>
+                  <button style={btn('primary', false)} onClick={() => { setDeclined(false); setChecked(false); }}>
+                    Review Terms again
+                  </button>
+                </div>
+              </div>
+              <StickyDisclaimer />
+            </>
+          );
+        }
+
+        if (!accepted) {
+          return (
+            <>
+              <TermsModal
+                mode="accept"
+                checked={checked}
+                setChecked={setChecked}
+                onAccept={acceptTerms}
+                onDecline={() => setDeclined(true)}
+              />
+              <StickyDisclaimer />
+            </>
+          );
+        }
+
+        return (
+          <TermsContext.Provider value={{ openTerms }}>
+            {children}
+            {viewOpen && (
+              <TermsModal mode="view" onClose={() => setViewOpen(false)} />
+            )}
+          </TermsContext.Provider>
+        );
+      };
+
+      /* ==================== HIPAA reminder (profile only) ==================== */
+      const HipaaProfileReminder = ({ acceptedHipaa, setAcceptedHipaa }) => {
+        const { openTerms } = React.useContext(TermsContext);
+        return (
+          <div style={{
+            marginTop: '1.25rem', padding: '0.9rem', background: 'rgba(248, 113, 113, 0.1)',
+            border: '1px solid rgba(248, 113, 113, 0.3)', borderRadius: 8
+          }}>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+              <AlertCircle size={18} color="#f87171" style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: theme.text }}>
+                  <strong style={{ color: '#f87171' }}>Privacy reminder:</strong> This tool is not HIPAA-compliant.
+                  Do not enter identifying information (name, DOB, MRN, phone, address). Use initials or &ldquo;Patient A&rdquo;.
+                  {' '}<button type="button" onClick={openTerms} style={{
+                    background: 'transparent', border: 'none', color: theme.accent,
+                    cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', fontSize: '0.85rem', padding: 0
+                  }}>See Terms of Use</button> for the full disclaimer.
+                </p>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem', fontSize: '0.82rem', color: theme.textDim, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={acceptedHipaa}
+                    onChange={e => setAcceptedHipaa(e.target.checked)}
+                    style={{ marginTop: 3, accentColor: theme.accent }} />
+                  <span>I understand this tool is not HIPAA-compliant and I will not enter identifying patient information.</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      /* ==================== HIPAA Gate (legacy — replaced by TermsAcceptanceGate) ==================== */
       const HipaaGate = ({ onAccept }) => (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100,
@@ -2454,7 +2655,8 @@
       };
 
       /* ==================== Patient Tab ==================== */
-      const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runResearch, busy, runtimeConfig, usageInfo, refreshUsage }) => {
+      const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runResearch, busy, runtimeConfig, usageInfo, refreshUsage, acceptedHipaa, setAcceptedHipaa }) => {
+        const { openTerms } = React.useContext(TermsContext);
         const set = (k, v) => setPatient(p => ({ ...p, [k]: v }));
         const [upgradeCode, setUpgradeCode] = useState('');
         const [upgradeBusy, setUpgradeBusy] = useState(false);
@@ -2540,8 +2742,24 @@
             </div>
             <p style={{ color: theme.textDim, fontSize: '0.9rem', marginTop: 0 }}>
               All fields are optional except <strong>Primary Condition</strong>. The more you provide,
-              the better the safety / interaction checks. This data is saved only in your browser.
+              the better the safety / interaction checks.
             </p>
+            <div style={{
+              marginBottom: '1rem', padding: '0.85rem 0.95rem', borderRadius: 8,
+              border: `1px solid ${theme.accent}44`, background: `${theme.accent}0c`
+            }}>
+              <div style={{ fontWeight: 700, color: theme.text, fontSize: '0.88rem', marginBottom: '0.35rem' }}>
+                Where your data lives
+              </div>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}>
+                Patient profile data stays in <strong style={{ color: theme.text }}>this browser only</strong> (localStorage).
+                We do not upload your profile to our servers.{' '}
+                <button type="button" onClick={openTerms} style={{
+                  background: 'transparent', border: 'none', color: theme.accent,
+                  cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', fontSize: '0.82rem', padding: 0
+                }}>Terms of Use</button>
+              </p>
+            </div>
             <div style={{
               marginBottom: '1rem',
               padding: '0.8rem 0.9rem',
@@ -2580,6 +2798,11 @@
                   Current IP usage: {usageInfo.usage.used}/{usageInfo.usage.limit} this month ({usageInfo.usage.plan} plan).
                 </div>
               )}
+              {!runtimeConfig?.monetization?.upgradeUrl && (
+                <div style={{ fontSize: '0.78rem', color: theme.textDim, marginBottom: '0.5rem', lineHeight: 1.5 }}>
+                  Contact admin for Pro/Max activation code.
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 {runtimeConfig?.monetization?.upgradeUrl && (
                   <a href={runtimeConfig.monetization.upgradeUrl} target="_blank" rel="noopener noreferrer"
@@ -2590,7 +2813,11 @@
                 <input
                   value={upgradeCode}
                   onChange={e => setUpgradeCode(e.target.value)}
-                  placeholder="Pro or Max activation code"
+                  placeholder={
+                    (typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname))
+                      ? 'e.g. PRO-DEMO-XXXX (dev placeholder)'
+                      : 'Pro or Max activation code'
+                  }
                   style={{ ...inputStyle, width: 180, padding: '0.45rem 0.55rem', fontSize: '0.8rem' }}
                 />
                 <button onClick={activatePaidPlan} disabled={upgradeBusy || !upgradeCode.trim()}
@@ -2684,17 +2911,7 @@
             </div>
 
             <AlertsSubscribeCard patient={patient} />
-            <div style={{
-              marginTop: '1.25rem', padding: '0.9rem', background: 'rgba(248, 113, 113, 0.1)',
-              border: '1px solid rgba(248, 113, 113, 0.3)', borderRadius: 8,
-              display: 'flex', gap: '0.5rem', alignItems: 'flex-start'
-            }}>
-              <AlertCircle size={18} color="#f87171" />
-              <p style={{ margin: 0, fontSize: '0.85rem', color: theme.text }}>
-                <strong style={{ color: '#f87171' }}>HIPAA notice:</strong> This tool is not HIPAA-compliant.
-                Do not enter identifying information (name, DOB, MRN, phone, address). Use initials or "Patient A".
-              </p>
-            </div>
+            <HipaaProfileReminder acceptedHipaa={acceptedHipaa} setAcceptedHipaa={setAcceptedHipaa} />
           </div>
         );
       };
@@ -2811,6 +3028,14 @@
               new RCTs and meta-analyses first, then other peer-reviewed research, new clinical trials,
               and any FDA actions. Retracted and predatory-publisher papers are excluded before emailing,
               same as the webapp.
+            </p>
+            <p style={{
+              margin: '0 0 0.75rem', padding: '0.55rem 0.65rem', borderRadius: 6,
+              fontSize: '0.78rem', color: theme.textDim, lineHeight: 1.5,
+              background: theme.panel, border: `1px solid ${theme.border}`
+            }}>
+              Email alerts store your <strong style={{ color: theme.text }}>email address and condition</strong> on our
+              server (Upstash) to send digests. Do not include names, MRNs, or identifying info.
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
               <input
@@ -3144,6 +3369,32 @@
 
       const WordExportButton = ({ getElement, filename, label, disabled }) => {
         const [busy, setBusy] = useState(false);
+        const renderMarkdownForExport = (text) => {
+          const linked = linkifyMedicalIds(text || '');
+          if (typeof window !== 'undefined' && window.marked) {
+            window.marked.setOptions({ gfm: true, breaks: false });
+            const renderer = new window.marked.Renderer();
+            const origLink = renderer.link.bind(renderer);
+            renderer.link = (href, title, lbl) =>
+              origLink(href, title, lbl).replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
+            return window.marked.parse(String(linked), { renderer });
+          }
+          return String(linked).replace(/\n/g, '<br/>');
+        };
+        const ensureWordExportLinkify = (root) => {
+          if (!root) return;
+          root.querySelectorAll('.mrt-markdown').forEach((block) => {
+            block.querySelectorAll('a').forEach((a) => {
+              a.setAttribute('target', '_blank');
+              a.style.color = '#0563C1';
+              a.style.textDecoration = 'underline';
+            });
+            const plain = block.textContent || '';
+            if (!block.querySelector('a') && /https?:\/\/|PMID|NCT\d{8}|10\.\d{4,}/i.test(plain)) {
+              block.innerHTML = renderMarkdownForExport(plain);
+            }
+          });
+        };
         const onClick = async () => {
           if (busy || disabled) return;
           const el = typeof getElement === 'function' ? getElement() : null;
@@ -3155,6 +3406,7 @@
             clone.style.color = '#111827';
             clone.style.padding = '18px';
             clone.querySelectorAll('[data-pdf-exclude], button').forEach((n) => n.remove());
+            ensureWordExportLinkify(clone);
             const disclaimer = `<div style="margin-bottom:12px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#f9fafb;font-size:12px;color:#374151;">${MEDICAL_DISCLAIMER}</div>`;
             // Word can open HTML files with a .doc extension. This isn't
             // perfect DOCX fidelity, but it's zero-dependency and works well
@@ -4079,7 +4331,14 @@
               <div style={{ marginTop: '0.45rem' }}>
                 This is <strong style={{ color: theme.text }}>not</strong> the same as country of origin — we do not hide papers
                 from any country. Predatory publishers are venues with documented pay-to-publish or mass-retraction problems
-                (e.g. OMICS International, Hindawi). We flag and exclude them from the prompt pack when identified; well-conducted
+                (not country-based). Examples on our blocklist include:
+                <ul style={{ margin: '0.45rem 0', paddingLeft: '1.2rem' }}>
+                  {PREDATORY_PUBLISHER_EXAMPLES.map((name) => (
+                    <li key={name}>{name}</li>
+                  ))}
+                </ul>
+                Papers from any country remain searchable; the predatory flag affects ranking only, not removal from literature search.
+                We exclude flagged predatory-publisher papers from the AI prompt pack when identified; well-conducted
                 research from any region remains eligible on its merits.
               </div>
             </details>
@@ -4807,6 +5066,9 @@
                   {busy === 'chat' ? <Loader size={16} className="spin" /> : <Search size={16} />} Send
                 </button>
               </div>
+              <p style={{ margin: '0.65rem 0 0', fontSize: '0.72rem', color: theme.textDim, lineHeight: 1.45 }}>
+                {CHAT_SESSION_FOOTNOTE}
+              </p>
             </div>
           </div>
         );
@@ -6146,6 +6408,18 @@
       };
 
       /* ==================== Footer ==================== */
+      const TermsLink = () => {
+        const { openTerms } = React.useContext(TermsContext);
+        return (
+          <button type="button" onClick={openTerms} style={{
+            background: 'transparent', border: 'none', color: theme.accent,
+            cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', fontSize: 'inherit', padding: 0
+          }}>
+            Terms of Use
+          </button>
+        );
+      };
+
       const Footer = ({ runtimeConfig }) => (
         <footer style={{
           maxWidth: 1400, margin: '0 auto', padding: '1.5rem 2rem 2.5rem',
@@ -6153,11 +6427,12 @@
         }}>
           <AdSlot runtimeConfig={runtimeConfig} slotKey="footer" minHeight={80} />
           <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '1rem', lineHeight: 1.65 }}>
-            <div style={{ marginBottom: '0.6rem' }}>
+              <div style={{ marginBottom: '0.6rem' }}>
               <strong>Medical decision-support research only.</strong> researchingmycondition.com is not medical advice
               and does not create a doctor-patient relationship. All recommendations require review
               by a licensed physician before any treatment decision is made. This prototype is not
-              HIPAA-compliant — do not enter personally identifying information.
+              HIPAA-compliant — do not enter personally identifying information.{' '}
+              <TermsLink />
             </div>
             <div style={{ color: theme.textDim, opacity: 0.85 }}>
               <strong>Evidence sources:</strong> ClinicalTrials.gov v2 · NCBI PubMed · Europe PMC ·
@@ -6402,7 +6677,9 @@
         // allowed → render the real app + persistent disclaimer.
         return (
           <>
-            <App />
+            <TermsAcceptanceGate>
+              <App />
+            </TermsAcceptanceGate>
             <StickyDisclaimer />
           </>
         );
