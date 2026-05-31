@@ -15,7 +15,6 @@
   "curatedBy": "Syed Hammad Haque",
   "lastUpdated": "2026-04-23",
   "editorialNote": "Focused KB for type 1 diabetes. The therapeutic landscape split: (1) insulin therapy + automated insulin delivery (closed-loop pumps: Medtronic 780G, Tandem Control-IQ, Omnipod 5, iLet Bionic Pancreas); (2) continuous glucose monitors (Dexcom G6/G7, Libre 2/3, Medtronic Guardian 4); (3) FIRST-EVER disease-modifying therapy — teplizumab (Tzield, FDA 2022) for delaying T1D onset in at-risk individuals; (4) allogeneic islet cell therapy — donislecel (Lantidra, FDA 2023) for labile-T1D adults; (5) stem-cell-derived islet cell therapy in clinical trials — Vertex VX-880 / VX-264 with dramatic 2024 results showing insulin independence. Any T1D output that fails to mention teplizumab or VX-880 is out of date.",
-
   "subspecialty": "Endocrinology / Diabetes / Immunology",
   "icd10": "E10.9",
   "meshTerms": [
@@ -26,38 +25,150 @@
     "Diabetic Ketoacidosis"
   ],
   "topCenters": [
-    { "name": "Joslin Diabetes Center",                                          "city": "Boston, MA",       "country": "USA", "why": "Historic T1D research + clinical care center; Harvard affiliate." },
-    { "name": "Barbara Davis Center for Diabetes",                                "city": "Aurora, CO",       "country": "USA", "why": "One of the largest T1D pediatric + adult programs; TrialNet site." },
-    { "name": "Benaroya Research Institute Diabetes Program",                     "city": "Seattle, WA",      "country": "USA", "why": "Carla Greenbaum; TrialNet and TEDDY investigator." },
-    { "name": "Yale Diabetes Research Center",                                    "city": "New Haven, CT",    "country": "USA", "why": "Kevan Herold (teplizumab co-inventor)." },
-    { "name": "Vanderbilt Diabetes Center",                                        "city": "Nashville, TN",    "country": "USA", "why": "Alvin Powers; beta-cell biology and clinical trials." },
-    { "name": "UCSF Diabetes Center",                                              "city": "San Francisco, CA","country": "USA", "why": "Mark Anderson; autoimmunity research." },
-    { "name": "Children's Hospital of Philadelphia (CHOP) T1D Program",            "city": "Philadelphia, PA", "country": "USA", "why": "Pediatric T1D trials + care." },
-    { "name": "Steno Diabetes Center Copenhagen",                                  "city": "Copenhagen",       "country": "Denmark", "why": "European reference T1D + T2D center." }
+    {
+      "name": "Joslin Diabetes Center",
+      "city": "Boston, MA",
+      "country": "USA",
+      "why": "Historic T1D research + clinical care center; Harvard affiliate."
+    },
+    {
+      "name": "Barbara Davis Center for Diabetes",
+      "city": "Aurora, CO",
+      "country": "USA",
+      "why": "One of the largest T1D pediatric + adult programs; TrialNet site."
+    },
+    {
+      "name": "Benaroya Research Institute Diabetes Program",
+      "city": "Seattle, WA",
+      "country": "USA",
+      "why": "Carla Greenbaum; TrialNet and TEDDY investigator."
+    },
+    {
+      "name": "Yale Diabetes Research Center",
+      "city": "New Haven, CT",
+      "country": "USA",
+      "why": "Kevan Herold (teplizumab co-inventor)."
+    },
+    {
+      "name": "Vanderbilt Diabetes Center",
+      "city": "Nashville, TN",
+      "country": "USA",
+      "why": "Alvin Powers; beta-cell biology and clinical trials."
+    },
+    {
+      "name": "UCSF Diabetes Center",
+      "city": "San Francisco, CA",
+      "country": "USA",
+      "why": "Mark Anderson; autoimmunity research."
+    },
+    {
+      "name": "Children's Hospital of Philadelphia (CHOP) T1D Program",
+      "city": "Philadelphia, PA",
+      "country": "USA",
+      "why": "Pediatric T1D trials + care."
+    },
+    {
+      "name": "Steno Diabetes Center Copenhagen",
+      "city": "Copenhagen",
+      "country": "Denmark",
+      "why": "European reference T1D + T2D center."
+    }
   ],
   "keyInvestigators": [
-    { "name": "Kevan C. Herold",      "affiliation": "Yale University",                   "why": "Teplizumab co-inventor; TN-10 trial lead." },
-    { "name": "Lisa Rafkin-Mervis",    "affiliation": "University of Miami / TrialNet",    "why": "Operational lead of TrialNet prevention network." },
-    { "name": "Jay Skyler",             "affiliation": "Diabetes Research Institute (Miami)","why": "Longtime TrialNet / ITN investigator; DCCT-era pioneer." },
-    { "name": "Roy Beck",              "affiliation": "Jaeb Center for Health Research",   "why": "T1D Exchange Registry and CGM/pump trials." },
-    { "name": "Aaron Michels",          "affiliation": "Barbara Davis Center",              "why": "Autoimmune prevention strategies." },
-    { "name": "Alberto Pugliese",       "affiliation": "University of Miami (City of Hope 2024)","why": "nPOD (Network for Pancreatic Organ Donors) director." }
+    {
+      "name": "Kevan C. Herold",
+      "affiliation": "Yale University",
+      "why": "Teplizumab co-inventor; TN-10 trial lead."
+    },
+    {
+      "name": "Lisa Rafkin-Mervis",
+      "affiliation": "University of Miami / TrialNet",
+      "why": "Operational lead of TrialNet prevention network."
+    },
+    {
+      "name": "Jay Skyler",
+      "affiliation": "Diabetes Research Institute (Miami)",
+      "why": "Longtime TrialNet / ITN investigator; DCCT-era pioneer."
+    },
+    {
+      "name": "Roy Beck",
+      "affiliation": "Jaeb Center for Health Research",
+      "why": "T1D Exchange Registry and CGM/pump trials."
+    },
+    {
+      "name": "Aaron Michels",
+      "affiliation": "Barbara Davis Center",
+      "why": "Autoimmune prevention strategies."
+    },
+    {
+      "name": "Alberto Pugliese",
+      "affiliation": "University of Miami (City of Hope 2024)",
+      "why": "nPOD (Network for Pancreatic Organ Donors) director."
+    }
   ],
   "patientAdvocacy": [
-    { "name": "Breakthrough T1D (formerly JDRF)",            "url": "https://www.breakthrought1d.org",        "why": "Largest T1D research funder + advocacy; rebranded from JDRF in 2024." },
-    { "name": "American Diabetes Association (ADA)",          "url": "https://www.diabetes.org",               "why": "Standards of Care publisher; advocacy." },
-    { "name": "Beyond Type 1",                                "url": "https://beyondtype1.org",                "why": "Patient-community + education platform." },
-    { "name": "Children with Diabetes",                       "url": "https://childrenwithdiabetes.com",       "why": "Family community; Friends for Life conferences." },
-    { "name": "TrialNet",                                      "url": "https://www.trialnet.org",               "why": "Free islet autoantibody screening for T1D relatives; trial enrollment gateway." },
-    { "name": "T1D Exchange",                                 "url": "https://t1dexchange.org",                "why": "T1D registry and data infrastructure." }
+    {
+      "name": "Breakthrough T1D (formerly JDRF)",
+      "url": "https://www.breakthrought1d.org",
+      "why": "Largest T1D research funder + advocacy; rebranded from JDRF in 2024."
+    },
+    {
+      "name": "American Diabetes Association (ADA)",
+      "url": "https://www.diabetes.org",
+      "why": "Standards of Care publisher; advocacy."
+    },
+    {
+      "name": "Beyond Type 1",
+      "url": "https://beyondtype1.org",
+      "why": "Patient-community + education platform."
+    },
+    {
+      "name": "Children with Diabetes",
+      "url": "https://childrenwithdiabetes.com",
+      "why": "Family community; Friends for Life conferences."
+    },
+    {
+      "name": "TrialNet",
+      "url": "https://www.trialnet.org",
+      "why": "Free islet autoantibody screening for T1D relatives; trial enrollment gateway."
+    },
+    {
+      "name": "T1D Exchange",
+      "url": "https://t1dexchange.org",
+      "why": "T1D registry and data infrastructure."
+    }
   ],
   "landmarkTrials": [
-    { "acronym": "DCCT / EDIC",          "name": "Diabetes Control and Complications Trial / Epidemiology of Diabetes Interventions and Complications","topic": "DCCT 1993 NEJM established intensive glycemic control reduces microvascular complications; EDIC showed 'metabolic memory' — benefits persist decades." },
-    { "acronym": "TN-10",                 "name": "Teplizumab in high-risk relatives",                 "topic": "Phase 2 prevention trial; showed median 2-year delay in T1D onset (Herold 2019 NEJM); basis for Tzield FDA approval November 2022." },
-    { "acronym": "PROTECT",               "name": "Teplizumab in new-onset T1D",                        "topic": "Phase 3 positive on C-peptide preservation 2023; Tzield pediatric indication pursued." },
-    { "acronym": "VX-880 / VX-264",        "name": "Vertex stem-cell-derived islet cell therapy",       "topic": "2024 interim data: multiple patients achieving insulin independence with VX-880 (with immunosuppression); VX-264 testing encapsulated delivery without immunosuppression." },
-    { "acronym": "DiViDe / TEDDY",         "name": "Environmental triggers in T1D",                      "topic": "Enterovirus and other candidate triggers; T1D screening cohort." },
-    { "acronym": "ITx-2 (Edmonton Protocol)","name": "Allogeneic islet transplantation",                "topic": "Shapiro 2000 NEJM — seven patients insulin-independent at 1 year; foundation for Lantidra and subsequent cell therapies." }
+    {
+      "acronym": "DCCT / EDIC",
+      "name": "Diabetes Control and Complications Trial / Epidemiology of Diabetes Interventions and Complications",
+      "topic": "DCCT 1993 NEJM established intensive glycemic control reduces microvascular complications; EDIC showed 'metabolic memory' — benefits persist decades."
+    },
+    {
+      "acronym": "TN-10",
+      "name": "Teplizumab in high-risk relatives",
+      "topic": "Phase 2 prevention trial; showed median 2-year delay in T1D onset (Herold 2019 NEJM); basis for Tzield FDA approval November 2022."
+    },
+    {
+      "acronym": "PROTECT",
+      "name": "Teplizumab in new-onset T1D",
+      "topic": "Phase 3 positive on C-peptide preservation 2023; Tzield pediatric indication pursued."
+    },
+    {
+      "acronym": "VX-880 / VX-264",
+      "name": "Vertex stem-cell-derived islet cell therapy",
+      "topic": "2024 interim data: multiple patients achieving insulin independence with VX-880 (with immunosuppression); VX-264 testing encapsulated delivery without immunosuppression."
+    },
+    {
+      "acronym": "DiViDe / TEDDY",
+      "name": "Environmental triggers in T1D",
+      "topic": "Enterovirus and other candidate triggers; T1D screening cohort."
+    },
+    {
+      "acronym": "ITx-2 (Edmonton Protocol)",
+      "name": "Allogeneic islet transplantation",
+      "topic": "Shapiro 2000 NEJM — seven patients insulin-independent at 1 year; foundation for Lantidra and subsequent cell therapies."
+    }
   ],
   "commonComorbidities": [
     "Hypothyroidism (Hashimoto) — common autoimmune overlap",
@@ -84,7 +195,6 @@
     "Mental-health screening; eating-disorder screening (insulin restriction / 'diabulimia')",
     "Glucagon prescription (nasal Baqsimi, auto-injector Gvoke) for all patients and caregivers"
   ],
-
   "items": [
     {
       "id": "t1d-ada-sc-2025",
@@ -114,7 +224,10 @@
       "accessLevel": "abstract",
       "summary": "Foundational RCT of intensive vs conventional insulin therapy in 1,441 T1D patients over mean 6.5 years. Intensive therapy reduced retinopathy progression by ~60%, nephropathy by ~50%, neuropathy by ~60%. EDIC follow-up showed 'metabolic memory' — early intensive control continues benefit for decades.",
       "keyPassages": [
-        { "topic": "retinopathy", "quote": "Intensive therapy reduced the adjusted mean risk for the development of retinopathy by 76 percent." }
+        {
+          "topic": "retinopathy",
+          "quote": "Intensive therapy reduced the adjusted mean risk for the development of retinopathy by 76 percent."
+        }
       ]
     },
     {
@@ -131,7 +244,10 @@
       "accessLevel": "abstract",
       "summary": "Phase 2 prevention trial of 14-day IV teplizumab (anti-CD3) vs placebo in 76 relatives of T1D patients with ≥2 autoantibodies + dysglycemia (stage 2 T1D). Median time to diabetes was 48.4 months with teplizumab vs 24.4 months with placebo (HR 0.41, P=0.006) — a median 2-year delay in onset. Basis for Tzield FDA approval.",
       "keyPassages": [
-        { "topic": "primary endpoint", "quote": "The median time from randomization to the diagnosis of clinical type 1 diabetes was 48.4 months in the teplizumab group versus 24.4 months in the placebo group." }
+        {
+          "topic": "primary endpoint",
+          "quote": "The median time from randomization to the diagnosis of clinical type 1 diabetes was 48.4 months in the teplizumab group versus 24.4 months in the placebo group."
+        }
       ]
     },
     {
@@ -146,7 +262,10 @@
       "accessLevel": "full-text",
       "summary": "FIRST-EVER disease-modifying therapy for type 1 diabetes. FDA-approved November 2022 to delay stage 3 T1D in adults and pediatric patients ≥8 years with stage 2 T1D (≥2 islet autoantibodies + dysglycemia). 14-day IV infusion course. Warnings: cytokine release syndrome (first days), lymphopenia, serious infections, hypersensitivity.",
       "keyPassages": [
-        { "topic": "indication", "quote": "TZIELD is indicated to delay the onset of Stage 3 type 1 diabetes (T1D) in adults and pediatric patients aged 8 years and older who currently have Stage 2 T1D." }
+        {
+          "topic": "indication",
+          "quote": "TZIELD is indicated to delay the onset of Stage 3 type 1 diabetes (T1D) in adults and pediatric patients aged 8 years and older who currently have Stage 2 T1D."
+        }
       ]
     },
     {
@@ -161,7 +280,10 @@
       "accessLevel": "full-text",
       "summary": "First FDA-approved allogeneic pancreatic islet cellular therapy for adults with T1D who experience severe hypoglycemia and impaired awareness of hypoglycemia despite intensive management. Approved June 2023. Requires chronic immunosuppression. Complicated logistics limit real-world use.",
       "keyPassages": [
-        { "topic": "indication", "quote": "LANTIDRA is an allogeneic pancreatic islet cellular therapy indicated for the treatment of adults with type 1 diabetes who are unable to approach target HbA1c because of current repeated episodes of severe hypoglycemia despite intensive diabetes management." }
+        {
+          "topic": "indication",
+          "quote": "LANTIDRA is an allogeneic pancreatic islet cellular therapy indicated for the treatment of adults with type 1 diabetes who are unable to approach target HbA1c because of current repeated episodes of severe hypoglycemia despite intensive diabetes management."
+        }
       ]
     },
     {
@@ -178,40 +300,111 @@
       "keyPassages": []
     }
   ],
-
   "canonicalFacts": [
-    { "claim": "Teplizumab (Tzield, Provention/Sanofi) is the first FDA-approved disease-modifying therapy for T1D (November 2022) — delays stage 3 T1D by median ~2 years in stage 2 individuals.", "evidenceRefs": ["t1d-teplizumab-herold-2019", "t1d-fda-label-tzield-2022"] },
-    { "claim": "Intensive glycemic control (HbA1c target ~7%) reduces microvascular complications by 40-60% and has durable 'metabolic memory' benefit (DCCT/EDIC).", "evidenceRefs": ["t1d-dcct-1993"] },
-    { "claim": "Donislecel (Lantidra, CellTrans) — first FDA-approved allogeneic pancreatic islet cellular therapy (June 2023) for hypoglycemia-unaware adults with T1D.", "evidenceRefs": ["t1d-fda-label-lantidra-2023"] },
-    { "claim": "Vertex VX-880 stem-cell-derived islet cell therapy has shown insulin independence in early clinical trials (2024 interim), signaling a potential future cure-oriented pathway.", "evidenceRefs": ["t1d-vertex-vx880-2024"] },
-    { "claim": "Continuous glucose monitors (Dexcom G7, Libre 3, Medtronic Guardian 4) and automated insulin delivery systems (Tandem Control-IQ, Medtronic 780G, Omnipod 5, iLet Bionic Pancreas) are now standard of care per ADA.", "evidenceRefs": ["t1d-ada-sc-2025"] }
+    {
+      "claim": "Teplizumab (Tzield, Provention/Sanofi) is the first FDA-approved disease-modifying therapy for T1D (November 2022) — delays stage 3 T1D by median ~2 years in stage 2 individuals.",
+      "evidenceRefs": [
+        "t1d-teplizumab-herold-2019",
+        "t1d-fda-label-tzield-2022"
+      ]
+    },
+    {
+      "claim": "Intensive glycemic control (HbA1c target ~7%) reduces microvascular complications by 40-60% and has durable 'metabolic memory' benefit (DCCT/EDIC).",
+      "evidenceRefs": [
+        "t1d-dcct-1993"
+      ]
+    },
+    {
+      "claim": "Donislecel (Lantidra, CellTrans) — first FDA-approved allogeneic pancreatic islet cellular therapy (June 2023) for hypoglycemia-unaware adults with T1D.",
+      "evidenceRefs": [
+        "t1d-fda-label-lantidra-2023"
+      ]
+    },
+    {
+      "claim": "Vertex VX-880 stem-cell-derived islet cell therapy has shown insulin independence in early clinical trials (2024 interim), signaling a potential future cure-oriented pathway.",
+      "evidenceRefs": [
+        "t1d-vertex-vx880-2024"
+      ]
+    },
+    {
+      "claim": "Continuous glucose monitors (Dexcom G7, Libre 3, Medtronic Guardian 4) and automated insulin delivery systems (Tandem Control-IQ, Medtronic 780G, Omnipod 5, iLet Bionic Pancreas) are now standard of care per ADA.",
+      "evidenceRefs": [
+        "t1d-ada-sc-2025"
+      ]
+    }
   ],
-
   "lifestyleRecommendations": [
-    { "recommendation": "Structured diabetes self-management education (DSMES) at diagnosis and annually.", "evidenceRefs": ["t1d-ada-sc-2025"] },
-    { "recommendation": "Use a continuous glucose monitor — ADA standard of care for all T1D patients.", "evidenceRefs": ["t1d-ada-sc-2025"] },
-    { "recommendation": "Consider automated insulin delivery (hybrid closed-loop) — reduces severe hypoglycemia and improves time-in-range.", "evidenceRefs": ["t1d-ada-sc-2025"] },
-    { "recommendation": "Screen first-degree relatives for islet autoantibodies via TrialNet — if 2+ autoantibodies + dysglycemia (stage 2), consider teplizumab.", "evidenceRefs": ["t1d-fda-label-tzield-2022"] },
-    { "recommendation": "Glucagon (nasal Baqsimi, auto-injector Gvoke) prescribed for every patient and family member/caregiver.", "evidenceRefs": ["t1d-ada-sc-2025"] },
-    { "recommendation": "Screen for celiac disease (TTG-IgA) at diagnosis and periodically.", "evidenceRefs": ["t1d-ada-sc-2025"] },
-    { "recommendation": "Screen thyroid (TSH, anti-TPO) at diagnosis and yearly.", "evidenceRefs": ["t1d-ada-sc-2025"] },
-    { "recommendation": "Annual retinal exam starting ~5 years after diagnosis or from puberty.", "evidenceRefs": ["t1d-ada-sc-2025"] },
-    { "recommendation": "Mental health screening; inquire directly about insulin restriction for weight control ('diabulimia').", "evidenceRefs": ["t1d-ada-sc-2025"] }
+    {
+      "recommendation": "Structured diabetes self-management education (DSMES) at diagnosis and annually.",
+      "evidenceRefs": [
+        "t1d-ada-sc-2025"
+      ]
+    },
+    {
+      "recommendation": "Use a continuous glucose monitor — ADA standard of care for all T1D patients.",
+      "evidenceRefs": [
+        "t1d-ada-sc-2025"
+      ]
+    },
+    {
+      "recommendation": "Consider automated insulin delivery (hybrid closed-loop) — reduces severe hypoglycemia and improves time-in-range.",
+      "evidenceRefs": [
+        "t1d-ada-sc-2025"
+      ]
+    },
+    {
+      "recommendation": "Screen first-degree relatives for islet autoantibodies via TrialNet — if 2+ autoantibodies + dysglycemia (stage 2), consider teplizumab.",
+      "evidenceRefs": [
+        "t1d-fda-label-tzield-2022"
+      ]
+    },
+    {
+      "recommendation": "Glucagon (nasal Baqsimi, auto-injector Gvoke) prescribed for every patient and family member/caregiver.",
+      "evidenceRefs": [
+        "t1d-ada-sc-2025"
+      ]
+    },
+    {
+      "recommendation": "Screen for celiac disease (TTG-IgA) at diagnosis and periodically.",
+      "evidenceRefs": [
+        "t1d-ada-sc-2025"
+      ]
+    },
+    {
+      "recommendation": "Screen thyroid (TSH, anti-TPO) at diagnosis and yearly.",
+      "evidenceRefs": [
+        "t1d-ada-sc-2025"
+      ]
+    },
+    {
+      "recommendation": "Annual retinal exam starting ~5 years after diagnosis or from puberty.",
+      "evidenceRefs": [
+        "t1d-ada-sc-2025"
+      ]
+    },
+    {
+      "recommendation": "Mental health screening; inquire directly about insulin restriction for weight control ('diabulimia').",
+      "evidenceRefs": [
+        "t1d-ada-sc-2025"
+      ]
+    }
   ],
-
   "redFlags": [
-    "Do NOT rely on 'honeymoon' remission or low insulin requirement to defer standard T1D management — beta-cell loss continues regardless.",
-    "Do NOT recommend low-carb 'cure T1D' diets as replacement for insulin — T1D is not a diet-controlled disease.",
-    "Do NOT prescribe SGLT2 inhibitors for T1D without specialist co-management — increased risk of euglycemic DKA.",
-    "Do NOT use metformin monotherapy for T1D — it does not substitute for insulin; may be used as adjunct for insulin resistance in some adults.",
+    "Evidence does not support relying on 'honeymoon' remission or low insulin requirement to defer standard T1D management — beta-cell loss continues regardless.",
+    "Literature does not support recommending low-carb 'cure T1D' diets as replacement for insulin — T1D is not a diet-controlled disease.",
+    "Physicians generally caution against prescribing SGLT2 inhibitors for T1D without specialist co-management — increased risk of euglycemic DKA.",
+    "Literature warns against metformin monotherapy for T1D — it does not substitute for insulin; may be used as adjunct for insulin resistance in some adults.",
     "Stem-cell clinics (China, Mexico, Panama) offering IV MSC 'cure for T1D' — no peer-reviewed efficacy data. Vertex VX-880 is the only credible stem-cell-derived approach and requires FDA-regulated clinical trial enrollment.",
-    "Do NOT initiate teplizumab without confirming stage 2 T1D (≥2 islet autoantibodies + dysglycemia); it is not indicated in new-onset stage 3 T1D as of Nov 2022 approval (though PROTECT data supports that indication; regulatory status evolving)."
+    "Physicians generally caution against initiate teplizumab without confirming stage 2 T1D (≥2 islet autoantibodies + dysglycemia); it is not indicated in new-onset stage 3 T1D as of Nov 2022 approval (though PROTECT data supports that indication; regulatory status evolving)."
   ],
-
   "pipelineDrugs": [
     {
       "name": "Teplizumab",
-      "aliases": ["Tzield", "PRV-031", "hOKT3γ1(Ala-Ala)"],
+      "aliases": [
+        "Tzield",
+        "PRV-031",
+        "hOKT3γ1(Ala-Ala)"
+      ],
       "mechanism": "Humanized anti-CD3 monoclonal antibody — induces regulatory T cells",
       "sponsor": "Provention Bio / Sanofi",
       "status": "FDA-approved November 2022 to delay stage 3 T1D in stage 2 patients ≥8 years",
@@ -222,7 +415,9 @@
     },
     {
       "name": "Donislecel",
-      "aliases": ["Lantidra"],
+      "aliases": [
+        "Lantidra"
+      ],
       "mechanism": "Allogeneic pancreatic islet cellular therapy",
       "sponsor": "CellTrans",
       "status": "FDA-approved June 2023 for adults with T1D and problematic hypoglycemia",
@@ -231,7 +426,15 @@
     },
     {
       "name": "Insulin (analog portfolio)",
-      "aliases": ["insulin aspart (NovoLog/Fiasp)", "insulin lispro (Humalog/Admelog/Lyumjev)", "insulin glulisine (Apidra)", "insulin glargine (Lantus/Basaglar/Toujeo/Semglee)", "insulin detemir (Levemir)", "insulin degludec (Tresiba)", "afrezza (inhaled insulin)"],
+      "aliases": [
+        "insulin aspart (NovoLog/Fiasp)",
+        "insulin lispro (Humalog/Admelog/Lyumjev)",
+        "insulin glulisine (Apidra)",
+        "insulin glargine (Lantus/Basaglar/Toujeo/Semglee)",
+        "insulin detemir (Levemir)",
+        "insulin degludec (Tresiba)",
+        "afrezza (inhaled insulin)"
+      ],
       "mechanism": "Replacement of endogenous insulin",
       "sponsor": "Novo Nordisk / Lilly / Sanofi / MannKind",
       "status": "Approved; foundation of T1D care",
@@ -240,7 +443,13 @@
     },
     {
       "name": "Automated Insulin Delivery systems",
-      "aliases": ["Tandem Control-IQ", "Medtronic MiniMed 780G", "Omnipod 5", "iLet Bionic Pancreas", "CamAPS FX (EU)"],
+      "aliases": [
+        "Tandem Control-IQ",
+        "Medtronic MiniMed 780G",
+        "Omnipod 5",
+        "iLet Bionic Pancreas",
+        "CamAPS FX (EU)"
+      ],
       "mechanism": "Hybrid closed-loop / fully closed-loop pump + CGM algorithms",
       "sponsor": "Tandem / Medtronic / Insulet / Beta Bionics / CamDiab",
       "status": "FDA-approved; iLet 2023 is first 'no carb counting' fully adaptive system",
@@ -249,7 +458,15 @@
     },
     {
       "name": "Continuous Glucose Monitors (CGM)",
-      "aliases": ["Dexcom G6", "Dexcom G7", "Abbott FreeStyle Libre 2", "Abbott FreeStyle Libre 3", "Medtronic Guardian 4", "Medtronic Simplera", "Eversense E3 (implantable 6-month)"],
+      "aliases": [
+        "Dexcom G6",
+        "Dexcom G7",
+        "Abbott FreeStyle Libre 2",
+        "Abbott FreeStyle Libre 3",
+        "Medtronic Guardian 4",
+        "Medtronic Simplera",
+        "Eversense E3 (implantable 6-month)"
+      ],
       "mechanism": "Continuous glucose measurement (interstitial fluid)",
       "sponsor": "Dexcom / Abbott / Medtronic / Senseonics",
       "status": "Multiple FDA-approved; OTC Stelo (Dexcom) approved 2024 for T2D non-insulin",
@@ -258,7 +475,9 @@
     },
     {
       "name": "VX-880",
-      "aliases": ["Vertex stem-cell-derived islet therapy"],
+      "aliases": [
+        "Vertex stem-cell-derived islet therapy"
+      ],
       "mechanism": "Pluripotent-stem-cell-derived pancreatic islet cells; hepatic portal infusion; requires chronic immunosuppression",
       "sponsor": "Vertex Pharmaceuticals",
       "status": "Phase 1/2 ongoing; 2024 interim update showed multiple patients achieving insulin independence",
@@ -267,7 +486,9 @@
     },
     {
       "name": "VX-264",
-      "aliases": ["Vertex encapsulated stem-cell islet therapy"],
+      "aliases": [
+        "Vertex encapsulated stem-cell islet therapy"
+      ],
       "mechanism": "Stem-cell-derived islet cells inside immunoprotective device — no immunosuppression required",
       "sponsor": "Vertex Pharmaceuticals",
       "status": "Phase 1/2 ongoing 2024",
@@ -276,7 +497,9 @@
     },
     {
       "name": "Sernova Cell Pouch",
-      "aliases": ["Sernova islet cell implant device"],
+      "aliases": [
+        "Sernova islet cell implant device"
+      ],
       "mechanism": "Subcutaneous islet cell pouch device",
       "sponsor": "Sernova Corp",
       "status": "Phase 1/2 ongoing",
@@ -285,7 +508,9 @@
     },
     {
       "name": "Verapamil (repurposing)",
-      "aliases": ["verapamil for T1D"],
+      "aliases": [
+        "verapamil for T1D"
+      ],
       "mechanism": "Calcium channel blocker — preserves beta cell mass by downregulating TXNIP",
       "sponsor": "Academic (University of Alabama at Birmingham)",
       "status": "Phase 2 completed (Ovalle 2018); additional trials ongoing",
@@ -294,7 +519,9 @@
     },
     {
       "name": "Low-dose anti-thymocyte globulin (ATG)",
-      "aliases": ["ATG low-dose T1D"],
+      "aliases": [
+        "ATG low-dose T1D"
+      ],
       "mechanism": "Polyclonal anti-T-cell antibody; broader immunomodulation",
       "sponsor": "ITN / TrialNet",
       "status": "Phase 2 (Haller 2018/2021) showed C-peptide preservation and HbA1c improvement",
@@ -303,7 +530,9 @@
     },
     {
       "name": "Semaglutide (repurposing for T1D)",
-      "aliases": ["Ozempic T1D"],
+      "aliases": [
+        "Ozempic T1D"
+      ],
       "mechanism": "GLP-1 receptor agonist (adjunct in overweight/obese T1D)",
       "sponsor": "Novo Nordisk",
       "status": "Investigational for T1D adjunctive use (case series and small trials); NOT FDA-approved for T1D",
@@ -311,7 +540,6 @@
       "whyItMatters": "Off-label interest for T1D patients with obesity. Not a substitute for insulin."
     }
   ],
-
   "excludedAgents": [
     {
       "name": "SGLT2 inhibitors for T1D (primary therapy)",

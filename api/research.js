@@ -29,9 +29,10 @@ import { getDossier } from '../lib/disease-dossier.js';
 import {
   consumeResearchCredit,
   limits as usageLimits,
+  pricing as usagePricing,
   getUsage,
-  verifyPaidCode,
-  activatePaidForIp
+  verifyPlanCode,
+  activatePlanForIp
 } from '../lib/usage-store.js';
 import { requireAccess } from '../lib/access-gate.js';
 
@@ -819,14 +820,26 @@ export default async function handler(req, res) {
     if (mode === 'runtime-config') {
       const adsEnabled = String(process.env.MRT_ADS_ENABLED || '').trim() === '1';
       const adsenseClient = String(process.env.MRT_ADSENSE_CLIENT || '').trim();
+      const prices = usagePricing();
+      const lim = usageLimits();
       return res.status(200).json({
         branding: { productName: 'researchingmycondition.com' },
         ai: { researchModel: String(process.env.ANTHROPIC_RESEARCH_MODEL || DEFAULT_MODEL) },
         monetization: {
-          freeRunsPerMonth: Number(process.env.MRT_FREE_LIMIT || 4),
-          paidRunsPerMonth: Number(process.env.MRT_PAID_LIMIT || 15),
-          paidPriceUsd: Number(process.env.MRT_PAID_PRICE_USD || 10),
-          upgradeUrl: String(process.env.MRT_UPGRADE_URL || '').trim()
+          freeRunsPerMonth: lim.free,
+          proRunsPerMonth: lim.pro,
+          maxRunsPerMonth: lim.max,
+          proPriceUsd: prices.proPriceUsd,
+          maxPriceUsd: prices.maxPriceUsd,
+          // Backward compat for older clients
+          paidRunsPerMonth: lim.pro,
+          paidPriceUsd: prices.proPriceUsd,
+          upgradeUrl: String(process.env.MRT_UPGRADE_URL || '').trim(),
+          tiers: [
+            { id: 'free', label: 'Free', runsPerMonth: lim.free, priceUsd: 0 },
+            { id: 'pro', label: 'Pro', runsPerMonth: lim.pro, priceUsd: prices.proPriceUsd },
+            { id: 'max', label: 'Max', runsPerMonth: lim.max, priceUsd: prices.maxPriceUsd }
+          ]
         },
         ads: {
           enabled: adsEnabled,
@@ -845,13 +858,22 @@ export default async function handler(req, res) {
     if (mode === 'usage') {
       try {
         const usage = await getUsage(getClientIp(req));
+        const lim = usageLimits();
+        const prices = usagePricing();
         return res.status(200).json({
           ok: true,
           usage,
-          limits: usageLimits(),
+          limits: lim,
           pricing: {
-            freeTier: `${usageLimits().free} runs / month`,
-            paidTier: `$${Number(process.env.MRT_PAID_PRICE_USD || 10)}/month for up to ${usageLimits().paid} runs`
+            freeTier: `${lim.free} runs / month`,
+            proTier: `$${prices.proPriceUsd}/month for up to ${lim.pro} runs`,
+            maxTier: `$${prices.maxPriceUsd}/month for up to ${lim.max} runs`,
+            paidTier: `$${prices.proPriceUsd}/month for up to ${lim.pro} runs`,
+            tiers: [
+              { id: 'free', runsPerMonth: lim.free, priceUsd: 0 },
+              { id: 'pro', runsPerMonth: lim.pro, priceUsd: prices.proPriceUsd },
+              { id: 'max', runsPerMonth: lim.max, priceUsd: prices.maxPriceUsd }
+            ]
           }
         });
       } catch (err) {
@@ -862,14 +884,16 @@ export default async function handler(req, res) {
     if (mode === 'activate-plan') {
       const code = String(req.body?.code || '').trim();
       if (!code) return res.status(400).json({ error: 'code is required' });
-      if (!verifyPaidCode(code)) return res.status(403).json({ error: 'Invalid upgrade code' });
+      const tier = verifyPlanCode(code);
+      if (!tier) return res.status(403).json({ error: 'Invalid upgrade code' });
       try {
         const ip = getClientIp(req);
-        await activatePaidForIp(ip);
+        await activatePlanForIp(ip, tier);
         const usage = await getUsage(ip);
         return res.status(200).json({
           ok: true,
-          message: 'Paid plan activated for this IP.',
+          message: `${tier.charAt(0).toUpperCase()}${tier.slice(1)} plan activated for this IP.`,
+          plan: tier,
           usage
         });
       } catch (err) {
@@ -990,15 +1014,21 @@ export default async function handler(req, res) {
       const quota = await consumeResearchCredit(ip);
       if (!quota.allowed) {
         const lim = usageLimits();
+        const prices = usagePricing();
+        const planLabel = quota.plan === 'max' ? 'Max' : quota.plan === 'pro' ? 'Pro' : 'Free';
         return res.status(402).json({
-          error: `Monthly limit reached for this IP (${quota.used}/${quota.limit}). Free plan allows ${lim.free} runs/month. Upgrade to paid for up to ${lim.paid} runs/month.`,
+          error: `Monthly limit reached for this IP (${quota.used}/${quota.limit} on ${planLabel} plan). Free: ${lim.free}/mo · Pro: $${prices.proPriceUsd} → ${lim.pro}/mo · Max: $${prices.maxPriceUsd} → ${lim.max}/mo.`,
           code: 'USAGE_LIMIT_REACHED',
           upgradeRequired: true,
           usage: quota,
           pricing: {
             freeRunsPerMonth: lim.free,
-            paidRunsPerMonth: lim.paid,
-            paidPriceUsd: Number(process.env.MRT_PAID_PRICE_USD || 10),
+            proRunsPerMonth: lim.pro,
+            maxRunsPerMonth: lim.max,
+            proPriceUsd: prices.proPriceUsd,
+            maxPriceUsd: prices.maxPriceUsd,
+            paidRunsPerMonth: lim.pro,
+            paidPriceUsd: prices.proPriceUsd,
             upgradeUrl: String(process.env.MRT_UPGRADE_URL || '').trim()
           }
         });

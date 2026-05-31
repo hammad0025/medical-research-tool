@@ -16,7 +16,6 @@
   "curatedBy": "Syed Hammad Haque",
   "lastUpdated": "2026-04-23",
   "editorialNote": "Focused KB for bipolar disorder. Lithium remains the gold standard for long-term maintenance and is the single intervention with the best mortality (including suicide) evidence. Modern second-generation antipsychotics have FDA approvals across specific phases: quetiapine (mania/depression/maintenance), lurasidone (bipolar depression), cariprazine (mania/depression), lumateperone (bipolar depression, 2021), olanzapine/samidorphan (mania). Lamotrigine is used for maintenance preferentially preventing depressive relapse. Valproate is effective for mania but TERATOGENIC — should not be first-line in women of reproductive potential. Current psychedelic/ketamine hype is mostly MDD-focused; bipolar patients are typically excluded. Any bipolar output that fails to discuss lithium's unique mortality/suicide-prevention benefit or that recommends SSRI monotherapy for bipolar depression is out of date.",
-
   "subspecialty": "Psychiatry / Mood Disorders",
   "icd10": "F31.9",
   "meshTerms": [
@@ -27,40 +26,160 @@
     "Antipsychotic Agents"
   ],
   "topCenters": [
-    { "name": "Harvard / Mass General Bipolar Clinic and Research Program",   "city": "Boston, MA",         "country": "USA", "why": "Andrew A. Nierenberg; STEP-BD alumni; modern bipolar trials." },
-    { "name": "Stanford Bipolar Disorders Clinic",                            "city": "Stanford, CA",       "country": "USA", "why": "Terence A. Ketter (emeritus) / Shefali Miller; phenotyping and lithium/lamotrigine trials." },
-    { "name": "Johns Hopkins Mood Disorders Center",                           "city": "Baltimore, MD",       "country": "USA", "why": "Kay Redfield Jamison (emerita); historic bipolar authority." },
-    { "name": "Lindner Center of HOPE / Cincinnati Children's",                "city": "Cincinnati, OH",      "country": "USA", "why": "Paul Keck / Susan McElroy; STEP-BD investigator site, bipolar eating disorder overlap." },
-    { "name": "University of Pittsburgh Western Psychiatric Institute (WPIC)", "city": "Pittsburgh, PA",      "country": "USA", "why": "Boris Birmaher; pediatric bipolar spectrum research." },
-    { "name": "UCLA Semel Institute Mood Disorders Program",                    "city": "Los Angeles, CA",    "country": "USA", "why": "Lori Altshuler (deceased) / David Miklowitz; family-focused therapy for adolescent bipolar." },
-    { "name": "Columbia University Mood Disorders Research Program",             "city": "New York, NY",       "country": "USA", "why": "Jill Goldstein / Helen Blair Simpson; mood-disorder neuroimaging." },
-    { "name": "King's College London / SLaM NHS Trust Affective Disorders",     "city": "London",             "country": "UK",  "why": "Allan H. Young; BALANCE trial; UK bipolar reference site." }
+    {
+      "name": "Harvard / Mass General Bipolar Clinic and Research Program",
+      "city": "Boston, MA",
+      "country": "USA",
+      "why": "Andrew A. Nierenberg; STEP-BD alumni; modern bipolar trials."
+    },
+    {
+      "name": "Stanford Bipolar Disorders Clinic",
+      "city": "Stanford, CA",
+      "country": "USA",
+      "why": "Terence A. Ketter (emeritus) / Shefali Miller; phenotyping and lithium/lamotrigine trials."
+    },
+    {
+      "name": "Johns Hopkins Mood Disorders Center",
+      "city": "Baltimore, MD",
+      "country": "USA",
+      "why": "Kay Redfield Jamison (emerita); historic bipolar authority."
+    },
+    {
+      "name": "Lindner Center of HOPE / Cincinnati Children's",
+      "city": "Cincinnati, OH",
+      "country": "USA",
+      "why": "Paul Keck / Susan McElroy; STEP-BD investigator site, bipolar eating disorder overlap."
+    },
+    {
+      "name": "University of Pittsburgh Western Psychiatric Institute (WPIC)",
+      "city": "Pittsburgh, PA",
+      "country": "USA",
+      "why": "Boris Birmaher; pediatric bipolar spectrum research."
+    },
+    {
+      "name": "UCLA Semel Institute Mood Disorders Program",
+      "city": "Los Angeles, CA",
+      "country": "USA",
+      "why": "Lori Altshuler (deceased) / David Miklowitz; family-focused therapy for adolescent bipolar."
+    },
+    {
+      "name": "Columbia University Mood Disorders Research Program",
+      "city": "New York, NY",
+      "country": "USA",
+      "why": "Jill Goldstein / Helen Blair Simpson; mood-disorder neuroimaging."
+    },
+    {
+      "name": "King's College London / SLaM NHS Trust Affective Disorders",
+      "city": "London",
+      "country": "UK",
+      "why": "Allan H. Young; BALANCE trial; UK bipolar reference site."
+    }
   ],
   "keyInvestigators": [
-    { "name": "Andrew A. Nierenberg",  "affiliation": "Harvard / Mass General",                 "why": "STEP-BD co-PI; modern pragmatic bipolar trials architect." },
-    { "name": "Robert M. Post",         "affiliation": "George Washington U. / Bipolar Collaborative Network","why": "Long-term bipolar natural history; kindling hypothesis." },
-    { "name": "Kay Redfield Jamison",   "affiliation": "Johns Hopkins",                           "why": "Lived experience + academic authority on bipolar-creativity, suicide." },
-    { "name": "Gary S. Sachs",           "affiliation": "Mass General / Harvard",                  "why": "STEP-BD PI." },
-    { "name": "Paul E. Keck Jr.",        "affiliation": "Lindner Center of HOPE",                   "why": "Expert consensus author across multiple guidelines." },
-    { "name": "Eric D. Peselow",         "affiliation": "Mount Sinai",                              "why": "Lithium long-term effectiveness researcher." },
-    { "name": "Mauricio Tohen",          "affiliation": "University of New Mexico",                 "why": "Olanzapine in bipolar pivotal trials." },
-    { "name": "Allan H. Young",          "affiliation": "King's College London",                    "why": "European bipolar pharmacology lead; BALANCE trial." }
+    {
+      "name": "Andrew A. Nierenberg",
+      "affiliation": "Harvard / Mass General",
+      "why": "STEP-BD co-PI; modern pragmatic bipolar trials architect."
+    },
+    {
+      "name": "Robert M. Post",
+      "affiliation": "George Washington U. / Bipolar Collaborative Network",
+      "why": "Long-term bipolar natural history; kindling hypothesis."
+    },
+    {
+      "name": "Kay Redfield Jamison",
+      "affiliation": "Johns Hopkins",
+      "why": "Lived experience + academic authority on bipolar-creativity, suicide."
+    },
+    {
+      "name": "Gary S. Sachs",
+      "affiliation": "Mass General / Harvard",
+      "why": "STEP-BD PI."
+    },
+    {
+      "name": "Paul E. Keck Jr.",
+      "affiliation": "Lindner Center of HOPE",
+      "why": "Expert consensus author across multiple guidelines."
+    },
+    {
+      "name": "Eric D. Peselow",
+      "affiliation": "Mount Sinai",
+      "why": "Lithium long-term effectiveness researcher."
+    },
+    {
+      "name": "Mauricio Tohen",
+      "affiliation": "University of New Mexico",
+      "why": "Olanzapine in bipolar pivotal trials."
+    },
+    {
+      "name": "Allan H. Young",
+      "affiliation": "King's College London",
+      "why": "European bipolar pharmacology lead; BALANCE trial."
+    }
   ],
   "patientAdvocacy": [
-    { "name": "Depression and Bipolar Support Alliance (DBSA)", "url": "https://www.dbsalliance.org",       "why": "Largest US peer-support network for bipolar and depression." },
-    { "name": "International Bipolar Foundation (IBPF)",         "url": "https://ibpf.org",                   "why": "Education + research advocacy." },
-    { "name": "National Alliance on Mental Illness (NAMI)",      "url": "https://www.nami.org",               "why": "Family education + advocacy across severe mental illness." },
-    { "name": "Mental Health America (MHA)",                     "url": "https://www.mhanational.org",        "why": "Screening tools + advocacy." },
-    { "name": "Bipolar UK",                                      "url": "https://www.bipolaruk.org",          "why": "UK peer support and research." }
+    {
+      "name": "Depression and Bipolar Support Alliance (DBSA)",
+      "url": "https://www.dbsalliance.org",
+      "why": "Largest US peer-support network for bipolar and depression."
+    },
+    {
+      "name": "International Bipolar Foundation (IBPF)",
+      "url": "https://ibpf.org",
+      "why": "Education + research advocacy."
+    },
+    {
+      "name": "National Alliance on Mental Illness (NAMI)",
+      "url": "https://www.nami.org",
+      "why": "Family education + advocacy across severe mental illness."
+    },
+    {
+      "name": "Mental Health America (MHA)",
+      "url": "https://www.mhanational.org",
+      "why": "Screening tools + advocacy."
+    },
+    {
+      "name": "Bipolar UK",
+      "url": "https://www.bipolaruk.org",
+      "why": "UK peer support and research."
+    }
   ],
   "landmarkTrials": [
-    { "acronym": "STEP-BD",             "name": "Systematic Treatment Enhancement Program for Bipolar Disorder","topic": "NIMH pragmatic effectiveness program; 4,361 patients; foundational evidence on antidepressant adjunct (usually unhelpful), psychotherapy, and long-term outcomes." },
-    { "acronym": "BALANCE",              "name": "Lithium vs valproate vs combination in maintenance",          "topic": "Lancet 2010; lithium monotherapy or lithium + valproate superior to valproate monotherapy for relapse prevention." },
-    { "acronym": "EMBOLDEN-I / -II",      "name": "Quetiapine in bipolar depression",                            "topic": "Basis for quetiapine's bipolar-depression indication." },
-    { "acronym": "Olanzapine-fluoxetine (Symbyax)","name": "OFC in bipolar I depression",                         "topic": "Tohen 2003 — first FDA-approved therapy for bipolar depression (Symbyax)." },
-    { "acronym": "Lurasidone PREVAIL trials","name": "Lurasidone in bipolar I depression",                        "topic": "Loebel 2014 — metabolic-friendly SGA for bipolar depression." },
-    { "acronym": "Cariprazine bipolar depression trials","name": "Vraylar pivotal",                                 "topic": "FDA approval 2019 for bipolar depression." },
-    { "acronym": "Lumateperone bipolar depression","name": "Caplyta bipolar pivotal",                               "topic": "Calabrese 2021; FDA approval 2021 (monotherapy and adjunct to Li/VPA)." }
+    {
+      "acronym": "STEP-BD",
+      "name": "Systematic Treatment Enhancement Program for Bipolar Disorder",
+      "topic": "NIMH pragmatic effectiveness program; 4,361 patients; foundational evidence on antidepressant adjunct (usually unhelpful), psychotherapy, and long-term outcomes."
+    },
+    {
+      "acronym": "BALANCE",
+      "name": "Lithium vs valproate vs combination in maintenance",
+      "topic": "Lancet 2010; lithium monotherapy or lithium + valproate superior to valproate monotherapy for relapse prevention."
+    },
+    {
+      "acronym": "EMBOLDEN-I / -II",
+      "name": "Quetiapine in bipolar depression",
+      "topic": "Basis for quetiapine's bipolar-depression indication."
+    },
+    {
+      "acronym": "Olanzapine-fluoxetine (Symbyax)",
+      "name": "OFC in bipolar I depression",
+      "topic": "Tohen 2003 — first FDA-approved therapy for bipolar depression (Symbyax)."
+    },
+    {
+      "acronym": "Lurasidone PREVAIL trials",
+      "name": "Lurasidone in bipolar I depression",
+      "topic": "Loebel 2014 — metabolic-friendly SGA for bipolar depression."
+    },
+    {
+      "acronym": "Cariprazine bipolar depression trials",
+      "name": "Vraylar pivotal",
+      "topic": "FDA approval 2019 for bipolar depression."
+    },
+    {
+      "acronym": "Lumateperone bipolar depression",
+      "name": "Caplyta bipolar pivotal",
+      "topic": "Calabrese 2021; FDA approval 2021 (monotherapy and adjunct to Li/VPA)."
+    }
   ],
   "commonComorbidities": [
     "Substance use disorder (especially alcohol, cannabis, stimulants)",
@@ -87,7 +206,6 @@
     "Metabolic monitoring if on SGAs (weight, fasting glucose/HbA1c, lipids, BP at baseline + yearly)",
     "ECT for severe/refractory/mixed/psychotic episodes — underutilized"
   ],
-
   "items": [
     {
       "id": "bd-apa-guideline-2002",
@@ -131,7 +249,10 @@
       "accessLevel": "abstract",
       "summary": "Pragmatic open-label RCT of lithium monotherapy, valproate monotherapy, and lithium + valproate combination in 330 BD-I patients. Primary endpoint: new mood-episode intervention. Lithium and lithium+valproate both superior to valproate alone; combination and lithium alone not significantly different.",
       "keyPassages": [
-        { "topic": "result", "quote": "Lithium was more likely to prevent relapse than was valproate, and the combination was more likely to prevent relapse than was valproate monotherapy." }
+        {
+          "topic": "result",
+          "quote": "Lithium was more likely to prevent relapse than was valproate, and the combination was more likely to prevent relapse than was valproate monotherapy."
+        }
       ]
     },
     {
@@ -163,7 +284,10 @@
       "accessLevel": "full-text",
       "summary": "Meta-analysis of 48 RCTs showed lithium reduces suicide by ~60% and all-cause mortality vs placebo and vs some comparators in mood disorders (including bipolar). Single most important evidence supporting lithium as first-line maintenance therapy.",
       "keyPassages": [
-        { "topic": "suicide", "quote": "Lithium was more effective than placebo in reducing the number of suicides (odds ratio 0.13, 95% confidence interval 0.03 to 0.66) and deaths from any cause (0.38, 0.15 to 0.95)." }
+        {
+          "topic": "suicide",
+          "quote": "Lithium was more effective than placebo in reducing the number of suicides (odds ratio 0.13, 95% confidence interval 0.03 to 0.66) and deaths from any cause (0.38, 0.15 to 0.95)."
+        }
       ]
     },
     {
@@ -178,7 +302,10 @@
       "accessLevel": "full-text",
       "summary": "December 2021 — Caplyta (lumateperone) received FDA approval for bipolar I and bipolar II depression as monotherapy AND as adjunct to lithium or valproate. Favorable metabolic profile. Based on Calabrese 2021 registrational trials.",
       "keyPassages": [
-        { "topic": "indication", "quote": "CAPLYTA is indicated for the treatment of depressive episodes associated with bipolar I or II disorder (bipolar depression) in adults, as monotherapy and as adjunctive therapy with lithium or valproate." }
+        {
+          "topic": "indication",
+          "quote": "CAPLYTA is indicated for the treatment of depressive episodes associated with bipolar I or II disorder (bipolar depression) in adults, as monotherapy and as adjunctive therapy with lithium or valproate."
+        }
       ]
     },
     {
@@ -197,40 +324,97 @@
       "keyPassages": []
     }
   ],
-
   "canonicalFacts": [
-    { "claim": "Lithium is first-line for long-term maintenance and is the intervention with the strongest evidence for reducing suicide and all-cause mortality in bipolar disorder.", "evidenceRefs": ["bd-cipriani-lithium-suicide-2013", "bd-balance-2010", "bd-canmat-2018"] },
-    { "claim": "Lumateperone (Caplyta) was FDA-approved December 2021 for bipolar I and II depression, monotherapy and as adjunct to Li/VPA.", "evidenceRefs": ["bd-fda-label-caplyta-bipolar-2021"] },
-    { "claim": "Lurasidone (Latuda) and quetiapine have the strongest first-line evidence for bipolar depression with favorable metabolic profile (lurasidone).", "evidenceRefs": ["bd-lurasidone-loebel-2014", "bd-canmat-2018"] },
-    { "claim": "Antidepressant monotherapy (especially SSRIs) is NOT recommended in bipolar depression — risk of switch to mania and mixed features.", "evidenceRefs": ["bd-canmat-2018"] },
-    { "claim": "Valproate has significant teratogenicity (spina bifida, neurodevelopmental impairment) and should generally be avoided in women of reproductive potential.", "evidenceRefs": [] }
+    {
+      "claim": "Lithium is first-line for long-term maintenance and is the intervention with the strongest evidence for reducing suicide and all-cause mortality in bipolar disorder.",
+      "evidenceRefs": [
+        "bd-cipriani-lithium-suicide-2013",
+        "bd-balance-2010",
+        "bd-canmat-2018"
+      ]
+    },
+    {
+      "claim": "Lumateperone (Caplyta) was FDA-approved December 2021 for bipolar I and II depression, monotherapy and as adjunct to Li/VPA.",
+      "evidenceRefs": [
+        "bd-fda-label-caplyta-bipolar-2021"
+      ]
+    },
+    {
+      "claim": "Lurasidone (Latuda) and quetiapine have the strongest first-line evidence for bipolar depression with favorable metabolic profile (lurasidone).",
+      "evidenceRefs": [
+        "bd-lurasidone-loebel-2014",
+        "bd-canmat-2018"
+      ]
+    },
+    {
+      "claim": "Antidepressant monotherapy (especially SSRIs) is NOT recommended in bipolar depression — risk of switch to mania and mixed features.",
+      "evidenceRefs": [
+        "bd-canmat-2018"
+      ]
+    },
+    {
+      "claim": "Valproate has significant teratogenicity (spina bifida, neurodevelopmental impairment) and should generally be avoided in women of reproductive potential.",
+      "evidenceRefs": []
+    }
   ],
-
   "lifestyleRecommendations": [
-    { "recommendation": "Prioritize medication adherence — long-acting injectable options (aripiprazole LAI, risperidone LAI) are underused in bipolar.", "evidenceRefs": ["bd-canmat-2018"] },
-    { "recommendation": "Sleep stabilization — sleep deprivation is a documented trigger for mania. Consider Interpersonal and Social Rhythm Therapy (IPSRT).", "evidenceRefs": [] },
-    { "recommendation": "Alcohol/cannabis/stimulant cessation — comorbid substance use worsens course dramatically.", "evidenceRefs": [] },
-    { "recommendation": "Family-focused therapy for adolescent / young-adult onset (Miklowitz).", "evidenceRefs": [] },
-    { "recommendation": "Lithium monitoring: TSH + renal function + lithium level every 6-12 months; calcium periodically (hyperparathyroidism).", "evidenceRefs": ["bd-canmat-2018"] },
-    { "recommendation": "Suicide-risk assessment at every visit; lethal-means counseling (firearm + medication access).", "evidenceRefs": ["bd-cipriani-lithium-suicide-2013"] },
-    { "recommendation": "Reproductive counseling — avoid valproate in women of reproductive potential; discuss lithium risks (cardiac anomalies) vs risk of untreated bipolar in pregnancy.", "evidenceRefs": [] },
-    { "recommendation": "Metabolic monitoring if on SGAs — weight, fasting glucose or HbA1c, lipids, BP at baseline and yearly.", "evidenceRefs": [] }
+    {
+      "recommendation": "Prioritize medication adherence — long-acting injectable options (aripiprazole LAI, risperidone LAI) are underused in bipolar.",
+      "evidenceRefs": [
+        "bd-canmat-2018"
+      ]
+    },
+    {
+      "recommendation": "Sleep stabilization — sleep deprivation is a documented trigger for mania. Consider Interpersonal and Social Rhythm Therapy (IPSRT).",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Alcohol/cannabis/stimulant cessation — comorbid substance use worsens course dramatically.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Family-focused therapy for adolescent / young-adult onset (Miklowitz).",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Lithium monitoring: TSH + renal function + lithium level every 6-12 months; calcium periodically (hyperparathyroidism).",
+      "evidenceRefs": [
+        "bd-canmat-2018"
+      ]
+    },
+    {
+      "recommendation": "Suicide-risk assessment at every visit; lethal-means counseling (firearm + medication access).",
+      "evidenceRefs": [
+        "bd-cipriani-lithium-suicide-2013"
+      ]
+    },
+    {
+      "recommendation": "Reproductive counseling — avoid valproate in women of reproductive potential; discuss lithium risks (cardiac anomalies) vs risk of untreated bipolar in pregnancy.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Metabolic monitoring if on SGAs — weight, fasting glucose or HbA1c, lipids, BP at baseline and yearly.",
+      "evidenceRefs": []
+    }
   ],
-
   "redFlags": [
-    "Do NOT prescribe SSRI antidepressant monotherapy for bipolar depression — precipitates mania and mixed states. If antidepressant is used, always pair with a mood stabilizer.",
-    "Do NOT prescribe valproate to women of reproductive potential without comprehensive reproductive-risk counseling and contraception plan — highest teratogenic risk among psychotropics.",
-    "Do NOT interpret 'treatment-resistant depression' as pure unipolar depression without screening for bipolarity (MDQ, detailed history of past mood elevation) — missed bipolar leads to repeated failed antidepressant trials.",
-    "Do NOT ignore mixed features (depressive episode with concurrent manic symptoms) — increases suicide risk and informs medication choice.",
+    "Physicians generally caution against prescribing SSRI antidepressant monotherapy for bipolar depression — precipitates mania and mixed states. If antidepressant is used, always pair with a mood stabilizer.",
+    "Physicians generally caution against prescribing valproate to women of reproductive potential without comprehensive reproductive-risk counseling and contraception plan — highest teratogenic risk among psychotropics.",
+    "Physicians generally caution against interpreting 'treatment-resistant depression' as pure unipolar depression without screening for bipolarity (MDQ, detailed history of past mood elevation) — missed bipolar leads to repeated failed antidepressant trials.",
+    "Physicians generally caution against ignoring mixed features (depressive episode with concurrent manic symptoms) — increases suicide risk and informs medication choice.",
     "Lithium toxicity is life-threatening — drug-drug interactions with thiazides, ACE inhibitors, NSAIDs, and dehydration elevate levels. Educate patients every visit.",
-    "Do NOT use ketamine/esketamine for bipolar depression outside a research protocol — FDA-approved only for MDD/TRD; bipolar patients were excluded from pivotal trials.",
-    "Do NOT use psilocybin / MDMA for bipolar outside a formal trial — bipolar is an exclusion criterion for current psychedelic programs (Compass Pathways, MAPS) due to manic-switch risk."
+    "Literature warns against ketamine/esketamine for bipolar depression outside a research protocol — FDA-approved only for MDD/TRD; bipolar patients were excluded from pivotal trials.",
+    "Literature warns against psilocybin / MDMA for bipolar outside a formal trial — bipolar is an exclusion criterion for current psychedelic programs (Compass Pathways, MAPS) due to manic-switch risk."
   ],
-
   "pipelineDrugs": [
     {
       "name": "Lithium",
-      "aliases": ["lithium carbonate", "lithium citrate", "Eskalith", "Lithobid"],
+      "aliases": [
+        "lithium carbonate",
+        "lithium citrate",
+        "Eskalith",
+        "Lithobid"
+      ],
       "mechanism": "Intracellular second-messenger modulation (GSK-3β inhibition, phosphoinositide cycle)",
       "sponsor": "Generic",
       "status": "FDA-approved since 1970 for bipolar mania and maintenance",
@@ -239,7 +423,12 @@
     },
     {
       "name": "Valproate / Divalproex",
-      "aliases": ["Depakote", "Depakene", "valproic acid", "sodium valproate"],
+      "aliases": [
+        "Depakote",
+        "Depakene",
+        "valproic acid",
+        "sodium valproate"
+      ],
       "mechanism": "GABAergic + Na+ channel + HDAC inhibitor",
       "sponsor": "Generic",
       "status": "FDA-approved for bipolar mania",
@@ -248,7 +437,9 @@
     },
     {
       "name": "Lamotrigine",
-      "aliases": ["Lamictal"],
+      "aliases": [
+        "Lamictal"
+      ],
       "mechanism": "Na+ channel modulator / glutamate release modulator",
       "sponsor": "Generic / GSK",
       "status": "FDA-approved for maintenance of bipolar I",
@@ -257,7 +448,10 @@
     },
     {
       "name": "Quetiapine",
-      "aliases": ["Seroquel", "Seroquel XR"],
+      "aliases": [
+        "Seroquel",
+        "Seroquel XR"
+      ],
       "mechanism": "SGA (5-HT2A + D2 antagonism + histaminic)",
       "sponsor": "Generic / AstraZeneca",
       "status": "FDA-approved for bipolar I and II depression, mania, and maintenance",
@@ -266,7 +460,9 @@
     },
     {
       "name": "Lurasidone",
-      "aliases": ["Latuda"],
+      "aliases": [
+        "Latuda"
+      ],
       "mechanism": "SGA (D2 + 5-HT2A + 5-HT7 antagonism; 5-HT1A partial agonist)",
       "sponsor": "Generic / Sumitomo",
       "status": "FDA-approved 2013 for bipolar I depression (monotherapy and adjunct to Li/VPA)",
@@ -275,7 +471,9 @@
     },
     {
       "name": "Cariprazine",
-      "aliases": ["Vraylar"],
+      "aliases": [
+        "Vraylar"
+      ],
       "mechanism": "D3-preferring D2/D3 partial agonist",
       "sponsor": "AbbVie / Gedeon Richter",
       "status": "FDA-approved for bipolar mania, bipolar I depression (2019), mixed episodes, and maintenance",
@@ -284,7 +482,9 @@
     },
     {
       "name": "Lumateperone",
-      "aliases": ["Caplyta"],
+      "aliases": [
+        "Caplyta"
+      ],
       "mechanism": "5-HT2A antagonist + presynaptic D2 partial agonist",
       "sponsor": "Intra-Cellular Therapies",
       "status": "FDA-approved December 2021 for bipolar I and II depression, monotherapy and adjunct to Li/VPA",
@@ -293,7 +493,9 @@
     },
     {
       "name": "Olanzapine / Fluoxetine (OFC)",
-      "aliases": ["Symbyax"],
+      "aliases": [
+        "Symbyax"
+      ],
       "mechanism": "SGA + SSRI combination",
       "sponsor": "Eli Lilly",
       "status": "FDA-approved 2003 for bipolar I depression and treatment-resistant depression",
@@ -302,7 +504,9 @@
     },
     {
       "name": "Olanzapine / Samidorphan",
-      "aliases": ["Lybalvi"],
+      "aliases": [
+        "Lybalvi"
+      ],
       "mechanism": "Olanzapine + opioid antagonist (mitigates weight gain)",
       "sponsor": "Alkermes",
       "status": "FDA-approved 2021 for bipolar I",
@@ -311,7 +515,10 @@
     },
     {
       "name": "Asenapine",
-      "aliases": ["Saphris", "Secuado (transdermal)"],
+      "aliases": [
+        "Saphris",
+        "Secuado (transdermal)"
+      ],
       "mechanism": "SGA (multi-receptor D2, 5-HT, alpha-2)",
       "sponsor": "Allergan",
       "status": "FDA-approved for bipolar I mania",
@@ -320,7 +527,11 @@
     },
     {
       "name": "Aripiprazole (oral and LAI)",
-      "aliases": ["Abilify", "Abilify Maintena (LAI)", "Aristada (LAI)"],
+      "aliases": [
+        "Abilify",
+        "Abilify Maintena (LAI)",
+        "Aristada (LAI)"
+      ],
       "mechanism": "D2/D3 partial agonist; 5-HT1A partial agonist; 5-HT2A antagonist",
       "sponsor": "Otsuka / Alkermes",
       "status": "FDA-approved for bipolar mania and maintenance",
@@ -329,7 +540,9 @@
     },
     {
       "name": "Electroconvulsive Therapy (ECT)",
-      "aliases": ["ECT"],
+      "aliases": [
+        "ECT"
+      ],
       "mechanism": "Electrically induced seizure under anesthesia",
       "sponsor": "N/A (procedure)",
       "status": "Standard of care for severe treatment-resistant / mixed / psychotic bipolar episodes",
@@ -338,7 +551,9 @@
     },
     {
       "name": "Ketamine / Esketamine (for bipolar — INVESTIGATIONAL/OFF-LABEL)",
-      "aliases": ["Spravato (esketamine)"],
+      "aliases": [
+        "Spravato (esketamine)"
+      ],
       "mechanism": "NMDA receptor antagonist",
       "sponsor": "Janssen (Spravato)",
       "status": "FDA-approved for treatment-resistant MDD and MDD with acute suicidal ideation; NOT approved for bipolar depression",
@@ -347,7 +562,9 @@
     },
     {
       "name": "Psilocybin (for bipolar — INVESTIGATIONAL)",
-      "aliases": ["psilocybin"],
+      "aliases": [
+        "psilocybin"
+      ],
       "mechanism": "5-HT2A agonist psychedelic",
       "sponsor": "Compass Pathways / Usona Institute (for MDD)",
       "status": "Phase 3 ongoing for MDD/TRD; bipolar patients EXCLUDED from pivotal trials",
@@ -355,7 +572,6 @@
       "whyItMatters": "Bipolar is an exclusion criterion in current psychedelic programs due to manic-switch concern. Clarity required when patients ask."
     }
   ],
-
   "excludedAgents": [
     {
       "name": "SSRI antidepressant monotherapy for bipolar depression",

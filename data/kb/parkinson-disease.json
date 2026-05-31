@@ -14,7 +14,6 @@
   "curatedBy": "Syed Hammad Haque",
   "lastUpdated": "2026-04-23",
   "editorialNote": "Focused KB for Parkinson disease. Therapeutic backbone remains levodopa-carbidopa. The late-stage disease-modifying pipeline has been brutal: prasinezumab (PASADENA phase 2), cinpanemab (SPARK), venglustat, and UCB0599 (minzasolmin) have all failed primary endpoints in recent years. Focused ultrasound, DBS, and continuous subcutaneous apomorphine/foslevodopa infusion (Vyalev, 2024) are the meaningful device/formulation advances. Any PD output that omits Vyalev or fails to flag the prasinezumab/cinpanemab/minzasolmin failures is out of date.",
-
   "subspecialty": "Neurology / Movement Disorders",
   "icd10": "G20",
   "meshTerms": [
@@ -25,36 +24,139 @@
     "alpha-Synuclein"
   ],
   "topCenters": [
-    { "name": "Massachusetts General Hospital Movement Disorders Unit",  "city": "Boston, MA",      "country": "USA", "why": "Anne Young / Todd Herrington; deep DBS and gene therapy trial program." },
-    { "name": "Columbia Parkinson's Disease Foundation Center",          "city": "New York, NY",    "country": "USA", "why": "Stanley Fahn (emeritus); Dystonia and Parkinson's research; ELLDOPA, PPMI investigator site." },
-    { "name": "University of Florida Norman Fixel Institute",             "city": "Gainesville, FL", "country": "USA", "why": "Michael Okun; DBS high-volume program." },
-    { "name": "Stanford Movement Disorders Center",                       "city": "Stanford, CA",   "country": "USA", "why": "Kathleen Poston; biomarker and precision PD research." },
-    { "name": "Cleveland Clinic Center for Neurological Restoration",     "city": "Cleveland, OH",   "country": "USA", "why": "Hubert Fernandez; focused ultrasound + DBS." },
-    { "name": "Rush University Movement Disorders Section",               "city": "Chicago, IL",     "country": "USA", "why": "Kathleen Shannon / Christopher Goetz; MDS-UPDRS architects." },
-    { "name": "Toronto Western Hospital Movement Disorders Clinic",       "city": "Toronto",         "country": "Canada", "why": "Anthony Lang; international PD research leader." }
+    {
+      "name": "Massachusetts General Hospital Movement Disorders Unit",
+      "city": "Boston, MA",
+      "country": "USA",
+      "why": "Anne Young / Todd Herrington; deep DBS and gene therapy trial program."
+    },
+    {
+      "name": "Columbia Parkinson's Disease Foundation Center",
+      "city": "New York, NY",
+      "country": "USA",
+      "why": "Stanley Fahn (emeritus); Dystonia and Parkinson's research; ELLDOPA, PPMI investigator site."
+    },
+    {
+      "name": "University of Florida Norman Fixel Institute",
+      "city": "Gainesville, FL",
+      "country": "USA",
+      "why": "Michael Okun; DBS high-volume program."
+    },
+    {
+      "name": "Stanford Movement Disorders Center",
+      "city": "Stanford, CA",
+      "country": "USA",
+      "why": "Kathleen Poston; biomarker and precision PD research."
+    },
+    {
+      "name": "Cleveland Clinic Center for Neurological Restoration",
+      "city": "Cleveland, OH",
+      "country": "USA",
+      "why": "Hubert Fernandez; focused ultrasound + DBS."
+    },
+    {
+      "name": "Rush University Movement Disorders Section",
+      "city": "Chicago, IL",
+      "country": "USA",
+      "why": "Kathleen Shannon / Christopher Goetz; MDS-UPDRS architects."
+    },
+    {
+      "name": "Toronto Western Hospital Movement Disorders Clinic",
+      "city": "Toronto",
+      "country": "Canada",
+      "why": "Anthony Lang; international PD research leader."
+    }
   ],
   "keyInvestigators": [
-    { "name": "Kenneth Marek",     "affiliation": "Institute for Neurodegenerative Disorders",      "why": "PPMI (Parkinson's Progression Markers Initiative) PI." },
-    { "name": "Anthony E. Lang",    "affiliation": "Toronto Western Hospital / Krembil",              "why": "MDS-UPDRS clinimetrics; prasinezumab/cinpanemab trial investigator." },
-    { "name": "Michael S. Okun",     "affiliation": "UF Fixel Institute",                              "why": "DBS authority; National Medical Director NPF." },
-    { "name": "Andrew J. Lees",      "affiliation": "UCL Queen Square",                                "why": "PD clinical phenomenology; half-century clinician-researcher." },
-    { "name": "Caroline M. Tanner",  "affiliation": "UCSF",                                             "why": "PD epidemiology and environmental risk." },
-    { "name": "Jeffrey H. Kordower", "affiliation": "Arizona State University (ex-Rush)",               "why": "Alpha-synuclein pathology spread; gene therapy translation." }
+    {
+      "name": "Kenneth Marek",
+      "affiliation": "Institute for Neurodegenerative Disorders",
+      "why": "PPMI (Parkinson's Progression Markers Initiative) PI."
+    },
+    {
+      "name": "Anthony E. Lang",
+      "affiliation": "Toronto Western Hospital / Krembil",
+      "why": "MDS-UPDRS clinimetrics; prasinezumab/cinpanemab trial investigator."
+    },
+    {
+      "name": "Michael S. Okun",
+      "affiliation": "UF Fixel Institute",
+      "why": "DBS authority; National Medical Director NPF."
+    },
+    {
+      "name": "Andrew J. Lees",
+      "affiliation": "UCL Queen Square",
+      "why": "PD clinical phenomenology; half-century clinician-researcher."
+    },
+    {
+      "name": "Caroline M. Tanner",
+      "affiliation": "UCSF",
+      "why": "PD epidemiology and environmental risk."
+    },
+    {
+      "name": "Jeffrey H. Kordower",
+      "affiliation": "Arizona State University (ex-Rush)",
+      "why": "Alpha-synuclein pathology spread; gene therapy translation."
+    }
   ],
   "patientAdvocacy": [
-    { "name": "Michael J. Fox Foundation for Parkinson's Research",     "url": "https://www.michaeljfox.org",  "why": "Largest non-profit PD research funder; runs PPMI; Fox Insight online cohort." },
-    { "name": "Parkinson's Foundation",                                  "url": "https://www.parkinson.org",    "why": "Care-center designation network; PD GENEration free genetic testing." },
-    { "name": "American Parkinson Disease Association (APDA)",           "url": "https://www.apdaparkinson.org","why": "Community-level support and exercise programs." },
-    { "name": "Davis Phinney Foundation",                                "url": "https://davisphinneyfoundation.org","why": "Patient education + Every Victory Counts resource." },
-    { "name": "Cure Parkinson's",                                         "url": "https://www.cureparkinsons.org.uk","why": "UK-based; iLCT (International Linked Clinical Trials) repurposing program." }
+    {
+      "name": "Michael J. Fox Foundation for Parkinson's Research",
+      "url": "https://www.michaeljfox.org",
+      "why": "Largest non-profit PD research funder; runs PPMI; Fox Insight online cohort."
+    },
+    {
+      "name": "Parkinson's Foundation",
+      "url": "https://www.parkinson.org",
+      "why": "Care-center designation network; PD GENEration free genetic testing."
+    },
+    {
+      "name": "American Parkinson Disease Association (APDA)",
+      "url": "https://www.apdaparkinson.org",
+      "why": "Community-level support and exercise programs."
+    },
+    {
+      "name": "Davis Phinney Foundation",
+      "url": "https://davisphinneyfoundation.org",
+      "why": "Patient education + Every Victory Counts resource."
+    },
+    {
+      "name": "Cure Parkinson's",
+      "url": "https://www.cureparkinsons.org.uk",
+      "why": "UK-based; iLCT (International Linked Clinical Trials) repurposing program."
+    }
   ],
   "landmarkTrials": [
-    { "acronym": "EARLYSTIM",    "name": "Early DBS vs best medical therapy",                     "topic": "Schuepbach 2013 NEJM — DBS superior for motor function and QoL in early motor-complications PD." },
-    { "acronym": "PASADENA",      "name": "Prasinezumab in early PD",                               "topic": "Phase 2 failed primary endpoint; open-label extension suggested possible benefit but program uncertain (Roche/Prothena)." },
-    { "acronym": "SPARK",         "name": "Cinpanemab in early PD",                                 "topic": "Phase 2 FAILED; Biogen discontinued cinpanemab program 2021." },
-    { "acronym": "ORCHESTRA",     "name": "Minzasolmin (UCB0599) in early PD",                     "topic": "Phase 2 failed primary endpoint 2024; UCB halted development." },
-    { "acronym": "MOVES-PD / ASPro-PD","name": "Venglustat / Simvastatin for PD",                   "topic": "Venglustat GBA-PD failed; Simvastatin PD-STAT negative for neuroprotection." },
-    { "acronym": "PPMI",           "name": "Parkinson's Progression Markers Initiative",             "topic": "Natural-history and biomarker cohort; now includes αSyn-SAA for biological staging." }
+    {
+      "acronym": "EARLYSTIM",
+      "name": "Early DBS vs best medical therapy",
+      "topic": "Schuepbach 2013 NEJM — DBS superior for motor function and QoL in early motor-complications PD."
+    },
+    {
+      "acronym": "PASADENA",
+      "name": "Prasinezumab in early PD",
+      "topic": "Phase 2 failed primary endpoint; open-label extension suggested possible benefit but program uncertain (Roche/Prothena)."
+    },
+    {
+      "acronym": "SPARK",
+      "name": "Cinpanemab in early PD",
+      "topic": "Phase 2 FAILED; Biogen discontinued cinpanemab program 2021."
+    },
+    {
+      "acronym": "ORCHESTRA",
+      "name": "Minzasolmin (UCB0599) in early PD",
+      "topic": "Phase 2 failed primary endpoint 2024; UCB halted development."
+    },
+    {
+      "acronym": "MOVES-PD / ASPro-PD",
+      "name": "Venglustat / Simvastatin for PD",
+      "topic": "Venglustat GBA-PD failed; Simvastatin PD-STAT negative for neuroprotection."
+    },
+    {
+      "acronym": "PPMI",
+      "name": "Parkinson's Progression Markers Initiative",
+      "topic": "Natural-history and biomarker cohort; now includes αSyn-SAA for biological staging."
+    }
   ],
   "commonComorbidities": [
     "REM sleep behavior disorder (often precedes motor PD by years)",
@@ -76,7 +178,6 @@
     "Avoid anti-dopaminergic antiemetics (metoclopramide, prochlorperazine) and typical antipsychotics",
     "Swallowing evaluation for advancing disease"
   ],
-
   "items": [
     {
       "id": "pd-fahn-elldopa-2004",
@@ -92,7 +193,10 @@
       "accessLevel": "abstract",
       "summary": "Landmark trial establishing that levodopa does not accelerate PD progression. 361 early-untreated PD patients randomized to placebo, levodopa 150/300/600 mg daily for 40 weeks, then 2-week washout. Dose-dependent symptomatic benefit persisted after washout, arguing against the older 'levodopa toxicity' hypothesis. Foundation for modern early-initiation practice.",
       "keyPassages": [
-        { "topic": "key finding", "quote": "The severity of parkinsonism was significantly less in the levodopa groups than in the placebo group by the end of the 40-week treatment period." }
+        {
+          "topic": "key finding",
+          "quote": "The severity of parkinsonism was significantly less in the levodopa groups than in the placebo group by the end of the 40-week treatment period."
+        }
       ]
     },
     {
@@ -109,7 +213,10 @@
       "accessLevel": "abstract",
       "summary": "RCT of subthalamic-nucleus DBS added to best medical therapy vs best medical therapy alone in 251 PD patients with early motor complications (mean 7.5 years disease, mean age 52). DBS improved PDQ-39 QoL by 7.8 points, more off-time reduction, fewer dyskinesias. Established that DBS need not wait until end-stage disease.",
       "keyPassages": [
-        { "topic": "primary endpoint", "quote": "Mean improvements from baseline to 2 years in the PDQ-39 summary index were 7.8 points in the neurostimulation group and 0.2 points in the medical-therapy group (P=0.002)." }
+        {
+          "topic": "primary endpoint",
+          "quote": "Mean improvements from baseline to 2 years in the PDQ-39 summary index were 7.8 points in the neurostimulation group and 0.2 points in the medical-therapy group (P=0.002)."
+        }
       ]
     },
     {
@@ -139,7 +246,10 @@
       "accessLevel": "full-text",
       "summary": "First continuous 24-hour subcutaneous infusion of foscarbidopa/foslevodopa (soluble phosphate prodrugs). FDA-approved October 2024 for advanced PD with motor fluctuations. Significantly reduces 'off' time vs oral IR carbidopa/levodopa. Alternative to intrajejunal levodopa-carbidopa enteral suspension (Duopa/LCIG) without needing PEG-J placement.",
       "keyPassages": [
-        { "topic": "indication", "quote": "VYALEV is indicated for the treatment of motor fluctuations in adults with advanced Parkinson's disease." }
+        {
+          "topic": "indication",
+          "quote": "VYALEV is indicated for the treatment of motor fluctuations in adults with advanced Parkinson's disease."
+        }
       ]
     },
     {
@@ -156,7 +266,10 @@
       "accessLevel": "abstract",
       "summary": "Phase 2 RCT of prasinezumab (anti-aggregated α-synuclein antibody, Roche/Prothena) in 316 patients with early untreated PD. Did NOT meet primary endpoint (change in MDS-UPDRS total score at week 52). Some prespecified motor secondary endpoints numerically favored prasinezumab. Roche continued development (phase 2b PADOVA ongoing) despite negative primary — readout late 2024.",
       "keyPassages": [
-        { "topic": "primary endpoint", "quote": "Neither dose of prasinezumab led to a significant difference from placebo in the change from baseline in MDS-UPDRS total score at week 52." }
+        {
+          "topic": "primary endpoint",
+          "quote": "Neither dose of prasinezumab led to a significant difference from placebo in the change from baseline in MDS-UPDRS total score at week 52."
+        }
       ]
     },
     {
@@ -173,40 +286,84 @@
       "accessLevel": "abstract",
       "summary": "Phase 2 RCT of cinpanemab (anti-α-synuclein antibody, Biogen) in 357 patients with early PD. Did NOT meet primary endpoint (MDS-UPDRS parts II + III change at week 52). Biogen halted the cinpanemab PD program.",
       "keyPassages": [
-        { "topic": "primary endpoint", "quote": "Cinpanemab did not differ significantly from placebo with respect to changes in clinical measures of PD progression." }
+        {
+          "topic": "primary endpoint",
+          "quote": "Cinpanemab did not differ significantly from placebo with respect to changes in clinical measures of PD progression."
+        }
       ]
     }
   ],
-
   "canonicalFacts": [
-    { "claim": "Levodopa-carbidopa (oral) remains the most effective symptomatic therapy for PD motor symptoms; ELLDOPA refuted the concern that levodopa accelerates disease.", "evidenceRefs": ["pd-fahn-elldopa-2004"] },
-    { "claim": "Subthalamic-nucleus DBS benefits PD patients with motor fluctuations well before end-stage disease (EARLYSTIM).", "evidenceRefs": ["pd-earlystim-schuepbach-2013"] },
-    { "claim": "Continuous subcutaneous foscarbidopa/foslevodopa infusion (Vyalev) was FDA-approved October 2024 for advanced PD with motor fluctuations — alternative to Duopa/LCIG.", "evidenceRefs": ["pd-fda-label-vyalev-2024"] },
-    { "claim": "Anti-α-synuclein monoclonal antibodies prasinezumab (PASADENA) and cinpanemab (SPARK) both failed their phase 2 primary endpoints; cinpanemab program discontinued.", "evidenceRefs": ["pd-prasinezumab-pasadena-2022", "pd-cinpanemab-spark-2022"] }
+    {
+      "claim": "Levodopa-carbidopa (oral) remains the most effective symptomatic therapy for PD motor symptoms; ELLDOPA refuted the concern that levodopa accelerates disease.",
+      "evidenceRefs": [
+        "pd-fahn-elldopa-2004"
+      ]
+    },
+    {
+      "claim": "Subthalamic-nucleus DBS benefits PD patients with motor fluctuations well before end-stage disease (EARLYSTIM).",
+      "evidenceRefs": [
+        "pd-earlystim-schuepbach-2013"
+      ]
+    },
+    {
+      "claim": "Continuous subcutaneous foscarbidopa/foslevodopa infusion (Vyalev) was FDA-approved October 2024 for advanced PD with motor fluctuations — alternative to Duopa/LCIG.",
+      "evidenceRefs": [
+        "pd-fda-label-vyalev-2024"
+      ]
+    },
+    {
+      "claim": "Anti-α-synuclein monoclonal antibodies prasinezumab (PASADENA) and cinpanemab (SPARK) both failed their phase 2 primary endpoints; cinpanemab program discontinued.",
+      "evidenceRefs": [
+        "pd-prasinezumab-pasadena-2022",
+        "pd-cinpanemab-spark-2022"
+      ]
+    }
   ],
-
   "lifestyleRecommendations": [
-    { "recommendation": "Structured, progressive aerobic exercise (e.g., SPARX 'moderate-to-high intensity treadmill 3×/week') slows motor decline vs usual care.", "evidenceRefs": [] },
-    { "recommendation": "Refer for LSVT BIG (motor) and LSVT LOUD (dysarthria) therapy.", "evidenceRefs": [] },
-    { "recommendation": "Consider protein redistribution diet (limit protein intake to dinner) if motor response fluctuates with meals.", "evidenceRefs": [] },
-    { "recommendation": "Evaluate and treat constipation aggressively; optimize bowel regimen.", "evidenceRefs": [] },
-    { "recommendation": "Fall-prevention assessment; physical therapy with balance training.", "evidenceRefs": [] },
-    { "recommendation": "Treat REM sleep behavior disorder (clonazepam or melatonin) if bed-partner safety at risk.", "evidenceRefs": [] }
+    {
+      "recommendation": "Structured, progressive aerobic exercise (e.g., SPARX 'moderate-to-high intensity treadmill 3×/week') slows motor decline vs usual care.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Refer for LSVT BIG (motor) and LSVT LOUD (dysarthria) therapy.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Consider protein redistribution diet (limit protein intake to dinner) if motor response fluctuates with meals.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Evaluate and treat constipation aggressively; optimize bowel regimen.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Fall-prevention assessment; physical therapy with balance training.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Treat REM sleep behavior disorder (clonazepam or melatonin) if bed-partner safety at risk.",
+      "evidenceRefs": []
+    }
   ],
-
   "redFlags": [
-    "Do NOT prescribe anti-dopaminergic antiemetics (metoclopramide, prochlorperazine) to PD patients — use ondansetron or trimethobenzamide instead.",
-    "Do NOT prescribe typical antipsychotics (haloperidol, risperidone) for PD psychosis — use pimavanserin, quetiapine, or clozapine.",
-    "Do NOT stop levodopa abruptly — risk of neuroleptic malignant-like syndrome / parkinsonism-hyperpyrexia.",
-    "Do NOT use aducanumab-style anti-amyloid agents for PD — these are approved only for Alzheimer disease.",
+    "Physicians generally caution against prescribing anti-dopaminergic antiemetics (metoclopramide, prochlorperazine) to PD patients — use ondansetron or trimethobenzamide instead.",
+    "Physicians generally caution against prescribing typical antipsychotics (haloperidol, risperidone) for PD psychosis — use pimavanserin, quetiapine, or clozapine.",
+    "Physicians generally caution against stopping levodopa abruptly — risk of neuroleptic malignant-like syndrome / parkinsonism-hyperpyrexia.",
+    "Literature warns against aducanumab-style anti-amyloid agents for PD — these are approved only for Alzheimer disease.",
     "Stem cell clinics (China, Vietnam, Mexico, India) offering unproven IV MSC infusions for PD — no peer-reviewed efficacy data. FDA warning letters issued to US-linked operators.",
     "Impulse control disorder screening is mandatory on dopamine agonists (pramipexole, ropinirole, rotigotine); ask specifically about pathologic gambling, hypersexuality, punding, compulsive shopping."
   ],
-
   "pipelineDrugs": [
     {
       "name": "Levodopa/Carbidopa",
-      "aliases": ["Sinemet", "Rytary", "Inbrija (inhaled)", "Dhivy", "Crexont"],
+      "aliases": [
+        "Sinemet",
+        "Rytary",
+        "Inbrija (inhaled)",
+        "Dhivy",
+        "Crexont"
+      ],
       "mechanism": "Dopamine precursor + peripheral DDC inhibitor",
       "sponsor": "Generic / multiple",
       "status": "FDA-approved since 1970s; extended-release Rytary 2015; inhaled Inbrija 2018; Crexont (ER bilayer) approved 2024",
@@ -215,7 +372,10 @@
     },
     {
       "name": "Foscarbidopa / Foslevodopa (Vyalev)",
-      "aliases": ["ABBV-951", "Produodopa (EU)"],
+      "aliases": [
+        "ABBV-951",
+        "Produodopa (EU)"
+      ],
       "mechanism": "Soluble phosphate prodrugs delivered as continuous 24-hour subcutaneous infusion",
       "sponsor": "AbbVie",
       "status": "FDA-approved October 2024 for advanced PD with motor fluctuations",
@@ -224,7 +384,11 @@
     },
     {
       "name": "Levodopa-carbidopa intestinal gel (Duopa / LCIG / Duodopa)",
-      "aliases": ["Duopa", "Duodopa", "LCIG"],
+      "aliases": [
+        "Duopa",
+        "Duodopa",
+        "LCIG"
+      ],
       "mechanism": "Continuous intrajejunal levodopa-carbidopa infusion via PEG-J pump",
       "sponsor": "AbbVie",
       "status": "FDA-approved 2015 for advanced PD with motor fluctuations",
@@ -233,7 +397,10 @@
     },
     {
       "name": "Apomorphine",
-      "aliases": ["Apokyn (SC)", "Kynmobi (sublingual)"],
+      "aliases": [
+        "Apokyn (SC)",
+        "Kynmobi (sublingual)"
+      ],
       "mechanism": "Non-ergot dopamine agonist",
       "sponsor": "Sumitomo / Supernus",
       "status": "SC injection approved 2004; sublingual Kynmobi approved 2020",
@@ -242,7 +409,9 @@
     },
     {
       "name": "Rasagiline",
-      "aliases": ["Azilect"],
+      "aliases": [
+        "Azilect"
+      ],
       "mechanism": "Selective irreversible MAO-B inhibitor",
       "sponsor": "Teva",
       "status": "FDA-approved 2006; now generic",
@@ -251,7 +420,9 @@
     },
     {
       "name": "Safinamide",
-      "aliases": ["Xadago"],
+      "aliases": [
+        "Xadago"
+      ],
       "mechanism": "MAO-B inhibitor + glutamate release modulator",
       "sponsor": "Zambon / Newron",
       "status": "FDA-approved 2017",
@@ -260,7 +431,9 @@
     },
     {
       "name": "Opicapone",
-      "aliases": ["Ongentys"],
+      "aliases": [
+        "Ongentys"
+      ],
       "mechanism": "Peripherally acting COMT inhibitor (once-daily)",
       "sponsor": "Neurocrine",
       "status": "FDA-approved 2020",
@@ -269,7 +442,10 @@
     },
     {
       "name": "Amantadine ER (Gocovri, Osmolex)",
-      "aliases": ["Gocovri", "Osmolex ER"],
+      "aliases": [
+        "Gocovri",
+        "Osmolex ER"
+      ],
       "mechanism": "NMDA antagonist / dopamine-release enhancer",
       "sponsor": "Adamas (Gocovri) / Supernus (Osmolex)",
       "status": "Gocovri FDA-approved 2017 for PD dyskinesia; Osmolex 2018",
@@ -278,7 +454,9 @@
     },
     {
       "name": "Istradefylline",
-      "aliases": ["Nourianz"],
+      "aliases": [
+        "Nourianz"
+      ],
       "mechanism": "Adenosine A2A receptor antagonist",
       "sponsor": "Kyowa Kirin",
       "status": "FDA-approved 2019",
@@ -287,7 +465,9 @@
     },
     {
       "name": "Pimavanserin",
-      "aliases": ["Nuplazid"],
+      "aliases": [
+        "Nuplazid"
+      ],
       "mechanism": "Selective 5-HT2A inverse agonist",
       "sponsor": "Acadia",
       "status": "FDA-approved 2016 for PD psychosis",
@@ -296,7 +476,10 @@
     },
     {
       "name": "Prasinezumab",
-      "aliases": ["PRX002", "RO7046015"],
+      "aliases": [
+        "PRX002",
+        "RO7046015"
+      ],
       "mechanism": "IgG1 monoclonal antibody against aggregated α-synuclein",
       "sponsor": "Roche / Prothena",
       "status": "Phase 2 PASADENA missed primary endpoint 2022; phase 2b PADOVA readout 2024-2025",
@@ -306,7 +489,9 @@
     },
     {
       "name": "Cinpanemab",
-      "aliases": ["BIIB054"],
+      "aliases": [
+        "BIIB054"
+      ],
       "mechanism": "Anti-α-synuclein IgG monoclonal antibody",
       "sponsor": "Biogen",
       "status": "SPARK phase 2 failed 2022; program DISCONTINUED",
@@ -316,7 +501,9 @@
     },
     {
       "name": "Minzasolmin",
-      "aliases": ["UCB0599"],
+      "aliases": [
+        "UCB0599"
+      ],
       "mechanism": "Oral small-molecule α-synuclein aggregation inhibitor",
       "sponsor": "UCB",
       "status": "ORCHESTRA phase 2 failed primary endpoint 2024; development halted",
@@ -325,7 +512,9 @@
     },
     {
       "name": "AMT-130 (for PD — not the same as AMT-130 for HD)",
-      "aliases": ["uniQure GBA-PD gene therapy"],
+      "aliases": [
+        "uniQure GBA-PD gene therapy"
+      ],
       "mechanism": "(Various AAV gene therapy programs — Voyager VY-AADC, uniQure AAV-GDNF, Axovant AXO-Lenti-PD)",
       "sponsor": "Multiple",
       "status": "Early-phase",
@@ -334,7 +523,11 @@
     },
     {
       "name": "Focused Ultrasound (Exablate)",
-      "aliases": ["MRgFUS", "MR-guided focused ultrasound", "Insightec Exablate"],
+      "aliases": [
+        "MRgFUS",
+        "MR-guided focused ultrasound",
+        "Insightec Exablate"
+      ],
       "mechanism": "Incisionless thalamotomy / pallidotomy",
       "sponsor": "Insightec",
       "status": "FDA approval: unilateral thalamotomy for essential tremor (2016); unilateral pallidotomy for PD motor symptoms (2021); bilateral pallidothalamic tractotomy under investigation",
@@ -343,7 +536,11 @@
     },
     {
       "name": "Deep Brain Stimulation (STN / GPi)",
-      "aliases": ["DBS", "STN-DBS", "GPi-DBS"],
+      "aliases": [
+        "DBS",
+        "STN-DBS",
+        "GPi-DBS"
+      ],
       "mechanism": "Implanted high-frequency stimulation",
       "sponsor": "Medtronic / Abbott / Boston Scientific",
       "status": "FDA-approved since 1997 (ET) / 2002 (PD); adaptive DBS (aDBS) FDA-approved Feb 2025 (Medtronic Percept RC)",
@@ -351,7 +548,6 @@
       "whyItMatters": "Established for medication-refractory motor fluctuations / dyskinesia. Adaptive/closed-loop DBS is the recent frontier — Medtronic aDBS approved 2025."
     }
   ],
-
   "excludedAgents": [
     {
       "name": "Cinpanemab",
@@ -370,7 +566,7 @@
     },
     {
       "name": "Simvastatin for PD neuroprotection",
-      "reason": "PD-STAT negative for motor-progression endpoint. Do not prescribe statin for PD neuroprotection outside cardiovascular-indication range.",
+      "reason": "PD-STAT negative for motor-progression endpoint. Literature does not support prescribing statin for PD neuroprotection outside cardiovascular-indication range.",
       "evidenceRef": null
     },
     {

@@ -1352,7 +1352,17 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mode, ...payload })
           });
-          const d = await r.json();
+          const raw = await r.text();
+          let d;
+          try { d = JSON.parse(raw); }
+          catch {
+            const isTimeout = /FUNCTION_INVOCATION_TIMEOUT|An error occurred with your deployment|504|Gateway Time-out/i.test(raw);
+            throw new Error(
+              isTimeout
+                ? 'Server timeout. Your last gather may still be cached — try again in a moment.'
+                : `Server returned non-JSON (HTTP ${r.status}): ${raw.slice(0, 140)}`
+            );
+          }
           if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
           return d;
         };
@@ -1472,16 +1482,16 @@
             }
             if (!res.ok) {
               if (data?.upgradeRequired) {
-                const price = data?.pricing?.paidPriceUsd;
-                const paidRuns = data?.pricing?.paidRunsPerMonth;
-                const upgradeUrl = data?.pricing?.upgradeUrl;
+                const p = data?.pricing || {};
                 throw new Error(
                   `${data.error || 'Usage limit reached.'} ` +
-                  `Paid plan: $${price || 10}/month for up to ${paidRuns || 15} runs.` +
-                  (upgradeUrl ? ` Upgrade here: ${upgradeUrl}` : ' Ask admin for upgrade code.')
+                  `Pro: $${p.proPriceUsd || p.paidPriceUsd || 20}/mo → ${p.proRunsPerMonth || p.paidRunsPerMonth || 100} runs. ` +
+                  `Max: $${p.maxPriceUsd || 79}/mo → ${p.maxRunsPerMonth || 500} runs.` +
+                  (p.upgradeUrl ? ` Upgrade: ${p.upgradeUrl}` : ' Enter an upgrade code on the Profile tab.')
                 );
               }
-              throw new Error(data.error || `Request failed (HTTP ${res.status})`);
+              const errMsg = data?.error?.message || data?.error || data?.message;
+              throw new Error(typeof errMsg === 'string' ? errMsg : `Request failed (HTTP ${res.status})`);
             }
             return data;
           };
@@ -1809,8 +1819,21 @@
                 evidencePack: packForChat
               })
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Chat failed');
+            const raw = await res.text();
+            let data;
+            try { data = JSON.parse(raw); }
+            catch {
+              const isTimeout = /FUNCTION_INVOCATION_TIMEOUT|An error occurred with your deployment|504|Gateway Time-out/i.test(raw);
+              throw new Error(
+                isTimeout
+                  ? 'Server timeout. Try again — your evidence pack should still be cached, so the retry will be faster.'
+                  : `Server returned non-JSON (HTTP ${res.status}): ${raw.slice(0, 140)}`
+              );
+            }
+            if (!res.ok) {
+              const errMsg = data?.error?.message || data?.error || 'Chat failed';
+              throw new Error(typeof errMsg === 'string' ? errMsg : 'Chat failed');
+            }
             const text = (data.content || [])
               .filter(b => b.type === 'text').map(b => b.text).join('\n');
             setChatHistory(h => [...h, { role: 'assistant', content: text }]);
@@ -1874,7 +1897,10 @@
                   : `Server returned non-JSON (HTTP ${res.status}): ${raw.slice(0, 140)}`
               );
             }
-            if (!res.ok) throw new Error(data.error || 'Chat failed');
+            if (!res.ok) {
+              const errMsg = data?.error?.message || data?.error || 'Chat failed';
+              throw new Error(typeof errMsg === 'string' ? errMsg : 'Chat failed');
+            }
             const answer = (data.content || [])
               .filter(b => b.type === 'text').map(b => b.text).join('\n');
             setFloatingChatHistory(h => [...h, { role: 'assistant', content: answer }]);
@@ -2449,16 +2475,23 @@
           if (!upgradeCode.trim()) { alert('Enter your upgrade code first.'); return; }
           setUpgradeBusy(true);
           try {
-            await callResearchMode('activate-plan', { code: upgradeCode.trim() });
+            const result = await callResearchMode('activate-plan', { code: upgradeCode.trim() });
             setUpgradeCode('');
             await (refreshUsage ? refreshUsage() : Promise.resolve());
-            alert('Paid plan activated for this IP.');
+            const tier = result?.plan || result?.usage?.plan || 'paid';
+            alert(`${tier.charAt(0).toUpperCase()}${tier.slice(1)} plan activated for this IP.`);
           } catch (err) {
             alert('Upgrade error: ' + err.message);
           } finally {
             setUpgradeBusy(false);
           }
         };
+        const tiers = runtimeConfig?.monetization?.tiers || [
+          { id: 'free', label: 'Free', runsPerMonth: runtimeConfig?.monetization?.freeRunsPerMonth ?? 4, priceUsd: 0 },
+          { id: 'pro', label: 'Pro', runsPerMonth: runtimeConfig?.monetization?.proRunsPerMonth ?? runtimeConfig?.monetization?.paidRunsPerMonth ?? 100, priceUsd: runtimeConfig?.monetization?.proPriceUsd ?? runtimeConfig?.monetization?.paidPriceUsd ?? 20 },
+          { id: 'max', label: 'Max', runsPerMonth: runtimeConfig?.monetization?.maxRunsPerMonth ?? 500, priceUsd: runtimeConfig?.monetization?.maxPriceUsd ?? 79 }
+        ];
+        const fmtTierPrice = (t) => t.priceUsd ? `$${t.priceUsd}/mo` : 'Free';
         // `type` can be 'text' | 'number' | 'select'. Select fields also
         // supply `options` (array of {value,label}). Most free-form clinical
         // context stays as textarea so clinicians can paste from notes.
@@ -2516,39 +2549,54 @@
               border: `1px solid ${theme.border}`,
               background: theme.panel
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: theme.text }}>
-                    Pricing & monthly limits
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: theme.textDim, marginTop: 2 }}>
-                    Free: {runtimeConfig?.monetization?.freeRunsPerMonth ?? 4} runs/month per IP.
-                    Paid: ${runtimeConfig?.monetization?.paidPriceUsd ?? 10}/month for up to {runtimeConfig?.monetization?.paidRunsPerMonth ?? 15} runs.
-                  </div>
-                  {usageInfo?.usage && (
-                    <div style={{ fontSize: '0.8rem', color: theme.accent, marginTop: 4, fontWeight: 600 }}>
-                      Current IP usage: {usageInfo.usage.used}/{usageInfo.usage.limit} this month ({usageInfo.usage.plan} plan).
-                    </div>
-                  )}
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: theme.text, marginBottom: '0.5rem' }}>
+                Pricing & monthly limits
+              </div>
+              <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse', marginBottom: '0.65rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${theme.border}`, color: theme.textDim, textAlign: 'left' }}>
+                    <th style={{ padding: '0.35rem 0.5rem' }}>Plan</th>
+                    <th style={{ padding: '0.35rem 0.5rem' }}>Price</th>
+                    <th style={{ padding: '0.35rem 0.5rem' }}>Runs / month</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tiers.map((t) => (
+                    <tr key={t.id} style={{ borderBottom: `1px solid ${theme.border}44` }}>
+                      <td style={{ padding: '0.35rem 0.5rem', fontWeight: 600, color: theme.text }}>{t.label}</td>
+                      <td style={{ padding: '0.35rem 0.5rem', color: theme.textDim }}>{fmtTierPrice(t)}</td>
+                      <td style={{ padding: '0.35rem 0.5rem', color: theme.textDim }}>{t.runsPerMonth}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ fontSize: '0.78rem', color: theme.textDim, lineHeight: 1.5, marginBottom: '0.5rem' }}>
+                Example API cost per full research run (approximate list price):
+                {' '}Sonnet ~$0.05–0.15 · Opus ~$0.25–0.75 depending on output length.
+                Actual cost per run is shown after each analysis in the <strong>Run cost</strong> strip.
+              </div>
+              {usageInfo?.usage && (
+                <div style={{ fontSize: '0.8rem', color: theme.accent, marginBottom: '0.5rem', fontWeight: 600 }}>
+                  Current IP usage: {usageInfo.usage.used}/{usageInfo.usage.limit} this month ({usageInfo.usage.plan} plan).
                 </div>
-                <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {runtimeConfig?.monetization?.upgradeUrl && (
-                    <a href={runtimeConfig.monetization.upgradeUrl} target="_blank" rel="noopener noreferrer"
-                      style={{ ...btn('ghost', false), textDecoration: 'none' }}>
-                      Upgrade ($ {runtimeConfig?.monetization?.paidPriceUsd ?? 10}/mo)
-                    </a>
-                  )}
-                  <input
-                    value={upgradeCode}
-                    onChange={e => setUpgradeCode(e.target.value)}
-                    placeholder="Upgrade code"
-                    style={{ ...inputStyle, width: 140, padding: '0.45rem 0.55rem', fontSize: '0.8rem' }}
-                  />
-                  <button onClick={activatePaidPlan} disabled={upgradeBusy || !upgradeCode.trim()}
-                    style={btn('primary', upgradeBusy || !upgradeCode.trim())}>
-                    {upgradeBusy ? <><Loader size={14} className="spin" /> Activating…</> : 'Activate'}
-                  </button>
-                </div>
+              )}
+              <div style={{ display: 'flex', gap: '0.45rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {runtimeConfig?.monetization?.upgradeUrl && (
+                  <a href={runtimeConfig.monetization.upgradeUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ ...btn('ghost', false), textDecoration: 'none' }}>
+                    Upgrade online
+                  </a>
+                )}
+                <input
+                  value={upgradeCode}
+                  onChange={e => setUpgradeCode(e.target.value)}
+                  placeholder="Pro or Max activation code"
+                  style={{ ...inputStyle, width: 180, padding: '0.45rem 0.55rem', fontSize: '0.8rem' }}
+                />
+                <button onClick={activatePaidPlan} disabled={upgradeBusy || !upgradeCode.trim()}
+                  style={btn('primary', upgradeBusy || !upgradeCode.trim())}>
+                  {upgradeBusy ? <><Loader size={14} className="spin" /> Activating…</> : 'Activate code'}
+                </button>
               </div>
             </div>
             <div style={{
@@ -3019,6 +3067,16 @@
          export. The exporter clones the node, applies a print-friendly
          background (so dark-mode screenshots don't come out black),
          and saves a multi-page A4 PDF. */
+      const exportBtnStyle = (busy, disabled) => ({
+        background: (busy || disabled) ? theme.panel : `${theme.accent}18`,
+        border: `1px solid ${(busy || disabled) ? theme.border : theme.accent}`,
+        color: (busy || disabled) ? theme.textDim : theme.accent,
+        padding: '0.45rem 0.85rem', borderRadius: 6, fontSize: '0.82rem',
+        fontWeight: 700,
+        cursor: (busy || disabled) ? 'not-allowed' : 'pointer',
+        display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+      });
+
       const PdfExportButton = ({ getElement, filename, label, disabled }) => {
         const [busy, setBusy] = useState(false);
         const onClick = async () => {
@@ -3077,16 +3135,9 @@
             onClick={onClick}
             disabled={busy || disabled}
             title="Download this analysis as a PDF you can print, email, or take to your doctor's appointment"
-            style={{
-              background: 'transparent',
-              border: `1px solid ${theme.border}`,
-              color: (busy || disabled) ? theme.textDim : theme.accent,
-              padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.75rem',
-              cursor: (busy || disabled) ? 'not-allowed' : 'pointer',
-              display: 'inline-flex', alignItems: 'center', gap: '0.35rem'
-            }}
+            style={exportBtnStyle(busy, disabled)}
           >
-            <Download size={13} /> {busy ? 'Generating…' : (label || 'Download PDF')}
+            <Download size={14} /> {busy ? 'Generating PDF…' : (label || 'Export PDF')}
           </button>
         );
       };
@@ -3129,18 +3180,29 @@
           <button
             onClick={onClick}
             disabled={busy || disabled}
-            title="Download this analysis as a Word document"
-            style={{
-              background: 'transparent',
-              border: `1px solid ${theme.border}`,
-              color: (busy || disabled) ? theme.textDim : theme.accent,
-              padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.75rem',
-              cursor: (busy || disabled) ? 'not-allowed' : 'pointer',
-              display: 'inline-flex', alignItems: 'center', gap: '0.35rem'
-            }}
+            title="Download this analysis as a Word document (links preserved)"
+            style={exportBtnStyle(busy, disabled)}
           >
-            <FileText size={13} /> {busy ? 'Generating…' : (label || 'Download Word')}
+            <FileText size={14} /> {busy ? 'Generating Word…' : (label || 'Export Word')}
           </button>
+        );
+      };
+
+      const AnalysisExportBar = ({ getElement, exportBaseFilename, disabled, text }) => {
+        const base = exportBaseFilename || 'analysis';
+        return (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap',
+            padding: '0.45rem 0.65rem', borderRadius: 8,
+            background: `${theme.accent}10`, border: `1px solid ${theme.accent}44`
+          }} data-pdf-exclude="1">
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: theme.textDim, letterSpacing: 0.3 }}>
+              EXPORT
+            </span>
+            <PdfExportButton getElement={getElement} filename={`${base}.pdf`} label="Export PDF" disabled={disabled} />
+            <WordExportButton getElement={getElement} filename={`${base}.doc`} label="Export Word" disabled={disabled} />
+            <TextExportButton text={text} filename={`${base}.txt`} label="Export Text" disabled={disabled || !text} />
+          </div>
         );
       };
 
@@ -3260,16 +3322,19 @@
             <WordExportButton
               getElement={() => document.getElementById(exportElementId)}
               filename={`${exportName}.doc`}
+              label="Export Word"
               disabled={!displayText}
             />
             <TextExportButton
               text={displayText}
               filename={`${exportName}.txt`}
+              label="Export Text"
               disabled={!displayText}
             />
             <PdfExportButton
               getElement={() => document.getElementById(exportElementId)}
               filename={`${exportName}.pdf`}
+              label="Export PDF"
               disabled={!displayText}
             />
             {busy && <span style={{ fontSize: '0.72rem', color: theme.textDim }}>Translating…</span>}
@@ -3946,6 +4011,7 @@
       // jurisdictions in the prompt pack we fed Claude."
       const QualityPanel = ({ qb }) => {
         const [expanded, setExpanded] = useState(false);
+        const [predatoryOpen, setPredatoryOpen] = useState(false);
         if (!qb) return null;
         const hasExclusions = (qb.retractedExcluded || 0) > 0 || (qb.predatoryExcluded || 0) > 0;
         return (
@@ -4002,6 +4068,21 @@
                 {qb.rctOrMetaInPromptPack} RCT / systematic review · in prompt pack
               </span>
             </div>
+            <details
+              open={predatoryOpen}
+              onToggle={(e) => setPredatoryOpen(e.target.open)}
+              style={{ marginTop: '0.65rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}
+            >
+              <summary style={{ cursor: 'pointer', color: theme.accent, fontWeight: 600 }}>
+                What is a predatory publisher?
+              </summary>
+              <div style={{ marginTop: '0.45rem' }}>
+                This is <strong style={{ color: theme.text }}>not</strong> the same as country of origin — we do not hide papers
+                from any country. Predatory publishers are venues with documented pay-to-publish or mass-retraction problems
+                (e.g. OMICS International, Hindawi). We flag and exclude them from the prompt pack when identified; well-conducted
+                research from any region remains eligible on its merits.
+              </div>
+            </details>
             {expanded && (
               <div style={{ marginTop: '0.85rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}>
                 <div style={{ marginBottom: '0.5rem' }}>
@@ -4370,9 +4451,14 @@
             <AdSlot runtimeConfig={runtimeConfig} slotKey="researchTop" />
             <div style={panelStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Brain size={22} /> AI Treatment Research
-                </h2>
+                <div>
+                  <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Brain size={22} /> AI Treatment Research
+                  </h2>
+                  <p style={{ margin: '0.25rem 0 0', color: theme.textDim, fontSize: '0.82rem', fontStyle: 'italic' }}>
+                    Full condition analysis — standard of care, experts, safety literature
+                  </p>
+                </div>
                 <button style={btn('primary', !!busy)} disabled={!!busy}
                   onClick={() => runResearch('research')}>
                   {busy === 'research' ? <><Loader size={16} className="spin" /> Researching…</>
@@ -4477,7 +4563,14 @@
                   <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Brain size={18} /> Analysis for {patient.condition || 'this condition'}
                   </h3>
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <AnalysisExportBar
+                    getElement={() => document.getElementById('mrt-research-export-target')}
+                    exportBaseFilename={`research-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
+                    disabled={!renderedResearchText}
+                    text={renderedResearchText}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
                     <button
                       onClick={() => {
                         // Dorothy: "do we have the ability to ask it why
@@ -4519,7 +4612,6 @@
                       exportElementId="mrt-research-export-target"
                       exportBaseFilename={`research-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
                     />
-                  </div>
                 </div>
                 {translatedText && (
                   <div data-pdf-exclude="1" style={{ marginBottom: '0.6rem', fontSize: '0.78rem', color: theme.textDim }}>
@@ -4733,7 +4825,10 @@
               <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Beaker size={22} /> Clinical Trials (live ClinicalTrials.gov)
               </h2>
-              <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
+              <p style={{ margin: '0.25rem 0 0', color: theme.textDim, fontSize: '0.82rem', fontStyle: 'italic' }}>
+                Live ClinicalTrials.gov ranked for this patient
+              </p>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem', marginTop: '0.5rem' }}>
                 Queries ClinicalTrials.gov directly and ranks by phase, recruiting status, placebo exposure,
                 oversight, and geography. Then runs a per-patient analysis that names drug interactions,
                 fit score, and harm risk.
@@ -4800,6 +4895,14 @@
                   <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Brain size={18} /> Full per-patient analysis
                   </h3>
+                  <AnalysisExportBar
+                    getElement={() => document.getElementById('mrt-trials-export-target')}
+                    exportBaseFilename={`trials-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
+                    disabled={!renderedTrialsText}
+                    text={renderedTrialsText}
+                  />
+                </div>
+                <div style={{ marginBottom: '0.5rem' }}>
                   <AnalysisLanguageToolbar
                     sourceText={trialsText}
                     translatedText={translatedText}
@@ -5373,6 +5476,9 @@
             <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.5rem', lineHeight: 1.25, color: theme.text }}>
               Existing drugs that <em style={{ color: theme.accent, fontStyle: 'normal' }}>might</em> already treat {cond}
             </h2>
+            <p style={{ margin: '0 0 0.35rem', color: theme.textDim, fontSize: '0.82rem', fontStyle: 'italic' }}>
+              Logic-based drug ideas + published repurposing candidates
+            </p>
             <p style={{ margin: '0 0 1rem', color: theme.textDim, fontSize: '0.92rem', lineHeight: 1.55, maxWidth: 780 }}>
               The AI reasons like a senior medical-school professor guiding students through a
               seminar: given the pathophysiology of {cond} and the known mechanisms of every
@@ -5540,9 +5646,16 @@
 
             {repurposeText && (
               <div style={panelStyle}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
                   <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem' }}>Full reasoning narrative</h3>
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                  <AnalysisExportBar
+                    getElement={() => document.getElementById('mrt-repurpose-export-target')}
+                    exportBaseFilename={`repurpose-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
+                    disabled={!renderedRepurposeText}
+                    text={renderedRepurposeText}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
                     <button onClick={() => setShowRaw(v => !v)} style={{
                       background: 'transparent', border: `1px solid ${theme.border}`,
                       color: theme.textDim, padding: '0.3rem 0.7rem', borderRadius: 6,
@@ -5557,7 +5670,6 @@
                       exportElementId="mrt-repurpose-export-target"
                       exportBaseFilename={`repurpose-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
                     />
-                  </div>
                 </div>
                 {showRaw && (
                   <div style={{ marginTop: '0.6rem' }}>
@@ -5606,6 +5718,12 @@
               <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <ShieldCheck size={22} /> Medical Records Audit
               </h2>
+              <p style={{ color: theme.textDim, fontSize: '0.9rem', lineHeight: 1.6 }}>
+                <strong>Why this tab exists:</strong> Paste raw medical records and an optional doctor summary or IME letter.
+                The tool extracts every abnormal finding verbatim, then flags omissions, downplaying, exaggeration, or unsupported
+                statements in the summary. This is decision-support for second-opinion preparation — <strong>not</strong> a diagnosis
+                and not a substitute for a licensed physician review.
+              </p>
               <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
                 Paste raw medical records (imaging reports, labs, office notes). Optionally paste a
                 summary or report (IME, doctor's letter). The auditor extracts every abnormal finding,

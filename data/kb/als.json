@@ -16,7 +16,6 @@
   "curatedBy": "Syed Hammad Haque",
   "lastUpdated": "2026-04-23",
   "editorialNote": "Focused KB for ALS. CRITICAL 2024 CHANGE: Amylyx voluntarily WITHDREW Relyvrio/Albrioza (AMX0035, sodium phenylbutyrate + taurursodiol) from US and Canadian markets in April 2024 after the confirmatory PHOENIX phase 3 failed. Any ALS output discussing current therapy that still recommends Relyvrio is out of date. Current approved disease-specific therapies: riluzole (1995), edaravone (IV 2017, oral 2022 Radicava ORS), and tofersen (Qalsody 2023 — SOD1-mutation-specific).",
-
   "subspecialty": "Neurology / Neuromuscular",
   "icd10": "G12.21",
   "meshTerms": [
@@ -26,37 +25,145 @@
     "Superoxide Dismutase-1"
   ],
   "topCenters": [
-    { "name": "Massachusetts General Hospital Healey & AMG Center for ALS",  "city": "Boston, MA",         "country": "USA", "why": "Merit Cudkowicz; runs HEALEY ALS Platform Trial — largest multi-arm ALS platform." },
-    { "name": "Columbia University ALS Center",                               "city": "New York, NY",       "country": "USA", "why": "Hiroshi Mitsumoto / Jinsy Andrews; comprehensive multidisciplinary center." },
-    { "name": "Johns Hopkins Packard Center for ALS Research",                "city": "Baltimore, MD",       "country": "USA", "why": "Nick Maragakis / Jeffrey Rothstein; molecular pathology and therapeutic development." },
-    { "name": "Cedars-Sinai Regenerative Medicine Institute",                 "city": "Los Angeles, CA",    "country": "USA", "why": "Clive Svendsen; stem-cell delivery of GDNF (CNS10-NPC-GDNF trial)." },
-    { "name": "Barrow Neurological Institute",                                 "city": "Phoenix, AZ",         "country": "USA", "why": "Jeremy Shefner; ALS trial site." },
-    { "name": "University of Pennsylvania ALS Center",                         "city": "Philadelphia, PA",    "country": "USA", "why": "Leo McCluskey / Lauren Elman; deep clinical research bench." },
-    { "name": "Washington University ALS Center / HAL-ALS",                    "city": "St. Louis, MO",       "country": "USA", "why": "Timothy Miller; tofersen co-developer; ALS gene therapy." },
-    { "name": "Nuffield Department of Clinical Neurosciences Oxford",           "city": "Oxford",              "country": "UK",  "why": "Martin Turner; European ALS consortium." }
+    {
+      "name": "Massachusetts General Hospital Healey & AMG Center for ALS",
+      "city": "Boston, MA",
+      "country": "USA",
+      "why": "Merit Cudkowicz; runs HEALEY ALS Platform Trial — largest multi-arm ALS platform."
+    },
+    {
+      "name": "Columbia University ALS Center",
+      "city": "New York, NY",
+      "country": "USA",
+      "why": "Hiroshi Mitsumoto / Jinsy Andrews; comprehensive multidisciplinary center."
+    },
+    {
+      "name": "Johns Hopkins Packard Center for ALS Research",
+      "city": "Baltimore, MD",
+      "country": "USA",
+      "why": "Nick Maragakis / Jeffrey Rothstein; molecular pathology and therapeutic development."
+    },
+    {
+      "name": "Cedars-Sinai Regenerative Medicine Institute",
+      "city": "Los Angeles, CA",
+      "country": "USA",
+      "why": "Clive Svendsen; stem-cell delivery of GDNF (CNS10-NPC-GDNF trial)."
+    },
+    {
+      "name": "Barrow Neurological Institute",
+      "city": "Phoenix, AZ",
+      "country": "USA",
+      "why": "Jeremy Shefner; ALS trial site."
+    },
+    {
+      "name": "University of Pennsylvania ALS Center",
+      "city": "Philadelphia, PA",
+      "country": "USA",
+      "why": "Leo McCluskey / Lauren Elman; deep clinical research bench."
+    },
+    {
+      "name": "Washington University ALS Center / HAL-ALS",
+      "city": "St. Louis, MO",
+      "country": "USA",
+      "why": "Timothy Miller; tofersen co-developer; ALS gene therapy."
+    },
+    {
+      "name": "Nuffield Department of Clinical Neurosciences Oxford",
+      "city": "Oxford",
+      "country": "UK",
+      "why": "Martin Turner; European ALS consortium."
+    }
   ],
   "keyInvestigators": [
-    { "name": "Merit E. Cudkowicz",   "affiliation": "Mass General Hospital",           "why": "HEALEY Platform Trial PI; led multiple pivotal ALS trials." },
-    { "name": "Timothy M. Miller",     "affiliation": "Washington University St. Louis","why": "Tofersen PI; SOD1 antisense therapy lead." },
-    { "name": "Jeffrey D. Rothstein",  "affiliation": "Johns Hopkins",                    "why": "Answer ALS project; SOD1 and TDP-43 biology." },
-    { "name": "Pamela J. Shaw",        "affiliation": "University of Sheffield",          "why": "ALS genetics (C9orf72); European MND registry." },
-    { "name": "Leonard H. van den Berg","affiliation": "UMC Utrecht",                      "why": "International ALS registries; platform-trial architect (TRICALS)." },
-    { "name": "Jinsy A. Andrews",      "affiliation": "Columbia University",              "why": "Clinical trialist; relyvrio/tofersen investigator." }
+    {
+      "name": "Merit E. Cudkowicz",
+      "affiliation": "Mass General Hospital",
+      "why": "HEALEY Platform Trial PI; led multiple pivotal ALS trials."
+    },
+    {
+      "name": "Timothy M. Miller",
+      "affiliation": "Washington University St. Louis",
+      "why": "Tofersen PI; SOD1 antisense therapy lead."
+    },
+    {
+      "name": "Jeffrey D. Rothstein",
+      "affiliation": "Johns Hopkins",
+      "why": "Answer ALS project; SOD1 and TDP-43 biology."
+    },
+    {
+      "name": "Pamela J. Shaw",
+      "affiliation": "University of Sheffield",
+      "why": "ALS genetics (C9orf72); European MND registry."
+    },
+    {
+      "name": "Leonard H. van den Berg",
+      "affiliation": "UMC Utrecht",
+      "why": "International ALS registries; platform-trial architect (TRICALS)."
+    },
+    {
+      "name": "Jinsy A. Andrews",
+      "affiliation": "Columbia University",
+      "why": "Clinical trialist; relyvrio/tofersen investigator."
+    }
   ],
   "patientAdvocacy": [
-    { "name": "ALS Association (ALSA)",                       "url": "https://www.als.org",                  "why": "Largest US ALS advocacy + research funder; certified Center of Excellence clinic network." },
-    { "name": "ALS TDI (Therapy Development Institute)",       "url": "https://www.als.net",                  "why": "Nonprofit biotech; Precision Medicine Program and ALS Research Collaborative." },
-    { "name": "Muscular Dystrophy Association (MDA)",          "url": "https://www.mda.org",                  "why": "MDA ALS Care Centers nationwide; equipment loans." },
-    { "name": "I AM ALS",                                      "url": "https://iamals.org",                   "why": "Patient-led advocacy; drove Right-to-Try/AMX0035 FDA pathway." },
-    { "name": "Project ALS",                                    "url": "https://www.projectals.org",           "why": "Research funder." }
+    {
+      "name": "ALS Association (ALSA)",
+      "url": "https://www.als.org",
+      "why": "Largest US ALS advocacy + research funder; certified Center of Excellence clinic network."
+    },
+    {
+      "name": "ALS TDI (Therapy Development Institute)",
+      "url": "https://www.als.net",
+      "why": "Nonprofit biotech; Precision Medicine Program and ALS Research Collaborative."
+    },
+    {
+      "name": "Muscular Dystrophy Association (MDA)",
+      "url": "https://www.mda.org",
+      "why": "MDA ALS Care Centers nationwide; equipment loans."
+    },
+    {
+      "name": "I AM ALS",
+      "url": "https://iamals.org",
+      "why": "Patient-led advocacy; drove Right-to-Try/AMX0035 FDA pathway."
+    },
+    {
+      "name": "Project ALS",
+      "url": "https://www.projectals.org",
+      "why": "Research funder."
+    }
   ],
   "landmarkTrials": [
-    { "acronym": "Bensimon 1994 / Lacomblez 1996", "name": "Riluzole in ALS",                             "topic": "Original RCTs establishing survival benefit of riluzole (~3 months)." },
-    { "acronym": "MCI186-19",                       "name": "Edaravone in early ALS (Japan)",             "topic": "Phase 3 positive in a prespecified subpopulation; basis for FDA approval (2017)." },
-    { "acronym": "VALOR",                            "name": "Tofersen in SOD1-ALS",                       "topic": "Phase 3 missed primary but plasma NfL reduction; accelerated FDA approval April 2023." },
-    { "acronym": "CENTAUR",                          "name": "AMX0035 (sodium phenylbutyrate + taurursodiol)","topic": "Phase 2 positive ALSFRS-R slope; confirmatory PHOENIX FAILED 2024." },
-    { "acronym": "PHOENIX",                          "name": "AMX0035 confirmatory phase 3",                "topic": "FAILED; Amylyx WITHDREW Relyvrio from US market April 2024." },
-    { "acronym": "HEALEY ALS Platform Trial",        "name": "Multi-arm platform",                          "topic": "Tested zilucoplan (failed), verdiperstat (failed), CNM-Au8 (failed primary, OLE signal), pridopidine (failed), trehalose, ABBV-CLS-7262." }
+    {
+      "acronym": "Bensimon 1994 / Lacomblez 1996",
+      "name": "Riluzole in ALS",
+      "topic": "Original RCTs establishing survival benefit of riluzole (~3 months)."
+    },
+    {
+      "acronym": "MCI186-19",
+      "name": "Edaravone in early ALS (Japan)",
+      "topic": "Phase 3 positive in a prespecified subpopulation; basis for FDA approval (2017)."
+    },
+    {
+      "acronym": "VALOR",
+      "name": "Tofersen in SOD1-ALS",
+      "topic": "Phase 3 missed primary but plasma NfL reduction; accelerated FDA approval April 2023."
+    },
+    {
+      "acronym": "CENTAUR",
+      "name": "AMX0035 (sodium phenylbutyrate + taurursodiol)",
+      "topic": "Phase 2 positive ALSFRS-R slope; confirmatory PHOENIX FAILED 2024."
+    },
+    {
+      "acronym": "PHOENIX",
+      "name": "AMX0035 confirmatory phase 3",
+      "topic": "FAILED; Amylyx WITHDREW Relyvrio from US market April 2024."
+    },
+    {
+      "acronym": "HEALEY ALS Platform Trial",
+      "name": "Multi-arm platform",
+      "topic": "Tested zilucoplan (failed), verdiperstat (failed), CNM-Au8 (failed primary, OLE signal), pridopidine (failed), trehalose, ABBV-CLS-7262."
+    }
   ],
   "commonComorbidities": [
     "Frontotemporal dementia / FTD-ALS spectrum (especially C9orf72)",
@@ -77,7 +184,6 @@
     "Palliative-care involvement early — not end-stage-only",
     "Speech therapy for dysarthria + augmentative communication planning"
   ],
-
   "items": [
     {
       "id": "als-tofersen-miller-2022",
@@ -93,8 +199,14 @@
       "accessLevel": "abstract",
       "summary": "Phase 3 RCT of intrathecal tofersen in 108 patients with SOD1-mutation ALS. Primary endpoint (ALSFRS-R slope at week 28) not met. Significant reductions in CSF SOD1 protein and plasma neurofilament light (NfL). 12-month open-label extension showed trend toward benefit. FDA granted accelerated approval (Qalsody) April 2023 based on NfL biomarker endpoint — first biomarker-based ALS approval.",
       "keyPassages": [
-        { "topic": "primary endpoint", "quote": "Tofersen did not result in a significant difference from placebo in the change from baseline to 28 weeks in the ALSFRS-R total score." },
-        { "topic": "biomarker", "quote": "Tofersen resulted in greater reductions in the concentrations of CSF SOD1 protein and plasma neurofilament light chain than placebo." }
+        {
+          "topic": "primary endpoint",
+          "quote": "Tofersen did not result in a significant difference from placebo in the change from baseline to 28 weeks in the ALSFRS-R total score."
+        },
+        {
+          "topic": "biomarker",
+          "quote": "Tofersen resulted in greater reductions in the concentrations of CSF SOD1 protein and plasma neurofilament light chain than placebo."
+        }
       ]
     },
     {
@@ -111,7 +223,10 @@
       "accessLevel": "abstract",
       "summary": "Phase 2 RCT of AMX0035 (sodium phenylbutyrate + taurursodiol) in 137 patients. ALSFRS-R slope difference 0.42 points/month favoring AMX0035 (p=0.03). Basis for controversial FDA approval September 2022 as Relyvrio. Confirmatory PHOENIX phase 3 was FAILING and Amylyx voluntarily WITHDREW Relyvrio from US market April 2024.",
       "keyPassages": [
-        { "topic": "primary endpoint", "quote": "In a modified intention-to-treat analysis, the mean rate of change in the ALSFRS-R score was -1.24 points per month with the active drug and -1.66 points per month with placebo (difference, 0.42 points per month; P=0.03)."}
+        {
+          "topic": "primary endpoint",
+          "quote": "In a modified intention-to-treat analysis, the mean rate of change in the ALSFRS-R score was -1.24 points per month with the active drug and -1.66 points per month with placebo (difference, 0.42 points per month; P=0.03)."
+        }
       ]
     },
     {
@@ -126,7 +241,10 @@
       "accessLevel": "full-text",
       "summary": "April 4, 2024 — Amylyx announced voluntary withdrawal of RELYVRIO/ALBRIOZA (sodium phenylbutyrate + taurursodiol) from US and Canadian markets after the confirmatory phase 3 PHOENIX trial failed to show benefit on ALSFRS-R slope or survival. Patients on therapy may continue access via free-of-charge program. This is THE critical 2024 ALS therapy event — any output recommending Relyvrio as a current treatment is out of date.",
       "keyPassages": [
-        { "topic": "withdrawal", "quote": "Amylyx is voluntarily withdrawing RELYVRIO (sodium phenylbutyrate and taurursodiol) and ALBRIOZA from the market in the United States and Canada respectively following the topline results of the phase 3 PHOENIX trial." }
+        {
+          "topic": "withdrawal",
+          "quote": "Amylyx is voluntarily withdrawing RELYVRIO (sodium phenylbutyrate and taurursodiol) and ALBRIOZA from the market in the United States and Canada respectively following the topline results of the phase 3 PHOENIX trial."
+        }
       ]
     },
     {
@@ -141,7 +259,10 @@
       "accessLevel": "full-text",
       "summary": "Indication: ALS in adults associated with a mutation in the SOD1 gene. Dose: 100 mg intrathecally q28d after three loading doses. Accelerated approval based on plasma NfL reduction. Confirmatory phase 3 (ATLAS in pre-symptomatic SOD1 carriers) is ongoing. First gene-specific targeted therapy in ALS.",
       "keyPassages": [
-        { "topic": "indication", "quote": "QALSODY is indicated for the treatment of amyotrophic lateral sclerosis (ALS) in adults who have a mutation in the superoxide dismutase 1 (SOD1) gene." }
+        {
+          "topic": "indication",
+          "quote": "QALSODY is indicated for the treatment of amyotrophic lateral sclerosis (ALS) in adults who have a mutation in the superoxide dismutase 1 (SOD1) gene."
+        }
       ]
     },
     {
@@ -173,41 +294,92 @@
       "accessLevel": "abstract",
       "summary": "Phase 3 RCT of IV edaravone in 137 Japanese ALS patients meeting prespecified entry criteria (early, not-severe, rapidly-progressive). ALSFRS-R decline was significantly less with edaravone (-5.01 vs -7.50). Basis for FDA approval May 2017 (Radicava). Oral suspension (Radicava ORS) approved 2022. Subpopulation eligibility limits who qualifies in real-world practice.",
       "keyPassages": [
-        { "topic": "primary endpoint", "quote": "The change in ALSFRS-R score was -5.01 in the edaravone group versus -7.50 in the placebo group over 24 weeks (least squares mean difference 2.49, 95% CI 0.99-3.98; P=0.0013)." }
+        {
+          "topic": "primary endpoint",
+          "quote": "The change in ALSFRS-R score was -5.01 in the edaravone group versus -7.50 in the placebo group over 24 weeks (least squares mean difference 2.49, 95% CI 0.99-3.98; P=0.0013)."
+        }
       ]
     }
   ],
-
   "canonicalFacts": [
-    { "claim": "Relyvrio / Albrioza (AMX0035, sodium phenylbutyrate + taurursodiol) was WITHDRAWN from US and Canadian markets by Amylyx on April 4, 2024 following the failed PHOENIX phase 3. It is NOT a current treatment option.", "evidenceRefs": ["als-phoenix-withdrawal-2024"] },
-    { "claim": "Tofersen (Qalsody) is FDA-approved (accelerated approval April 2023) for SOD1-mutation ALS, based on plasma neurofilament light biomarker reduction.", "evidenceRefs": ["als-tofersen-miller-2022", "als-fda-label-qalsody-2023"] },
-    { "claim": "Riluzole (oral 1995, suspension 2018 Tiglutik, sublingual 2019 Exservan) remains first-line; modest ~3-month survival benefit.", "evidenceRefs": [] },
-    { "claim": "Edaravone (Radicava IV 2017; Radicava ORS oral 2022) is approved but eligibility reflects the narrower MCI186-19 trial population.", "evidenceRefs": ["als-edaravone-writing-group-2017"] },
-    { "claim": "Multidisciplinary ALS clinic attendance is associated with ~7-8 months longer survival than general-neurology care (observational).", "evidenceRefs": ["als-aan-guideline-2009"] }
+    {
+      "claim": "Relyvrio / Albrioza (AMX0035, sodium phenylbutyrate + taurursodiol) was WITHDRAWN from US and Canadian markets by Amylyx on April 4, 2024 following the failed PHOENIX phase 3. It is NOT a current treatment option.",
+      "evidenceRefs": [
+        "als-phoenix-withdrawal-2024"
+      ]
+    },
+    {
+      "claim": "Tofersen (Qalsody) is FDA-approved (accelerated approval April 2023) for SOD1-mutation ALS, based on plasma neurofilament light biomarker reduction.",
+      "evidenceRefs": [
+        "als-tofersen-miller-2022",
+        "als-fda-label-qalsody-2023"
+      ]
+    },
+    {
+      "claim": "Riluzole (oral 1995, suspension 2018 Tiglutik, sublingual 2019 Exservan) remains first-line; modest ~3-month survival benefit.",
+      "evidenceRefs": []
+    },
+    {
+      "claim": "Edaravone (Radicava IV 2017; Radicava ORS oral 2022) is approved but eligibility reflects the narrower MCI186-19 trial population.",
+      "evidenceRefs": [
+        "als-edaravone-writing-group-2017"
+      ]
+    },
+    {
+      "claim": "Multidisciplinary ALS clinic attendance is associated with ~7-8 months longer survival than general-neurology care (observational).",
+      "evidenceRefs": [
+        "als-aan-guideline-2009"
+      ]
+    }
   ],
-
   "lifestyleRecommendations": [
-    { "recommendation": "Enroll in a multidisciplinary ALS Center of Excellence (ALSA) or MDA ALS Care Center as soon as diagnosis is confirmed.", "evidenceRefs": ["als-aan-guideline-2009"] },
-    { "recommendation": "Start non-invasive ventilation (BiPAP) when FVC <50% predicted OR when symptomatic (orthopnea, morning headaches, hypersomnolence), whichever comes first.", "evidenceRefs": ["als-aan-guideline-2009"] },
-    { "recommendation": "Consider PEG placement before FVC falls below ~50% or when weight loss exceeds 10%.", "evidenceRefs": ["als-aan-guideline-2009"] },
-    { "recommendation": "High-calorie, high-fat diet to counter cachexia.", "evidenceRefs": [] },
-    { "recommendation": "Early palliative-care referral (not end-stage-only).", "evidenceRefs": [] },
-    { "recommendation": "Speech-language pathology for augmentative-communication planning before speech deteriorates.", "evidenceRefs": [] }
+    {
+      "recommendation": "Enroll in a multidisciplinary ALS Center of Excellence (ALSA) or MDA ALS Care Center as soon as diagnosis is confirmed.",
+      "evidenceRefs": [
+        "als-aan-guideline-2009"
+      ]
+    },
+    {
+      "recommendation": "Start non-invasive ventilation (BiPAP) when FVC <50% predicted OR when symptomatic (orthopnea, morning headaches, hypersomnolence), whichever comes first.",
+      "evidenceRefs": [
+        "als-aan-guideline-2009"
+      ]
+    },
+    {
+      "recommendation": "Consider PEG placement before FVC falls below ~50% or when weight loss exceeds 10%.",
+      "evidenceRefs": [
+        "als-aan-guideline-2009"
+      ]
+    },
+    {
+      "recommendation": "High-calorie, high-fat diet to counter cachexia.",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Early palliative-care referral (not end-stage-only).",
+      "evidenceRefs": []
+    },
+    {
+      "recommendation": "Speech-language pathology for augmentative-communication planning before speech deteriorates.",
+      "evidenceRefs": []
+    }
   ],
-
   "redFlags": [
-    "Do NOT prescribe Relyvrio/Albrioza (AMX0035) to newly diagnosed patients — Amylyx WITHDREW this product from the US and Canadian markets in April 2024.",
-    "Do NOT use stem-cell clinics (China, Vietnam, Mexico, India) offering IV MSC infusions — no peer-reviewed ALS efficacy data. FDA warning letters. NurOwn (BrainStorm) failed phase 3 and is NOT approved.",
-    "Do NOT defer non-invasive ventilation until FVC is in the 20s — earlier NIV initiation improves both survival and QoL.",
-    "Do NOT ignore weight loss — cachexia independently accelerates progression.",
-    "Do NOT prescribe tofersen/Qalsody without documented SOD1 mutation — it is gene-specific.",
-    "Pseudobulbar affect (inappropriate laughing/crying) is treatable with dextromethorphan-quinidine (Nuedexta); do not dismiss as 'depression only'."
+    "Physicians generally caution against prescribing Relyvrio/Albrioza (AMX0035) to newly diagnosed patients — Amylyx WITHDREW this product from the US and Canadian markets in April 2024.",
+    "Literature warns against stem-cell clinics (China, Vietnam, Mexico, India) offering IV MSC infusions — no peer-reviewed ALS efficacy data. FDA warning letters. NurOwn (BrainStorm) failed phase 3 and is NOT approved.",
+    "Physicians generally caution against deferring non-invasive ventilation until FVC is in the 20s — earlier NIV initiation improves both survival and QoL.",
+    "Physicians generally caution against ignoring weight loss — cachexia independently accelerates progression.",
+    "Physicians generally caution against prescribing tofersen/Qalsody without documented SOD1 mutation — it is gene-specific.",
+    "Pseudobulbar affect (inappropriate laughing/crying) is treatable with dextromethorphan-quinidine (Nuedexta); should not be dismissed as 'depression only'."
   ],
-
   "pipelineDrugs": [
     {
       "name": "Riluzole",
-      "aliases": ["Rilutek", "Tiglutik (oral suspension)", "Exservan (sublingual)"],
+      "aliases": [
+        "Rilutek",
+        "Tiglutik (oral suspension)",
+        "Exservan (sublingual)"
+      ],
       "mechanism": "Glutamate-release inhibitor / Na+ channel modulator",
       "sponsor": "Generic / Sanofi / ITF Pharma / Aquestive",
       "status": "FDA-approved 1995; suspension 2018; sublingual 2019",
@@ -216,7 +388,11 @@
     },
     {
       "name": "Edaravone",
-      "aliases": ["Radicava", "Radicava ORS", "MCI-186"],
+      "aliases": [
+        "Radicava",
+        "Radicava ORS",
+        "MCI-186"
+      ],
       "mechanism": "Free-radical scavenger",
       "sponsor": "Mitsubishi Tanabe",
       "status": "FDA-approved IV May 2017 (Radicava); oral suspension May 2022 (Radicava ORS)",
@@ -225,7 +401,10 @@
     },
     {
       "name": "Tofersen",
-      "aliases": ["Qalsody", "BIIB067"],
+      "aliases": [
+        "Qalsody",
+        "BIIB067"
+      ],
       "mechanism": "Antisense oligonucleotide reducing SOD1 protein",
       "sponsor": "Biogen / Ionis",
       "status": "Accelerated FDA approval April 2023 for SOD1 ALS; ATLAS presymptomatic trial ongoing",
@@ -236,7 +415,10 @@
     },
     {
       "name": "AMX0035 (Relyvrio / Albrioza)",
-      "aliases": ["sodium phenylbutyrate + taurursodiol", "PB/TUDCA"],
+      "aliases": [
+        "sodium phenylbutyrate + taurursodiol",
+        "PB/TUDCA"
+      ],
       "mechanism": "ER-stress + mitochondrial-stress reducer (combination)",
       "sponsor": "Amylyx",
       "status": "WITHDRAWN April 2024 from US and Canadian markets after PHOENIX phase 3 failure",
@@ -246,7 +428,10 @@
     },
     {
       "name": "Ulefnersen (formerly ION363)",
-      "aliases": ["ION363", "jacifusen"],
+      "aliases": [
+        "ION363",
+        "jacifusen"
+      ],
       "mechanism": "Antisense oligonucleotide targeting FUS",
       "sponsor": "Ionis",
       "status": "Phase 3 (FUS-ALS)",
@@ -255,7 +440,10 @@
     },
     {
       "name": "NurOwn",
-      "aliases": ["MSC-NTF cells", "debamestrocel"],
+      "aliases": [
+        "MSC-NTF cells",
+        "debamestrocel"
+      ],
       "mechanism": "Autologous mesenchymal stem cells secreting neurotrophic factors",
       "sponsor": "BrainStorm Cell Therapeutics",
       "status": "FAILED phase 3 primary endpoint 2020; FDA advisory committee voted against approval 2023; BLA not approved September 2023",
@@ -264,7 +452,9 @@
     },
     {
       "name": "CNM-Au8",
-      "aliases": ["gold nanocrystals"],
+      "aliases": [
+        "gold nanocrystals"
+      ],
       "mechanism": "Catalytic gold nanocrystals supporting NAD/ATP energy homeostasis",
       "sponsor": "Clene Nanomedicine",
       "status": "HEALEY platform phase 2 and RESCUE-ALS failed primary endpoints; open-label extension signal; expanded-access / additional studies ongoing",
@@ -273,7 +463,9 @@
     },
     {
       "name": "Pridopidine (for ALS)",
-      "aliases": ["TEV-45152"],
+      "aliases": [
+        "TEV-45152"
+      ],
       "mechanism": "Sigma-1 receptor agonist",
       "sponsor": "Prilenia Therapeutics",
       "status": "HEALEY platform arm and HEALEY ALS Platform Regimen F: primary endpoint not met; PROOF-HD (separate HD trial) also negative",
@@ -282,7 +474,10 @@
     },
     {
       "name": "Verdiperstat",
-      "aliases": ["BHV-3241", "AZD3241"],
+      "aliases": [
+        "BHV-3241",
+        "AZD3241"
+      ],
       "mechanism": "Myeloperoxidase inhibitor",
       "sponsor": "Biohaven",
       "status": "HEALEY Platform arm FAILED 2022; program halted for ALS",
@@ -291,7 +486,9 @@
     },
     {
       "name": "Zilucoplan (for ALS)",
-      "aliases": ["RA101495"],
+      "aliases": [
+        "RA101495"
+      ],
       "mechanism": "Complement C5 inhibitor (peptide)",
       "sponsor": "UCB",
       "status": "HEALEY Platform arm FAILED for ALS (approved for myasthenia gravis)",
@@ -300,7 +497,10 @@
     },
     {
       "name": "Methylcobalamin (ultra-high-dose)",
-      "aliases": ["E0302", "ultrahigh-dose mecobalamin"],
+      "aliases": [
+        "E0302",
+        "ultrahigh-dose mecobalamin"
+      ],
       "mechanism": "B12 analog at pharmacologic dose",
       "sponsor": "Eisai (Japan)",
       "status": "Japan approval 2024 for ALS (NPS-C17 trial positive); not FDA-approved",
@@ -309,7 +509,9 @@
     },
     {
       "name": "Masitinib",
-      "aliases": ["AB1010"],
+      "aliases": [
+        "AB1010"
+      ],
       "mechanism": "Tyrosine kinase inhibitor",
       "sponsor": "AB Science",
       "status": "Phase 3 AB10015 with additional trial (AB19001) ongoing; prior submission rejected by EMA",
@@ -318,7 +520,9 @@
     },
     {
       "name": "ABBV-CLS-7262 (fosigotifator)",
-      "aliases": ["CLS-7262"],
+      "aliases": [
+        "CLS-7262"
+      ],
       "mechanism": "Integrated stress response (eIF2B) modulator",
       "sponsor": "AbbVie / Calico",
       "status": "HEALEY Platform arm phase 2 ongoing",
@@ -326,7 +530,6 @@
       "whyItMatters": "Novel mechanism; active trial."
     }
   ],
-
   "excludedAgents": [
     {
       "name": "Relyvrio / Albrioza (AMX0035)",
@@ -340,7 +543,7 @@
     },
     {
       "name": "High-dose vitamin E for ALS",
-      "reason": "No benefit in RCTs; do not recommend as treatment.",
+      "reason": "No benefit in RCTs; literature does not support recommending as treatment.",
       "evidenceRef": null
     },
     {
