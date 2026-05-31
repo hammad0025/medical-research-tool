@@ -985,6 +985,90 @@ No evidence of pulmonary hypertension. Patient tolerates pirfenidone well. No ot
     : info('(note) auditor may have merged FVC trend into overall assessment instead of a discrete finding');
   info(`overall assessment: ${audit.body.audit.overallAssessment?.slice(0, 220)}…`);
 
+  console.log('\n=== Usage limits — local dev bypass ===');
+  const {
+    consumeResearchCredit,
+    getUsage,
+    isUsageLimitBypassed,
+    _resetForTests: resetUsage
+  } = await import('../lib/usage-store.js');
+
+  const savedEnv = {
+    VERCEL_ENV: process.env.VERCEL_ENV,
+    NODE_ENV: process.env.NODE_ENV,
+    MRT_SKIP_USAGE_LIMIT: process.env.MRT_SKIP_USAGE_LIMIT
+  };
+  const restoreEnv = () => {
+    for (const [k, v] of Object.entries(savedEnv)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  };
+
+  try {
+    resetUsage();
+    delete process.env.VERCEL_ENV;
+    delete process.env.NODE_ENV;
+    delete process.env.MRT_SKIP_USAGE_LIMIT;
+
+    const testIp = '203.0.113.99';
+    let blocked = false;
+    for (let i = 0; i < 8; i++) {
+      const q = await consumeResearchCredit(testIp);
+      if (!q.allowed) {
+        blocked = true;
+        if (i >= 3) pass(`production-like env blocks after free tier (${q.used}/${q.limit})`);
+        else fail(`blocked too early on attempt ${i + 1}`);
+        break;
+      }
+    }
+    if (!blocked) fail('expected monthly limit block after exhausting free tier');
+
+    resetUsage();
+    process.env.VERCEL_ENV = 'development';
+    for (let i = 0; i < 6; i++) {
+      const q = await consumeResearchCredit('203.0.113.99');
+      if (!q.allowed) {
+        fail(`VERCEL_ENV=development should not block (attempt ${i + 1})`);
+        break;
+      }
+    }
+    if (isUsageLimitBypassed('127.0.0.1')) pass('VERCEL_ENV=development bypasses metering');
+    const devUsage = await getUsage('127.0.0.1');
+    if (devUsage.plan === 'dev' && devUsage.unlimited) {
+      pass('getUsage returns dev/unlimited snapshot under bypass');
+    } else {
+      fail(`dev usage snapshot unexpected: plan=${devUsage.plan} unlimited=${devUsage.unlimited}`);
+    }
+
+    process.env.VERCEL_ENV = 'production';
+    process.env.MRT_SKIP_USAGE_LIMIT = '1';
+    if (isUsageLimitBypassed('203.0.113.99')) {
+      fail('MRT_SKIP_USAGE_LIMIT must not bypass when VERCEL_ENV=production');
+    } else {
+      pass('production deployment never bypasses metering');
+    }
+
+    delete process.env.VERCEL_ENV;
+    process.env.MRT_SKIP_USAGE_LIMIT = '1';
+    if (!isUsageLimitBypassed('203.0.113.99')) {
+      fail('MRT_SKIP_USAGE_LIMIT=1 should bypass outside production');
+    } else {
+      pass('MRT_SKIP_USAGE_LIMIT=1 bypasses outside production');
+    }
+
+    process.env.VERCEL_ENV = 'development';
+    const usageMode = await invoke(researchHandler, { mode: 'usage' });
+    if (usageMode.status === 200 && usageMode.body?.devUnlimited) {
+      pass('/api/research usage mode reports devUnlimited');
+    } else {
+      fail(`usage mode devUnlimited missing (status ${usageMode.status})`);
+    }
+  } finally {
+    restoreEnv();
+    resetUsage();
+  }
+
   console.log('\n=== All tests passed ===');
 })().catch(e => {
   console.error('\x1b[31m✗ test harness error\x1b[0m', e);

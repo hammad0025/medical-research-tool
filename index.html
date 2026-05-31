@@ -2189,9 +2189,11 @@
                   display: 'inline-flex', alignItems: 'center', gap: '0.3rem'
                 }}>
                   <span style={{ width: 6, height: 6, borderRadius: 999, background: theme.green, display: 'inline-block' }} />
-                  {usageInfo?.usage
-                    ? `${usageInfo.usage.plan === 'paid' ? 'Paid' : 'Free'} plan · ${usageInfo.usage.remaining}/${usageInfo.usage.limit} left`
-                    : 'Free plan'}
+                  {usageInfo?.usage?.plan === 'dev' || usageInfo?.usage?.unlimited
+                    ? 'Dev · unlimited runs'
+                    : usageInfo?.usage
+                      ? `${usageInfo.usage.plan === 'pro' || usageInfo.usage.plan === 'max' || usageInfo.usage.plan === 'paid' ? (usageInfo.usage.plan === 'max' ? 'Max' : 'Pro') : 'Free'} plan · ${usageInfo.usage.remaining}/${usageInfo.usage.limit} left`
+                      : 'Free plan'}
                 </div>
 
                 {/* User menu */}
@@ -2786,8 +2788,17 @@
               border: `1px solid ${theme.border}`,
               background: theme.panel
             }}>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: theme.text, marginBottom: '0.5rem' }}>
+              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: theme.text, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                 Pricing & monthly limits
+                {(usageInfo?.usage?.plan === 'dev' || usageInfo?.usage?.unlimited || usageInfo?.devUnlimited || runtimeConfig?.monetization?.devUnlimited) && (
+                  <span style={{
+                    fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.02em',
+                    padding: '0.2rem 0.45rem', borderRadius: 4,
+                    background: `${theme.green}18`, border: `1px solid ${theme.green}44`, color: theme.green
+                  }}>
+                    Local development — usage limits disabled
+                  </span>
+                )}
               </div>
               <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse', marginBottom: '0.65rem' }}>
                 <thead>
@@ -2814,7 +2825,9 @@
               </div>
               {usageInfo?.usage && (
                 <div style={{ fontSize: '0.8rem', color: theme.accent, marginBottom: '0.5rem', fontWeight: 600 }}>
-                  Current IP usage: {usageInfo.usage.used}/{usageInfo.usage.limit} this month ({usageInfo.usage.plan} plan).
+                  {(usageInfo.usage.plan === 'dev' || usageInfo.usage.unlimited)
+                    ? 'Development — unlimited runs (usage limits disabled for local dev).'
+                    : `Current IP usage: ${usageInfo.usage.used}/${usageInfo.usage.limit} this month (${usageInfo.usage.plan} plan).`}
                 </div>
               )}
               {!runtimeConfig?.monetization?.upgradeUrl && (

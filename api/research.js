@@ -31,6 +31,7 @@ import {
   limits as usageLimits,
   pricing as usagePricing,
   getUsage,
+  isUsageLimitBypassed,
   verifyPlanCode,
   activatePlanForIp
 } from '../lib/usage-store.js';
@@ -864,24 +865,28 @@ export default async function handler(req, res) {
       const adsenseClient = String(process.env.MRT_ADSENSE_CLIENT || '').trim();
       const prices = usagePricing();
       const lim = usageLimits();
+      const devUnlimited = isUsageLimitBypassed(getClientIp(req));
       return res.status(200).json({
         branding: { productName: 'researchingmycondition.com' },
         ai: { researchModel: String(process.env.ANTHROPIC_RESEARCH_MODEL || DEFAULT_MODEL) },
         monetization: {
-          freeRunsPerMonth: lim.free,
-          proRunsPerMonth: lim.pro,
-          maxRunsPerMonth: lim.max,
+          devUnlimited,
+          freeRunsPerMonth: devUnlimited ? 999999 : lim.free,
+          proRunsPerMonth: devUnlimited ? 999999 : lim.pro,
+          maxRunsPerMonth: devUnlimited ? 999999 : lim.max,
           proPriceUsd: prices.proPriceUsd,
           maxPriceUsd: prices.maxPriceUsd,
           // Backward compat for older clients
-          paidRunsPerMonth: lim.pro,
+          paidRunsPerMonth: devUnlimited ? 999999 : lim.pro,
           paidPriceUsd: prices.proPriceUsd,
           upgradeUrl: String(process.env.MRT_UPGRADE_URL || '').trim(),
-          tiers: [
-            { id: 'free', label: 'Free', runsPerMonth: lim.free, priceUsd: 0 },
-            { id: 'pro', label: 'Pro', runsPerMonth: lim.pro, priceUsd: prices.proPriceUsd },
-            { id: 'max', label: 'Max', runsPerMonth: lim.max, priceUsd: prices.maxPriceUsd }
-          ]
+          tiers: devUnlimited
+            ? [{ id: 'dev', label: 'Development', runsPerMonth: 999999, priceUsd: 0 }]
+            : [
+                { id: 'free', label: 'Free', runsPerMonth: lim.free, priceUsd: 0 },
+                { id: 'pro', label: 'Pro', runsPerMonth: lim.pro, priceUsd: prices.proPriceUsd },
+                { id: 'max', label: 'Max', runsPerMonth: lim.max, priceUsd: prices.maxPriceUsd }
+              ]
         },
         ads: {
           enabled: adsEnabled,
@@ -899,24 +904,35 @@ export default async function handler(req, res) {
 
     if (mode === 'usage') {
       try {
-        const usage = await getUsage(getClientIp(req));
+        const ip = getClientIp(req);
+        const usage = await getUsage(ip);
         const lim = usageLimits();
         const prices = usagePricing();
+        const devUnlimited = isUsageLimitBypassed(ip);
         return res.status(200).json({
           ok: true,
           usage,
+          devUnlimited,
           limits: lim,
-          pricing: {
-            freeTier: `${lim.free} runs / month`,
-            proTier: `$${prices.proPriceUsd}/month for up to ${lim.pro} runs`,
-            maxTier: `$${prices.maxPriceUsd}/month for up to ${lim.max} runs`,
-            paidTier: `$${prices.proPriceUsd}/month for up to ${lim.pro} runs`,
-            tiers: [
-              { id: 'free', runsPerMonth: lim.free, priceUsd: 0 },
-              { id: 'pro', runsPerMonth: lim.pro, priceUsd: prices.proPriceUsd },
-              { id: 'max', runsPerMonth: lim.max, priceUsd: prices.maxPriceUsd }
-            ]
-          }
+          pricing: devUnlimited
+            ? {
+                freeTier: 'Development — unlimited runs',
+                proTier: 'Development — unlimited runs',
+                maxTier: 'Development — unlimited runs',
+                paidTier: 'Development — unlimited runs',
+                tiers: [{ id: 'dev', runsPerMonth: 999999, priceUsd: 0 }]
+              }
+            : {
+                freeTier: `${lim.free} runs / month`,
+                proTier: `$${prices.proPriceUsd}/month for up to ${lim.pro} runs`,
+                maxTier: `$${prices.maxPriceUsd}/month for up to ${lim.max} runs`,
+                paidTier: `$${prices.proPriceUsd}/month for up to ${lim.pro} runs`,
+                tiers: [
+                  { id: 'free', runsPerMonth: lim.free, priceUsd: 0 },
+                  { id: 'pro', runsPerMonth: lim.pro, priceUsd: prices.proPriceUsd },
+                  { id: 'max', runsPerMonth: lim.max, priceUsd: prices.maxPriceUsd }
+                ]
+              }
         });
       } catch (err) {
         return res.status(500).json({ error: err?.message || 'Failed to fetch usage' });
@@ -1054,9 +1070,9 @@ export default async function handler(req, res) {
     // requests (phase=all or phase=gather) so one "Run Full Research"
     // counts once, not 2-3x.
     const isBillableMode = mode === 'research' || mode === 'repurpose' || mode === 'trials';
-    const shouldMeter = isBillableMode && (phase === 'all' || phase === 'gather');
+    const ip = getClientIp(req);
+    const shouldMeter = isBillableMode && (phase === 'all' || phase === 'gather') && !isUsageLimitBypassed(ip);
     if (shouldMeter) {
-      const ip = getClientIp(req);
       const quota = await consumeResearchCredit(ip);
       if (!quota.allowed) {
         const lim = usageLimits();
