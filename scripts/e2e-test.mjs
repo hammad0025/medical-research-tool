@@ -7,20 +7,20 @@
 // Set ANTHROPIC_API_KEY in env to enable the Anthropic-backed tests.
 
 import trialsHandler from '../api/trials.js';
-import pubmedHandler from '../api/pubmed.js';
+import pubmedHandler from '../lib/pubmed.js';
 import researchHandler from '../api/research.js';
 import auditHandler from '../api/records-audit.js';
-import europePmcHandler from '../api/europe-pmc.js';
-import openalexHandler from '../api/openalex.js';
-import openfdaHandler from '../api/openfda.js';
+import europePmcHandler from '../lib/europe-pmc.js';
+import openalexHandler from '../lib/openalex.js';
+import openfdaHandler from '../lib/openfda.js';
 import evidenceHandler, {
   scoreArticle,
   isPredatoryPublisher,
   countryAdjustment,
   computeQualityFlags
-} from '../api/evidence.js';
+} from '../lib/evidence.js';
 import validateHandler from '../lib/validate.js';
-import unpaywallHandler from '../api/unpaywall.js';
+import unpaywallHandler from '../lib/unpaywall.js';
 import kbHandler, { loadKb } from '../lib/kb.js';
 import alertsSubscribeHandler from '../api/alerts-subscribe.js';
 import alertsCronHandler from '../api/alerts-cron.js';

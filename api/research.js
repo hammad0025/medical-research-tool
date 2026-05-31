@@ -22,7 +22,7 @@
 // All modes return Claude's text; the frontend parses structured blocks
 // (PROVIDER/TREATMENT/EFFICACY/SAFETY/COST/REFERENCES) into the comparison chart.
 
-import evidenceHandler from './evidence.js';
+import evidenceHandler from '../lib/evidence.js';
 import validateHandler from '../lib/validate.js';
 import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
@@ -755,7 +755,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-access-passcode'
   );
 
   if (req.method === 'OPTIONS') {
@@ -994,9 +994,13 @@ export default async function handler(req, res) {
         opus,
         comparison: {
           opusVsSonnetLatencyRatio: ratio,
-          note: ratio ? `Opus latency is ${ratio}x Sonnet in this deployment.` : 'Could not compute latency ratio.'
+          note: ratio ? `Opus latency is ${ratio}x Sonnet in deployment.` : 'Could not compute latency ratio.'
         }
       });
+    }
+
+    if (mode === 'validate') {
+      return validateHandler(req, res);
     }
 
     // Monthly per-IP gate:

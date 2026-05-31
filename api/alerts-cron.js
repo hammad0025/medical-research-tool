@@ -15,7 +15,7 @@
 // subjects, recipient counts, and new-item counts so the e2e suite
 // can verify the pipeline end-to-end without needing a Resend key.
 
-import evidenceHandler from './evidence.js';
+import evidenceHandler from '../lib/evidence.js';
 import trialsHandler from './trials.js';
 import { listSubscriptions, getSentLedger, addToSentLedger, putSubscription, backendName } from '../lib/alerts-store.js';
 import { sendEmail, renderAlertHtml, renderAlertSubject, isEmailConfigured } from '../lib/alerts-email.js';
