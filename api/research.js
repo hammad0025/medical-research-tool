@@ -72,6 +72,48 @@ const invokeEvidence = (body) => invokeInProcess(evidenceHandler, body);
 const invokeValidate = (body) => invokeInProcess(validateHandler, body);
 const invokeTrials = (body) => invokeInProcess(trialsHandler, body);
 
+// Gather returns pools to the browser, which POSTs them back for synthesize.
+// Trials + evidence can exceed 1MB and break slow clients; trim to what the
+// UI and synth path actually need (matches the final-response shape below).
+const trimGatherPools = ({ dossier, evidence, trials }) => ({
+  dossier,
+  evidence: evidence
+    ? {
+        condition: evidence.condition,
+        dossier: evidence.dossier,
+        pipelineDrugs: evidence.pipelineDrugs || [],
+        excludedAgents: evidence.excludedAgents || [],
+        totalUnique: evidence.totalUnique,
+        totalFetched: evidence.totalFetched,
+        perSourceCounts: evidence.perSourceCounts,
+        uniqueJournals: evidence.uniqueJournals,
+        corpusFootprint: evidence.corpusFootprint,
+        accessBreakdown: evidence.accessBreakdown,
+        promptPackBreakdown: evidence.promptPackBreakdown,
+        qualityBreakdown: evidence.qualityBreakdown,
+        knowledgeBase: evidence.knowledgeBase,
+        topRanked: (evidence.topRanked || []).slice(0, 25).map((a) => ({
+          ...a,
+          fullText: (a.fullText || '').slice(0, 2000),
+          abstract: (a.abstract || '').slice(0, 1500)
+        })),
+        groundedForPrompt: evidence.groundedForPrompt,
+        fdaLabels: evidence.fdaLabels,
+        fdaManufacturers: evidence.fdaManufacturers
+      }
+    : null,
+  trials: trials
+    ? {
+        total: trials.total,
+        returned: trials.returned,
+        breakdown: trials.breakdown,
+        subQueries: trials.subQueries,
+        query: trials.query,
+        studies: (trials.studies || []).slice(0, 25)
+      }
+    : null
+});
+
 const getClientIp = (req) => {
   const xff = String(req.headers?.['x-forwarded-for'] || '').trim();
   if (xff) return xff.split(',')[0].trim();
@@ -1088,16 +1130,11 @@ export default async function handler(req, res) {
       evidence = providedEvidence || null;
       trials = providedTrials || null;
     } else {
-      // Hard deadline for the entire gather phase. We now run on Vercel
-      // Pro (maxDuration=300s in vercel.json), so we give the gather
-      // phase a comfortable 90s and still leave 200+s of headroom for
-      // the synthesize call on the same client-side run. The previous
-      // 48s cap was tuned for Hobby's 60s function limit and was the
-      // root cause of "synthesize phase too heavy" timeouts when one
-      // of the database fan-outs (PubMed in particular) hit a slow
-      // upstream day. Anything still outstanding at the deadline is
-      // returned as null and the client synthesises with what arrived.
-      const GATHER_DEADLINE_MS = Number(process.env.MRT_GATHER_DEADLINE_MS || 90_000);
+      // Hard deadline for the entire gather phase. Hobby caps each function
+      // at 60s (see vercel.json maxDuration). Default 50s leaves headroom for
+      // JSON serialization + response flush. Override with MRT_GATHER_DEADLINE_MS
+      // on Pro (e.g. 90000) if you raise maxDuration there.
+      const GATHER_DEADLINE_MS = Number(process.env.MRT_GATHER_DEADLINE_MS || 50_000);
       const withDeadline = (p, label) => Promise.race([
         p.catch((e) => {
           console.warn(`[research.gather] ${label} threw:`, e?.message || e);
@@ -1159,13 +1196,12 @@ export default async function handler(req, res) {
     // pools attached. This splits the >60s single-shot pipeline into two
     // sub-60s serverless invocations.
     if (phase === 'gather') {
+      const trimmed = trimGatherPools({ dossier, evidence, trials });
       return res.status(200).json({
         phase: 'gather',
         model,
         maxTokens,
-        dossier,
-        evidence,
-        trials
+        ...trimmed
       });
     }
     const groundingBlock = evidence ? buildGroundingBlock(evidence) : '';
