@@ -541,21 +541,25 @@ const buildPatientContext = (p = {}) => {
 const audienceLine = (audience) =>
   audience === 'medical'
     ? 'AUDIENCE: Medical professional. Use precise clinical terminology, include pharmacology, dosing, and mechanism where relevant.'
-    : `AUDIENCE: Non-medical reader (8th–10th grade reading level). This output will be read by patients and caregivers with NO medical training.
+    : `AUDIENCE: Non-medical reader at a 7th-grade reading level. This output will be read by patients and caregivers with NO medical training. Imagine the reader finished about 7 years of school. If a 12-year-old could not follow a sentence, rewrite it.
 
 LAYPERSON RULES (mandatory — violations are failures):
-- Write like you're explaining to a smart friend who is NOT in medicine.
+- WRITE EVERYTHING AT A 7TH-GRADE READING LEVEL. This applies to ALL output: section headings, table cells, bullets, and every structured card field (WHAT_IT_DOES, WHY_FOR_THIS_CONDITION, MECHANISM_TARGET, RATIONALE, SUMMARY, RISKS, etc.).
+- Use short sentences (aim for 15 words or fewer). One idea per sentence. Break long sentences into two.
+- Use common, everyday words. Say "how well it works" not "efficacy", "side effect" not "adverse event", "reason not to use it" not "contraindication", "other health condition" not "comorbidity", "how it works in the body" not "mechanism" or "pathway", "what goes wrong in the body" not "pathophysiology", "still being tested" not "investigational", "key study" not "pivotal trial", "slowly adjust the dose" not "titrate", "reduce" not "mitigate", "trusted" or "main" not "canonical", "slows scarring" not "antifibrotic".
+- Write like you're explaining to a smart friend who is NOT in medicine. No "graduate seminar" tone.
 - Every drug card MUST start with WHAT_IT_DOES in one plain sentence anyone can understand.
-- NEVER use unexplained jargon (mTOR, autophagy, pericellular, analogs, pathway, inducer, fibrosis cascade, etc.) without immediately defining it in parentheses in the same sentence.
-  Example: "autophagy (your cells' built-in cleanup system)" NOT bare "autophagy".
+- NEVER use a medical or technical term without a short plain-English definition in parentheses the FIRST time it appears, in the same sentence. This covers Latin and clinical jargon (mTOR, autophagy, pericellular, analogs, pathway, inducer, fibrosis cascade, etc.).
+  Example: "autophagy (your cells' built-in cleanup system)" NOT bare "autophagy". Example: "antifibrotic (a drug that slows lung scarring)".
+- If you cannot define a term simply, drop the term and just describe what it does in plain words.
 - MECHANISM_TARGET and REPURPOSE_RATIONALE must use everyday words first; technical terms only in parentheses after the plain explanation.
-- Short sentences. No dense paragraph blocks. No "graduate seminar" tone.
-- Do NOT use headings like "potential unexplored drug categories" — say "Drugs not yet studied for this condition" or "Ideas from biology (not yet tested in people)".`;
+- No dense paragraph blocks. Prefer short bullets over long paragraphs.
+- Headings must be plain too. Do NOT use headings like "potential unexplored drug categories" — say "Drugs not yet studied for this condition" or "Ideas from biology (not yet tested in people)".`;
 
 const laypersonRepurposeExtra = (audience) =>
   audience === 'medical' ? '' : `
 
-REPURPOSE LAYPERSON FORMAT (when AUDIENCE is non-medical):
+REPURPOSE LAYPERSON FORMAT (when AUDIENCE is non-medical — keep every field at a 7th-grade reading level, short sentences, common words, and define any medical term in parentheses the first time):
 - WHAT_IT_DOES is REQUIRED for every CANDIDATE — one sentence: what the drug is normally used for + what it does in the body in plain English.
 - WHY_FOR_THIS_CONDITION is REQUIRED — one plain sentence: "This might help [condition] because …" using everyday words only.
 - MECHANISM_TARGET must be a plain-English phrase (≤12 words), e.g. "Slows lung scarring signals" — NOT "TGF-β signalling" alone.
