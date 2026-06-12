@@ -54,10 +54,12 @@ const resolveMaxTokens = (model, mode, phase, half) => {
   // the evidence input (see groundingPlan) so these output budgets fit with
   // margin instead of running right up against the 60s cliff.
   if (phase === 'synthesize' && mode === 'repurpose') {
-    // Front = the candidate list (wants room for ~8-10 drugs); back = the
-    // shorter combinations + summary section.
-    if (half === 'back') return isOpus ? 1100 : 1300;
-    return isOpus ? 1500 : 1900;
+    // HARD CONSTRAINT: Vercel Hobby caps each function at 60s and output
+    // generation is the dominant wall-clock cost (~25-40 tok/s under load).
+    // Keep these conservative so each call finishes with margin. More
+    // candidates require the Pro plan (maxDuration 300s) — see vercel.json.
+    if (half === 'back') return isOpus ? 900 : 1000;
+    return isOpus ? 1100 : 1300;
   }
   if (phase === 'synthesize' && mode === 'research') return isOpus ? 1200 : 1800;
   if (isOpus) return 1400;
@@ -71,9 +73,10 @@ const resolveMaxTokens = (model, mode, phase, half) => {
 const groundingPlan = (mode, phase, half) => {
   if (mode === 'repurpose' && phase === 'synthesize') {
     // Combinations call references Part 1 drugs by name, so it needs far
-    // less raw literature than the candidate-generation call.
-    if (half === 'back') return { limit: 4, excerpt: 500 };
-    return { limit: 9, excerpt: 850 };
+    // less raw literature than the candidate-generation call. Smaller
+    // prefill = faster time-to-first-token = more headroom under 60s.
+    if (half === 'back') return { limit: 3, excerpt: 450 };
+    return { limit: 6, excerpt: 650 };
   }
   if (mode === 'repurpose') return { limit: 12, excerpt: 2000 };
   return { limit: 6, excerpt: 2000 };
@@ -805,8 +808,8 @@ Clearly say this is hypothesis-generation, not a prescription, and must be discu
 const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
-Produce 8-12 candidates total: mechanistic/preclinical candidates FIRST (at least 4), then published-support candidates.
-KEEP EVERY FIELD TIGHT — one or two sentences each. It is better to return 10 complete, concise candidates than 5 verbose ones that get cut off. FINISH the last candidate fully.
+Produce 6-8 candidates total: mechanistic/preclinical candidates FIRST (at least 3), then published-support candidates.
+KEEP EVERY FIELD TO ONE SHORT SENTENCE. Brevity is mandatory — a complete set of 6 concise candidates is far better than 4 verbose ones that get cut off. FINISH the last candidate fully; never stop mid-block.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
