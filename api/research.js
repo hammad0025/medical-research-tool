@@ -392,6 +392,8 @@ const buildGroundingBlock = (evidence, opts = {}) => {
     const kbTag = it.isCuratedKB
       ? ` [CURATED KB${it.kbCategory ? ` · ${it.kbCategory.toUpperCase()}` : ''}]`
       : '';
+    // Live-web freshness items are recent leads, not verified peer review.
+    const webTag = it.isWebSearch ? ' [WEB SOURCE — recent, verify before trusting]' : '';
     // Quality signals — render the two most important positive and negative
     // flags inline so Claude weights the source appropriately when citing.
     const qualityTags = [];
@@ -406,7 +408,7 @@ const buildGroundingBlock = (evidence, opts = {}) => {
     const src = (it.sources || []).join('+');
     const pubLine = it.publisher ? ` · Publisher: ${it.publisher}` : '';
     const countryLine = it.firstAuthorCountry ? ` · 1st-author country: ${it.firstAuthorCountry}` : '';
-    return `[#${i + 1}]${kbTag}${tierLabel}${access}${oa}${qTag} ${it.title || '(no title)'}
+    return `[#${i + 1}]${kbTag}${webTag}${tierLabel}${access}${oa}${qTag} ${it.title || '(no title)'}
       Journal: ${it.journal || '?'}${pubLine} · Year: ${it.year || '?'} · Sources: ${src} · Citations: ${it.citations || 0}${countryLine}
       URL: ${it.url || '(no URL)'}
       Content: ${(it.text || '').slice(0, excerpt) || '(no text available — metadata only; you may name this paper but MUST NOT claim anything about its results, methods, or conclusions)'}`;
@@ -473,6 +475,7 @@ Use these canonical facts and safety considerations as your backbone. Live evide
     if (qb.preprintsInPool > 0) {
       bits.push(`${qb.preprintsInPool} preprint(s) are still present but tagged — flag them to the user as "preprint, not peer-reviewed".`);
     }
+    bits.push(`Items tagged [WEB SOURCE — recent, verify before trusting] came from a live web search (Perplexity) to catch very recent approvals / trials / negative findings. Treat them as RECENCY LEADS: you may surface them so the user knows about new developments, but (a) prefer a peer-reviewed item when one covers the same fact, (b) explicitly say the item is from a live web search and should be confirmed, and (c) never cite a web-source item as the SOLE evidence for a safety-critical claim. Always include the URL.`);
     if (qb.countryConcernInPromptPack > 0) {
       bits.push(`${qb.countryConcernInPromptPack} of the items below have a first author from a jurisdiction with documented systemic research-integrity concerns (CN, RU, IR, PK, IN, VN). They carry a "FIRST-AUTHOR-*-INTEGRITY-CONCERN" tag. You may still cite them, but: (a) prefer equivalent Western-origin evidence when available, (b) when you do cite them, explicitly note the origin in the text of your answer, and (c) never cite them as the SOLE evidence for a safety-critical claim.`);
     }
