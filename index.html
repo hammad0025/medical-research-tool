@@ -1677,27 +1677,25 @@
                   validation: back.validation || front.validation || null
                 };
               } else if (mode === 'repurpose') {
-                const front = await callResearch({
+                // Run candidates (front) and combinations (back) CONCURRENTLY.
+                // The combinations call reasons from the same evidence pack
+                // and standard-of-care rather than waiting on the candidate
+                // text, so both fit in one ~70s window instead of stacking
+                // to ~120s+. Cuts total runtime by ~45s.
+                updateStep('synth', { status: 'running', detail: 'Candidates + combinations (in parallel)' });
+                const synthArgs = {
                   mode, patient, audience,
                   phase: 'synthesize',
-                  half: 'front',
                   providedDossier: gathered.dossier,
                   providedEvidence: gathered.evidence,
                   providedTrials: gathered.trials,
                   ...extra
-                });
-                updateStep('synth', { status: 'running', detail: 'Part 2/2: combinations + summary' });
+                };
+                const [front, back] = await Promise.all([
+                  callResearch({ ...synthArgs, half: 'front' }),
+                  callResearch({ ...synthArgs, half: 'back' })
+                ]);
                 const frontText = (front.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-                const back = await callResearch({
-                  mode, patient, audience,
-                  phase: 'synthesize',
-                  half: 'back',
-                  providedDossier: gathered.dossier,
-                  providedEvidence: gathered.evidence,
-                  providedTrials: gathered.trials,
-                  priorText: frontText,
-                  ...extra
-                });
                 const backText = (back.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
                 data = {
                   ...back,
