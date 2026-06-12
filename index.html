@@ -4083,14 +4083,14 @@
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Award size={18} /> Curated knowledge base · {kb.condition}
+                <Award size={18} /> Trusted medical references · {kb.condition}
               </h3>
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                 <span style={{
                   padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.7rem',
                   background: `${theme.accent}22`, color: theme.accent, fontWeight: 600
                 }}>
-                  {kb.itemCount} pinned references
+                  {kb.itemCount} saved references
                 </span>
                 {kb.version && (
                   <span style={{
@@ -4103,15 +4103,14 @@
               </div>
             </div>
             <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: '0.5rem' }}>
-              These are hand-curated landmark references for {kb.condition} — society guidelines,
-              defining RCTs, FDA labels, and authoritative reviews. They are PINNED into every
-              query on this condition so the AI always has a consistent ground-truth floor, not
-              just whatever PubMed happens to rank this minute.
+              These are trusted, hand-picked medical references for {kb.condition} — major
+              guidelines, important studies, FDA labels, and respected reviews. We always include
+              them so the information you see is grounded in solid sources.
             </p>
             {facts.length > 0 && (
               <div style={{ marginTop: '0.75rem' }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 600, color: theme.text, marginBottom: '0.35rem' }}>
-                  Canonical facts
+                  Key facts from research
                 </div>
                 <ul style={{ margin: 0, paddingLeft: '1.1rem', color: theme.textDim, fontSize: '0.85rem', lineHeight: 1.55 }}>
                   {facts.map((f, i) => <li key={i}>{f.claim}</li>)}
@@ -5534,10 +5533,10 @@
           <table style={{ width: '100%', fontSize: '0.9rem' }}>
             <tbody>
               {[
-                ['Post-Trial Access (PTA)',  'Free continued drug access after the trial ends — what you usually want.'],
-                ['Expanded Access',          'FDA pathway to get an unapproved drug outside a trial.'],
-                ['Compassionate Use',        'Common name for Expanded Access in life-threatening conditions.'],
-                ['Open-Label Extension (OLE)','Follow-on trial phase that gives continued access inside a research framework.']
+                ['Post-Trial Access (PTA)',  'After the study ends, you can keep getting the drug for free — usually what you want.'],
+                ['Expanded Access',          'A way to get a drug that is not yet FDA-approved, outside of a study.'],
+                ['Compassionate Use',        'Another name for Expanded Access, used for serious or life-threatening illness.'],
+                ['Open-Label Extension (OLE)','If the trial drug seems to work, people who were in the study can keep taking it after the study ends — and everyone knows they are getting the real drug, not a placebo.']
               ].map(([k,v]) => (
                 <tr key={k} style={{ borderTop: `1px solid ${theme.border}` }}>
                   <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: theme.text, width: 220 }}>{k}</td>
@@ -5598,9 +5597,9 @@
               <div>
                 <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Access terms in plain language</div>
                 <div style={{ color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.55, marginTop: 4 }}>
-                  <strong style={{ color: theme.text }}>OLE:</strong> open-label extension after core trial.
-                  {' '}<strong style={{ color: theme.text }}>Expanded Access / Compassionate Use:</strong> non-trial access to investigational therapy.
-                  {' '}<strong style={{ color: theme.text }}>PTA:</strong> post-trial continued access after participation.
+                  <strong style={{ color: theme.text }}>Open-Label Extension (OLE):</strong> if the trial drug seems to work, people who were in the study can keep taking it after it ends.
+                  {' '}<strong style={{ color: theme.text }}>Expanded Access / Compassionate Use:</strong> a way to get a not-yet-approved drug outside of a study, usually for a serious illness.
+                  {' '}<strong style={{ color: theme.text }}>Post-Trial Access (PTA):</strong> keep getting the drug for free after you finish the study.
                 </div>
               </div>
 

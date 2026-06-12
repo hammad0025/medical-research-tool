@@ -54,12 +54,12 @@ const resolveMaxTokens = (model, mode, phase, half) => {
   // can give synthesis room for fuller output than the old 60s Hobby cap
   // allowed. These stay split across two calls for resilience + streaming UX.
   if (phase === 'synthesize' && mode === 'repurpose') {
-    // Tuned for ~2-minute total runtime (user feedback: 3.5min too long).
-    // Output generation is the dominant wall-clock cost, so these caps are
-    // the main speed lever. Pro's 300s ceiling means no timeout risk; this
-    // is purely a depth-vs-speed balance.
-    if (half === 'back') return isOpus ? 850 : 1050;
-    return isOpus ? 1300 : 1700;
+    // The user wants depth over speed (storage upgraded; 3.5-4 min is fine)
+    // and a hard floor of 15 drug candidates. Fifteen full CANDIDATE blocks do
+    // not fit in ~4800 tokens, so the front (candidate) half gets a much
+    // larger budget. Pro's 300s ceiling means no timeout risk.
+    if (half === 'back') return isOpus ? 1800 : 2200;
+    return isOpus ? 5200 : 7000;
   }
   if (phase === 'synthesize' && mode === 'research') return isOpus ? 1600 : 2400;
   if (isOpus) return 1400;
@@ -367,7 +367,7 @@ const buildAgentsEvaluatedBlock = (claudeText, evidence) => {
 
   const excluded = excludedAgents.map((x) => `- **${x.name}** — ${x.reason}`).join('\n');
 
-  return `\n\n---\n\n## Agents evaluated for this analysis\n\nThis is the complete consideration set for this condition from our curated knowledge base. Every agent listed was searched for in the literature (PubMed / Europe PMC / OpenAlex / Cochrane) and on ClinicalTrials.gov before the analysis was written. If any agent is marked "NOT DISCUSSED" above, it was either not supported by the evidence pack for this specific patient profile, or was outside the scope of the sections produced — check the curated KB file for the full rationale.\n\n### Pipeline drugs (FDA-approved + phase 2b/3 + pivotal)\n${evaluated || '_(none listed in curated KB for this condition)_'}\n\n### Excluded agents (considered and rejected)\n${excluded || '_(none listed)_'}\n\n_Curated KB source: \`data/kb/\`. If an agent you expected to see is missing, that's an editor-level gap in our KB — open an issue or add it to the file._\n`;
+  return `\n\n---\n\n## Medicines we checked for this condition\n\nThese are the medicines we made sure to look up for this condition. "Pipeline drugs" are medicines that are either already approved or still being developed and tested — the ones doctors and researchers are watching most closely. If something is marked "NOT DISCUSSED" above, it means the research we found did not support it for this person's situation.\n\n### Pipeline drugs (approved, in late-stage testing, or important to watch)\n${evaluated || '_(none on our watch list for this condition yet)_'}\n\n### Medicines considered and set aside\n${excluded || '_(none)_'}\n`;
 };
 
 const buildGroundingBlock = (evidence, opts = {}) => {
@@ -673,7 +673,7 @@ Your output MUST include the following 3 sections IN THIS ORDER, and nothing els
 
 Then list 3–5 individual **named experts** with affiliations. Peer-recognised only — no clinic self-advertising.
 
-## 3. Approved Treatments (Standard of Care)
+## 3. Approved Treatments (Backed by Research)
 Ranked by evidence strength, best first. Include the 3-5 most important treatments only. For EACH output this EXACT card structure (the UI parses these fields):
 
 PROVIDER: <doctor / clinic / manufacturer with phone or URL>
@@ -731,7 +731,7 @@ Your output MUST include the following 5 sections IN THIS ORDER, and nothing els
 ## 7. This Patient's Interaction & Access Plan
 Tailored to **this specific patient profile**:
 - **Drug-drug interactions:** walk the patient's current meds vs the Section-3 recommendations. List every clinically meaningful interaction.
-- **Non-drug / lifestyle:** practical bullets from the dossier's lifestyleCategories (e.g. IPF → GERD treatment, feather pillows, pulm rehab, vaccinations, O₂. RP → UV protection, vitamin A caveats, omega-3 caveats).
+- **Non-drug / lifestyle:** practical bullets from the dossier's lifestyleCategories (e.g. IPF → GERD treatment, feather pillows, pulm rehab, vaccinations, O₂. RP → UV protection, vitamin A caveats, omega-3 caveats). FRAME EVERY bullet as "Research suggests…" or "Research shows…" or "Studies report…" — NEVER as a direct instruction. Do not write "treat acid reflux aggressively"; write "Research suggests managing acid reflux may matter because…". This must not read like medical advice.
 - **Patient advocacy:** 2-4 orgs / registries / foundations from the dossier's patientAdvocacy list, with homepage URLs.
 - **Insurance & cost:** what US commercial / Medicare typically covers. Rough out-of-pocket. Red-flag overseas clinics with undisclosed pricing.
 
@@ -779,6 +779,8 @@ Before you label any candidate MECHANISTIC_ONLY or PRECLINICAL, search the GROUN
 - Summarize what those studies found honestly, including "no benefit" or "possible harm."
 - Do NOT put a drug in the "never studied in people for this condition" bucket when the evidence pack contains human data for this condition.
 - Check EXCLUDED AGENTS in the REQUIRED MENTIONS block — if a drug is listed there, you may still mention it but must lead with the negative literature and cite links.
+- NEVER CONTRADICT YOURSELF: if any field of a candidate states or implies the drug HAS been studied in this condition (e.g. "post-hoc analysis", "trials show", "no benefit in studies", "observational data"), then its EVIDENCE_STRENGTH must NOT be MECHANISTIC_ONLY and it must NOT appear under any "not yet studied / never researched" heading. The "not yet studied" group is reserved for drugs with ZERO human OR animal research for this condition.
+- WORKED EXAMPLE — metformin in IPF: metformin HAS been studied in IPF (post-hoc analyses of pirfenidone trials and observational cohorts; results show no clear benefit and possible harm). So metformin is "studied, evidence is negative" — it is NOT an unexplored/never-researched drug. Label it OBSERVATIONAL (or higher) and state the negative findings plainly.
 
 ## Mechanistic Hypotheses (genuinely no human data for this condition)
 Produce 5-8 candidates where EVIDENCE_STRENGTH is MECHANISTIC_ONLY or PRECLINICAL ONLY when the evidence pack truly contains no human studies for that drug + this condition.
@@ -819,8 +821,8 @@ Clearly say this is hypothesis-generation, not a prescription, and must be discu
 const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
-Produce 7-9 candidates total: mechanistic/preclinical candidates FIRST (at least 3), then published-support candidates.
-Keep EVERY field to ONE concise sentence — speed matters. A complete set of 7-9 tight candidates is the goal; FINISH the last candidate fully and never stop mid-block.
+Produce 15 candidates (mechanistic/preclinical candidates FIRST, at least 5, then published-support candidates). 15 is the benchmark; returning fewer than 13 is a FAILURE of this task.
+Keep EVERY field to ONE or TWO concise sentences. Every candidate MUST include WHY_FOR_THIS_CONDITION (a plain "this might help because…" sentence) and at least one clickable link in REFERENCES. FINISH the last candidate fully and never stop mid-block.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -841,7 +843,7 @@ ${SHARED_GUARDRAILS}`;
 // Single-shot fallback (API backward compat). UI uses gather → synth front → synth back.
 const REPURPOSE_PROMPT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
-Produce a ranked list of 12-18 candidate repurposed drugs or supplements total.
+Produce a ranked list of 15-18 candidate repurposed drugs or supplements total (15 is the benchmark floor).
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 

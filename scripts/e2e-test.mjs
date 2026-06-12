@@ -844,7 +844,7 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   const hasSafety = /SAFETY:\s*\d{1,3}\s*%/i.test(researchText);
   const hasInteractions = /INTERACTIONS:/i.test(researchText);
   const hasReferences = /REFERENCES:/i.test(researchText);
-  const hasStandardOfCare = /standard of care/i.test(researchText);
+  const hasApprovedTreatments = /approved treatments|backed by research|standard of care/i.test(researchText);
   const hasNonDrug = /non[- ]drug|lifestyle|reflux|feather|oxygen|pulmonary rehab/i.test(researchText);
   const hasStem = /stem cell/i.test(researchText);
   hasProvider ? pass('structured PROVIDER blocks present') : fail('no PROVIDER blocks');
@@ -852,7 +852,7 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   hasSafety ? pass('SAFETY 1-100 present') : fail('no SAFETY %');
   hasInteractions ? pass('INTERACTIONS field present (drug-drug check)') : fail('no INTERACTIONS field');
   hasReferences ? pass('REFERENCES field present') : fail('no REFERENCES field');
-  hasStandardOfCare ? pass('standard-of-care section present') : fail('no standard-of-care section');
+  hasApprovedTreatments ? pass('approved-treatments section present') : fail('no approved-treatments section');
   hasNonDrug ? pass('non-drug / lifestyle recommendations present') : fail('no non-drug section');
   hasStem ? pass('stem-cell landscape section present') : fail('no stem-cell section');
 
