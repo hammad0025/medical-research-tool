@@ -232,24 +232,24 @@
 
       /* Inline Terms of Use (mirrors docs/TERMS_OF_USE.md for the modal). */
       const TERMS_OF_USE_SECTIONS = [
-        { title: 'Educational decision-support only — not medical advice',
-          body: 'This tool summarizes published medical literature and clinical-trial registries to help you explore treatment options and research directions. It is not medical advice, a diagnosis, or a treatment recommendation. Nothing here replaces consultation with a licensed physician or other qualified healthcare provider.' },
-        { title: 'No doctor–patient relationship',
-          body: 'Use of this site does not create a doctor–patient, clinician–patient, or any other professional healthcare relationship between you and the operators of this tool.' },
-        { title: 'Not HIPAA-compliant',
-          body: 'This prototype is not HIPAA-compliant. Do not enter names, dates of birth, medical record numbers, addresses, phone numbers, or other personally identifying information. Patient profile data you enter stays in your browser only; text submitted for AI analysis is sent to third-party services.' },
-        { title: 'No guarantee of accuracy; AI may hallucinate',
-          body: 'Medical literature is complex and evolving. AI-generated summaries may be incomplete, outdated, or incorrect — including hallucinated citations (references that do not exist or do not support the stated claim). We do not guarantee the accuracy, completeness, or suitability of any output.' },
-        { title: 'Your responsibility to verify links and claims',
-          body: 'You are responsible for independently verifying every citation, link, trial listing, and factual claim before relying on it. Open source links (PubMed, ClinicalTrials.gov, DOI resolvers, etc.) and discuss findings with your care team.' },
-        { title: 'Email alerts — server-side storage',
-          body: 'If you subscribe to weekly email digests, we store your email address and condition of interest on our server (Upstash) to send those emails. Do not include names, MRNs, or other identifying information in alert subscriptions.' },
-        { title: 'Age requirement',
-          body: 'You must be 18 years or older to use this tool, or use it only with a parent or guardian who accepts these terms on your behalf.' },
-        { title: 'Disclaimer of warranties',
-          body: 'This tool is provided “as is” and “as available” without warranties of any kind, whether express or implied, including merchantability, fitness for a particular purpose, and non-infringement.' },
-        { title: 'Limitation of liability',
-          body: 'To the fullest extent permitted by law, the operators of researchingmycondition.com and their contributors shall not be liable for any direct, indirect, incidental, special, consequential, or punitive damages arising from your use of or reliance on this tool or its outputs.' }
+        { title: 'Made to help you learn — not medical advice',
+          body: 'This tool gathers facts from medical journals and lists of clinical trials (research studies that test new treatments) to help you learn about your options. It is not medical advice. It does not give you a diagnosis or tell you what to do. It does not take the place of a licensed doctor or other trained health provider.' },
+        { title: 'We are not your doctor',
+          body: 'Using this site does not make us your doctor or care team. It does not start any kind of health-care relationship between you and the people who run this tool.' },
+        { title: 'This tool does not meet HIPAA privacy rules',
+          body: 'This is an early version of the tool. It does not follow HIPAA (the U.S. law that protects your health records). Please do not type names, birth dates, medical record numbers, addresses, phone numbers, or anything that could point to a real person. The profile you fill in stays in your browser. The text you send for AI review is shared with outside services.' },
+        { title: 'We cannot promise the AI is right',
+          body: 'Medical research is hard to read and changes fast. AI summaries can be missing facts, out of date, or wrong. Sometimes the AI even makes up sources — links or papers that do not exist or do not back up what it says. We cannot promise the results are correct, complete, or right for you.' },
+        { title: 'Please check the links and facts yourself',
+          body: 'It is your job to check every source, link, trial, and fact before you trust it. Open the links (like PubMed and ClinicalTrials.gov) and talk over what you find with your care team.' },
+        { title: 'Email alerts are saved on our server',
+          body: 'If you sign up for weekly email updates, we save your email address and the condition you care about on our server so we can send them. Do not put names, medical record numbers, or other identifying details in your sign-up.' },
+        { title: 'You must be 18 or older',
+          body: 'You must be 18 years or older to use this tool. If you are younger, use it only with a parent or guardian who agrees to these terms for you.' },
+        { title: 'No promises about the tool',
+          body: 'This tool is provided “as is” and “as available,” with no promises of any kind, whether stated or implied. That includes no promise that it is fit to sell, fit for your purpose, or free of conflicts with the rights of others.' },
+        { title: 'Limits on who is responsible',
+          body: 'As much as the law allows, the people who run researchingmycondition.com and those who help build it are not responsible for any harm or loss that comes from using this tool or trusting what it shows you. This covers direct, indirect, and other kinds of damages.' }
       ];
 
       const INTEGRITY_FLAGGED_PUBLISHER_EXAMPLES = [
@@ -1520,13 +1520,13 @@
                 { id: 'trials',   label: 'Check clinical trials',
                   desc: 'Scans ClinicalTrials.gov for studies you might join.',
                   status: 'running' },
-                { id: 'synth',    label: mode === 'repurpose' ? 'Analyze drug ideas' : 'Write your detailed report',
+                { id: 'synth',    label: mode === 'repurpose' ? 'Look at drug ideas' : 'Write your full report',
                   desc: mode === 'repurpose'
-                    ? 'Two-step AI pass: individual drugs first, then combinations (takes about 1–2 minutes).'
-                    : `Full personalized report in two parts — like ChatGPT "Deep Research" for medicine (model: ${runtimeConfig?.ai?.researchModel || 'claude-sonnet-4-20250514'}).`,
+                    ? 'Two steps: single drugs first, then drug pairs (takes about 1 to 2 minutes).'
+                    : 'A full report made just for you, in two parts. This is deep research, not a quick answer.',
                   status: 'pending' },
-                { id: 'validate', label: 'Cross-AI fact-check (if configured)',
-                  desc: 'Second model audits every claim against the evidence pack.',
+                { id: 'validate', label: 'Double-check with a second AI (if set up)',
+                  desc: 'A second AI checks every claim against the research we found.',
                   status: 'pending' }
               ]
             });
@@ -1597,13 +1597,13 @@
                 status: 'done',
                 detail: (() => {
                   const e = gathered.evidence;
-                  if (!e) return 'evidence pack ready';
+                  if (!e) return 'research ready';
                   const fetched = e.totalFetched || e.totalUnique || 0;
                   const unique = e.totalUnique || 0;
                   const journals = e.uniqueJournals || 0;
                   const pack = e.promptPackBreakdown?.total || 0;
-                  // e.g. "Screened 104 records across PubMed / Europe PMC / OpenAlex / Cochrane — 32 unique across 27 journals, top 25 passed to Claude"
-                  return `Screened ${fetched} records across PubMed / Europe PMC / OpenAlex / Cochrane — ${unique} unique across ${journals} journals, top ${pack} passed to Claude`;
+                  // e.g. "Screened 104 records across PubMed / Europe PMC / OpenAlex / Cochrane — 32 unique across 27 journals, top 25 used in the report"
+                  return `Looked at ${fetched} records from PubMed, Europe PMC, OpenAlex, and Cochrane — ${unique} were one-of-a-kind across ${journals} journals, and the top ${pack} were used in your report`;
                 })()
               });
               updateStep('trials', {
@@ -1620,8 +1620,8 @@
               // smaller and the max_tokens budget is enough).
               updateStep('synth', {
                 status: 'running',
-                detail: mode === 'research' ? 'Part 1/2: condition, experts, treatments'
-                  : mode === 'repurpose' ? 'Part 1/2: drug candidates' : undefined
+                detail: mode === 'research' ? 'Part 1 of 2: your condition, experts, treatments'
+                  : mode === 'repurpose' ? 'Part 1 of 2: drug ideas' : undefined
               });
               if (mode === 'research') {
                 // FRONT half: sections 1-4 (snapshot, centers,
@@ -1635,7 +1635,7 @@
                   providedTrials: gathered.trials,
                   ...extra
                 });
-                updateStep('synth', { status: 'running', detail: 'Part 2/2: trials, access, patient plan, safety considerations' });
+                updateStep('synth', { status: 'running', detail: 'Part 2 of 2: trials, ways to get the drug, your plan, safety notes' });
                 // BACK half: sections 5-8 (repurposing/pipeline,
                 // cell/gene, patient plan, red flags).
                 //
@@ -1682,7 +1682,7 @@
                 // and standard-of-care rather than waiting on the candidate
                 // text, so both fit in one ~70s window instead of stacking
                 // to ~120s+. Cuts total runtime by ~45s.
-                updateStep('synth', { status: 'running', detail: 'Candidates + combinations (in parallel)' });
+                updateStep('synth', { status: 'running', detail: 'Drug ideas and drug pairs (at the same time)' });
                 const synthArgs = {
                   mode, patient, audience,
                   phase: 'synthesize',
@@ -1715,14 +1715,14 @@
               updateStep('synth', {
                 status: 'done',
                 detail: data.usage?.output_tokens
-                  ? `${data.usage.output_tokens.toLocaleString()} tokens generated`
-                  : 'analysis ready'
+                  ? 'Your report is ready'
+                  : 'Your report is ready'
               });
               updateStep('validate', {
                 status: data.validation ? 'done' : 'skipped',
                 detail: data.validation
-                  ? `${data.validation.claims?.length || 0} claims audited`
-                  : 'no secondary model configured'
+                  ? `${data.validation.claims?.length || 0} claims checked`
+                  : 'second AI not set up'
               });
             } else {
               data = await callResearch({ mode, patient, audience, ...extra });
@@ -1937,7 +1937,7 @@
             });
             const raw = await res.text();
             const data = parseApiJsonResponse(res, raw, {
-              timeoutMsg: 'Server timeout. Try again — your evidence pack should still be cached, so the retry will be faster.'
+              timeoutMsg: 'The server took too long. Try again — your research should still be saved, so the next try will be faster.'
             });
             if (!res.ok) {
               const errMsg = data?.error?.message || data?.error || 'Chat failed';
@@ -1997,7 +1997,7 @@
             // 'Unexpected token A ... is not valid JSON'.
             const raw = await res.text();
             const data = parseApiJsonResponse(res, raw, {
-              timeoutMsg: 'Server timeout. Try again in a moment — your evidence pack should still be cached, so the retry will be faster.'
+              timeoutMsg: 'The server took too long. Try again in a moment — your research should still be saved, so the next try will be faster.'
             });
             if (!res.ok) {
               const errMsg = data?.error?.message || data?.error || 'Chat failed';
@@ -2747,8 +2747,8 @@
               <AlertCircle size={18} color="#f87171" style={{ flexShrink: 0, marginTop: 2 }} />
               <div style={{ flex: 1 }}>
                 <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: theme.text }}>
-                  <strong style={{ color: '#f87171' }}>Privacy reminder:</strong> This tool is not HIPAA-compliant.
-                  Do not enter identifying information (name, DOB, MRN, phone, address). Use initials or &ldquo;Patient A&rdquo;.
+                  <strong style={{ color: '#f87171' }}>Privacy reminder:</strong> This tool does not follow HIPAA (the U.S. law that protects your health records).
+                  Do not type anything that could identify a person (name, birth date, medical record number, phone, or address). Use initials or &ldquo;Patient A&rdquo; instead.
                   {' '}<button type="button" onClick={openTerms} style={{
                     background: 'transparent', border: 'none', color: theme.accent,
                     cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', fontSize: '0.85rem', padding: 0
@@ -2758,7 +2758,7 @@
                   <input type="checkbox" checked={acceptedHipaa}
                     onChange={e => setAcceptedHipaa(e.target.checked)}
                     style={{ marginTop: 3, accentColor: theme.accent }} />
-                  <span>I understand this tool is not HIPAA-compliant and I will not enter identifying patient information.</span>
+                  <span>I understand this tool does not follow HIPAA, and I will not type anything that could identify a person.</span>
                 </label>
               </div>
             </div>
@@ -2779,7 +2779,7 @@
             <p><strong>This tool is NOT HIPAA compliant.</strong> It is a research prototype. Do not enter
             real, identifying patient information unless you understand and accept that:</p>
             <ul style={{ color: theme.textDim, lineHeight: 1.7 }}>
-              <li>Data you type is sent to a third-party AI (Anthropic) and clinical databases (ClinicalTrials.gov, PubMed).</li>
+              <li>What you type is sent to an outside AI service and to medical databases (ClinicalTrials.gov, PubMed).</li>
               <li>There is no Business Associate Agreement (BAA) in place.</li>
               <li><strong>Do not enter personal identifiers</strong> — no name, date of birth, MRN, address, or phone. Enter only the condition and general profile needed for research.</li>
               <li>Output is research information only — not medical advice, not a diagnosis, and not a second opinion. Final decisions require a physician.</li>
@@ -2948,9 +2948,9 @@
         // supply `options` (array of {value,label}). Most free-form clinical
         // context stays as textarea so clinicians can paste from notes.
         const fields = [
-          { k: 'condition',  l: 'Primary Condition to Research',   ta: false,
+          { k: 'condition',  l: 'Main condition you want to research',   ta: false,
             ph: 'e.g. Idiopathic Pulmonary Fibrosis, Glioblastoma, ALS…', enterSubmits: true },
-          { k: 'stage',      l: 'Stage of Disease (optional)',     ta: false, ph: 'e.g. GAP Stage II, metastatic' },
+          { k: 'stage',      l: 'Stage of the disease (if you know it)',     ta: false, ph: 'e.g. GAP Stage II, metastatic' },
           { k: 'age',        l: 'Age',                              ta: false, ph: 'e.g. 65', type: 'number' },
           { k: 'gender',     l: 'Sex / Gender',                     ta: false, type: 'select',
             options: [
@@ -2961,19 +2961,19 @@
               { value: 'Prefer not to say', label: 'Prefer not to say' }
             ] },
           { k: 'weight',     l: 'Weight',                           ta: false, ph: 'e.g. 170 lb / 77 kg' },
-          { k: 'smoking',    l: 'Smoking History',                  ta: false, ph: 'e.g. Former, 20 pack-years, quit 2015' },
-          { k: 'exercise',   l: 'Exercise / Activity Level',        ta: false, ph: 'e.g. Walks 30 min daily' },
-          { k: 'diagnoses',  l: 'ALL Current Diagnoses',            ta: true,
-            ph: 'Comma-separated. These are NOT what we research — they inform safety checks.' },
-          { k: 'medications',l: 'Current Medications',              ta: true,
-            ph: 'Every active Rx + OTC + supplement. Used for interaction checking.' },
-          { k: 'symptoms',   l: 'Current Symptoms',                 ta: true },
-          { k: 'labWork',    l: 'Lab Work / PFTs / Other Studies',  ta: true,
+          { k: 'smoking',    l: 'Smoking history',                  ta: false, ph: 'e.g. Former, 20 pack-years, quit 2015' },
+          { k: 'exercise',   l: 'Exercise / activity',        ta: false, ph: 'e.g. Walks 30 min daily' },
+          { k: 'diagnoses',  l: 'All your current health conditions',            ta: true,
+            ph: 'Separate them with commas. We do not research these — we use them to check for safety problems.' },
+          { k: 'medications',l: 'Medicines you take now',              ta: true,
+            ph: 'List every medicine you take — prescriptions, over-the-counter pills, and supplements. We use this to check for drug interactions (when two medicines affect each other).' },
+          { k: 'symptoms',   l: 'Symptoms you have now',                 ta: true },
+          { k: 'labWork',    l: 'Lab results, breathing tests, or other test results',  ta: true,
             ph: 'e.g. FVC 58% predicted, DLCO 42%, 6MWT 350m' },
-          { k: 'scans',      l: 'Recent Imaging / Scans',           ta: true,
+          { k: 'scans',      l: 'Recent scans or X-rays',           ta: true,
             ph: 'e.g. HRCT 3/2025: UIP pattern, honeycombing basal/peripheral' },
-          { k: 'geneticVariant', l: 'Genetic Mutation / Variant (if known)', ta: true,
-            ph: 'e.g. USH2A compound heterozygous (RP / Usher), RPE65 biallelic (LCA / RP), SOD1 A4V (ALS), DMD exon 51 deletion, BRCA1 pathogenic, HTT 44 CAG repeats. Critical for gene-therapy eligibility.' }
+          { k: 'geneticVariant', l: 'Gene change / mutation (if you know it)', ta: true,
+            ph: 'e.g. USH2A compound heterozygous (RP / Usher), RPE65 biallelic (LCA / RP), SOD1 A4V (ALS), DMD exon 51 deletion, BRCA1 pathogenic, HTT 44 CAG repeats. This matters for gene therapy (treatments that fix or replace faulty genes).' }
         ];
         return (
           <div style={panelStyle}>
@@ -2985,25 +2985,25 @@
                 <span style={{ fontSize: '0.85rem', color: theme.textDim }}>Explain results as:</span>
                 <select value={audience} onChange={e => setAudience(e.target.value)}
                   style={{ ...inputStyle, width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.85rem' }}>
-                  <option value="layperson">10th-grade layperson</option>
+                  <option value="layperson">Everyday words (no medical training)</option>
                   <option value="medical">Medical professional</option>
                 </select>
               </div>
             </div>
             <p style={{ color: theme.textDim, fontSize: '0.9rem', marginTop: 0 }}>
-              All fields are optional except <strong>Primary Condition</strong>. The more you provide,
-              the better the safety / interaction checks.
+              You only need to fill in the <strong>main condition</strong>. The more you add,
+              the better we can check for safety problems and drug interactions.
             </p>
             <div style={{
               marginBottom: '1rem', padding: '0.85rem 0.95rem', borderRadius: 8,
               border: `1px solid ${theme.accent}44`, background: `${theme.accent}0c`
             }}>
               <div style={{ fontWeight: 700, color: theme.text, fontSize: '0.88rem', marginBottom: '0.35rem' }}>
-                Where your data lives
+                Where your information is kept
               </div>
               <p style={{ margin: 0, fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}>
-                Patient profile data stays in <strong style={{ color: theme.text }}>this browser only</strong> (localStorage).
-                We do not upload your profile to our servers.{' '}
+                Your profile stays in <strong style={{ color: theme.text }}>this browser only</strong>.
+                We do not send your profile to our servers.{' '}
                 <button type="button" onClick={openTerms} style={{
                   background: 'transparent', border: 'none', color: theme.accent,
                   cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', fontSize: '0.82rem', padding: 0
@@ -3048,9 +3048,9 @@
                 </tbody>
               </table>
               <div style={{ fontSize: '0.78rem', color: theme.textDim, lineHeight: 1.5, marginBottom: '0.5rem' }}>
-                Example API cost per full research run (approximate list price):
-                {' '}Sonnet ~$0.05–0.15 · Opus ~$0.25–0.75 depending on output length.
-                Actual cost per run is shown after each analysis in the <strong>Run cost</strong> strip.
+                About how much each full research run costs to make (rough estimate):
+                {' '}around $0.05 to $0.75, depending on how long the report is.
+                Your exact cost shows up after each run in the <strong>Run cost</strong> strip.
               </div>
               {usageInfo?.usage && (
                 <div style={{ fontSize: '0.8rem', color: theme.accent, marginBottom: '0.5rem', fontWeight: 600 }}>
@@ -3109,7 +3109,7 @@
                 </button>
               ))}
               <span style={{ marginLeft: 'auto', fontSize: '0.72rem', color: theme.textDim, fontStyle: 'italic' }}>
-                These are illustrative cases — not real patients. Do not enter real PHI.
+                These are made-up examples, not real patients. Do not enter real personal health details.
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
@@ -3154,7 +3154,7 @@
                   Ready when you are
                 </div>
                 <div style={{ fontSize: '0.82rem', color: theme.textDim }}>
-                  We'll pull live clinical trials, peer-reviewed evidence, and build a dossier for{' '}
+                  We'll find current clinical trials and trusted research (studies checked by other experts), and put together a summary for{' '}
                   <strong style={{ color: theme.accent }}>
                     {patient.condition?.trim() || '(enter a condition above)'}
                   </strong>.
@@ -3227,13 +3227,13 @@
             const d = await r.json();
             if (!r.ok) throw new Error(d.error || 'Subscription failed');
             if (d.alreadyExists) {
-              setStatus({ kind: 'info', msg: `You're already subscribed to weekly ${patient.condition} digests.` });
+              setStatus({ kind: 'info', msg: `You're already signed up for weekly ${patient.condition} updates.` });
             } else {
               setStatus({
                 kind: 'ok',
                 msg: d.ephemeral
-                  ? `Subscribed — but the server's subscription store is not configured, so this will not persist in production. Ask admin to set UPSTASH_REDIS_REST_URL.`
-                  : `Subscribed! First digest arrives Monday morning (UTC 14:00).`
+                  ? `Subscribed — but the server's storage is not set up yet, so this won't be saved in production. Ask the admin to finish setup.`
+                  : `Subscribed! Your first update arrives Monday morning (UTC 14:00).`
               });
             }
             await loadSubs(email);
@@ -3246,8 +3246,8 @@
 
         const unsubscribe = async (sub) => {
           const token = prompt(
-            'Paste the unsubscribe token from your welcome email (or any past digest email footer). ' +
-            'If you don\'t have it, reply to any digest email asking to be removed.'
+            'Paste the unsubscribe code from your welcome email (or from the bottom of any past update email). ' +
+            'If you don\'t have it, reply to any update email and ask to be removed.'
           );
           if (!token) return;
           try {
@@ -3278,25 +3278,25 @@
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Mail size={16} color={theme.accent} />
-                <strong style={{ color: theme.accent }}>Weekly research digest (beta)</strong>
+                <strong style={{ color: theme.accent }}>Weekly research update (beta)</strong>
               </div>
               <span style={{ fontSize: '0.7rem', color: theme.textDim }}>Monday 9am CT · free · unsubscribe anytime</span>
             </div>
             <p style={{ margin: '0.5rem 0 0.75rem', fontSize: '0.85rem', color: theme.textDim, lineHeight: 1.5 }}>
-              Every Monday we re-run the full grounded pipeline for{' '}
+              Every Monday we search again for{' '}
               <strong style={{ color: theme.text }}>{patient.condition || '(no condition set above)'}</strong>,
-              diff the results against what you've already seen, and email you only what's NEW —
-              new RCTs and meta-analyses first, then other peer-reviewed research, new clinical trials,
-              and any FDA actions. Retracted papers and papers from integrity-flagged publishers are filtered from the prompt pack before emailing,
-              same as the webapp.
+              compare what we find with what you've already seen, and email you only what is new —
+              the strongest new studies first, then other research that experts have checked, new clinical trials,
+              and any FDA news. We leave out papers that were pulled back (retracted) or come from sources known for
+              quality problems, just like the website does.
             </p>
             <p style={{
               margin: '0 0 0.75rem', padding: '0.55rem 0.65rem', borderRadius: 6,
               fontSize: '0.78rem', color: theme.textDim, lineHeight: 1.5,
               background: theme.panel, border: `1px solid ${theme.border}`
             }}>
-              Email alerts store your <strong style={{ color: theme.text }}>email address and condition</strong> on our
-              server (Upstash) to send digests. Do not include names, MRNs, or identifying info.
+              Email alerts save your <strong style={{ color: theme.text }}>email address and condition</strong> on our
+              server so we can send the updates. Do not include names, medical record numbers, or anything that could identify a person.
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
               <input
@@ -3361,9 +3361,9 @@
       //   abstract      → blue   — peer-reviewed abstract
       //   metadata-only → orange — title + journal only; no content
       const ACCESS_META = {
-        'full-text':     { label: 'Full text',     color: '#6ee7b7', desc: 'Body of the article was read' },
-        'abstract':      { label: 'Abstract only', color: '#60a5fa', desc: 'Only the peer-reviewed abstract was read — claims limited to what the abstract states' },
-        'metadata-only': { label: 'No text',       color: '#fbbf24', desc: 'Paper exists but neither full text nor abstract were available — Claude cannot claim its findings' }
+        'full-text':     { label: 'Full text',     color: '#6ee7b7', desc: 'We read the whole article' },
+        'abstract':      { label: 'Summary only', color: '#60a5fa', desc: 'We read only the short summary, so claims are limited to what the summary says' },
+        'metadata-only': { label: 'No text',       color: '#fbbf24', desc: 'The paper exists, but we could not read the full article or the summary — so the AI cannot say what it found' }
       };
       const AccessBadge = ({ level, n }) => {
         const m = ACCESS_META[level] || { label: level, color: theme.textDim, desc: '' };
@@ -3483,14 +3483,14 @@
       // are PINNED into the evidence pack on every query — the ground-truth
       // floor that never changes with a new PubMed search.
       const KBBadge = ({ category }) => (
-        <span title={`Curated landmark reference${category ? ` (${category})` : ''}`} style={{
+        <span title={`A trusted, hand-picked key source we always include${category ? ` (${category})` : ''}`} style={{
           display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
           padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
           border: `1px solid ${theme.accent}66`,
           background: `${theme.accent}22`,
           color: theme.accent, fontWeight: 700, letterSpacing: 0.3
         }}>
-          <Award size={11} /> CURATED KB{category ? ` · ${String(category).toUpperCase()}` : ''}
+          <Award size={11} /> KEY SOURCE{category ? ` · ${String(category).toUpperCase()}` : ''}
         </span>
       );
 
@@ -4019,7 +4019,7 @@
             >
               <Info size={16} color={theme.accent} />
               <span style={{ fontSize: '0.92rem', fontWeight: 600, flex: 1 }}>
-                What is drug repurposing — and why don't the drug companies already do this?
+                What is drug repurposing — and why don't drug companies already do this?
               </span>
               <span style={{ fontSize: '0.75rem', color: theme.textDim }}>
                 {open ? '▲ Hide' : '▼ Show'}
@@ -4029,29 +4029,28 @@
               <div style={{ marginTop: '0.75rem', color: theme.textDim, fontSize: '0.88rem', lineHeight: 1.6 }}>
                 <p style={{ margin: '0 0 0.7rem' }}>
                   <strong style={{ color: theme.text }}>The short version:</strong>{' '}
-                  Sometimes a drug that already exists — and has been used safely for years for
-                  a different condition — may also help with <em>your</em> condition. But because
-                  those drugs are often <strong>generic</strong> (no patent, no exclusivity), no
-                  pharmaceutical company has a financial incentive to run the expensive clinical
-                  trials it would take to get a formal FDA label added. The drug literally works;
-                  nobody will pay to prove it officially.
+                  Sometimes a drug that already exists — one that has been used safely for years for
+                  a different illness — may also help with <em>your</em> condition. But many of
+                  these drugs are <strong>generic</strong> (cheap, with no patent). That means a
+                  drug company can't make much money from them, so no one pays for the costly
+                  studies needed to get the FDA to add a new use to the label. The drug may work;
+                  nobody is paying to prove it.
                 </p>
                 <p style={{ margin: '0 0 0.7rem' }}>
                   <strong style={{ color: theme.text }}>What this tool does:</strong>{' '}
-                  It asks an AI — trained on tens of thousands of biomedical papers — to reason
-                  mechanistically: <em>given what we know about the biology of your condition, and
-                  given the mechanisms of every FDA-approved drug, which already-existing drugs
-                  share a pathway that plausibly should help?</em> The AI generates candidates,
-                  rates each one on evidence strength (from "mechanistic hypothesis only" up to
-                  "large randomized trial"), and flags any drug-drug interactions with your
-                  current medications.
+                  It asks an AI that has read a huge number of medical papers a simple question:
+                  <em> based on what we know about your condition, and on how each FDA-approved drug
+                  works in the body, which existing drugs might help?</em> The AI lists ideas,
+                  rates how strong the proof is for each one (from "just an idea" up to "tested in a
+                  large study"), and warns you about any drug interactions with the medicines you
+                  already take.
                 </p>
                 <p style={{ margin: '0 0 0.7rem' }}>
                   <strong style={{ color: theme.text }}>What this tool is NOT:</strong>{' '}
                   It is <strong>not a prescription</strong> and <strong>not a recommendation</strong>.
-                  It is a <em>hypothesis generator</em> to help you have a smarter conversation
-                  with your doctor. For every candidate, we show you the evidence tier, the
-                  sources, and what to actually say in the appointment.
+                  It gives you ideas so you can have a smarter talk with your doctor. For each idea,
+                  we show how strong the proof is, where it came from, and what to say at your
+                  appointment.
                 </p>
                 <p style={{ margin: 0, fontSize: '0.82rem', color: theme.textDim, fontStyle: 'italic' }}>
                   This approach is modeled on programs like{' '}
@@ -4353,7 +4352,7 @@
               }}>
                 <strong>{progress.error || 'Something failed'}</strong>
                 <div style={{ marginTop: 3, color: theme.textDim }}>
-                  The dossier and upstream queries cache, so retrying is usually fast. If it keeps failing, check the Chat tab for a quick answer in the meantime.
+                  Your research is saved, so trying again is usually fast. If it keeps failing, check the Chat tab for a quick answer in the meantime.
                 </div>
               </div>
             )}
@@ -4377,7 +4376,7 @@
           <div style={{ ...panelStyle, borderLeft: `3px solid ${theme.accent}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <BookOpen size={18} /> Disease dossier · what the AI knows about "{dossier.canonical}"
+                <BookOpen size={18} /> What the AI found about "{dossier.canonical}"
                 {dossier.cacheHit && (
                   <span style={{
                     padding: '0.15rem 0.5rem', borderRadius: 999, fontSize: '0.65rem',
@@ -4389,7 +4388,7 @@
                 )}
                 {dossier.cacheDisabled && (
                   <span
-                    title="The persistent dossier cache is disabled during the beta integrity phase. Every research run queries Claude fresh so the same query run twice can produce meaningfully different answers — the whole point of stress-testing the methodology."
+                    title="We are not saving past results right now. Each run searches fresh, so the same question asked twice can give different answers — this is on purpose while we test how the tool works."
                     style={{
                       padding: '0.15rem 0.5rem', borderRadius: 999, fontSize: '0.65rem',
                       background: `${theme.secondary}22`,
@@ -4399,7 +4398,7 @@
                       cursor: 'help'
                     }}
                   >
-                    integrity mode · cache off
+                    fresh each time
                   </span>
                 )}
               </h3>
@@ -4443,7 +4442,7 @@
                   background: `${theme.textDim}10`, color: theme.textDim,
                   border: `1px solid ${theme.border}`
                 }}>
-                  agent: {dossier.generatedBy}
+                  built by AI
                 </span>
               )}
             </div>
@@ -4452,7 +4451,7 @@
                 {dossier.synonyms?.length > 0 && (
                   <div>
                     <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
-                      Aliases searched
+                      Other names we searched
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                       {dossier.synonyms.map((s, i) => (
@@ -4468,7 +4467,7 @@
                 {dossier.meshTerms?.length > 0 && (
                   <div>
                     <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
-                      MeSH terms (PubMed controlled vocabulary)
+                      Official medical search terms
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
                       {dossier.meshTerms.map((m, i) => (
@@ -4484,9 +4483,9 @@
                 {dossier.topCenters?.length > 0 && (
                   <div>
                     <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      Top centers (disease-specific)
+                      Top centers for this condition
                       <span
-                        title="These centers come from the disease dossier (curated KB when available; otherwise AI dossier extraction). They are ranked by disease-specific leadership signals and landmark-trial relevance, not general hospital brand fame."
+                        title="These are top centers for this exact condition, ranked by how much they lead in treating and studying it — not by how famous the hospital is overall."
                         style={{
                           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                           width: 15, height: 15, borderRadius: '50%',
@@ -4515,7 +4514,7 @@
                 {dossier.keyInvestigators?.length > 0 && (
                   <div>
                     <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
-                      Key investigators
+                      Leading researchers
                     </div>
                     <div style={{ display: 'grid', gap: '0.3rem' }}>
                       {dossier.keyInvestigators.map((i, idx) => (
@@ -4531,7 +4530,7 @@
                 {dossier.patientAdvocacy?.length > 0 && (
                   <div>
                     <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
-                      Patient advocacy & registries
+                      Patient support groups
                     </div>
                     <div style={{ display: 'grid', gap: '0.3rem' }}>
                       {dossier.patientAdvocacy.map((a, i) => (
@@ -4548,7 +4547,7 @@
                 {dossier.landmarkTrials?.length > 0 && (
                   <div>
                     <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
-                      Landmark trials
+                      Key studies
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                       {dossier.landmarkTrials.map((t, i) => (
@@ -4566,7 +4565,7 @@
                 {dossier.redFlags?.length > 0 && (
                   <div>
                     <div style={{ fontWeight: 700, color: theme.red, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
-                      Safety considerations reported in literature
+                      Safety things found in the research
                     </div>
                     <ul style={{ margin: 0, paddingLeft: '1.2rem', color: theme.text }}>
                       {dossier.redFlags.map((r, i) => (
@@ -4577,7 +4576,7 @@
                 )}
                 {dossier.commonComorbidities?.length > 0 && (
                   <div style={{ fontSize: '0.82rem', color: theme.textDim }}>
-                    <strong style={{ color: theme.text }}>Common comorbidities to screen for:</strong>{' '}
+                    <strong style={{ color: theme.text }}>Other health conditions to watch for:</strong>{' '}
                     {dossier.commonComorbidities.join(', ')}
                   </div>
                 )}
@@ -4587,7 +4586,7 @@
                     padding: '0.5rem', borderRadius: 6, background: `${theme.textDim}08`,
                     border: `1px solid ${theme.border}`
                   }}>
-                    Agent notes: {dossier.notes}
+                    Notes: {dossier.notes}
                   </div>
                 )}
               </div>
@@ -4654,7 +4653,7 @@
                   background: `${theme.yellow}22`, color: theme.yellow, fontWeight: 700,
                   border: `1px solid ${theme.yellow}55`
                 }}>
-                  {qb.preprintsInPool} preprint{qb.preprintsInPool === 1 ? '' : 's'} flagged (not yet peer-reviewed)
+                  {qb.preprintsInPool} early draft{qb.preprintsInPool === 1 ? '' : 's'} flagged (preprints — not yet checked by other experts)
                 </span>
               )}
             </div>
@@ -4677,19 +4676,19 @@
                     <li key={name}>{name}</li>
                   ))}
                 </ul>
-                Papers from any country remain searchable; the integrity flag is a ranking adjustment only, not removal from literature search.
-                We do not include flagged papers from these venues in the AI prompt pack when identified; well-conducted
-                research from any region remains eligible on its merits.
+                Papers from any country can still be found; the flag only changes how we rank them, not whether they show up in search.
+                We do not send flagged papers from these sources to the AI when we spot them; solid
+                research from any part of the world can still be used on its own merits.
               </div>
             </details>
             {expanded && (
               <div style={{ marginTop: '0.85rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}>
                 <div style={{ marginBottom: '0.5rem' }}>
                   <strong style={{ color: theme.text }}>How this works.</strong>
-                  {' '}We score each paper on journal reputation, study type (clinical trial vs. opinion),
-                  recency, and citation count. Retracted papers and publishers with documented integrity
-                  problems are removed before the AI reads them. Preprints are kept but marked as
-                  not-yet-peer-reviewed.
+                  {' '}                  We score each paper on the journal's reputation, the study type (a real study vs. an opinion piece),
+                  how recent it is, and how often other papers cite it. Papers that were pulled back (retracted) and
+                  publishers known for quality problems are removed before the AI reads them. Early drafts (preprints) are
+                  kept but marked as not yet checked by other experts.
                 </div>
                 {(qb.topTierInPromptPack > 0 || qb.rctOrMetaInPromptPack > 0) && (
                   <div style={{ marginBottom: '0.5rem', fontSize: '0.78rem', color: theme.textDim }}>
@@ -4699,7 +4698,7 @@
                 {(qb.retractedTitles || []).length > 0 && (
                   <div style={{ marginTop: '0.6rem' }}>
                     <div style={{ color: theme.red, fontWeight: 700, marginBottom: '0.25rem' }}>
-                      Retracted papers not included in AI prompt pack:
+                      Retracted papers we did not send to the AI:
                     </div>
                     <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
                       {qb.retractedTitles.map((r, i) => (
@@ -4713,7 +4712,7 @@
                 {(qb.predatoryTitles || []).length > 0 && (
                   <div style={{ marginTop: '0.6rem' }}>
                     <div style={{ color: theme.red, fontWeight: 700, marginBottom: '0.25rem' }}>
-                      Papers from integrity-flagged publishers filtered from prompt pack:
+                      Papers from low-quality publishers we left out:
                     </div>
                     <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
                       {qb.predatoryTitles.map((r, i) => (
@@ -4770,16 +4769,15 @@
           return (
             <div style={panelStyle}>
               <h3 style={{ marginTop: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Scales size={18} /> Independent Cross-AI Audit (optional)
+                <Scales size={18} /> Double-check with a second AI (optional)
               </h3>
               <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: '0 0 0.9rem' }}>
-                Run a second, independent AI (Perplexity with live web search) over this
-                analysis and the same grounded evidence pack. It will flag any unsupported
-                claims, broken citations, and missing perspectives. Typical runtime:
-                ~5-10 seconds.
+                Have a second, separate AI go over this report and the same research we found.
+                It will point out any claims that are not backed up, links that don't work, and
+                things it thinks are missing. This usually takes about 5 to 10 seconds.
               </p>
               <button onClick={onAudit} style={{ ...btn, background: theme.accent, color: '#fff', borderColor: theme.accent }}>
-                <Scales size={16} style={{ marginRight: 6 }} /> Audit this analysis
+                <Scales size={16} style={{ marginRight: 6 }} /> Check this report
               </button>
             </div>
           );
@@ -4788,10 +4786,10 @@
           return (
             <div style={panelStyle}>
               <h3 style={{ marginTop: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Scales size={18} /> Cross-AI Audit — running…
+                <Scales size={18} /> Second AI is checking…
               </h3>
               <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: 0 }}>
-                The independent validator is re-checking every factual claim. Usually 5-10 seconds.
+                A second, separate AI is checking every fact. This usually takes 5 to 10 seconds.
               </p>
             </div>
           );
@@ -4800,7 +4798,7 @@
           return (
             <div style={panelStyle}>
               <h3 style={{ marginTop: 0, color: theme.yellow, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Scales size={18} /> Cross-AI Audit — not available
+                <Scales size={18} /> Second AI check — not available
               </h3>
               <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: 0 }}>
                 {validation.error}{validation.hint ? ` — ${validation.hint}` : ''}
@@ -4813,10 +4811,10 @@
           return (
             <div style={panelStyle}>
               <h3 style={{ marginTop: 0, color: theme.yellow, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Scales size={18} /> Cross-AI Audit — no validators responded
+                <Scales size={18} /> Second AI check — no answer
               </h3>
               <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: 0 }}>
-                Validators attempted: {(validation.validators || []).map((v) => v.provider).join(', ') || 'none'}
+                We tried {(validation.validators || []).length || 'no'} second AI{(validation.validators || []).length === 1 ? '' : 's'}, but none sent back results.
               </p>
             </div>
           );
@@ -4831,13 +4829,12 @@
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
               <div>
                 <h3 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Scales size={20} /> Independent Cross-AI Audit
+                  <Scales size={20} /> Checked by a second AI
                 </h3>
                 <p style={{ margin: '0.25rem 0 0', color: theme.textDim, fontSize: '0.85rem' }}>
-                  An independent model ({p.provider} · {p.model}) re-checked every factual claim
-                  Claude made against the same grounded evidence pack.
+                  A second, separate AI checked every fact in this report against the same research we found.
                   {validation.consensus && validation.consensus.totalValidators > 1 && (
-                    <> Consensus across {validation.consensus.totalValidators} validators: <strong>{validation.consensus.level}</strong> agreement ({validation.consensus.validatorsAgreeing} / {validation.consensus.totalValidators}).</>
+                    <> Across {validation.consensus.totalValidators} separate AIs, they showed <strong>{validation.consensus.level}</strong> agreement ({validation.consensus.validatorsAgreeing} of {validation.consensus.totalValidators} agreed).</>
                   )}
                 </p>
               </div>
@@ -4869,42 +4866,42 @@
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '0.5rem', marginTop: '0.9rem' }}>
-              <ValidatorStat label="Confirmed"     n={confirmed.length}   color={theme.green}  Icon={CheckCircle} />
-              <ValidatorStat label="Disputed"      n={disputed.length}    color={theme.yellow} Icon={AlertCircle} />
-              <ValidatorStat label="Unsupported"   n={unsupported.length} color={theme.yellow} Icon={AlertCircle} />
-              <ValidatorStat label="Hallucinated citations" n={hallucinated.length} color={theme.red} Icon={XCircle} />
+              <ValidatorStat label="Backed up"     n={confirmed.length}   color={theme.green}  Icon={CheckCircle} />
+              <ValidatorStat label="Disagreed with"      n={disputed.length}    color={theme.yellow} Icon={AlertCircle} />
+              <ValidatorStat label="Not backed by sources"   n={unsupported.length} color={theme.yellow} Icon={AlertCircle} />
+              <ValidatorStat label="Made-up sources" n={hallucinated.length} color={theme.red} Icon={XCircle} />
             </div>
 
             {disputed.length > 0 && (
-              <ValidatorList title="Disputed claims" color={theme.yellow}
+              <ValidatorList title="Claims the second AI disagreed with" color={theme.yellow}
                 items={disputed.map((d) => ({ primary: d.claim, reason: d.reason, correction: d.correction }))} />
             )}
             {unsupported.length > 0 && (
-              <ValidatorList title="Unsupported claims (no evidence in pack)" color={theme.yellow}
+              <ValidatorList title="Claims not backed by the sources we found" color={theme.yellow}
                 items={unsupported.map((d) => ({ primary: d.claim, reason: d.reason }))} />
             )}
             {hallucinated.length > 0 && (
-              <ValidatorList title="Hallucinated / broken citations" color={theme.red}
+              <ValidatorList title="Made-up or broken links" color={theme.red}
                 items={hallucinated.map((d) => ({ primary: d.url, reason: d.issue, isUrl: true }))} />
             )}
             {missing.length > 0 && (
-              <ValidatorList title="Missing perspectives the validator flagged" color={theme.accent}
+              <ValidatorList title="Things the second AI says are missing" color={theme.accent}
                 items={missing.map((m) => ({ primary: m }))} />
             )}
 
             {validation.validators && validation.validators.length > 1 && (
               <details style={{ marginTop: '0.75rem' }}>
                 <summary style={{ cursor: 'pointer', color: theme.textDim, fontSize: '0.85rem' }}>
-                  Validator details ({validation.validators.length} model{validation.validators.length === 1 ? '' : 's'})
+                  Details ({validation.validators.length} second AI{validation.validators.length === 1 ? '' : 's'})
                 </summary>
                 <div style={{ display: 'grid', gap: '0.4rem', marginTop: '0.5rem' }}>
                   {validation.validators.map((v, i) => (
                     <div key={i} style={{ fontSize: '0.8rem', color: theme.textDim, padding: '0.4rem 0.6rem',
                       background: theme.panel, borderRadius: 6 }}>
-                      <strong style={{ color: theme.text }}>{v.provider}{v.model ? ` · ${v.model}` : ''}</strong>
+                      <strong style={{ color: theme.text }}>Second AI {i + 1}</strong>
                       {v.error ? <> — <span style={{ color: theme.red }}>error: {v.error}</span></>
                               : v.parsed ? <> — agreement: {v.parsed.agreement || '?'} · score: {v.parsed.overallScore ?? '?'}</>
-                              : <> — no parsed output</>}
+                              : <> — no result</>}
                     </div>
                   ))}
                 </div>
@@ -5004,14 +5001,11 @@
             <strong style={{ color: theme.accent, fontSize: '0.78rem', letterSpacing: '0.04em' }}>
               {label || 'Run cost'}
             </strong>
-            <span>Model: <strong style={{ color: theme.text }}>{meta.model || 'unknown'}</strong></span>
-            <span>Input: <strong style={{ color: theme.text }}>{(meta.inputTokens || 0).toLocaleString()}</strong> tok</span>
-            <span>Output: <strong style={{ color: theme.text }}>{(meta.outputTokens || 0).toLocaleString()}</strong> tok</span>
-            <span title="Approximate Anthropic list price; excludes cross-AI validator + evidence-pack API calls">
+            <span title="A rough estimate of what this one run costs to make. It does not include the second-AI check or the research lookups.">
               This run: <strong style={{ color: theme.text }}>{fmtUsd(runCost)}</strong>
             </span>
-            <span title="Linear projection: same run × 1000 users. Excludes prompt-cache savings on repeats.">
-              × 1k users: <strong style={{ color: theme.text }}>{fmtUsd(projection1k)}</strong>
+            <span title="A rough guess if 1,000 people ran the same thing. The real cost is usually lower.">
+              × 1,000 people: <strong style={{ color: theme.text }}>{fmtUsd(projection1k)}</strong>
             </span>
           </div>
         );
@@ -5032,7 +5026,7 @@
           `What is the single most important question I should ask my doctor next week?`,
           `What are the realistic side effects I should actually expect, ranked by how common they are?`,
           `If I only had one treatment option to pursue next month, which one and why?`,
-          `What adverse effects reported in the literature should prompt an urgent call to my physician?`,
+          `What side effects should make me call my doctor right away?`,
           `Non-drug practical things I can start doing this week for ${cond}.`,
           `What does the evidence say about combining the top 2 treatments?`
         ];
@@ -5041,7 +5035,7 @@
           `Was prednisone + azathioprine + NAC triple therapy ever shown to help IPF? What does PANTHER-IPF say?`,
           `Is there any evidence for vitamin D, N-acetylcysteine monotherapy, or other supplements in IPF?`,
           `How aggressive should I be about treating GERD given the IPF micro-aspiration hypothesis?`,
-          `When is lung transplant evaluation typically initiated? What are the absolute contraindications?`,
+          `When do doctors usually start checking if someone can get a lung transplant? What would rule it out (reasons it can't be done)?`,
           `What pulmonary rehab / exercise training is evidence-based for IPF?`,
           `Are there any drug combinations being trialed on top of standard antifibrotics? What phase?`,
           `How should I interpret a ~5–10% FVC decline over 12 months — is it time to change therapy?`
@@ -5057,7 +5051,7 @@
                     <Brain size={22} /> Detailed Condition Report
                   </h2>
                   <p style={{ margin: '0.25rem 0 0', color: theme.textDim, fontSize: '0.82rem', fontStyle: 'italic' }}>
-                    Thorough search — journals, trials, treatments, experts (takes 1–2 min, not a quick answer)
+                    A careful search of journals, trials, treatments, and experts (takes 1 to 2 minutes — not a quick answer)
                   </p>
                 </div>
                 <button style={btn('primary', !!busy)} disabled={!!busy}
@@ -5067,14 +5061,15 @@
                 </button>
               </div>
               <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
-                Generates a structured analysis: standard of care, best experts, ranked treatments
-                (efficacy & safety 1–100), drug-interaction check against your current meds, non-drug
-                lifestyle recommendations, stem cell & gene-therapy landscape, and insurance/cost notes.
+                You get a clear report with: the usual treatments doctors give, the best experts,
+                a ranked list of treatments (with how well each works and how safe it is, scored 1 to 100),
+                a check for drug interactions with the medicines you take now, things you can do besides
+                medicine, options for stem cell and gene therapy, and notes on cost and insurance.
               </p>
               {treatments.length > 0 && (
                 <p style={{ color: theme.green, fontSize: '0.85rem' }}>
-                  ✓ Parsed {treatments.length} treatment block{treatments.length === 1 ? '' : 's'}.
-                  See the Comparison Chart tab.
+                  ✓ Found {treatments.length} treatment card{treatments.length === 1 ? '' : 's'}.
+                  See the Compare tab.
                 </p>
               )}
             </div>
@@ -5098,11 +5093,11 @@
                 borderLeft: `3px solid ${(coverageAudit && coverageAudit.finalMissed?.length) ? theme.red : theme.green}`
               }}>
                 <span style={{ color: theme.textDim, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                  Methodology
+                  Behind the scenes
                 </span>
                 {dossier?.cacheDisabled && (
                   <span
-                    title="The persistent dossier cache is disabled during the beta integrity phase. Every research run queries Claude fresh so we can stress-test the methodology — run the same query twice to see whether the answer is stable."
+                    title="We are not saving past results right now. Each run searches fresh, so the same question asked twice can give different answers — this is on purpose while we test how the tool works."
                     style={{
                       padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
                       background: `${theme.secondary}22`,
@@ -5110,12 +5105,12 @@
                       border: `1px solid ${theme.secondary}55`
                     }}
                   >
-                    cache off · integrity mode
+                    fresh each time
                   </span>
                 )}
                 {coverageAudit && coverageAudit.pipelineDrugsAudited > 0 && (
                   <span
-                    title={`Coverage audit: the curated KB lists ${coverageAudit.pipelineDrugsTotal || coverageAudit.pipelineDrugsAudited} pipeline drugs for this condition. After synthesis, the output was scanned for every listed drug name. ${coverageAudit.reprompted ? 'The first draft missed ' + (coverageAudit.initialMissed || []).join(', ') + ' — Claude was re-prompted to include them.' : 'All audited drugs were mentioned on the first pass.'}${coverageAudit.finalMissed?.length ? ' NOTE: ' + coverageAudit.finalMissed.join(', ') + ' remain missing even after the forced rewrite — likely the evidence pack did not ground them for this patient profile.' : ''}`}
+                    title={`We keep a list of ${coverageAudit.pipelineDrugsTotal || coverageAudit.pipelineDrugsAudited} important medicines for this condition. After the report was written, we checked that each one was mentioned. ${coverageAudit.reprompted ? 'The first draft left out ' + (coverageAudit.initialMissed || []).join(', ') + ', so the AI was asked again to include them.' : 'All of them were mentioned the first time.'}${coverageAudit.finalMissed?.length ? ' Note: ' + coverageAudit.finalMissed.join(', ') + ' are still missing even after we asked again — the research we found probably did not support them for this person.' : ''}`}
                     style={{
                       padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
                       background: (coverageAudit.finalMissed?.length ? `${theme.red}22` : `${theme.green}22`),
@@ -5125,26 +5120,26 @@
                       cursor: 'help'
                     }}
                   >
-                    coverage audit · {coverageAudit.finalMissed?.length
+                    drug check · {coverageAudit.finalMissed?.length
                       ? `${coverageAudit.finalMissed.length} still missing`
-                      : (coverageAudit.reprompted ? 'PASS after re-prompt' : 'PASS')}
-                    {` (${coverageAudit.pipelineDrugsAudited} audited)`}
+                      : (coverageAudit.reprompted ? 'passed after a second try' : 'passed')}
+                    {` (${coverageAudit.pipelineDrugsAudited} checked)`}
                   </span>
                 )}
                 {coverageAudit?.reprompted && (
                   <span
-                    title={`Claude's first draft omitted: ${(coverageAudit.initialMissed || []).join(', ')}. A forced re-prompt was fired with these names explicitly called out. This is the anti-"AI slop" safety net.`}
+                    title={`The first draft left out: ${(coverageAudit.initialMissed || []).join(', ')}. We asked the AI again, naming these on purpose, so the report would not miss them.`}
                     style={{
                       padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
                       background: `${theme.accent}22`, color: theme.accent, fontWeight: 600,
                       border: `1px solid ${theme.accent}55`, cursor: 'help'
                     }}
                   >
-                    forced rewrite fired
+                    asked the AI again
                   </span>
                 )}
                 <span style={{ color: theme.textDim, fontSize: '0.72rem' }}>
-                  — this panel exists so you can see what the pipeline did, not just what it said.
+                  — this shows what the tool did behind the scenes, not just what it found.
                 </span>
               </div>
             )}
@@ -5162,7 +5157,7 @@
               <div id="mrt-research-export-target" style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem', gap: '0.6rem', flexWrap: 'wrap' }}>
                   <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Brain size={18} /> Analysis for {patient.condition || 'this condition'}
+                    <Brain size={18} /> Report for {patient.condition || 'this condition'}
                   </h3>
                   <AnalysisExportBar
                     getElement={() => document.getElementById('mrt-research-export-target')}
@@ -5179,7 +5174,7 @@
                         // This primes the follow-up chat with that exact
                         // question pattern and scrolls to the chat box.
                         const c = patient.condition || 'this condition';
-                        setUserQuery(`The analysis above doesn't mention <PASTE TREATMENT NAME, e.g. CAR-T therapy>. Why was it left out for ${c}? Walk me through whether (a) you considered it but rejected it, (b) the evidence pack didn't surface it, or (c) it's genuinely not relevant for this patient. If you DID miss it, give me the same structured treatment-card analysis for it now.`);
+                        setUserQuery(`The report above doesn't mention <PASTE TREATMENT NAME, e.g. CAR-T therapy>. Why was it left out for ${c}? Tell me whether (a) you looked at it but decided against it, (b) the research we found didn't include it, or (c) it's just not a good fit for this patient. If you DID miss it, give me the same treatment card for it now.`);
                         setTimeout(() => {
                           const el = document.querySelector('input[placeholder^="Ask about"], input[placeholder^="Type a disease"]');
                           if (el) {
@@ -5216,7 +5211,7 @@
                 </div>
                 {translatedText && (
                   <div data-pdf-exclude="1" style={{ marginBottom: '0.6rem', fontSize: '0.78rem', color: theme.textDim }}>
-                    Viewing translated output. Source English text remains unchanged.
+                    You're seeing the translated version. The original English does not change.
                   </div>
                 )}
                 <Markdown text={renderedResearchText} />
@@ -5234,7 +5229,7 @@
             {evidenceSummary && evidenceSummary.totalUnique > 0 && (
               <div style={panelStyle}>
                 <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Database size={18} /> Evidence funnel for this query
+                  <Database size={18} /> Where the research came from
                 </h3>
 
                 {/* Funnel: fetched -> unique -> journals -> passed to Claude.
@@ -5245,17 +5240,17 @@
                 }}>
                   {[
                     { n: evidenceSummary.totalFetched || evidenceSummary.totalUnique,
-                      label: 'records pulled',
-                      sub: 'raw hits across databases' },
+                      label: 'records found',
+                      sub: 'all hits across databases' },
                     { n: evidenceSummary.totalUnique,
-                      label: 'unique papers',
-                      sub: 'after cross-database de-dup' },
+                      label: 'papers without repeats',
+                      sub: 'after removing duplicates' },
                     { n: evidenceSummary.uniqueJournals || '—',
-                      label: 'distinct journals',
-                      sub: 'surfaced this query' },
+                      label: 'different journals',
+                      sub: 'found this time' },
                     { n: evidenceSummary.promptPackBreakdown?.total || 0,
-                      label: 'passed to Claude',
-                      sub: 'top-ranked by quality + recency' }
+                      label: 'used in your report',
+                      sub: 'the best by quality and how recent they are' }
                   ].map((card, i) => (
                     <div key={i} style={{
                       padding: '0.6rem 0.8rem', borderRadius: 10,
@@ -5294,7 +5289,7 @@
 
                 {evidenceSummary.promptPackBreakdown && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.8rem', color: theme.textDim }}>Prompt pack composition:</span>
+                    <span style={{ fontSize: '0.8rem', color: theme.textDim }}>What the AI read:</span>
                     <span style={{
                       padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
                       background: `${theme.accent}22`, color: theme.accent, fontWeight: 600
@@ -5306,19 +5301,19 @@
                       background: `${theme.accent}18`, color: theme.accent, fontWeight: 600,
                       border: `1px solid ${theme.accent}66`
                     }}>
-                      {evidenceSummary.promptPackBreakdown.curatedKB} curated KB
+                      {evidenceSummary.promptPackBreakdown.curatedKB} trusted sources
                     </span>
                     <span style={{
                       padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
                       background: 'rgba(110, 231, 183, 0.15)', color: theme.green, fontWeight: 600
                     }}>
-                      {evidenceSummary.promptPackBreakdown.liveFetched} live-fetched
+                      {evidenceSummary.promptPackBreakdown.liveFetched} freshly searched
                     </span>
                   </div>
                 )}
                 {evidenceSummary.accessBreakdown && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-                    <span style={{ fontSize: '0.8rem', color: theme.textDim, alignSelf: 'center' }}>Access level across entire pool:</span>
+                    <span style={{ fontSize: '0.8rem', color: theme.textDim, alignSelf: 'center' }}>How much we could read across all sources:</span>
                     <AccessBadge level="full-text"   n={evidenceSummary.accessBreakdown['full-text']} />
                     <AccessBadge level="abstract"    n={evidenceSummary.accessBreakdown['abstract']} />
                     <AccessBadge level="metadata-only" n={evidenceSummary.accessBreakdown['metadata-only']} />
@@ -5332,7 +5327,7 @@
                     <summary style={{
                       cursor: 'pointer', color: theme.accent, fontSize: '0.85rem', fontWeight: 600
                     }}>
-                      What gets searched? (the full corpus behind this query)
+                      What do we search? (all the sources behind this)
                     </summary>
                     <ul style={{
                       margin: '0.5rem 0 0 0', paddingLeft: '1.2rem',
@@ -5351,18 +5346,18 @@
                 )}
 
                 <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: '0.75rem', marginBottom: 0 }}>
-                  Every citation is tagged <strong>[FULL-TEXT]</strong>,
-                  <strong> [ABSTRACT-ONLY]</strong>, or <strong>[METADATA-ONLY]</strong> so the AI
-                  cannot overreach past what it actually read. The curated knowledge base is the
-                  pinned ground-truth floor; live-fetched items supplement it with the newest
-                  research.
+                  Each source is marked <strong>[FULL-TEXT]</strong> (we read the whole paper),
+                  <strong> [ABSTRACT-ONLY]</strong> (we read just the short summary), or
+                  <strong> [METADATA-ONLY]</strong> (we could only see the title). This keeps the AI
+                  from claiming more than it actually read. Our trusted, hand-picked sources are the
+                  base we always include, and freshly searched papers add the newest research.
                 </p>
               </div>
             )}
 
             <div style={panelStyle}>
               <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Database size={18} /> Follow-up chat (uses patient profile + audience)
+                <Database size={18} /> Ask a follow-up question (uses your profile and reading level)
               </h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
                 {quickPrompts.map((p, i) => (
@@ -5394,7 +5389,7 @@
                     display: 'flex', alignItems: 'center', gap: '0.5rem', color: theme.textDim, fontSize: '0.85rem'
                   }}>
                     <Loader size={14} className="spin" />
-                    <span>Researching… pulling trials + evidence pack + building dossier…</span>
+                    <span>Working… finding trials and research, and putting together a summary…</span>
                   </div>
                 )}
               </div>
@@ -5433,9 +5428,10 @@
                 Live ClinicalTrials.gov ranked for this patient
               </p>
               <p style={{ color: theme.textDim, fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                Queries ClinicalTrials.gov directly and ranks by phase, recruiting status, placebo exposure,
-                oversight, and geography. Then runs a per-patient analysis that names drug interactions,
-                fit score, and harm risk.
+                We search ClinicalTrials.gov and sort the studies by how far along they are, whether they are
+                still taking patients, whether they use a placebo (a dummy treatment), how closely they are
+                watched for safety, and where they are. Then we look at each one for you — checking for drug
+                interactions, how well it fits you, and how risky it might be.
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
@@ -5446,12 +5442,12 @@
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
                   <input type="checkbox" checked={filters.treatmentOnly}
                     onChange={e => setFilters(f => ({ ...f, treatmentOnly: e.target.checked }))} />
-                  Treatment-only (exclude observational)
+                  Treatment studies only (skip observation-only studies)
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
                   <input type="checkbox" checked={filters.excludePlacebo}
                     onChange={e => setFilters(f => ({ ...f, excludePlacebo: e.target.checked }))} />
-                  Exclude trials with placebo arms
+                  Hide studies that use a placebo (a dummy treatment)
                 </label>
                 <button style={btn('primary', !!busy)} disabled={!!busy}
                   onClick={() => runTrialsFetch(filters)}>
@@ -5497,7 +5493,7 @@
               <div id="mrt-trials-export-target" style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
                   <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Brain size={18} /> Full per-patient analysis
+                    <Brain size={18} /> Full report made for you
                   </h3>
                   <AnalysisExportBar
                     getElement={() => document.getElementById('mrt-trials-export-target')}
@@ -5517,7 +5513,7 @@
                 </div>
                 {translatedText && (
                   <div data-pdf-exclude="1" style={{ marginBottom: '0.6rem', fontSize: '0.78rem', color: theme.textDim }}>
-                    Viewing translated output. Source English text remains unchanged.
+                    You're seeing the translated version. The original English does not change.
                   </div>
                 )}
                 <Markdown text={renderedTrialsText} />
@@ -5529,7 +5525,7 @@
 
       const Glossary = () => (
         <div style={panelStyle}>
-          <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>Trial-access terminology</h3>
+          <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>Trial words explained</h3>
           <table style={{ width: '100%', fontSize: '0.9rem' }}>
             <tbody>
               {[
@@ -5655,11 +5651,11 @@
           const phase = (s.phases || []).join(',');
           const chunks = [];
           if (phase.includes('PHASE3')) chunks.push({ label: 'Phase 3', value: 40, color: theme.green,
-            why: 'Phase 3 is the largest, most rigorous trial stage — what FDA looks at for approval. The drug has already shown safety + early efficacy signals, and this trial is the one that decides if it works.' });
+            why: 'Phase 3 is the biggest, most careful stage of testing — the one the FDA looks at before approving a drug. The drug has already shown it is safe and has early signs that it works, and this study decides if it really does.' });
           else if (phase.includes('PHASE2')) chunks.push({ label: 'Phase 2', value: 25, color: theme.green,
-            why: 'Phase 2 tests if the drug actually works (not just whether it is safe). Smaller than Phase 3 but the first place real efficacy signal shows up.' });
+            why: 'Phase 2 tests whether the drug actually works, not just whether it is safe. It is smaller than Phase 3, but it is the first place we see real signs that it works.' });
           else if (phase.includes('PHASE1')) chunks.push({ label: 'Phase 1', value: 10, color: theme.yellow,
-            why: 'Phase 1 is mostly safety + dose-finding. You can join, but efficacy is unproven and the drug may not move forward.' });
+            why: 'Phase 1 mostly checks if the drug is safe and finds the right dose. You can join, but we do not yet know if it works, and the drug may not move forward.' });
           if (s.acceptingNewPatients) chunks.push({ label: 'Accepting', value: 15, color: theme.green,
             why: 'The trial is actively enrolling — you can reach out to a site today and start the screening process.' });
           if (!s.hasPlacebo) chunks.push({ label: 'No placebo', value: 10, color: theme.green,
@@ -5667,11 +5663,11 @@
           if (s.designations?.fastTrack) chunks.push({ label: 'Fast Track', value: 5, color: theme.accent,
             why: 'FDA granted Fast Track because the drug addresses an unmet need. The agency commits to more frequent meetings + rolling review, shortening time-to-approval.' });
           if (s.designations?.breakthrough) chunks.push({ label: 'Breakthrough', value: 8, color: theme.accent,
-            why: 'FDA Breakthrough Therapy designation — the strongest signal a drug has shown substantial improvement over existing options on a clinically significant endpoint. Reserved for rare, promising programs.' });
+            why: 'FDA Breakthrough Therapy status — the strongest sign a drug works much better than the options we have now on an important health measure. The FDA only gives this to rare, very promising drugs.' });
           if (s.designations?.orphan) chunks.push({ label: 'Orphan', value: 3, color: theme.accent,
             why: 'Orphan-drug status means the FDA recognized this is a rare disease. Sponsor gets tax credits + 7-year market exclusivity, which makes them more likely to actually finish development for small patient populations.' });
           if (s.designations?.hasExpandedAccess) chunks.push({ label: 'Expanded Access', value: 20, color: theme.green,
-            why: 'You can get the drug OUTSIDE the trial — typically for patients who do not qualify (too sick, geographic, comorbid). This is the "compassionate use" path. Very few drugs offer this.' });
+            why: 'You can get the drug OUTSIDE the trial — usually for patients who do not qualify (too sick, too far away, or have other health conditions). This is the "compassionate use" path. Very few drugs offer it.' });
           if (s.designations?.hasOpenLabelExtension) chunks.push({ label: 'OLE', value: 15, color: theme.green,
             why: 'Open-Label Extension: patients who finish the main trial can keep taking the drug long-term, without going back on placebo. Critical for chronic diseases where you do not want the drug withdrawn after the study ends.' });
           if (s.designations?.hasPostTrialAccess) chunks.push({ label: 'PTA', value: 6, color: theme.yellow,
@@ -5708,9 +5704,9 @@
         return (
         <div style={panelStyle}>
           <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-            Top 25 clinical trials shown (of {data.returned} returned / {data.total} matching on ClinicalTrials.gov) · ranked by promise score
+            Showing the top 25 trials (out of {data.returned} shown / {data.total} found on ClinicalTrials.gov) · sorted by how promising they are
             <span
-              title="Promise score combines: trial phase, recruiting status, placebo exposure, FDA/DSMB oversight, expanded-access/OLE/PTA flags, and top-center match. Higher score = better practical access + stronger trial design signals."
+              title="The promise score adds up several things: how far along the trial is, whether it is taking patients, whether it uses a placebo, how closely it is watched for safety, whether you can get the drug outside the trial, and whether a top center is involved. A higher score means easier access and a better-designed trial."
               style={{
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 width: 16, height: 16, borderRadius: '50%',
@@ -5729,16 +5725,16 @@
               style={{ ...inputStyle, width: 'auto', padding: '0.3rem 0.5rem', fontSize: '0.78rem' }}
               title="Choose ranking emphasis"
             >
-              <option value="promise">Balanced promise score</option>
-              <option value="efficacy">Efficacy-focused proxy</option>
-              <option value="access">Access-focused (EA/OLE/PTA)</option>
+              <option value="promise">Overall promise (balanced)</option>
+              <option value="efficacy">How likely it is to work</option>
+              <option value="access">Easiest to get the drug</option>
             </select>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr style={{ background: theme.accentSoft, borderBottom: `2px solid ${theme.accent}` }}>
-                  {['Title / NCT','Phase','Status','Accepting','Placebo','Designations','Countries','Oversight','Score',''].map(h => (
+                  {['Title / NCT','Phase','Status','Accepting','Placebo','Special status','Countries','Safety checks','Score',''].map(h => (
                     <th key={h} style={{ padding: '0.6rem', textAlign: 'left', color: theme.accent, fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
@@ -6055,7 +6051,7 @@
 
             <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.75rem' }}>
               <MeterBar
-                label="Efficacy"
+                label="How well it works"
                 value={c.efficacy_hypothesis_pct}
                 icon={<TrendingUp size={11} />}
                 note={c.efficacy_hypothesis_note}
@@ -6134,7 +6130,7 @@
                 fontSize: '0.72rem', fontWeight: 700, letterSpacing: 1.5,
                 color: theme.accent, textTransform: 'uppercase'
               }}>
-                Drug Repurposing · mechanistic-reasoning approach
+                Drug repurposing · finding new uses for old drugs
               </span>
             </div>
             <h2 style={{ margin: '0 0 0.5rem', fontSize: '1.5rem', lineHeight: 1.25, color: theme.text }}>
@@ -6144,13 +6140,12 @@
               Logic-based drug ideas + published repurposing candidates
             </p>
             <p style={{ margin: '0 0 1rem', color: theme.textDim, fontSize: '0.92rem', lineHeight: 1.55, maxWidth: 780 }}>
-              The AI reasons like a senior medical-school professor guiding students through a
-              seminar: given the pathophysiology of {cond} and the known mechanisms of every
-              FDA-approved drug, which ones share a molecular pathway that <em>logically</em>
-              suggests they could help — even when no formal guideline endorses that use yet?
-              Each candidate reports mechanism, evidence strength on a 6-step ladder
-              (mechanistic hypothesis → large RCT), safety, confidence, and any interaction with
-              the medications in your patient profile.
+              The AI asks a simple question: based on what goes wrong in {cond}, and on how each
+              FDA-approved drug works in the body, which existing drugs might help — even if no
+              official guideline says to use them this way yet? For each idea, it tells you how the
+              drug might work, how strong the proof is (from "just an idea" up to "tested in a large
+              study"), how safe it looks, how confident it is, and whether the drug could clash with
+              the medicines in your profile.
             </p>
             <div style={{
               margin: '0 0 1rem', padding: '0.75rem 0.9rem', borderRadius: 10,
@@ -6159,16 +6154,16 @@
             }}>
               <strong style={{ color: theme.accent }}>Two buckets of candidates:</strong>{' '}
               <span style={{ color: theme.textDim }}>
-                (1) <strong style={{ color: theme.text }}>Logic-based ideas</strong> — drugs that could plausibly help from pathway reasoning even when there is no formal research on {cond} yet; labeled <em>Hypothesis only</em> or <em>Preclinical</em>.
-                (2) <strong style={{ color: theme.text }}>Published support</strong> — candidates with observational data or trials (case reports through large RCTs).
+                (1) <strong style={{ color: theme.text }}>Logic-based ideas</strong> — drugs that could make sense based on how the disease and the drug work, even though no one has studied them for {cond} yet; marked <em>Just an idea</em> or <em>Tested in the lab only</em>.
+                (2) <strong style={{ color: theme.text }}>Backed by studies</strong> — drugs that already have some human evidence, from single patient reports up to large studies.
               </span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1.1rem' }}>
               {[
-                { icon: <Brain size={13} />,    label: 'First-principles mechanistic reasoning' },
-                { icon: <Database size={13} />, label: 'Evidence ladder per candidate' },
-                { icon: <Shield size={13} />,   label: 'Your-medications interaction check' },
-                { icon: <MessageCircle size={13} />, label: 'Physician-conversation script' }
+                { icon: <Brain size={13} />,    label: 'Looks at how the disease and drugs work' },
+                { icon: <Database size={13} />, label: 'Shows how strong the proof is for each' },
+                { icon: <Shield size={13} />,   label: 'Checks against the medicines you take' },
+                { icon: <MessageCircle size={13} />, label: 'What to say to your doctor' }
               ].map((f, i) => (
                 <span key={i} style={{
                   display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
@@ -6185,11 +6180,11 @@
                 disabled={!!busy}
                 onClick={() => runResearch('repurpose')}>
                 {busy === 'repurpose'
-                  ? <><Loader size={16} className="spin" /> Reasoning across the drug library…</>
-                  : <><Sparkles size={16} /> Generate candidates for {cond}</>}
+                  ? <><Loader size={16} className="spin" /> Looking through the drug list…</>
+                  : <><Sparkles size={16} /> Find drug ideas for {cond}</>}
               </button>
               <span style={{ fontSize: '0.78rem', color: theme.yellow, display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                <AlertTriangle size={13} /> Hypothesis generation only. Not a prescription.
+                <AlertTriangle size={13} /> These are ideas only — not a prescription.
               </span>
             </div>
           </div>
@@ -6221,9 +6216,9 @@
                 borderLeft: `3px solid ${theme.yellow}`,
                 background: `${theme.yellow}12`, fontSize: '0.86rem', color: theme.text, lineHeight: 1.5
               }}>
-                <strong>Re-run for plain English.</strong> This analysis was generated before the readability update.
-                Click <strong>Run Repurpose Analysis</strong> again — with <em>Plain English</em> selected in the header — to get
-                &ldquo;What it is&rdquo; summaries and simpler explanations on every drug card.
+                <strong>Run it again for plain language.</strong> This result was made before the readability update.
+                Click <strong>Find drug ideas</strong> again — with <em>Everyday words</em> chosen at the top — to get
+                &ldquo;What it is&rdquo; summaries and simpler wording on every drug card.
               </div>
             )}
 
@@ -6284,14 +6279,14 @@
                   textAlign: 'center', padding: '1.25rem', color: theme.textDim,
                   border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
                 }}>
-                  No mechanistic-only or preclinical candidates were parsed. Re-run Repurpose analysis — the AI is instructed to include logic-based candidates with honest &ldquo;no human data for this condition yet&rdquo; labeling.
+                  No logic-based ideas came back this time. Try running it again — the AI is asked to include logic-based ideas and to be honest when there is &ldquo;no human data for this condition yet.&rdquo;
                 </div>
               ) : (
                 <div style={{
                   textAlign: 'center', padding: '1.25rem', color: theme.textDim,
                   border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
                 }}>
-                  Run Repurpose analysis — the AI is instructed to include mechanistic-only candidates.
+                  Click &ldquo;Find drug ideas&rdquo; to start — the AI is asked to include logic-based ideas too.
                 </div>
               )}
             </div>
@@ -6300,10 +6295,10 @@
               <div style={panelStyle}>
                 <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                   <Database size={18} />
-                  Candidates with published support (observational / trial data)
+                  Drugs already backed by studies
                 </h3>
                 <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  Drugs with case reports, observational studies, or randomized trials relevant to this condition — ranked by overall confidence.
+                  Drugs that already have some human evidence for this condition — from single patient reports up to large studies — sorted by how confident we are.
                 </p>
                 {withEvidence.length > 0 ? (
                   <div style={{ display: 'grid', gap: '0.85rem' }}>
@@ -6316,7 +6311,7 @@
                     textAlign: 'center', padding: '1rem', color: theme.textDim,
                     border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
                   }}>
-                    All parsed candidates fell in the logic-based bucket for this run.
+                    Every idea this time was a logic-based idea, not yet backed by studies.
                   </div>
                 )}
               </div>
@@ -6327,7 +6322,7 @@
             {repurposeText && (
               <div style={panelStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
-                  <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem' }}>Full reasoning narrative</h3>
+                  <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem' }}>Full write-up</h3>
                   <AnalysisExportBar
                     getElement={() => document.getElementById('mrt-repurpose-export-target')}
                     exportBaseFilename={`repurpose-${(patient.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`}
@@ -6355,7 +6350,7 @@
                   <div style={{ marginTop: '0.6rem' }}>
                     {translatedText && (
                       <div data-pdf-exclude="1" style={{ marginBottom: '0.6rem', fontSize: '0.78rem', color: theme.textDim }}>
-                        Viewing translated output. Source English text remains unchanged.
+                        You're seeing the translated version. The original English does not change.
                       </div>
                     )}
                     <Markdown text={renderedRepurposeText} />
@@ -6371,7 +6366,7 @@
       const ChartTab = ({ treatments, candidates }) => {
         const exportCsv = () => {
           const rows = [
-            ['Provider','Treatment','FDA Status','Length/Frequency','Efficacy %','Safety %','Risks','Interactions','Cost']
+            ['Provider','Treatment','FDA Status','Length/Frequency','How well it works %','How safe %','Risks','Interactions','Cost']
           ];
           treatments.forEach(t => rows.push([
             t.provider||'', t.treatment||'', t.fda_status||'', t.length_frequency||'',
@@ -6395,11 +6390,11 @@
               </button>
             </div>
             <p style={{ color: theme.textDim, fontSize: '0.85rem' }}>
-              Efficacy and Safety are both rated 1–100 (higher is better on both). Ranked by efficacy.
+              How well it works and how safe it is are both scored 1 to 100 (higher is better for both). Sorted by how well it works.
             </p>
             {treatments.length === 0 && candidates.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: theme.textDim }}>
-                No data yet. Run <strong>AI Research</strong> or <strong>Drug Repurposing</strong> first.
+                Nothing to compare yet. Run a <strong>Detailed Report</strong> or <strong>Drug Repurposing</strong> first.
               </div>
             ) : (
               <>
@@ -6407,10 +6402,10 @@
                 {candidates.length > 0 && (
                   <>
                     <h3 style={{ color: theme.accent, marginTop: '1.25rem', fontSize: '1rem' }}>
-                      Repurposing candidates (hypothesis)
+                      Drug ideas (not proven)
                     </h3>
                     <p style={{ color: theme.textDim, fontSize: '0.82rem', margin: '0.25rem 0 0' }}>
-                      Logic-based rows use dashed <em>Hypothesis only</em> / Preclinical badges; published-support rows show observational or trial tiers.
+                      Logic-based rows have dashed <em>Just an idea</em> / lab-only badges; rows backed by studies show how strong the proof is.
                     </p>
                     <ComparisonTable rows={candidates} variant="candidate" />
                   </>
@@ -6428,22 +6423,22 @@
               { k: 'treatment',         h: 'Treatment description', w: 260 },
               { k: 'fda_status',        h: 'FDA status',          w: 120 },
               { k: 'length_frequency',  h: 'Length / Freq',       w: 140 },
-              { k: 'efficacy_pct',      h: 'Efficacy',            w: 110, bar: true },
-              { k: 'safety_pct',        h: 'Safety',              w: 110, bar: true },
+              { k: 'efficacy_pct',      h: 'How well it works',   w: 110, bar: true },
+              { k: 'safety_pct',        h: 'How safe',            w: 110, bar: true },
               { k: 'risks',             h: 'Risks',               w: 220 },
-              { k: 'interactions',      h: 'Interactions',        w: 180 },
+              { k: 'interactions',      h: 'Drug interactions',   w: 180 },
               { k: 'cost',              h: 'Cost / Insurance',    w: 140 },
-              { k: 'references',        h: 'References',          w: 200, links: true }
+              { k: 'references',        h: 'Sources',             w: 200, links: true }
             ]
           : [
-              { k: 'candidate',                 h: 'Candidate',       w: 160 },
-              { k: 'evidence_strength',         h: 'Evidence tier',   w: 130, badge: true },
-              { k: 'class',                     h: 'Class',           w: 140 },
-              { k: 'approved_for',              h: 'Approved for',    w: 180 },
+              { k: 'candidate',                 h: 'Drug',            w: 160 },
+              { k: 'evidence_strength',         h: 'How strong the proof is',   w: 130, badge: true },
+              { k: 'class',                     h: 'Type of drug',    w: 140 },
+              { k: 'approved_for',              h: 'Normally used for',    w: 180 },
               { k: 'repurpose_rationale',       h: 'Why it might help', w: 280 },
-              { k: 'efficacy_hypothesis_pct',   h: 'Hypothesized efficacy', w: 110, bar: true },
-              { k: 'safety_pct',                h: 'Safety',          w: 110, bar: true },
-              { k: 'patient_specific_risks',    h: 'Your-specific risks', w: 220 },
+              { k: 'efficacy_hypothesis_pct',   h: 'Likely to work', w: 110, bar: true },
+              { k: 'safety_pct',                h: 'How safe',          w: 110, bar: true },
+              { k: 'patient_specific_risks',    h: 'Risks for you', w: 220 },
               { k: 'supporting_evidence',       h: 'Sources',             w: 200, links: true }
             ];
         return (
@@ -6569,13 +6564,13 @@
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div style={panelStyle}>
               <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Book size={22} /> References & Evidence Pack
+                <Book size={22} /> Sources & Research
               </h2>
               <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
-                Every source the AI was allowed to cite, with an honest badge showing how much of
-                each paper was actually read. Many high-impact medical journals are paywalled — we
-                legally pull whatever is available (full text for open-access papers; abstracts for
-                everything else) and the AI is prohibited from overreaching past what it saw.
+                Every source the AI was allowed to use, with a badge showing how much of each paper
+                we could actually read. Many medical journals charge for access — we only use what is
+                free and legal to share (the whole paper when it is open, or just the short summary
+                otherwise), and the AI is not allowed to claim more than it saw.
               </p>
               {evidenceSummary?.accessBreakdown && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem' }}>
@@ -6589,7 +6584,7 @@
             {evidencePack && evidencePack.length > 0 && (
               <div style={panelStyle}>
                 <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>
-                  Grounded evidence pack ({evidencePack.length} sources)
+                  Sources the AI used ({evidencePack.length})
                 </h3>
                 <div style={{ display: 'grid', gap: '0.5rem' }}>
                   {evidencePack.slice(0, 40).map((p, i) => {
@@ -6623,11 +6618,11 @@
                             }}>{s}</span>
                           ))}
                           {p.unpaywall && (
-                            <span title={`Legal OA copy via Unpaywall (${p.unpaywall.oaStatus}, ${p.unpaywall.version})`} style={{
+                            <span title={`A free, legal full copy was found online (${p.unpaywall.oaStatus}, ${p.unpaywall.version})`} style={{
                               fontSize: '0.7rem', padding: '0.15rem 0.5rem',
                               borderRadius: 4, background: 'rgba(110, 231, 183, 0.15)',
                               color: theme.green, fontWeight: 600
-                            }}>OA via Unpaywall</span>
+                            }}>Free full copy</span>
                           )}
                         </div>
                         <div style={{ fontWeight: 600, marginTop: '0.4rem', fontSize: '0.92rem' }}>
@@ -6663,15 +6658,15 @@
 
             <div style={panelStyle}>
               <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>
-                URLs extracted from AI narrative
+                Links the AI gave in your report
               </h3>
               <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: 0 }}>
-                Every URL the AI emitted across all tabs, deduplicated. If one 404s, that is a red
-                flag — the Cross-AI Audit panel also independently re-checks these links.
+                Every link the AI gave you, across all tabs, with duplicates removed. If a link is
+                broken, that is a warning sign — the second-AI check also tests these links.
               </p>
               {references.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '1.5rem', color: theme.textDim }}>
-                  No references yet. Run any research tab to populate this.
+                  No sources yet. Run any research tab to fill this in.
                 </div>
               ) : (
                 <div style={{ marginTop: '0.75rem' }}>
@@ -6706,19 +6701,18 @@
           <AdSlot runtimeConfig={runtimeConfig} slotKey="footer" minHeight={80} />
           <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: '1rem', lineHeight: 1.65 }}>
               <div style={{ marginBottom: '0.6rem' }}>
-              <strong>Medical decision-support research only.</strong> researchingmycondition.com is not medical advice
-              and does not create a doctor-patient relationship. All recommendations require review
-              by a licensed physician before any treatment decision is made. This prototype is not
-              HIPAA-compliant — do not enter personally identifying information.{' '}
+              <strong>For learning and research only.</strong> researchingmycondition.com is not medical advice,
+              and using it does not make us your doctor. Talk to a licensed doctor before you make any
+              treatment decision. This early version does not follow HIPAA privacy rules — do not type
+              anything that could identify a person.{' '}
               <TermsLink />
             </div>
             <div style={{ color: theme.textDim, opacity: 0.85 }}>
-              <strong>Evidence sources:</strong> ClinicalTrials.gov v2 · NCBI PubMed · Europe PMC ·
-              OpenAlex · openFDA · Unpaywall · Cochrane Library · curated knowledge base.
+              <strong>Where the facts come from:</strong> ClinicalTrials.gov · NCBI PubMed · Europe PMC ·
+              OpenAlex · openFDA · Unpaywall · Cochrane Library · our trusted, hand-picked sources.
               <br />
-              <strong>AI layer:</strong> Anthropic Claude Sonnet generates analysis. Cross-AI audit by
-              Perplexity, OpenAI, or xAI independently re-checks every claim against the same
-              evidence pack (when configured).
+              <strong>How it's made:</strong> An AI writes the report, and a second, separate AI can
+              re-check every claim against the same research (when set up).
             </div>
           </div>
         </footer>
@@ -6749,11 +6743,10 @@
           }}
         >
           <strong style={{ color: '#fff' }}>NOT MEDICAL ADVICE.</strong>{' '}
-          This research tool is for educational decision-support only.
-          Nothing discovered on this site should be relied upon in the
-          absence of a licensed medical doctor. No information here creates
-          a doctor-patient relationship. Always verify with your physician
-          before any treatment decision.
+          This tool is for learning only. Do not rely on anything here
+          without a licensed doctor. Using it does not make us your doctor.
+          Always check with your doctor before you make any treatment
+          decision.
         </div>
       );
 
