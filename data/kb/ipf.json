@@ -734,6 +734,16 @@
       "evidenceRefs": []
     }
   ],
+  "literatureSearchSeeds": [
+    {
+      "term": "metformin",
+      "why": "Frequently proposed as a repurposing candidate; human IPF data exists and must be fetched live on every query — not stored as static truth."
+    },
+    {
+      "term": "vitamin D",
+      "why": "Common supplement hypothesis in IPF; observational literature should be retrieved live."
+    }
+  ],
   "redFlags": [
     "Literature warns against prednisone + azathioprine + N-acetylcysteine triple therapy — PANTHER-IPF showed increased mortality and hospitalization. This is a STRONG GUIDELINE-LEVEL contraindication.",
     "Literature warns against prednisone monotherapy for IPF (as opposed to acute exacerbation or a mimicker like NSIP). Chronic steroids have not been shown to benefit IPF and cause harm.",
@@ -885,6 +895,11 @@
       "name": "Offshore stem-cell therapy (clinics in China / Vietnam / Mexico / India)",
       "reason": "No peer-reviewed efficacy data for IPF. Multiple FDA warning letters. Patient-safety concern, not scientific integrity of the literature.",
       "evidenceRef": "ipf-stemcells-review-2020"
+    },
+    {
+      "name": "Metformin as an IPF antifibrotic",
+      "reason": "Post-hoc analyses of pirfenidone phase 3 trials and large observational cohorts found no meaningful slowing of FVC decline in IPF; some analyses suggested possible harm. A claims-based study in diabetic IPF patients showed lower mortality likely confounded by diabetes management, not a direct antifibrotic effect. Phase 3 trial NCT07520110 is ongoing. Not supported as an IPF treatment outside clinical trials.",
+      "evidenceRef": null
     }
   ]
 }

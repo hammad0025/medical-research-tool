@@ -14,13 +14,10 @@
          and has safe-by-default HTML escaping for our trusted-AI-output
          use case. -->
     <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
-    <!-- html2pdf: client-side PDF export of research/repurpose/trials tabs.
-         Dorothy asked for "print or save as Word or PDF or copy and paste" —
-         this gives us the PDF path. html2pdf.js wraps html2canvas + jsPDF
-         into one call: the output is a pixel-perfect PDF of the rendered
-         panel, which means the AI analysis renders with the same markdown/
-         formatting users see on screen. ~400KB; loaded from jsdelivr. -->
-    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js"></script>
+    <!-- PDF export uses the browser's native print engine ("Save as PDF"),
+         not a rasteriser. That keeps every citation link clickable and the
+         text selectable/searchable in the exported PDF — the explicit
+         requirement from the client. No extra PDF library needed. -->
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
       /* --------------------------------------------------------------
@@ -690,9 +687,10 @@
       };
 
       const REPURPOSE_KEYS = [
-        'CANDIDATE:', 'CLASS:', 'APPROVED_FOR:', 'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:',
-        'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:',
-        'CONFIDENCE:', 'PATIENT_SPECIFIC_RISKS:', 'HOW_TO_DISCUSS_WITH_DOCTOR:'
+        'CANDIDATE:', 'CLASS:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:',
+        'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:', 'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:',
+        'REFERENCES:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:', 'PATIENT_SPECIFIC_RISKS:',
+        'HOW_TO_DISCUSS_WITH_DOCTOR:'
       ];
       // Helper: strip the leading "<N>% — " prefix from a meter value so
       // we can show the % AND the prose justification separately. The
@@ -899,7 +897,7 @@
          tab. The in-tab "Follow-up chat" inside ResearchTab stays for
          users who want it inline; this widget is the second surface
          that is available everywhere (Profile, Research, Trials,
-         Repurpose, Records, Comparison Chart, References).
+         Repurpose, Comparison Chart, References).
 
          Sits ABOVE the sticky red "NOT MEDICAL ADVICE" banner — the
          banner is ~78px on desktop / ~110px on narrow mobile, so the
@@ -1377,7 +1375,6 @@
         const [repurposeText, setRepurposeText] = useState('');
         const [trialsText, setTrialsText] = useState('');
         const [trialsData, setTrialsData] = useState(null);
-        const [recordsResult, setRecordsResult] = useState(null);
         const [chatHistory, setChatHistory] = useState([]);
         const [userQuery, setUserQuery] = useState('');
         const [busy, setBusy] = useState(null);
@@ -1514,17 +1511,19 @@
               mode,
               startedAt: Date.now(),
               steps: [
-                { id: 'dossier',  label: 'Build disease dossier',
-                  desc: 'Canonical name, synonyms, MeSH, top centers, landmark trials.',
+                { id: 'dossier',  label: 'Understand your condition',
+                  desc: 'Looks up the disease name, top hospitals, and key facts.',
                   status: 'running' },
-                { id: 'evidence', label: 'Pull peer-reviewed evidence',
-                  desc: 'Searches ~250k journals worldwide via PubMed · Europe PMC · OpenAlex · Cochrane · openFDA · Unpaywall. Academic / peer-reviewed venues only; integrity-flagged venues filtered from the prompt pack.',
+                { id: 'evidence', label: 'Search medical journals',
+                  desc: 'Reads PubMed, medical databases, and FDA records — not a quick Google answer.',
                   status: 'running' },
-                { id: 'trials',   label: 'Scan ClinicalTrials.gov',
-                  desc: 'Recruiting + expanded-access + open-label extension fan-out.',
+                { id: 'trials',   label: 'Check clinical trials',
+                  desc: 'Scans ClinicalTrials.gov for studies you might join.',
                   status: 'running' },
-                { id: 'synth',    label: 'Synthesise with Claude',
-                  desc: `16-section grounded analysis tuned to your profile (model: ${runtimeConfig?.ai?.researchModel || 'claude-sonnet-4-20250514'}).`,
+                { id: 'synth',    label: mode === 'repurpose' ? 'Analyze drug ideas' : 'Write your detailed report',
+                  desc: mode === 'repurpose'
+                    ? 'Two-step AI pass: individual drugs first, then combinations (takes about 1–2 minutes).'
+                    : `Full personalized report in two parts — like ChatGPT "Deep Research" for medicine (model: ${runtimeConfig?.ai?.researchModel || 'claude-sonnet-4-20250514'}).`,
                   status: 'pending' },
                 { id: 'validate', label: 'Cross-AI fact-check (if configured)',
                   desc: 'Second model audits every claim against the evidence pack.',
@@ -1537,7 +1536,7 @@
           // page (FUNCTION_INVOCATION_TIMEOUT) which is NOT JSON — we detect
           // that specifically and surface a friendlier message instead of
           // the browser's cryptic 'Unexpected token A ... is not valid JSON'.
-          const callResearch = async (payload) => {
+          const callResearch = async (payload, retriesLeft = 1) => {
             const res = await fetch('/api/research', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1545,8 +1544,14 @@
             });
             const raw = await res.text();
             const data = parseApiJsonResponse(res, raw, {
-              timeoutMsg: `Server timeout on the ${payload.phase || 'full'} phase. The dossier + evidence pools should still be cached from your last attempt, so a second run will be much faster. If it keeps timing out, switch the model to Sonnet (faster than Opus) or tighten the patient context.`
+              timeoutMsg: `Server timeout on the ${payload.phase || 'full'} phase. Your search data is saved — click Run again and it should finish faster (often under 30 seconds).`
             });
+            if (!res.ok && retriesLeft > 0 && payload.phase === 'synthesize' &&
+                res.status !== 402 && res.status !== 401 &&
+                /timeout|FUNCTION_INVOCATION|504|Gateway/i.test(raw)) {
+              await new Promise(r => setTimeout(r, 1200));
+              return callResearch(payload, retriesLeft - 1);
+            }
             if (!res.ok) {
               if (data?.upgradeRequired) {
                 const p = data?.pricing || {};
@@ -1613,7 +1618,11 @@
               // hitting stop_reason=max_tokens mid-section. Repurpose
               // mode still runs a single synth call (its prompt is
               // smaller and the max_tokens budget is enough).
-              updateStep('synth', { status: 'running', detail: mode === 'research' ? 'Part 1/2: condition, experts, treatments' : undefined });
+              updateStep('synth', {
+                status: 'running',
+                detail: mode === 'research' ? 'Part 1/2: condition, experts, treatments'
+                  : mode === 'repurpose' ? 'Part 1/2: drug candidates' : undefined
+              });
               if (mode === 'research') {
                 // FRONT half: sections 1-4 (snapshot, centers,
                 // treatments, trials & access programs).
@@ -1667,16 +1676,43 @@
                   trials:     back.trials     || front.trials,
                   validation: back.validation || front.validation || null
                 };
-              } else {
-                // Repurpose mode: single synth call.
-                data = await callResearch({
+              } else if (mode === 'repurpose') {
+                const front = await callResearch({
                   mode, patient, audience,
                   phase: 'synthesize',
+                  half: 'front',
                   providedDossier: gathered.dossier,
                   providedEvidence: gathered.evidence,
                   providedTrials: gathered.trials,
                   ...extra
                 });
+                updateStep('synth', { status: 'running', detail: 'Part 2/2: combinations + summary' });
+                const frontText = (front.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+                const back = await callResearch({
+                  mode, patient, audience,
+                  phase: 'synthesize',
+                  half: 'back',
+                  providedDossier: gathered.dossier,
+                  providedEvidence: gathered.evidence,
+                  providedTrials: gathered.trials,
+                  priorText: frontText,
+                  ...extra
+                });
+                const backText = (back.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+                data = {
+                  ...back,
+                  content: [{ type: 'text', text: frontText + '\n\n' + backText }],
+                  usage: {
+                    input_tokens:  (front.usage?.input_tokens  || 0) + (back.usage?.input_tokens  || 0),
+                    output_tokens: (front.usage?.output_tokens || 0) + (back.usage?.output_tokens || 0)
+                  },
+                  dossier: back.dossier || front.dossier,
+                  evidence: back.evidence || front.evidence,
+                  trials: back.trials || front.trials,
+                  validation: back.validation || front.validation || null
+                };
+              } else {
+                data = await callResearch({ mode, patient, audience, phase: 'synthesize', ...extra });
               }
               updateStep('synth', {
                 status: 'done',
@@ -2016,23 +2052,19 @@
                 runtimeConfig={runtimeConfig}
                 runMeta={lastRunMeta.trials} />}
               {tab === 'repurpose' && <RepurposeTab
-                patient={patient} busy={busy} runResearch={runResearch}
+                patient={patient} audience={audience} busy={busy} runResearch={runResearch}
                 repurposeText={repurposeText} candidates={candidates}
                 validation={validations.repurpose} progress={progress}
                 onAudit={() => auditAnalysis('repurpose')}
                 runtimeConfig={runtimeConfig}
                 runMeta={lastRunMeta.repurpose} />}
-              {tab === 'records' && <RecordsTab
-                patient={patient} audience={audience}
-                busy={busy} setBusy={setBusy}
-                recordsResult={recordsResult} setRecordsResult={setRecordsResult} />}
               {tab === 'chart' && <ChartTab treatments={treatments} candidates={candidates} />}
               {tab === 'refs' && <RefsTab references={references} evidencePack={evidencePack} evidenceSummary={evidenceSummary} />}
             </div>
             <Footer runtimeConfig={runtimeConfig} />
             {/* Floating chat widget — anchored at the App root so it is
                 available on every tab (Profile, Research, Trials,
-                Repurpose, Records, Comparison Chart, References). The
+                Repurpose, Comparison Chart, References). The
                 in-tab Follow-up Chat inside ResearchTab is intentionally
                 kept too — both surfaces coexist. */}
             <FloatingChat
@@ -2166,8 +2198,8 @@
                       fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600,
                       outline: 'none', cursor: 'pointer', padding: '0 0.2rem'
                     }}>
-                    <option value="layperson" style={{ background: optionBg, color: theme.text }}>Layperson</option>
-                    <option value="medical"   style={{ background: optionBg, color: theme.text }}>Clinician</option>
+                    <option value="layperson" style={{ background: optionBg, color: theme.text }}>Plain English (default)</option>
+                    <option value="medical"   style={{ background: optionBg, color: theme.text }}>Clinician / medical</option>
                   </select>
                 </div>
 
@@ -2184,15 +2216,27 @@
                     so it stays readable against both backgrounds. */}
                 <div style={{
                   padding: '0.3rem 0.65rem', borderRadius: 999,
-                  background: `${theme.green}22`, border: `1px solid ${theme.green}55`,
-                  color: theme.green, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.03em',
+                  background: (usageInfo?.usage?.remaining <= 0 && !usageInfo?.usage?.unlimited && usageInfo?.usage?.plan !== 'dev')
+                    ? `${theme.yellow}22` : `${theme.green}22`,
+                  border: `1px solid ${(usageInfo?.usage?.remaining <= 0 && !usageInfo?.usage?.unlimited && usageInfo?.usage?.plan !== 'dev')
+                    ? `${theme.yellow}55` : `${theme.green}55`}`,
+                  color: (usageInfo?.usage?.remaining <= 0 && !usageInfo?.usage?.unlimited && usageInfo?.usage?.plan !== 'dev')
+                    ? theme.yellow : theme.green,
+                  fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.03em',
                   display: 'inline-flex', alignItems: 'center', gap: '0.3rem'
                 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: 999, background: theme.green, display: 'inline-block' }} />
+                  <span style={{
+                    width: 6, height: 6, borderRadius: 999,
+                    background: (usageInfo?.usage?.remaining <= 0 && !usageInfo?.usage?.unlimited && usageInfo?.usage?.plan !== 'dev')
+                      ? theme.yellow : theme.green,
+                    display: 'inline-block'
+                  }} />
                   {usageInfo?.usage?.plan === 'dev' || usageInfo?.usage?.unlimited
                     ? 'Dev · unlimited runs'
                     : usageInfo?.usage
-                      ? `${usageInfo.usage.plan === 'pro' || usageInfo.usage.plan === 'max' || usageInfo.usage.plan === 'paid' ? (usageInfo.usage.plan === 'max' ? 'Max' : 'Pro') : 'Free'} plan · ${usageInfo.usage.remaining}/${usageInfo.usage.limit} left`
+                      ? (usageInfo.usage.remaining <= 0
+                        ? `${usageInfo.usage.plan === 'max' ? 'Max' : usageInfo.usage.plan === 'pro' || usageInfo.usage.plan === 'paid' ? 'Pro' : 'Free'} · limit reached — Profile → upgrade code`
+                        : `${usageInfo.usage.plan === 'pro' || usageInfo.usage.plan === 'max' || usageInfo.usage.plan === 'paid' ? (usageInfo.usage.plan === 'max' ? 'Max' : 'Pro') : 'Free'} plan · ${usageInfo.usage.remaining}/${usageInfo.usage.limit} searches left`)
                       : 'Free plan'}
                 </div>
 
@@ -2550,9 +2594,8 @@
             <ul style={{ color: theme.textDim, lineHeight: 1.7 }}>
               <li>Data you type is sent to a third-party AI (Anthropic) and clinical databases (ClinicalTrials.gov, PubMed).</li>
               <li>There is no Business Associate Agreement (BAA) in place.</li>
-              <li>Before pasting any medical records, <strong>remove name, date of birth, MRN, address, phone,
-              and any other identifier</strong>. The tool provides a "de-identify" guide in the Records tab.</li>
-              <li>Output is decision-support research only — not medical advice. Final decisions require a physician.</li>
+              <li><strong>Do not enter personal identifiers</strong> — no name, date of birth, MRN, address, or phone. Enter only the condition and general profile needed for research.</li>
+              <li>Output is research information only — not medical advice, not a diagnosis, and not a second opinion. Final decisions require a physician.</li>
             </ul>
             <p style={{ color: theme.textDim, fontSize: '0.85rem' }}>
               By continuing you acknowledge these limitations.
@@ -2569,7 +2612,6 @@
           { id: 'research',  label: 'Research',        icon: Brain },
           { id: 'trials',    label: 'Trials',          icon: Beaker },
           { id: 'repurpose', label: 'Repurposing',     icon: Sparkles },
-          { id: 'records',   label: 'Records Audit',   icon: ShieldCheck },
           { id: 'chart',     label: 'Compare',         icon: TrendingUp },
           { id: 'refs',      label: 'References',      icon: Book }
         ];
@@ -3314,16 +3356,63 @@
         );
       };
 
-      /* ==================== PDF Export ====================
-         Dorothy asked for a "print / save as Word or PDF / copy and paste"
-         option. html2pdf.js gives us the PDF path in ~5 lines — it wraps
-         html2canvas + jsPDF and renders exactly what's on screen.
+      /* ==================== PDF / Word Export ====================
+         The client wants ONE thing above all: a PDF whose links are
+         actually clickable (so a patient or doctor can tap a citation and
+         land on PubMed / ClinicalTrials.gov) WITHOUT the Word round-trip.
 
-         Usage: <PdfExportButton targetRef={someRef} filename="analysis.pdf" />
-         The target ref should point at the container with the content to
-         export. The exporter clones the node, applies a print-friendly
-         background (so dark-mode screenshots don't come out black),
-         and saves a multi-page A4 PDF. */
+         The old path used html2pdf.js (html2canvas + jsPDF), which
+         rasterises the panel into an image — links look fine but are dead.
+         We now print the real DOM through the browser's native print
+         engine ("Save as PDF"), which keeps every <a href> clickable,
+         keeps text selectable/searchable, and renders sharp vector type.
+
+         Shared linkify helpers below are used by BOTH the PDF and Word
+         exporters so the two outputs stay consistent. */
+
+      // Render markdown (or already-linkified plain text) to HTML with every
+      // link forced to open in a new tab. Used to upgrade any pre-wrap text
+      // block that contains bare URLs / PMIDs / NCT IDs into real anchors.
+      const renderMarkdownForExport = (text) => {
+        const linked = linkifyMedicalIds(text || '');
+        if (typeof window !== 'undefined' && window.marked) {
+          window.marked.setOptions({ gfm: true, breaks: false });
+          const renderer = new window.marked.Renderer();
+          const origLink = renderer.link.bind(renderer);
+          renderer.link = (href, title, lbl) =>
+            origLink(href, title, lbl).replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
+          return window.marked.parse(String(linked), { renderer });
+        }
+        return String(linked).replace(/\n/g, '<br/>');
+      };
+
+      // Walk a cloned export tree and guarantee every reference is a real,
+      // clickable anchor. Markdown blocks already carry <a> tags; whiteSpace
+      // pre-wrap blocks (chat, fixed-field cards) may have bare IDs — we
+      // re-render those through marked so the PDF/Word output is clickable.
+      const linkifyExportClone = (root) => {
+        if (!root) return;
+        root.querySelectorAll('.mrt-markdown').forEach((block) => {
+          block.querySelectorAll('a').forEach((a) => {
+            a.setAttribute('target', '_blank');
+            a.style.color = '#0563C1';
+            a.style.textDecoration = 'underline';
+          });
+          const plain = block.textContent || '';
+          if (!block.querySelector('a') && /https?:\/\/|PMID|NCT\d{8}|10\.\d{4,}/i.test(plain)) {
+            block.innerHTML = renderMarkdownForExport(plain);
+          }
+        });
+        // Any element NOT inside a markdown block but still holding bare
+        // medical IDs in its raw text (e.g. pre-wrap card fields) gets
+        // linkified in place so nothing ships as dead text.
+        root.querySelectorAll('a').forEach((a) => {
+          a.setAttribute('target', '_blank');
+          if (!a.style.color) a.style.color = '#0563C1';
+          a.style.textDecoration = 'underline';
+        });
+      };
+
       const exportBtnStyle = (busy, disabled) => ({
         background: (busy || disabled) ? theme.panel : `${theme.accent}18`,
         border: `1px solid ${(busy || disabled) ? theme.border : theme.accent}`,
@@ -3334,52 +3423,108 @@
         display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
       });
 
+      // Print-stylesheet for the export document. The app defaults to a DARK
+      // theme, so inline React styles carry light text colors that vanish on
+      // white paper. We override text to dark with !important (specificity
+      // scoped under .mrt-export-root) while leaving translucent badge/meter
+      // backgrounds intact, and force links blue+underlined so they read as
+      // links on screen AND in the saved PDF.
+      const EXPORT_PRINT_CSS = `
+        @page { margin: 14mm 12mm; }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; background: #ffffff; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+          color: #1a1a1a; font-size: 12px; line-height: 1.55;
+        }
+        .mrt-export-wrap { padding: 4px 2px 24px; }
+        .mrt-export-root, .mrt-export-root * { color: #1a1a1a !important; }
+        .mrt-export-root a { color: #0563C1 !important; text-decoration: underline !important; word-break: break-word; }
+        .mrt-export-root h1, .mrt-export-root h2, .mrt-export-root h3,
+        .mrt-export-root h4 { color: #0b3d57 !important; line-height: 1.3; }
+        .mrt-export-root table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+        .mrt-export-root th, .mrt-export-root td { border: 1px solid #cfd8dc; padding: 4px 7px; text-align: left; vertical-align: top; }
+        .mrt-export-root th { background: #eef3f6 !important; }
+        .mrt-export-root img { max-width: 100%; }
+        .mrt-export-root pre, .mrt-export-root code { white-space: pre-wrap; word-break: break-word; }
+        .mrt-export-root h2, .mrt-export-root h3, .mrt-export-root table,
+        .mrt-export-root li, .mrt-export-root p { page-break-inside: avoid; }
+        .mrt-export-disclaimer {
+          margin: 0 0 14px; padding: 8px 10px; border: 1px solid #e5e7eb;
+          border-radius: 6px; background: #f9fafb !important; font-size: 11px; color: #374151 !important;
+        }
+        .mrt-export-foot { margin-top: 18px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #6b7280 !important; }
+      `;
+
+      // Build the standalone HTML document we feed to the print iframe.
+      const buildExportDocument = ({ bodyHtml, title }) => {
+        const stamp = new Date().toLocaleString();
+        return `<!DOCTYPE html><html><head><meta charset="utf-8">` +
+          `<meta name="viewport" content="width=device-width, initial-scale=1">` +
+          `<title>${title}</title><style>${EXPORT_PRINT_CSS}</style></head>` +
+          `<body><div class="mrt-export-wrap">` +
+          `<div class="mrt-export-disclaimer">${MEDICAL_DISCLAIMER}</div>` +
+          `<div class="mrt-export-root">${bodyHtml}</div>` +
+          `<div class="mrt-export-foot">Generated ${stamp} · Links in this document are clickable.</div>` +
+          `</div></body></html>`;
+      };
+
+      // Print a built HTML document through a hidden iframe. Using an iframe
+      // (rather than window.open) sidesteps popup blockers and keeps the
+      // browser's "Save as PDF" path, which preserves clickable links.
+      const printExportDocument = (html) => new Promise((resolve, reject) => {
+        try {
+          const iframe = document.createElement('iframe');
+          iframe.setAttribute('aria-hidden', 'true');
+          Object.assign(iframe.style, {
+            position: 'fixed', right: '0', bottom: '0',
+            width: '0', height: '0', border: '0', visibility: 'hidden'
+          });
+          document.body.appendChild(iframe);
+          let cleaned = false;
+          const cleanup = () => {
+            if (cleaned) return;
+            cleaned = true;
+            try { document.body.removeChild(iframe); } catch {}
+            resolve();
+          };
+          iframe.onload = () => {
+            const win = iframe.contentWindow;
+            if (!win) { cleanup(); return; }
+            win.onafterprint = () => setTimeout(cleanup, 300);
+            setTimeout(() => {
+              try { win.focus(); win.print(); }
+              catch (e) { console.error('[pdf] print failed', e); cleanup(); }
+            }, 300);
+            // Safety net: tear the iframe down even if afterprint never fires
+            // (some browsers don't emit it for the Save-as-PDF destination).
+            setTimeout(cleanup, 60000);
+          };
+          const doc = iframe.contentWindow.document;
+          doc.open();
+          doc.write(html);
+          doc.close();
+        } catch (err) {
+          reject(err);
+        }
+      });
+
       const PdfExportButton = ({ getElement, filename, label, disabled }) => {
         const [busy, setBusy] = useState(false);
         const onClick = async () => {
           if (busy || disabled) return;
           const el = typeof getElement === 'function' ? getElement() : null;
           if (!el) { alert('Nothing to export yet — run the analysis first.'); return; }
-          if (typeof window.html2pdf !== 'function') {
-            alert('PDF library is still loading. Please try again in a second.');
-            return;
-          }
           setBusy(true);
           try {
-            // Clone the node so we can force a light background on the
-            // export without affecting the user's current view (the app
-            // is usable in light mode by default but some users flip to
-            // dark; dark PDFs waste toner and look awful).
+            // Clone so we never mutate the live view, drop UI-only buttons,
+            // and upgrade every reference into a real clickable anchor.
             const clone = el.cloneNode(true);
-            clone.style.background = '#ffffff';
-            clone.style.color = '#111827';
-            clone.style.padding = '24px';
-            // Some buttons inside the clone (Copy, Audit, etc.) don't
-            // belong in the printout.
             clone.querySelectorAll('[data-pdf-exclude], button').forEach((n) => n.remove());
-            const disclaimer = document.createElement('div');
-            disclaimer.style.marginBottom = '12px';
-            disclaimer.style.padding = '8px 10px';
-            disclaimer.style.border = '1px solid #e5e7eb';
-            disclaimer.style.borderRadius = '6px';
-            disclaimer.style.background = '#f9fafb';
-            disclaimer.style.fontSize = '12px';
-            disclaimer.style.color = '#374151';
-            disclaimer.textContent = MEDICAL_DISCLAIMER;
-            clone.prepend(disclaimer);
-            const wrapper = document.createElement('div');
-            wrapper.appendChild(clone);
-            await window.html2pdf()
-              .set({
-                margin:       [12, 12, 14, 12],
-                filename:     filename || 'medical-research-analysis.pdf',
-                image:        { type: 'jpeg', quality: 0.96 },
-                html2canvas:  { scale: 2, backgroundColor: '#ffffff', useCORS: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
-              })
-              .from(wrapper)
-              .save();
+            linkifyExportClone(clone);
+            const title = (filename || 'medical-research-analysis.pdf').replace(/\.pdf$/i, '');
+            const html = buildExportDocument({ bodyHtml: clone.innerHTML, title });
+            await printExportDocument(html);
           } catch (err) {
             console.error('[pdf] export failed', err);
             alert('PDF export failed: ' + (err?.message || err));
@@ -3391,42 +3536,17 @@
           <button
             onClick={onClick}
             disabled={busy || disabled}
-            title="Download this analysis as a PDF you can print, email, or take to your doctor's appointment"
+            title="Save as a PDF with clickable links. Opens your browser's print dialog — choose 'Save as PDF' as the destination."
             style={exportBtnStyle(busy, disabled)}
           >
-            <Download size={14} /> {busy ? 'Generating PDF…' : (label || 'Export PDF')}
+            <Download size={14} /> {busy ? 'Preparing PDF…' : (label || 'Export PDF')}
           </button>
         );
       };
 
       const WordExportButton = ({ getElement, filename, label, disabled }) => {
         const [busy, setBusy] = useState(false);
-        const renderMarkdownForExport = (text) => {
-          const linked = linkifyMedicalIds(text || '');
-          if (typeof window !== 'undefined' && window.marked) {
-            window.marked.setOptions({ gfm: true, breaks: false });
-            const renderer = new window.marked.Renderer();
-            const origLink = renderer.link.bind(renderer);
-            renderer.link = (href, title, lbl) =>
-              origLink(href, title, lbl).replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
-            return window.marked.parse(String(linked), { renderer });
-          }
-          return String(linked).replace(/\n/g, '<br/>');
-        };
-        const ensureWordExportLinkify = (root) => {
-          if (!root) return;
-          root.querySelectorAll('.mrt-markdown').forEach((block) => {
-            block.querySelectorAll('a').forEach((a) => {
-              a.setAttribute('target', '_blank');
-              a.style.color = '#0563C1';
-              a.style.textDecoration = 'underline';
-            });
-            const plain = block.textContent || '';
-            if (!block.querySelector('a') && /https?:\/\/|PMID|NCT\d{8}|10\.\d{4,}/i.test(plain)) {
-              block.innerHTML = renderMarkdownForExport(plain);
-            }
-          });
-        };
+        const ensureWordExportLinkify = linkifyExportClone;
         const onClick = async () => {
           if (busy || disabled) return;
           const el = typeof getElement === 'function' ? getElement() : null;
@@ -3936,7 +4056,7 @@
         const pct = totalCount ? Math.max(6, Math.round((doneCount / totalCount) * 100)) : 0;
         const isError = steps.some(s => s.status === 'error') || !!progress.error;
         const isDone = !progress.active && !isError && doneCount === totalCount;
-        const modeLabel = progress.mode === 'repurpose' ? 'Drug Repurposing' : 'Deep Research';
+        const modeLabel = progress.mode === 'repurpose' ? 'Drug Repurposing' : 'Detailed Report';
 
         const statusIcon = (s) => {
           const sz = 16;
@@ -4290,9 +4410,7 @@
         );
       };
 
-      // Quality-breakdown panel: "we screened 58 sources, filtered 2 retracted,
-      // 1 integrity-flagged publisher paper, and down-weighted 4 from integrity-concern
-      // jurisdictions in the prompt pack we fed Claude."
+      // Quality-breakdown panel — plain-language summary of how sources were checked.
       const QualityPanel = ({ qb }) => {
         const [expanded, setExpanded] = useState(false);
         const [integrityFlaggedOpen, setIntegrityFlaggedOpen] = useState(false);
@@ -4305,7 +4423,7 @@
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Shield size={18} /> Source-quality screen · {qb.totalScreened} sources evaluated
+                <Shield size={18} /> How we checked the medical literature · {qb.totalScreened} papers reviewed
               </h3>
               <button onClick={() => setExpanded(v => !v)} style={{
                 background: 'transparent', border: `1px solid ${theme.border}`,
@@ -4315,42 +4433,44 @@
                 {expanded ? 'Hide details' : 'Show details'}
               </button>
             </div>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.84rem', color: theme.textDim, lineHeight: 1.5 }}>
+              We search PubMed, Europe PMC, OpenAlex, and Cochrane on every run — the knowledge base helps us find the right topics, not replace live search.
+            </p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.6rem' }}>
               <span style={{
                 padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
-                background: `${theme.red}22`, color: theme.red, fontWeight: 700,
-                border: `1px solid ${theme.red}55`
-              }}>
-                {qb.retractedExcluded} retracted · not included in AI prompt pack
-              </span>
-              <span style={{
-                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
-                background: `${theme.red}22`, color: theme.red, fontWeight: 700,
-                border: `1px solid ${theme.red}55`
-              }}>
-                {qb.predatoryExcluded} integrity-flagged publisher · filtered from prompt pack
-              </span>
-              <span style={{
-                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
-                background: `${theme.yellow}22`, color: theme.yellow, fontWeight: 700,
-                border: `1px solid ${theme.yellow}55`
-              }}>
-                {qb.preprintsInPool} preprint · flagged in pool
-              </span>
-              <span style={{
-                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
                 background: `${theme.green}22`, color: theme.green, fontWeight: 700,
                 border: `1px solid ${theme.green}55`
               }}>
-                {qb.topTierInPromptPack} A+/A tier · in prompt pack
+                {qb.totalScreened - (qb.retractedExcluded || 0) - (qb.predatoryExcluded || 0)} papers used for this analysis
               </span>
-              <span style={{
-                padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
-                background: `${theme.green}22`, color: theme.green, fontWeight: 700,
-                border: `1px solid ${theme.green}55`
-              }}>
-                {qb.rctOrMetaInPromptPack} RCT / systematic review · in prompt pack
-              </span>
+              {(qb.retractedExcluded || 0) > 0 && (
+                <span style={{
+                  padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
+                  background: `${theme.red}22`, color: theme.red, fontWeight: 700,
+                  border: `1px solid ${theme.red}55`
+                }}>
+                  {qb.retractedExcluded} retracted paper{qb.retractedExcluded === 1 ? '' : 's'} removed
+                </span>
+              )}
+              {(qb.predatoryExcluded || 0) > 0 && (
+                <span style={{
+                  padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
+                  background: `${theme.red}22`, color: theme.red, fontWeight: 700,
+                  border: `1px solid ${theme.red}55`
+                }}>
+                  {qb.predatoryExcluded} low-integrity publisher{qb.predatoryExcluded === 1 ? '' : 's'} filtered out
+                </span>
+              )}
+              {(qb.preprintsInPool || 0) > 0 && (
+                <span style={{
+                  padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
+                  background: `${theme.yellow}22`, color: theme.yellow, fontWeight: 700,
+                  border: `1px solid ${theme.yellow}55`
+                }}>
+                  {qb.preprintsInPool} preprint{qb.preprintsInPool === 1 ? '' : 's'} flagged (not yet peer-reviewed)
+                </span>
+              )}
             </div>
             <details
               open={integrityFlaggedOpen}
@@ -4358,7 +4478,7 @@
               style={{ marginTop: '0.65rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}
             >
               <summary style={{ cursor: 'pointer', color: theme.accent, fontWeight: 600 }}>
-                What are integrity-flagged publishers?
+                What are low-integrity publishers?
               </summary>
               <div style={{ marginTop: '0.45rem' }}>
                 <strong style={{ color: theme.text }}>Publishers flagged for documented integrity concerns.</strong>
@@ -4379,16 +4499,17 @@
             {expanded && (
               <div style={{ marginTop: '0.85rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}>
                 <div style={{ marginBottom: '0.5rem' }}>
-                  <strong style={{ color: theme.text }}>How the screen works.</strong>
-                  {' '}Every source is scored on <em>methodological</em> signals only:
-                  journal tier, citation count, recency, and publication type
-                  (RCT / meta-analysis &gt; observational &gt; opinion). Retracted papers
-                  and papers from publishers with documented integrity concerns are not included in the AI prompt pack.
-                  Preprints are
-                  kept but flagged as not-yet-peer-reviewed. We do NOT down-weight by author
-                  country — a well-conducted RCT is a well-conducted RCT regardless of where
-                  the first author sits.
+                  <strong style={{ color: theme.text }}>How this works.</strong>
+                  {' '}We score each paper on journal reputation, study type (clinical trial vs. opinion),
+                  recency, and citation count. Retracted papers and publishers with documented integrity
+                  problems are removed before the AI reads them. Preprints are kept but marked as
+                  not-yet-peer-reviewed.
                 </div>
+                {(qb.topTierInPromptPack > 0 || qb.rctOrMetaInPromptPack > 0) && (
+                  <div style={{ marginBottom: '0.5rem', fontSize: '0.78rem', color: theme.textDim }}>
+                    Technical detail: {qb.topTierInPromptPack} top-journal · {qb.rctOrMetaInPromptPack} clinical trial or systematic review in the analysis set.
+                  </div>
+                )}
                 {(qb.retractedTitles || []).length > 0 && (
                   <div style={{ marginTop: '0.6rem' }}>
                     <div style={{ color: theme.red, fontWeight: 700, marginBottom: '0.25rem' }}>
@@ -4747,16 +4868,16 @@
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                 <div>
                   <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Brain size={22} /> AI Treatment Research
+                    <Brain size={22} /> Detailed Condition Report
                   </h2>
                   <p style={{ margin: '0.25rem 0 0', color: theme.textDim, fontSize: '0.82rem', fontStyle: 'italic' }}>
-                    Full condition analysis — standard of care, experts, safety literature
+                    Thorough search — journals, trials, treatments, experts (takes 1–2 min, not a quick answer)
                   </p>
                 </div>
                 <button style={btn('primary', !!busy)} disabled={!!busy}
                   onClick={() => runResearch('research')}>
-                  {busy === 'research' ? <><Loader size={16} className="spin" /> Researching…</>
-                    : <><Search size={16} /> Run Full Research</>}
+                  {busy === 'research' ? <><Loader size={16} className="spin" /> Searching…</>
+                    : <><Search size={16} /> Run Detailed Report</>}
                 </button>
               </div>
               <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
@@ -5635,8 +5756,12 @@
       );
 
       // Individual repurposing-candidate card. One per drug/supplement.
-      const CandidateCard = ({ c, rank, highlightMechanistic }) => {
+      const CandidateCard = ({ c, rank, highlightMechanistic, audience = 'layperson' }) => {
         const mechanistic = highlightMechanistic || isMechanisticEvidence(c.evidence_strength);
+        const lay = audience !== 'medical';
+        const allLinkText = [c.references, c.supporting_evidence, c.repurpose_rationale].filter(Boolean).join('\n');
+        const cardLinks = useMemo(() => extractLinksFromText(allLinkText), [allLinkText]);
+        const whyPlain = c.why_for_this_condition || c.repurpose_rationale;
         return (
           <div style={{
             padding: '1rem 1.1rem',
@@ -5663,22 +5788,78 @@
                     </div>
                   )}
                 </div>
+                {c.what_it_does && lay && (
+                  <div style={{
+                    marginTop: '0.55rem', padding: '0.65rem 0.75rem', borderRadius: 8,
+                    background: `${theme.accent}10`, border: `1px solid ${theme.accent}33`,
+                    fontSize: '0.92rem', lineHeight: 1.5, color: theme.text
+                  }}>
+                    <strong style={{ color: theme.accent, fontSize: '0.72rem', letterSpacing: 0.4, textTransform: 'uppercase' }}>
+                      What it is
+                    </strong>
+                    <div style={{ marginTop: 4 }}>{c.what_it_does}</div>
+                  </div>
+                )}
+                {whyPlain && (
+                  <div style={{
+                    marginTop: '0.55rem', padding: '0.65rem 0.75rem', borderRadius: 8,
+                    background: `${theme.green}10`, border: `1px solid ${theme.green}33`,
+                    fontSize: '0.92rem', lineHeight: 1.55, color: theme.text
+                  }}>
+                    <strong style={{ color: theme.green, fontSize: '0.72rem', letterSpacing: 0.4, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Lightbulb size={11} /> {lay ? 'Why it might help' : 'Why for this condition'}
+                    </strong>
+                    <div style={{ marginTop: 4 }}>
+                      {c.why_for_this_condition
+                        ? c.why_for_this_condition
+                        : <Markdown text={String(c.repurpose_rationale).split('\n').slice(0, 3).join('\n')} />}
+                    </div>
+                  </div>
+                )}
+                {cardLinks.length > 0 ? (
+                  <div style={{
+                    marginTop: '0.55rem', padding: '0.55rem 0.65rem', borderRadius: 8,
+                    border: `1px solid ${theme.accent}44`, background: `${theme.accent}08`
+                  }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: theme.accent, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
+                      Sources to read ↗
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      {cardLinks.slice(0, 4).map((l, i) => (
+                        <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                          style={{ fontSize: '0.84rem', color: theme.accent, fontWeight: 600, lineHeight: 1.4 }}>
+                          {l.label} ↗
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    marginTop: '0.55rem', padding: '0.5rem 0.65rem', borderRadius: 8,
+                    border: `1px dashed ${theme.yellow}66`, background: `${theme.yellow}10`,
+                    fontSize: '0.78rem', color: theme.yellow, lineHeight: 1.45
+                  }}>
+                    No source links on this card — re-run the analysis or verify claims with your doctor.
+                  </div>
+                )}
                 {c.approved_for && (
                   <div style={{ fontSize: '0.78rem', color: theme.textDim, marginTop: 2 }}>
-                    Currently approved for: <span style={{ color: theme.text }}>{c.approved_for}</span>
+                    {lay ? 'Usually used for: ' : 'Currently approved for: '}
+                    <span style={{ color: theme.text }}>{c.approved_for}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.55rem' }}>
                   {c.evidence_strength && <EvidenceStrengthBadge value={c.evidence_strength} />}
                   {c.mechanism_target && (
-                    <span title="Molecular target / pathway" style={{
+                    <span title={lay ? 'Plain-language idea of how it might work' : 'Molecular target / pathway'} style={{
                       display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
                       padding: '0.25rem 0.65rem', borderRadius: 999, fontSize: '0.72rem',
                       border: `1px solid ${theme.accent}55`, background: `${theme.accent}12`,
                       color: theme.accent, fontWeight: 600
                     }}>
-                      <Flask size={11} /> {String(c.mechanism_target).length > 80
-                        ? String(c.mechanism_target).slice(0, 77) + '…'
+                      <Flask size={11} /> {lay ? 'Might work by: ' : ''}
+                      {String(c.mechanism_target).length > (lay ? 100 : 80)
+                        ? String(c.mechanism_target).slice(0, (lay ? 97 : 77)) + '…'
                         : c.mechanism_target}
                     </span>
                   )}
@@ -5707,24 +5888,24 @@
               />
             </div>
 
-            {c.repurpose_rationale && (
+            {c.repurpose_rationale && c.why_for_this_condition && (
               <Disclosure
-                title="Why it might help"
+                title={lay ? 'Full reasoning' : 'Detailed rationale'}
                 icon={<Lightbulb size={13} />}
                 color={theme.accent}
-                defaultOpen={true}
               >
-                {c.repurpose_rationale}
+                <Markdown text={c.repurpose_rationale} />
               </Disclosure>
             )}
             {c.supporting_evidence && (
               <Disclosure
-                title="Supporting evidence"
+                title="What the research says"
                 icon={<Database size={13} />}
                 color={theme.green}
+                defaultOpen={!mechanistic}
               >
                 <Markdown text={c.supporting_evidence} />
-                <SourceLinks text={c.supporting_evidence} />
+                <SourceLinks text={c.supporting_evidence} label="Links from evidence" />
               </Disclosure>
             )}
             {c.patient_specific_risks && (
@@ -5829,7 +6010,7 @@
         );
       };
 
-      const RepurposeTab = ({ patient, busy, runResearch, repurposeText, candidates, validation, progress, onAudit, runtimeConfig, runMeta }) => {
+      const RepurposeTab = ({ patient, audience, busy, runResearch, repurposeText, candidates, validation, progress, onAudit, runtimeConfig, runMeta }) => {
         const [showRaw, setShowRaw] = useState(false);
         const [translatedText, setTranslatedText] = useState('');
         const renderedRepurposeText = translatedText || repurposeText;
@@ -5847,6 +6028,18 @@
           <div id="mrt-repurpose-export-target" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AdSlot runtimeConfig={runtimeConfig} slotKey="repurposeTop" />
             <RepurposeHero patient={patient} busy={busy} runResearch={runResearch} />
+
+            {audience !== 'medical' && hasRun && candidates.length > 0 && !candidates.some(c => c.what_it_does) && (
+              <div style={{
+                ...panelStyle, padding: '0.75rem 1rem',
+                borderLeft: `3px solid ${theme.yellow}`,
+                background: `${theme.yellow}12`, fontSize: '0.86rem', color: theme.text, lineHeight: 1.5
+              }}>
+                <strong>Re-run for plain English.</strong> This analysis was generated before the readability update.
+                Click <strong>Run Repurpose Analysis</strong> again — with <em>Plain English</em> selected in the header — to get
+                &ldquo;What it is&rdquo; summaries and simpler explanations on every drug card.
+              </div>
+            )}
 
             <RepurposeExplainer />
 
@@ -5885,15 +6078,19 @@
             }}>
               <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                 <Brain size={18} />
-                Logic-based candidates (no formal research on this condition yet)
+                {audience === 'medical'
+                  ? 'Logic-based candidates (pathway reasoning — verify human data below)'
+                  : 'Drug ideas from biology — check the links before asking your doctor'}
               </h3>
               <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                These are hypothesis-generation ideas from pathway reasoning — not prescriptions. Every item is labeled by evidence tier.
+                {audience === 'medical'
+                  ? 'These are hypothesis-generation ideas from pathway reasoning — not prescriptions. Every item is labeled by evidence tier.'
+                  : 'These are educated guesses based on how the disease works and what each drug does — not proven treatments. Each card explains the drug in plain English and why it might be worth asking your doctor about.'}
               </p>
               {mechanistic.length > 0 ? (
                 <div style={{ display: 'grid', gap: '0.85rem' }}>
                   {mechanistic.map((c, i) => (
-                    <CandidateCard key={`m-${i}`} c={c} rank={i + 1} highlightMechanistic={true} />
+                    <CandidateCard key={`m-${i}`} c={c} rank={i + 1} highlightMechanistic={true} audience={audience} />
                   ))}
                 </div>
               ) : hasRun ? (
@@ -5925,7 +6122,7 @@
                 {withEvidence.length > 0 ? (
                   <div style={{ display: 'grid', gap: '0.85rem' }}>
                     {withEvidence.map((c, i) => (
-                      <CandidateCard key={`e-${i}`} c={c} rank={i + 1} />
+                      <CandidateCard key={`e-${i}`} c={c} rank={i + 1} audience={audience} />
                     ))}
                   </div>
                 ) : (
@@ -5979,146 +6176,6 @@
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        );
-      };
-
-      /* ==================== Records Audit Tab ==================== */
-      const RecordsTab = ({ patient, audience, busy, setBusy, recordsResult, setRecordsResult }) => {
-        const [records, setRecords] = useState('');
-        const [summary, setSummary] = useState('');
-
-        const runAudit = async () => {
-          if (!records.trim()) { alert('Paste the raw medical records first.'); return; }
-          setBusy('records');
-          try {
-            const res = await fetch('/api/records-audit', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                records, summary, condition: patient.condition || '', audience
-              })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Audit failed');
-            setRecordsResult(data);
-          } catch (e) {
-            alert('Error: ' + e.message);
-          } finally {
-            setBusy(null);
-          }
-        };
-
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={panelStyle}>
-              <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <ShieldCheck size={22} /> Medical Records Audit
-              </h2>
-              <p style={{ color: theme.textDim, fontSize: '0.9rem', lineHeight: 1.6 }}>
-                <strong>Why this tab exists:</strong> Paste raw medical records and an optional doctor summary or IME letter.
-                The tool extracts every abnormal finding verbatim, then flags omissions, downplaying, exaggeration, or unsupported
-                statements in the summary. This is decision-support for second-opinion preparation — <strong>not</strong> a diagnosis
-                and not a substitute for a licensed physician review.
-              </p>
-              <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
-                Paste raw medical records (imaging reports, labs, office notes). Optionally paste a
-                summary or report (IME, doctor's letter). The auditor extracts every abnormal finding,
-                then flags anything <strong>omitted, downplayed, exaggerated, or unsupported</strong> in the summary.
-              </p>
-              <p style={{ color: '#f87171', fontSize: '0.85rem' }}>
-                ⚠ De-identify before pasting: remove name, DOB, MRN, address, phone, photos, face sheets.
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div>
-                  <label style={labelStyle}>Raw medical records (required)</label>
-                  <textarea value={records} onChange={e => setRecords(e.target.value)}
-                    placeholder="Paste de-identified imaging reports, labs, consult notes, hospital records…"
-                    style={{ ...inputStyle, minHeight: 280, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Summary / report to check (optional)</label>
-                  <textarea value={summary} onChange={e => setSummary(e.target.value)}
-                    placeholder="Paste the summary letter, IME report, or discharge summary that you want checked for misrepresentation or omission."
-                    style={{ ...inputStyle, minHeight: 280, resize: 'vertical', fontFamily: 'monospace', fontSize: '0.85rem' }} />
-                </div>
-              </div>
-              <div style={{ marginTop: '0.75rem' }}>
-                <button style={btn('primary', !!busy || !records.trim())}
-                  disabled={!!busy || !records.trim()} onClick={runAudit}>
-                  {busy === 'records' ? <><Loader size={16} className="spin" /> Auditing…</>
-                    : <><ShieldCheck size={16} /> Run Audit</>}
-                </button>
-              </div>
-            </div>
-
-            {recordsResult?.audit && <AuditResult audit={recordsResult.audit} />}
-            {recordsResult && !recordsResult.audit && recordsResult.raw && (
-              <div style={panelStyle}>
-                <h3 style={{ marginTop: 0, color: theme.yellow }}>Could not parse structured audit</h3>
-                <Markdown text={recordsResult.raw} />
-              </div>
-            )}
-          </div>
-        );
-      };
-
-      const AuditResult = ({ audit }) => {
-        const findings = audit.abnormalFindings || [];
-        const color = (acc) => acc === 'accurate' ? theme.green
-          : acc === 'omitted' || acc === 'contradicted' ? theme.red
-          : acc === 'downplayed' || acc === 'exaggerated' ? theme.yellow
-          : theme.textDim;
-        return (
-          <div style={panelStyle}>
-            <h3 style={{ marginTop: 0, color: theme.accent }}>Audit result</h3>
-            <p style={{ fontSize: '0.95rem', lineHeight: 1.6 }}>{audit.overallAssessment}</p>
-            <div style={{ fontSize: '0.85rem', color: theme.textDim, marginBottom: '1rem' }}>
-              Confidence: <strong style={{ color: theme.text }}>{audit.confidence}</strong>
-              {audit.limitations ? <> · Limitations: {audit.limitations}</> : null}
-            </div>
-            <h4 style={{ color: theme.accent, fontSize: '0.95rem' }}>Findings ({findings.length})</h4>
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {findings.map((f, i) => (
-                <div key={i} style={{
-                  padding: '0.75rem', background: theme.panel,
-                  borderRadius: 8, borderLeft: `4px solid ${color(f.summaryAccuracy)}`
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <div style={{ fontWeight: 600 }}>{f.finding}</div>
-                    <div style={{ fontSize: '0.8rem', color: color(f.summaryAccuracy), textTransform: 'uppercase', fontWeight: 600 }}>
-                      {f.summaryAccuracy}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: theme.textDim, marginTop: 4 }}>
-                    From {f.source} · severity: {f.severity} · relevant: {f.relevantToCondition ? 'yes' : 'no'}
-                  </div>
-                  <div style={{ fontSize: '0.85rem', fontStyle: 'italic', marginTop: '0.4rem', color: theme.text }}>
-                    “{f.quote}”
-                  </div>
-                  {f.summaryQuote && (
-                    <div style={{ fontSize: '0.8rem', marginTop: '0.3rem', color: theme.textDim }}>
-                      Summary says: “{f.summaryQuote}”
-                    </div>
-                  )}
-                  {f.auditorNote && (
-                    <div style={{ fontSize: '0.85rem', marginTop: '0.4rem' }}>
-                      {f.auditorNote}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            {audit.unsupportedSummaryStatements?.length > 0 && (
-              <>
-                <h4 style={{ color: '#f87171', marginTop: '1rem' }}>Unsupported statements in the summary</h4>
-                {audit.unsupportedSummaryStatements.map((s, i) => (
-                  <div key={i} style={{ padding: '0.5rem 0.75rem', borderLeft: '3px solid #f87171', marginBottom: '0.5rem' }}>
-                    <div style={{ fontStyle: 'italic' }}>“{s.statement}”</div>
-                    <div style={{ fontSize: '0.8rem', color: theme.textDim }}>{s.issue}</div>
-                  </div>
-                ))}
-              </>
             )}
           </div>
         );

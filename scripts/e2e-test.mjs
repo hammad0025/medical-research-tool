@@ -1,5 +1,5 @@
 // End-to-end harness that invokes our Vercel handlers exactly like Vercel
-// would, to prove every pipeline (trials / pubmed / research / records-audit /
+// would, to prove every pipeline (trials / pubmed / research /
 // evidence / kb / validate) actually works for a realistic patient before
 // shipping.
 //
@@ -9,7 +9,6 @@
 import trialsHandler from '../api/trials.js';
 import pubmedHandler from '../lib/pubmed.js';
 import researchHandler from '../api/research.js';
-import auditHandler from '../api/records-audit.js';
 import europePmcHandler from '../lib/europe-pmc.js';
 import openalexHandler from '../lib/openalex.js';
 import openfdaHandler from '../lib/openfda.js';
@@ -757,7 +756,7 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.log('\n(skip) ANTHROPIC_API_KEY not set — skipping research.js + records-audit.js + disease-dossier live calls');
+    console.log('\n(skip) ANTHROPIC_API_KEY not set — skipping research.js + disease-dossier live calls');
     console.log('\n=== All available tests passed ===');
     return;
   }
@@ -897,14 +896,19 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   // stops emitting one of these fields, the cards silently lose data — so
   // lock in every structural field the UI reads.
   const requiredFields = [
-    'CLASS:', 'APPROVED_FOR:', 'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:',
-    'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:', 'EFFICACY_HYPOTHESIS:',
-    'SAFETY:', 'CONFIDENCE:', 'PATIENT_SPECIFIC_RISKS:', 'HOW_TO_DISCUSS_WITH_DOCTOR:'
+    'CLASS:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:', 'MECHANISM_TARGET:',
+    'REPURPOSE_RATIONALE:', 'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:', 'REFERENCES:',
+    'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:', 'PATIENT_SPECIFIC_RISKS:',
+    'HOW_TO_DISCUSS_WITH_DOCTOR:'
   ];
   const missingFields = requiredFields.filter(f => !repText.includes(f));
   missingFields.length === 0
-    ? pass('all 11 structural fields present in CANDIDATE blocks — UI cards will render fully')
+    ? pass('all structural fields present in CANDIDATE blocks — UI cards will render fully')
     : fail(`CANDIDATE blocks missing fields: ${missingFields.join(', ')}`);
+  const refLinkHits = (repText.match(/REFERENCES:[\s\S]*?\[[^\]]+\]\(https?:\/\//gi) || []).length;
+  refLinkHits >= Math.min(3, candidateCount)
+    ? pass(`${refLinkHits} candidate(s) include REFERENCES with clickable markdown links`)
+    : fail(`expected REFERENCES with markdown links on at least ${Math.min(3, candidateCount)} candidates, got ${refLinkHits}`);
   // Every candidate should have at least one quantified score (efficacy/safety/confidence %)
   const pctHits = (repText.match(/(EFFICACY_HYPOTHESIS|SAFETY|CONFIDENCE):\s*\d{1,3}\s*%/g) || []).length;
   pctHits >= candidateCount * 2
@@ -942,48 +946,6 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   namesDrugs ? pass('chat named both drugs being compared') : fail('chat did not name both drugs');
   comparesThem ? pass('chat provided concrete comparison language') : fail('chat did not provide a concrete safety comparison');
   info(`chat first 300 chars: ${chatText.slice(0, 300).replace(/\n/g, ' ')}…`);
-
-  console.log('\n=== 5. /api/records-audit — IPF record with misleading summary ===');
-  const fakeRecords = `HRCT chest 2/2026: UIP pattern with subpleural and basal predominant honeycombing,
-traction bronchiectasis, and reticulation. No ground-glass opacity. Findings are consistent with IPF.
-Mild pulmonary hypertension with RV enlargement noted.
-
-PFT 2/2026: FVC 62% predicted (prior 71% six months ago), DLCO 41% (prior 48%). Restrictive pattern.
-
-Echo 2/2026: RVSP estimated 48 mmHg (mild-to-moderate pulmonary hypertension). LVEF 58%.
-
-6-minute walk test: 380m, desaturation from 94% to 86% on room air.
-
-Dermatology note 1/2026: small basal cell carcinoma right temple, completely excised with clear margins.`;
-
-  const misleadingSummary = `Patient has stable IPF on pirfenidone. HRCT shows typical UIP pattern. PFTs are stable.
-No evidence of pulmonary hypertension. Patient tolerates pirfenidone well. No other significant findings.`;
-
-  const audit = await invoke(auditHandler, {
-    records: fakeRecords, summary: misleadingSummary,
-    condition: 'Idiopathic Pulmonary Fibrosis', audience: 'layperson'
-  });
-  if (audit.status !== 200) return fail(`audit returned ${audit.status}`);
-  if (!audit.body.audit) {
-    info('raw audit text: ' + (audit.body.raw || '').slice(0, 400));
-    return fail('audit response not parsed to JSON');
-  }
-  pass('structured audit returned');
-  const findings = audit.body.audit.abnormalFindings || [];
-  info(`auditor found ${findings.length} abnormal findings in the records`);
-  const flaggedPH = findings.some(f =>
-    /pulmonary hypertension|RVSP|RV/i.test((f.finding || '') + ' ' + (f.quote || '')) &&
-    /omit|downplay|contradict/i.test(f.summaryAccuracy || ''));
-  const flaggedFVCdrop = findings.some(f =>
-    /FVC|decline|drop|falling/i.test((f.finding || '') + ' ' + (f.auditorNote || '')) &&
-    /omit|downplay|contradict/i.test(f.summaryAccuracy || ''));
-  flaggedPH
-    ? pass('auditor correctly flagged pulmonary hypertension as omitted/misrepresented')
-    : fail('auditor missed the PH omission');
-  flaggedFVCdrop
-    ? pass('auditor correctly flagged the 9-point FVC decline as misrepresented as "stable"')
-    : info('(note) auditor may have merged FVC trend into overall assessment instead of a discrete finding');
-  info(`overall assessment: ${audit.body.audit.overallAssessment?.slice(0, 220)}…`);
 
   console.log('\n=== Usage limits — local dev bypass ===');
   const {

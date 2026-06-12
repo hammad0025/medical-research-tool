@@ -45,10 +45,13 @@ const DEFAULT_MODEL = process.env.ANTHROPIC_RESEARCH_MODEL || 'claude-sonnet-4-2
 // Serverless timeout safety: Opus is typically slower token/sec than Sonnet,
 // so we cap max_tokens lower by default to reduce timeout risk. You can still
 // override directly with ANTHROPIC_MAX_TOKENS if needed.
-const resolveMaxTokens = (model) => {
+const resolveMaxTokens = (model, mode, phase, half) => {
   const forced = Number(process.env.ANTHROPIC_MAX_TOKENS || 0);
   if (forced > 0) return forced;
   const m = String(model || '').toLowerCase();
+  // Split synth halves must finish inside Vercel Hobby's 60s cap.
+  if (phase === 'synthesize' && mode === 'repurpose') return m.includes('opus') ? 1200 : 1500;
+  if (phase === 'synthesize' && mode === 'research') return m.includes('opus') ? 1200 : 1800;
   if (m.includes('opus')) return 1400;
   if (m.includes('sonnet')) return 2000;
   return 2200; // haiku / unknown
@@ -342,15 +345,11 @@ const buildAgentsEvaluatedBlock = (claudeText, evidence) => {
   return `\n\n---\n\n## Agents evaluated for this analysis\n\nThis is the complete consideration set for this condition from our curated knowledge base. Every agent listed was searched for in the literature (PubMed / Europe PMC / OpenAlex / Cochrane) and on ClinicalTrials.gov before the analysis was written. If any agent is marked "NOT DISCUSSED" above, it was either not supported by the evidence pack for this specific patient profile, or was outside the scope of the sections produced — check the curated KB file for the full rationale.\n\n### Pipeline drugs (FDA-approved + phase 2b/3 + pivotal)\n${evaluated || '_(none listed in curated KB for this condition)_'}\n\n### Excluded agents (considered and rejected)\n${excluded || '_(none listed)_'}\n\n_Curated KB source: \`data/kb/\`. If an agent you expected to see is missing, that's an editor-level gap in our KB — open an issue or add it to the file._\n`;
 };
 
-const buildGroundingBlock = (evidence) => {
+const buildGroundingBlock = (evidence, opts = {}) => {
   if (!evidence) return '';
-  // Top-6 rather than top-8 (or top-25 originally). Each item costs
-  // ~200-400 input tokens even with the tightened excerpt length.
-  // Empirically, Claude concentrates its citations in the top 3-5
-  // items anyway; items 7+ show up in maybe 15% of runs. Cost cut
-  // 2026-04-23: saves ~500-800 input tokens per synthesis call,
-  // which is ~8-12% of the pack's total input contribution.
-  const items = (evidence.groundedForPrompt || []).slice(0, 6);
+  const limit = opts.limit ?? 6;
+  // Repurpose mode needs more papers so each candidate can cite real URLs.
+  const items = (evidence.groundedForPrompt || []).slice(0, limit);
   if (!items.length) return '';
   const packed = items.map((it, i) => {
     const tierLabel = it.tier ? ` [TIER ${it.tier}]` : '';
@@ -513,14 +512,37 @@ const buildPatientContext = (p = {}) => {
 const audienceLine = (audience) =>
   audience === 'medical'
     ? 'AUDIENCE: Medical professional. Use precise clinical terminology, include pharmacology, dosing, and mechanism where relevant.'
-    : 'AUDIENCE: Non-medical reader (high-school / 10th-grade education). Explain every medical term in plain language. Keep sentences short.';
+    : `AUDIENCE: Non-medical reader (8th–10th grade reading level). This output will be read by patients and caregivers with NO medical training.
+
+LAYPERSON RULES (mandatory — violations are failures):
+- Write like you're explaining to a smart friend who is NOT in medicine.
+- Every drug card MUST start with WHAT_IT_DOES in one plain sentence anyone can understand.
+- NEVER use unexplained jargon (mTOR, autophagy, pericellular, analogs, pathway, inducer, fibrosis cascade, etc.) without immediately defining it in parentheses in the same sentence.
+  Example: "autophagy (your cells' built-in cleanup system)" NOT bare "autophagy".
+- MECHANISM_TARGET and REPURPOSE_RATIONALE must use everyday words first; technical terms only in parentheses after the plain explanation.
+- Short sentences. No dense paragraph blocks. No "graduate seminar" tone.
+- Do NOT use headings like "potential unexplored drug categories" — say "Drugs not yet studied for this condition" or "Ideas from biology (not yet tested in people)".`;
+
+const laypersonRepurposeExtra = (audience) =>
+  audience === 'medical' ? '' : `
+
+REPURPOSE LAYPERSON FORMAT (when AUDIENCE is non-medical):
+- WHAT_IT_DOES is REQUIRED for every CANDIDATE — one sentence: what the drug is normally used for + what it does in the body in plain English.
+- WHY_FOR_THIS_CONDITION is REQUIRED — one plain sentence: "This might help [condition] because …" using everyday words only.
+- MECHANISM_TARGET must be a plain-English phrase (≤12 words), e.g. "Slows lung scarring signals" — NOT "TGF-β signalling" alone.
+- REPURPOSE_RATIONALE must be exactly 3 short bullets in plain text (use "•" bullets):
+  • What this drug normally does (plain English)
+  • What goes wrong in the patient's condition (plain English)
+  • Why those two might connect — the "aha" reason a doctor might discuss it
+- REFERENCES is REQUIRED — at least one clickable markdown link [short title](url) per candidate from the evidence pack. No candidate may ship without a link.
+- HOW_TO_DISCUSS_WITH_DOCTOR: write 2 questions the patient can literally read aloud at an appointment.`;
 
 // Build the per-request dynamic header that is NEVER cached (it's different
 // on every call: audience, patient profile, condition-specific context).
 // Paired with the mode's *_STATIC scaffolding which IS cached. This is the
 // Anthropic prompt-caching split — static scaffold gets `cache_control:
 // ephemeral` and is served at 10% of the input-token price on cache hits.
-const buildDynamicHeader = (patient, audience) => `${audienceLine(audience)}
+const buildDynamicHeader = (patient, audience, mode) => `${audienceLine(audience)}${mode === 'repurpose' ? laypersonRepurposeExtra(audience) : ''}
 
 PATIENT PROFILE:
 ${buildPatientContext(patient)}`;
@@ -661,8 +683,8 @@ Your output MUST include the following 5 sections IN THIS ORDER, and nothing els
 **D. Pay-to-Access / Charitable:** Any paid post-trial access programs the patient should know about (e.g. the ~$40k tier some sponsors charge between trial completion and market launch). If you don't know of any, say so — do NOT invent programs.
 
 ## 5. Drug Repurposing + Pipeline Watch
-- **Repurposing teaser (2-3 candidates):** existing drugs/supplements with plausible mechanistic rationale. One line each. Point user to the dedicated Drug Repurposing tab for the full analysis.
-- **Pipeline watch (2-3 early-phase programs):** Phase 1/2 worth watching, with NCT IDs and rough timeline-to-possible-approval.
+- **Repurposing teaser (2-3 candidates):** existing drugs/supplements that might help, each in ONE plain line: drug name · what it's normally for · why it might connect to this condition. For layperson audience: no jargon without a parenthetical definition. Point user to the dedicated Drug Repurposing tab for the full analysis. Do NOT use the heading "unexplored drug categories" — use "Drugs not yet studied for this condition" if needed.
+- **Pipeline watch (2-3 early-phase programs):** experimental drugs in early trials, with NCT IDs and rough timeline. Layperson: explain each in plain English ("still being tested in people").
 
 ## 6. Cell, Gene & Advanced Therapies
 *If not applicable: one line "**N/A** — no active cell/gene therapy program for this condition."*
@@ -688,7 +710,25 @@ ${FORMATTING_RULES}
 
 ${SHARED_GUARDRAILS}`;
 
-const REPURPOSE_PROMPT_STATIC = `You are a medical research professor leading a graduate seminar. Your students are looking at an existing drug library and asking, for a specific patient condition, "Which already-approved medications or widely-available supplements might logically help this condition — even though no formal guideline endorses them yet?"
+const REPURPOSE_CANDIDATE_FORMAT = `Produce ranked CANDIDATE blocks using this exact format (the UI parses it):
+
+CANDIDATE: <name>
+CLASS: <drug class or supplement category — for layperson: use plain category, e.g. "immune-suppressing pill" not "mTOR inhibitor class">
+APPROVED_FOR: <current FDA-approved or common use — plain English for layperson>
+WHAT_IT_DOES: <REQUIRED — one sentence a non-doctor understands: what this drug/supplement is normally for and what it does in the body. No unexplained jargon.>
+WHY_FOR_THIS_CONDITION: <REQUIRED — one plain sentence: "This might help [condition] because …" — everyday words, no jargon without a parenthetical definition>
+MECHANISM_TARGET: <for medical audience: molecular target/pathway. For layperson: ≤12-word plain phrase, e.g. "Helps cells clean up damaged parts" — define any technical term in parentheses>
+REPURPOSE_RATIONALE: <why it might help THIS condition — at the specified audience level. Layperson: 3 bullet lines per LAYPERSON RULES above. Medical: step-by-step biology.>
+EVIDENCE_STRENGTH: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
+SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. If no grounded evidence exists in the pack, say "Mechanistic hypothesis only — no human data yet".>
+REFERENCES: <REQUIRED — 1-3 clickable markdown links [short title](url) from the evidence pack or trials pull. Every candidate MUST have at least one link here even if SUPPORTING_EVIDENCE repeats them.>
+EFFICACY_HYPOTHESIS: <1-100>% — <one-line plain-English justification>
+SAFETY: <1-100>% — <higher = safer; reference FDA label / FAERS reactions if available>
+CONFIDENCE: <1-100>% — <overall confidence that this is worth physician discussion>
+PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's meds, age, comorbidities>
+HOW_TO_DISCUSS_WITH_DOCTOR: <practical script / questions the patient should ask a physician>`;
+
+const REPURPOSE_PROMPT_INTRO = `You are a medical research professor leading a graduate seminar. Your students are looking at an existing drug library and asking, for a specific patient condition, "Which already-approved medications or widely-available supplements might logically help this condition — even though no formal guideline endorses them yet?"
 
 This is the EveryCure / drug-repurposing methodology. Think outside the box. Reason from first principles about:
 - the pathophysiology of the primary condition
@@ -696,44 +736,31 @@ This is the EveryCure / drug-repurposing methodology. Think outside the box. Rea
 - shared molecular pathways with other conditions where a drug is already effective
 - supportive (not definitive) peer-reviewed evidence
 
-## Mechanistic Hypotheses (no direct disease research required)
-Produce 5-8 candidates where EVIDENCE_STRENGTH is MECHANISTIC_ONLY or PRECLINICAL.
-These MUST be drugs/supplements with plausible pathway logic for THIS condition even if
-zero human trials exist for this indication. Examples of the thinking we want:
+STUDIED-AGENT RULE (critical — read before assigning evidence strength):
+Before you label any candidate MECHANISTIC_ONLY or PRECLINICAL, search the GROUNDED EVIDENCE PACK for papers mentioning BOTH the candidate drug name AND this condition.
+- If human studies exist for this drug + condition (even negative/null results), you MUST use CASE_REPORT, OBSERVATIONAL, SMALL_RCT, or LARGE_RCT — NOT MECHANISTIC_ONLY.
+- Summarize what those studies found honestly, including "no benefit" or "possible harm."
+- Do NOT put a drug in the "never studied in people for this condition" bucket when the evidence pack contains human data for this condition.
+- Check EXCLUDED AGENTS in the REQUIRED MENTIONS block — if a drug is listed there, you may still mention it but must lead with the negative literature and cite links.
+
+## Mechanistic Hypotheses (genuinely no human data for this condition)
+Produce 5-8 candidates where EVIDENCE_STRENGTH is MECHANISTIC_ONLY or PRECLINICAL ONLY when the evidence pack truly contains no human studies for that drug + this condition.
+These MUST be drugs/supplements with plausible pathway logic for THIS condition. Examples of the thinking we want:
 - Anti-inflammatory already used in Condition B → shared pathway with patient's condition
 - Metabolic drug → overlaps with disease pathophysiology
 - Supplement targeting oxidative stress when disease involves ROS
 
 For EACH mechanistic candidate, SUPPORTING_EVIDENCE must say explicitly:
 "Mechanistic hypothesis only — no human data for [condition] yet" when true.
-Still cite adjacent-condition papers or pathway reviews from the evidence pack when available.
+Still cite adjacent-condition papers or pathway reviews from the evidence pack when available — with clickable links.
 
 Output these mechanistic/preclinical candidates FIRST, each using the CANDIDATE block format below.
 Then continue with additional candidates that may have observational or trial data.
 
-QUOTA (mandatory): At least 30% of your 12-25 total candidates MUST have EVIDENCE_STRENGTH of MECHANISTIC_ONLY or PRECLINICAL. Do NOT fill the list only with drugs that already have RCTs on this condition — the user specifically wants logic-based ideas with honest "no human data for this condition yet" labeling when that is true.
+QUOTA (mandatory): At least 30% of your candidates MUST have EVIDENCE_STRENGTH of MECHANISTIC_ONLY or PRECLINICAL — but ONLY when the evidence pack lacks human data for that drug + condition.`;
 
-Produce a ranked list of 12-25 candidate repurposed drugs or supplements total. For EACH candidate output this exact block (the UI parses it):
-
-CANDIDATE: <name>
-CLASS: <drug class or supplement category>
-APPROVED_FOR: <current FDA-approved or common use>
-MECHANISM_TARGET: <the specific molecular target, pathway, or biological mechanism relevant to the condition (e.g. "TGF-β signalling", "AMPK activation / autophagy", "vitamin D receptor → anti-fibrotic gene expression")>
-REPURPOSE_RATIONALE: <the mechanistic logic — why would this help the primary condition? Explain the biology step-by-step, at the specified audience level.>
-EVIDENCE_STRENGTH: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
-SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. If no grounded evidence exists in the pack, say "Mechanistic hypothesis only — no human data yet".>
-EFFICACY_HYPOTHESIS: <1-100>% — <one-line justification>
-SAFETY: <1-100>% — <higher = safer; reference FDA label / FAERS reactions if available>
-CONFIDENCE: <1-100>% — <overall confidence that this is worth physician discussion>
-PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's meds, age, comorbidities>
-HOW_TO_DISCUSS_WITH_DOCTOR: <practical script / questions the patient should ask a physician>
-
-After the candidate list, include:
-
-## Combination Candidates
-Dorothy explicitly asked: "is it looking at drug combinations that may not have actually been researched for possible treatments?" — answer that question here.
-
-Produce 5-10 combination candidates (pairings or triples of agents from the list above, or pairings of a listed candidate with a standard-of-care drug). For EACH combo output this exact block (the UI parses it):
+const REPURPOSE_COMBO_AND_SUMMARY = `## Combination Candidates
+Produce 5-8 combination candidates (pairings or triples of agents from Part 1, or pairings with standard-of-care). For EACH combo output this exact block:
 
 COMBO: <Agent A + Agent B [+ Agent C]>
 RATIONALE: <one or two sentences on why the mechanisms are complementary or synergistic for THIS condition — pathway diagram in words>
@@ -744,13 +771,41 @@ PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's current medications + 
 CONFIDENCE: <1-100>% — <overall confidence that this combo is worth physician discussion>
 HOW_TO_DISCUSS_WITH_DOCTOR: <practical script — "I read about combining X and Y for [condition] because [pathway]; can we discuss whether monitoring [labs/AEs] would let us trial it?">
 
-Combinations are HYPOTHESIS-GENERATION ONLY. Many real-world combos carry significant interaction risk (additive QT prolongation, serotonin syndrome, bleeding risk). When literature or pharmacology suggests interaction risk may dominate any plausible benefit, report that honestly with citations — list those as confidence < 25% and INTERACTION_RISK: HIGH. Frame as "physicians generally caution against combining… — discuss with your doctor."
+Combinations are HYPOTHESIS-GENERATION ONLY. When interaction risk may dominate benefit, report honestly — confidence < 25% and INTERACTION_RISK: HIGH.
 
 ## Reasoning Summary
 Explain the top 3 single-agent candidates and the top 2 combination candidates in plain language.
 
 ## What This Is NOT
-Clearly say this is hypothesis-generation, not a prescription, and must be discussed with a physician before any change. Combinations carry compounding risk even when each agent is individually safe.
+Clearly say this is hypothesis-generation, not a prescription, and must be discussed with a physician before any change.`;
+
+const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
+
+THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
+Produce ALL mechanistic/preclinical candidates (5-8) FIRST, then 6-8 published-support candidates (12-14 total max).
+YOU MUST FINISH within the token budget — keep each field concise.
+
+${REPURPOSE_CANDIDATE_FORMAT}
+
+${SHARED_GUARDRAILS}`;
+
+const REPURPOSE_PROMPT_BACK_STATIC = `${REPURPOSE_PROMPT_INTRO}
+
+THIS IS PART 2 OF 2. The user's message includes Part 1 candidate output — do NOT repeat any CANDIDATE blocks from Part 1.
+Output ONLY the sections below (combinations + summary). Reference drugs from Part 1 by name.
+
+${REPURPOSE_COMBO_AND_SUMMARY}
+
+${SHARED_GUARDRAILS}`;
+
+// Single-shot fallback (API backward compat). UI uses gather → synth front → synth back.
+const REPURPOSE_PROMPT_STATIC = `${REPURPOSE_PROMPT_INTRO}
+
+Produce a ranked list of 12-18 candidate repurposed drugs or supplements total.
+
+${REPURPOSE_CANDIDATE_FORMAT}
+
+${REPURPOSE_COMBO_AND_SUMMARY}
 
 ${SHARED_GUARDRAILS}`;
 
@@ -854,7 +909,7 @@ export default async function handler(req, res) {
       priorText = ''
     } = req.body || {};
     const model = String(req.body?.model || DEFAULT_MODEL);
-    const maxTokens = resolveMaxTokens(model);
+    const maxTokens = resolveMaxTokens(model, mode, phase, half);
 
     // ============================================================
     // Utility modes consolidated into /api/research so we stay
@@ -1183,7 +1238,7 @@ export default async function handler(req, res) {
             treatments: ['treatment', 'systematic review'],
             drugs,
             manufacturers: [],
-            limitPerSource: 3,
+            limitPerSource: mode === 'repurpose' ? 5 : 3,
             includeFullText: true
             // NB: dossier intentionally NOT passed — evidence.js will
             // fetch it via getDossier() and hit the in-flight cache so
@@ -1220,7 +1275,8 @@ export default async function handler(req, res) {
         ...trimmed
       });
     }
-    const groundingBlock = evidence ? buildGroundingBlock(evidence) : '';
+    const groundingLimit = mode === 'repurpose' ? 12 : 6;
+    const groundingBlock = evidence ? buildGroundingBlock(evidence, { limit: groundingLimit }) : '';
     const trialsBlock = trials ? buildTrialsBlock(trials) : '';
     const dossierBlock = dossier ? buildDossierBlock(dossier) : '';
     // Anti-omission guardrail: inject the KB's pipelineDrugs +
@@ -1249,12 +1305,16 @@ export default async function handler(req, res) {
     let systemPrompt = null;
 
     switch (mode) {
-      case 'repurpose':
+      case 'repurpose': {
+        const repStatic = (phase === 'synthesize' && half === 'back')
+          ? REPURPOSE_PROMPT_BACK_STATIC
+          : (phase === 'synthesize' ? REPURPOSE_PROMPT_FRONT_STATIC : REPURPOSE_PROMPT_STATIC);
         systemBlocks = [
-          { type: 'text', text: REPURPOSE_PROMPT_STATIC, cache_control: { type: 'ephemeral' } },
-          { type: 'text', text: buildDynamicHeader(patient, audience) + (extraContext ? `\n\n${extraContext}` : '') }
+          { type: 'text', text: repStatic, cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: buildDynamicHeader(patient, audience, 'repurpose') + (extraContext ? `\n\n${extraContext}` : '') }
         ];
         break;
+      }
       case 'trials':
         systemPrompt = TRIALS_PROMPT(patient, audience, trialsData || {});
         break;
@@ -1356,18 +1416,25 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
           : RESEARCH_PROMPT_FRONT_STATIC;
         systemBlocks = [
           { type: 'text', text: baseStatic, cache_control: { type: 'ephemeral' } },
-          { type: 'text', text: buildDynamicHeader(patient, audience) + (extraContext ? `\n\n${extraContext}` : '') }
+          { type: 'text', text: buildDynamicHeader(patient, audience, 'research') + (extraContext ? `\n\n${extraContext}` : '') }
         ];
         break;
       }
     }
 
+    const synthUserQuery = (() => {
+      if (userQuery) return userQuery;
+      if (mode === 'repurpose' && phase === 'synthesize' && half === 'back' && priorText) {
+        return `Part 1 drug candidates are attached below. Produce Part 2 only (combinations + reasoning summary + disclaimer). Do NOT repeat Part 1 CANDIDATE blocks.\n\n=== PART 1 OUTPUT ===\n${String(priorText).slice(0, 28000)}`;
+      }
+      if (mode === 'repurpose' && phase === 'synthesize' && half === 'front') {
+        return 'Produce Part 1 only: ranked CANDIDATE blocks (mechanistic/preclinical first, then published-support). No combinations or summary.';
+      }
+      return `Please perform the ${mode} analysis now for the patient profile above.`;
+    })();
     const messages = [
       ...chatHistory.map(m => ({ role: m.role, content: m.content })),
-      {
-        role: 'user',
-        content: userQuery || `Please perform the ${mode} analysis now for the patient profile above.`
-      }
+      { role: 'user', content: synthUserQuery }
     ];
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
