@@ -49,12 +49,34 @@ const resolveMaxTokens = (model, mode, phase, half) => {
   const forced = Number(process.env.ANTHROPIC_MAX_TOKENS || 0);
   if (forced > 0) return forced;
   const m = String(model || '').toLowerCase();
-  // Split synth halves must finish inside Vercel Hobby's 60s cap.
-  if (phase === 'synthesize' && mode === 'repurpose') return m.includes('opus') ? 1200 : 1500;
-  if (phase === 'synthesize' && mode === 'research') return m.includes('opus') ? 1200 : 1800;
-  if (m.includes('opus')) return 1400;
+  const isOpus = m.includes('opus');
+  // Split synth halves must finish inside Vercel Hobby's 60s cap. We trim
+  // the evidence input (see groundingPlan) so these output budgets fit with
+  // margin instead of running right up against the 60s cliff.
+  if (phase === 'synthesize' && mode === 'repurpose') {
+    // Front = the candidate list (wants room for ~8-10 drugs); back = the
+    // shorter combinations + summary section.
+    if (half === 'back') return isOpus ? 1100 : 1300;
+    return isOpus ? 1500 : 1900;
+  }
+  if (phase === 'synthesize' && mode === 'research') return isOpus ? 1200 : 1800;
+  if (isOpus) return 1400;
   if (m.includes('sonnet')) return 2000;
   return 2200; // haiku / unknown
+};
+
+// How much grounded evidence to inject, tuned per call so split-synthesis
+// calls stay well under the 60s serverless cap. Heavy evidence input is the
+// main driver of slow generation + truncated candidate lists.
+const groundingPlan = (mode, phase, half) => {
+  if (mode === 'repurpose' && phase === 'synthesize') {
+    // Combinations call references Part 1 drugs by name, so it needs far
+    // less raw literature than the candidate-generation call.
+    if (half === 'back') return { limit: 4, excerpt: 500 };
+    return { limit: 9, excerpt: 850 };
+  }
+  if (mode === 'repurpose') return { limit: 12, excerpt: 2000 };
+  return { limit: 6, excerpt: 2000 };
 };
 
 const invokeInProcess = async (handler, body) => {
@@ -348,6 +370,7 @@ const buildAgentsEvaluatedBlock = (claudeText, evidence) => {
 const buildGroundingBlock = (evidence, opts = {}) => {
   if (!evidence) return '';
   const limit = opts.limit ?? 6;
+  const excerpt = opts.excerpt ?? 2000;
   // Repurpose mode needs more papers so each candidate can cite real URLs.
   const items = (evidence.groundedForPrompt || []).slice(0, limit);
   if (!items.length) return '';
@@ -383,7 +406,7 @@ const buildGroundingBlock = (evidence, opts = {}) => {
     return `[#${i + 1}]${kbTag}${tierLabel}${access}${oa}${qTag} ${it.title || '(no title)'}
       Journal: ${it.journal || '?'}${pubLine} · Year: ${it.year || '?'} · Sources: ${src} · Citations: ${it.citations || 0}${countryLine}
       URL: ${it.url || '(no URL)'}
-      Content: ${(it.text || '').slice(0, 2000) || '(no text available — metadata only; you may name this paper but MUST NOT claim anything about its results, methods, or conclusions)'}`;
+      Content: ${(it.text || '').slice(0, excerpt) || '(no text available — metadata only; you may name this paper but MUST NOT claim anything about its results, methods, or conclusions)'}`;
   }).join('\n\n');
 
   const fdaBits = [];
@@ -782,8 +805,8 @@ Clearly say this is hypothesis-generation, not a prescription, and must be discu
 const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
-Produce ALL mechanistic/preclinical candidates (5-8) FIRST, then 6-8 published-support candidates (12-14 total max).
-YOU MUST FINISH within the token budget — keep each field concise.
+Produce 8-12 candidates total: mechanistic/preclinical candidates FIRST (at least 4), then published-support candidates.
+KEEP EVERY FIELD TIGHT — one or two sentences each. It is better to return 10 complete, concise candidates than 5 verbose ones that get cut off. FINISH the last candidate fully.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -1275,8 +1298,8 @@ export default async function handler(req, res) {
         ...trimmed
       });
     }
-    const groundingLimit = mode === 'repurpose' ? 12 : 6;
-    const groundingBlock = evidence ? buildGroundingBlock(evidence, { limit: groundingLimit }) : '';
+    const gPlan = groundingPlan(mode, phase, half);
+    const groundingBlock = evidence ? buildGroundingBlock(evidence, gPlan) : '';
     const trialsBlock = trials ? buildTrialsBlock(trials) : '';
     const dossierBlock = dossier ? buildDossierBlock(dossier) : '';
     // Anti-omission guardrail: inject the KB's pipelineDrugs +
