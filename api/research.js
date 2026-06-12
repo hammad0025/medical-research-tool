@@ -1692,27 +1692,33 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
     // an independent second model with different training data is a much
     // stronger safeguard.
     //
-    // AUTO-VERIFY 2026-06-12: validator is now ON BY DEFAULT for every
-    // non-chat run. The independent second AI re-checks Claude's output
-    // against the same evidence pack to catch hallucinated citations,
-    // unsupported claims, and mislabeled drugs (e.g. calling a studied
-    // drug "not researched"). This roughly doubles per-run cost but is the
-    // safety net the product owner asked for. A caller can still opt OUT by
-    // passing `validate: false` (e.g. a cost-sensitive batch path).
+    // REVERTED 2026-06-12: inline auto-verify is OFF again (opt-in). Running
+    // the second AI in the SAME request as the report doubled runtime and
+    // could push the serverless function past its timeout, making the whole
+    // report fail with "Load failed". Auto-verify is being re-done on the
+    // FRONTEND instead (fire the existing /api/validate call after the
+    // report renders) so it can never block or break report generation.
+    // Inline validation still works if a caller explicitly passes
+    // `validate: true`, and is now wrapped so it can NEVER crash the report.
     let validation = null;
-    const wantValidation = req.body?.validate !== false;
+    const wantValidation = req.body?.validate === true;
     const hasAnyValidatorKey =
       !!process.env.PERPLEXITY_API_KEY ||
       !!process.env.OPENAI_API_KEY ||
       !!process.env.XAI_API_KEY;
     if (wantValidation && mode !== 'chat' && claudeText && hasAnyValidatorKey) {
-      validation = await invokeValidate({
-        analysisText: claudeText,
-        evidencePack: (evidence?.groundedForPrompt || []).slice(0, 18),
-        patient,
-        condition: patient.condition || '',
-        audience
-      });
+      try {
+        validation = await invokeValidate({
+          analysisText: claudeText,
+          evidencePack: (evidence?.groundedForPrompt || []).slice(0, 18),
+          patient,
+          condition: patient.condition || '',
+          audience
+        });
+      } catch (err) {
+        console.error('[research] inline validation failed (non-fatal):', err.message);
+        validation = null;
+      }
     }
 
     return res.status(200).json({
