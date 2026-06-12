@@ -15,8 +15,7 @@ api/
 ├── openalex.js        # OpenAlex — broad scholarly coverage + journal tiering
 ├── openfda.js         # openFDA — drug labels, FAERS, enforcement actions
 ├── evidence.js        # Fan-out orchestrator: builds a grounded evidence pack
-├── validate.js        # Cross-AI validator (Perplexity / OpenAI / xAI)
-└── records-audit.js   # Anthropic-based medical-records audit
+└── validate.js        # Cross-AI validator (Perplexity / OpenAI / xAI)
 ```
 
 ## Endpoints
@@ -38,11 +37,6 @@ expanded-access/PTA/OLE), oversight (IRB/DSMB/FDA-regulated), locations, contact
 Body: `{ query, limit?, sort?, withAbstract? }`
 Returns PubMed articles with PMID, title, authors, journal, year, abstract, DOI,
 and a direct pubmedUrl. Set `NCBI_API_KEY` env var for higher rate limits.
-
-### POST /api/records-audit
-Body: `{ records, summary?, condition?, audience? }`
-Returns a structured audit of abnormal findings, omissions, misrepresentations,
-and unsupported summary statements.
 
 ### POST /api/validate
 Body: `{ analysisText, evidencePack, patient?, condition?, audience? }`
@@ -92,7 +86,7 @@ paper exists and says what was claimed.
 ## Environment Variables
 
 Required:
-- `ANTHROPIC_API_KEY` — Your Anthropic API key (used by `research.js` and `records-audit.js`)
+- `ANTHROPIC_API_KEY` — Your Anthropic API key (used by `research.js`)
 
 Optional:
 - `ANTHROPIC_RESEARCH_MODEL` — primary model for `/api/research` synthesis (default `claude-sonnet-4-20250514`; can be set to an Opus model if your account has access)

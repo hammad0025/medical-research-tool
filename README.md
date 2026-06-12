@@ -82,12 +82,6 @@ expanded-access / compassionate-use availability, IRB and DSMB status,
 country, and contact info. A per-patient AI narrative ranks the best trials
 and names specific interactions with the patient's current medications.
 
-### Medical Records Audit
-
-Paste raw records plus (optionally) a summary report. The tool extracts every
-abnormal finding with verbatim quotes and flags omissions, downplayed
-findings, or unsupported statements in the summary.
-
 ### Curated Knowledge Base
 
 Per-disease JSON files under `data/kb/` contain hand-curated landmark
@@ -127,7 +121,6 @@ disputed, unsupported, or citations that were hallucinated.
 │  /api/openfda      →  FDA labels + FAERS adverse events         │
 │  /api/unpaywall    →  locate legal OA PDFs for paywalled DOIs   │
 │  /api/trials       →  ClinicalTrials.gov v2                     │
-│  /api/records-audit→  records-vs-summary discrepancy check      │
 │  /api/validate     →  cross-AI citation audit                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
