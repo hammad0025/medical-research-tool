@@ -54,10 +54,12 @@ const resolveMaxTokens = (model, mode, phase, half) => {
   // can give synthesis room for fuller output than the old 60s Hobby cap
   // allowed. These stay split across two calls for resilience + streaming UX.
   if (phase === 'synthesize' && mode === 'repurpose') {
-    // Front = the candidate list (wants room for ~10-14 drugs); back = the
-    // shorter combinations + summary section.
-    if (half === 'back') return isOpus ? 1400 : 1800;
-    return isOpus ? 1900 : 2600;
+    // Tuned for ~2-minute total runtime (user feedback: 3.5min too long).
+    // Output generation is the dominant wall-clock cost, so these caps are
+    // the main speed lever. Pro's 300s ceiling means no timeout risk; this
+    // is purely a depth-vs-speed balance.
+    if (half === 'back') return isOpus ? 850 : 1050;
+    return isOpus ? 1300 : 1700;
   }
   if (phase === 'synthesize' && mode === 'research') return isOpus ? 1600 : 2400;
   if (isOpus) return 1400;
@@ -71,9 +73,10 @@ const resolveMaxTokens = (model, mode, phase, half) => {
 const groundingPlan = (mode, phase, half) => {
   if (mode === 'repurpose' && phase === 'synthesize') {
     // Combinations call references Part 1 drugs by name, so it needs less
-    // raw literature than the candidate-generation call.
-    if (half === 'back') return { limit: 5, excerpt: 700 };
-    return { limit: 12, excerpt: 1400 };
+    // raw literature than the candidate-generation call. Leaner prefill =
+    // faster time-to-first-token = shorter total runtime.
+    if (half === 'back') return { limit: 4, excerpt: 550 };
+    return { limit: 8, excerpt: 950 };
   }
   if (mode === 'repurpose') return { limit: 12, excerpt: 2000 };
   return { limit: 6, excerpt: 2000 };
@@ -808,8 +811,8 @@ Clearly say this is hypothesis-generation, not a prescription, and must be discu
 const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
-Produce 10-14 candidates total: mechanistic/preclinical candidates FIRST (at least 4), then published-support candidates.
-Keep each field concise (1-2 sentences). It is better to return a complete set of candidates than verbose ones that get cut off — FINISH the last candidate fully; never stop mid-block.
+Produce 7-9 candidates total: mechanistic/preclinical candidates FIRST (at least 3), then published-support candidates.
+Keep EVERY field to ONE concise sentence — speed matters. A complete set of 7-9 tight candidates is the goal; FINISH the last candidate fully and never stop mid-block.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
