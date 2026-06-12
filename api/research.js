@@ -50,33 +50,30 @@ const resolveMaxTokens = (model, mode, phase, half) => {
   if (forced > 0) return forced;
   const m = String(model || '').toLowerCase();
   const isOpus = m.includes('opus');
-  // Split synth halves must finish inside Vercel Hobby's 60s cap. We trim
-  // the evidence input (see groundingPlan) so these output budgets fit with
-  // margin instead of running right up against the 60s cliff.
+  // On Vercel Pro each function may run up to 300s (see vercel.json), so we
+  // can give synthesis room for fuller output than the old 60s Hobby cap
+  // allowed. These stay split across two calls for resilience + streaming UX.
   if (phase === 'synthesize' && mode === 'repurpose') {
-    // HARD CONSTRAINT: Vercel Hobby caps each function at 60s and output
-    // generation is the dominant wall-clock cost (~25-40 tok/s under load).
-    // Keep these conservative so each call finishes with margin. More
-    // candidates require the Pro plan (maxDuration 300s) — see vercel.json.
-    if (half === 'back') return isOpus ? 900 : 1000;
-    return isOpus ? 1100 : 1300;
+    // Front = the candidate list (wants room for ~10-14 drugs); back = the
+    // shorter combinations + summary section.
+    if (half === 'back') return isOpus ? 1400 : 1800;
+    return isOpus ? 1900 : 2600;
   }
-  if (phase === 'synthesize' && mode === 'research') return isOpus ? 1200 : 1800;
+  if (phase === 'synthesize' && mode === 'research') return isOpus ? 1600 : 2400;
   if (isOpus) return 1400;
   if (m.includes('sonnet')) return 2000;
   return 2200; // haiku / unknown
 };
 
-// How much grounded evidence to inject, tuned per call so split-synthesis
-// calls stay well under the 60s serverless cap. Heavy evidence input is the
-// main driver of slow generation + truncated candidate lists.
+// How much grounded evidence to inject per call. On Pro we can afford a
+// richer evidence pack (more papers, longer excerpts) so candidates cite
+// real sources, while still splitting the work into two resilient calls.
 const groundingPlan = (mode, phase, half) => {
   if (mode === 'repurpose' && phase === 'synthesize') {
-    // Combinations call references Part 1 drugs by name, so it needs far
-    // less raw literature than the candidate-generation call. Smaller
-    // prefill = faster time-to-first-token = more headroom under 60s.
-    if (half === 'back') return { limit: 3, excerpt: 450 };
-    return { limit: 6, excerpt: 650 };
+    // Combinations call references Part 1 drugs by name, so it needs less
+    // raw literature than the candidate-generation call.
+    if (half === 'back') return { limit: 5, excerpt: 700 };
+    return { limit: 12, excerpt: 1400 };
   }
   if (mode === 'repurpose') return { limit: 12, excerpt: 2000 };
   return { limit: 6, excerpt: 2000 };
@@ -811,8 +808,8 @@ Clearly say this is hypothesis-generation, not a prescription, and must be discu
 const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
-Produce 6-8 candidates total: mechanistic/preclinical candidates FIRST (at least 3), then published-support candidates.
-KEEP EVERY FIELD TO ONE SHORT SENTENCE. Brevity is mandatory — a complete set of 6 concise candidates is far better than 4 verbose ones that get cut off. FINISH the last candidate fully; never stop mid-block.
+Produce 10-14 candidates total: mechanistic/preclinical candidates FIRST (at least 4), then published-support candidates.
+Keep each field concise (1-2 sentences). It is better to return a complete set of candidates than verbose ones that get cut off — FINISH the last candidate fully; never stop mid-block.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -1230,11 +1227,12 @@ export default async function handler(req, res) {
       evidence = providedEvidence || null;
       trials = providedTrials || null;
     } else {
-      // Hard deadline for the entire gather phase. Hobby caps each function
-      // at 60s (see vercel.json maxDuration). Default 50s leaves headroom for
-      // JSON serialization + response flush. Override with MRT_GATHER_DEADLINE_MS
-      // on Pro (e.g. 90000) if you raise maxDuration there.
-      const GATHER_DEADLINE_MS = Number(process.env.MRT_GATHER_DEADLINE_MS || 50_000);
+      // Hard deadline for the entire gather phase. On Vercel Pro functions
+      // may run up to 300s (see vercel.json maxDuration); 120s gives the
+      // PubMed/EPMC/OpenAlex/trials fan-out room to complete fully instead
+      // of returning partial pools, while still bounding worst-case latency.
+      // Override with MRT_GATHER_DEADLINE_MS if needed.
+      const GATHER_DEADLINE_MS = Number(process.env.MRT_GATHER_DEADLINE_MS || 120_000);
       const withDeadline = (p, label) => Promise.race([
         p.catch((e) => {
           console.warn(`[research.gather] ${label} threw:`, e?.message || e);
