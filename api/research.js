@@ -1692,15 +1692,15 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
     // an independent second model with different training data is a much
     // stronger safeguard.
     //
-    // COST CUT 2026-04-23: validator is now OPT-IN (default OFF). Previously
-    // this fired on every research run, burning ~$0.05 per request on the
-    // second LLM whether the user cared about the audit or not. Users who
-    // want it now click an "Audit this analysis" button in the UI, which
-    // POSTs to /api/validate directly with the analysis text + evidence
-    // pack. The inline call here still works if the caller explicitly
-    // passes `validate: true` — handy for automated pipelines.
+    // AUTO-VERIFY 2026-06-12: validator is now ON BY DEFAULT for every
+    // non-chat run. The independent second AI re-checks Claude's output
+    // against the same evidence pack to catch hallucinated citations,
+    // unsupported claims, and mislabeled drugs (e.g. calling a studied
+    // drug "not researched"). This roughly doubles per-run cost but is the
+    // safety net the product owner asked for. A caller can still opt OUT by
+    // passing `validate: false` (e.g. a cost-sensitive batch path).
     let validation = null;
-    const wantValidation = req.body?.validate === true;
+    const wantValidation = req.body?.validate !== false;
     const hasAnyValidatorKey =
       !!process.env.PERPLEXITY_API_KEY ||
       !!process.env.OPENAI_API_KEY ||
