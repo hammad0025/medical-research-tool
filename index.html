@@ -2019,7 +2019,10 @@
             <Header patient={patient} audience={audience} setAudience={setAudience}
               user={user} setUser={setUser}
               themeMode={themeMode} setThemeMode={setThemeMode}
-              runtimeConfig={runtimeConfig} usageInfo={usageInfo} />
+              runtimeConfig={runtimeConfig} usageInfo={usageInfo}
+              refreshUsage={async () => {
+                try { setUsageInfo(await callResearchMode('usage')); } catch (_) {}
+              }} />
             <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 2rem' }}>
               <Tabs tab={tab} setTab={setTab} />
 
@@ -2096,9 +2099,10 @@
         } catch { return null; }
       };
 
-      const Header = ({ patient, audience, setAudience, user, setUser, themeMode, setThemeMode, runtimeConfig, usageInfo }) => {
+      const Header = ({ patient, audience, setAudience, user, setUser, themeMode, setThemeMode, runtimeConfig, usageInfo, refreshUsage }) => {
         const [menuOpen, setMenuOpen] = useState(false);
         const [signInOpen, setSignInOpen] = useState(false);
+        const [settingsOpen, setSettingsOpen] = useState(false);
         useEffect(() => {
           if (!menuOpen) return;
           const close = () => setMenuOpen(false);
@@ -2285,7 +2289,7 @@
                         </div>
                       </div>
                       {[
-                        { icon: Settings,    label: 'Account settings', onClick: () => alert('Account settings coming soon.') },
+                        { icon: Settings,    label: 'Account settings', onClick: () => { setSettingsOpen(true); setMenuOpen(false); } },
                         { icon: BookOpen,    label: 'My alerts',        onClick: () => alert('Manage alerts from the Patient Profile tab for now.') },
                         { icon: HelpCircle,  label: 'Help & feedback',  onClick: () => alert('Send feedback to hammad@example.com') }
                       ].map((item, i) => (
@@ -2337,6 +2341,17 @@
                 try { localStorage.setItem('mrt_user', JSON.stringify(u)); } catch {}
                 setSignInOpen(false);
               }} />
+            )}
+
+            {settingsOpen && (
+              <AccountSettingsModal
+                user={user}
+                setUser={setUser}
+                usageInfo={usageInfo}
+                refreshUsage={refreshUsage}
+                runtimeConfig={runtimeConfig}
+                onClose={() => setSettingsOpen(false)}
+              />
             )}
           </>
         );
@@ -2419,6 +2434,180 @@
               <p style={{ marginTop: '0.75rem', marginBottom: 0, fontSize: '0.7rem', color: theme.textDim, textAlign: 'center', fontStyle: 'italic' }}>
                 This is a local-only demo identity stored in your browser. We do not sync accounts to our servers yet.
               </p>
+            </div>
+          </div>
+        );
+      };
+
+      /* ==================== Account Settings ====================
+         Scope (per product decision): account = IDENTITY + BILLING only.
+         We deliberately store NO medical / PHI here — clinical details live
+         only on-device in the Patient Profile tab and are never attached to
+         the account. This panel handles the non-medical stuff: who you are
+         (name/email, local-only for now) and your plan/billing (current
+         plan, runs used, and upgrade-code activation). */
+      const AccountSettingsModal = ({ user, setUser, usageInfo, refreshUsage, runtimeConfig, onClose }) => {
+        const [name, setName] = useState(user?.name || '');
+        const [email, setEmail] = useState(user?.email || '');
+        const [savedMsg, setSavedMsg] = useState('');
+        const [code, setCode] = useState('');
+        const [codeBusy, setCodeBusy] = useState(false);
+        const [codeMsg, setCodeMsg] = useState('');
+        const [codeErr, setCodeErr] = useState('');
+
+        const usage = usageInfo?.usage;
+        const unlimited = !!(usage?.unlimited || usage?.plan === 'dev');
+        const planLabel = unlimited
+          ? 'Unlimited'
+          : usage?.plan
+            ? usage.plan.charAt(0).toUpperCase() + usage.plan.slice(1)
+            : 'Free';
+        const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+        const tiers = runtimeConfig?.monetization?.tiers || [
+          { id: 'free', label: 'Free', runsPerMonth: runtimeConfig?.monetization?.freeRunsPerMonth ?? 4, priceUsd: 0 },
+          { id: 'pro', label: 'Pro', runsPerMonth: runtimeConfig?.monetization?.proRunsPerMonth ?? runtimeConfig?.monetization?.paidRunsPerMonth ?? 100, priceUsd: runtimeConfig?.monetization?.proPriceUsd ?? runtimeConfig?.monetization?.paidPriceUsd ?? 20 },
+          { id: 'max', label: 'Max', runsPerMonth: runtimeConfig?.monetization?.maxRunsPerMonth ?? 500, priceUsd: runtimeConfig?.monetization?.maxPriceUsd ?? 79 }
+        ];
+
+        const saveProfile = () => {
+          const next = { ...(user || {}), name: name.trim() || email.trim().split('@')[0], email: email.trim() };
+          setUser(next);
+          try { localStorage.setItem('mrt_user', JSON.stringify(next)); } catch {}
+          setSavedMsg('Saved');
+          setTimeout(() => setSavedMsg(''), 2000);
+        };
+
+        const applyCode = async () => {
+          if (!code.trim()) { setCodeErr('Enter your upgrade code first.'); return; }
+          setCodeBusy(true); setCodeErr(''); setCodeMsg('');
+          try {
+            const r = await fetch('/api/research', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode: 'activate-plan', code: code.trim() })
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+            setCode('');
+            await (refreshUsage ? refreshUsage() : Promise.resolve());
+            const tier = d?.plan || d?.usage?.plan || 'paid';
+            setCodeMsg(`${tier.charAt(0).toUpperCase()}${tier.slice(1)} plan activated for this device/IP.`);
+          } catch (err) {
+            setCodeErr(err.message || 'Upgrade failed');
+          } finally {
+            setCodeBusy(false);
+          }
+        };
+
+        const sectionStyle = {
+          border: `1px solid ${theme.border}`, borderRadius: 10,
+          padding: '1rem 1.1rem', marginTop: '0.9rem', background: theme.accentSoft
+        };
+        const sectionTitle = {
+          margin: '0 0 0.2rem', fontSize: '0.7rem', fontWeight: 700,
+          letterSpacing: '0.06em', textTransform: 'uppercase', color: theme.textDim
+        };
+
+        return (
+          <div onClick={onClose} style={{
+            position: 'fixed', inset: 0, background: 'rgba(3,10,14,0.7)',
+            backdropFilter: 'blur(6px)', zIndex: 200,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+          }}>
+            <div onClick={e => e.stopPropagation()} style={{
+              width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto',
+              background: theme.panelSolid, borderRadius: 14,
+              border: `1px solid ${theme.border}`, padding: '1.6rem',
+              boxShadow: theme.name === 'light' ? '0 24px 64px rgba(15,23,42,0.18)' : '0 24px 64px rgba(0,0,0,0.6)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: theme.text, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Settings size={18} color={theme.accent} /> Account settings
+                </h3>
+                <button onClick={onClose} aria-label="Close" style={{
+                  background: 'transparent', border: 'none', color: theme.textDim,
+                  cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, padding: '0.2rem'
+                }}>×</button>
+              </div>
+
+              {/* PHI boundary notice — the whole point of the scope decision. */}
+              <div style={{
+                display: 'flex', gap: '0.5rem', alignItems: 'flex-start',
+                padding: '0.6rem 0.7rem', borderRadius: 8, fontSize: '0.78rem',
+                background: `${theme.green}14`, border: `1px solid ${theme.green}44`,
+                color: theme.text, lineHeight: 1.45
+              }}>
+                <Shield size={15} color={theme.green} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>Your account stores only your name, email, and plan — <strong>never medical information</strong>. Clinical details you enter stay on this device in the Patient Profile tab and are not linked to your account.</span>
+              </div>
+
+              {/* Identity */}
+              <div style={sectionStyle}>
+                <div style={sectionTitle}>Profile</div>
+                <div style={{ marginBottom: '0.6rem' }}>
+                  <label style={labelStyle}>Name</label>
+                  <input value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="Your name" />
+                </div>
+                <div style={{ marginBottom: '0.6rem' }}>
+                  <label style={labelStyle}>Email</label>
+                  <input value={email} onChange={e => setEmail(e.target.value)} type="email" style={inputStyle} placeholder="you@example.com" />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <button onClick={saveProfile} disabled={!emailOk} style={btn('primary', !emailOk)}>Save profile</button>
+                  {savedMsg && <span style={{ fontSize: '0.78rem', color: theme.green, fontWeight: 600 }}>{savedMsg}</span>}
+                </div>
+                <p style={{ margin: '0.6rem 0 0', fontSize: '0.7rem', color: theme.textDim, fontStyle: 'italic' }}>
+                  Local-only identity for now (stored in this browser). Server-synced accounts arrive with paid launch.
+                </p>
+              </div>
+
+              {/* Billing / plan */}
+              <div style={sectionStyle}>
+                <div style={sectionTitle}>Plan &amp; billing</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '1.05rem', fontWeight: 700, color: theme.text }}>{planLabel} plan</span>
+                  {!unlimited && usage && (
+                    <span style={{ fontSize: '0.82rem', color: theme.textDim }}>
+                      {usage.remaining}/{usage.limit} runs left this month
+                    </span>
+                  )}
+                  {unlimited && (
+                    <span style={{ fontSize: '0.82rem', color: theme.green, fontWeight: 600 }}>Unlimited runs</span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.7rem' }}>
+                  {tiers.map((t) => (
+                    <div key={t.id} style={{
+                      flex: '1 1 120px', padding: '0.55rem 0.65rem', borderRadius: 8,
+                      border: `1px solid ${theme.border}`, background: theme.panel
+                    }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>{t.label}</div>
+                      <div style={{ fontSize: '0.74rem', color: theme.textDim }}>
+                        {t.priceUsd ? `$${t.priceUsd}/mo` : 'Free'} · {t.runsPerMonth}/mo
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ marginTop: '0.85rem' }}>
+                  <label style={labelStyle}>Have an upgrade code?</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <input value={code} onChange={e => setCode(e.target.value)}
+                      style={{ ...inputStyle, flex: '1 1 160px' }} placeholder="Enter code"
+                      onKeyDown={e => { if (e.key === 'Enter') applyCode(); }} />
+                    <button onClick={applyCode} disabled={codeBusy} style={btn('primary', codeBusy)}>
+                      {codeBusy ? 'Activating…' : 'Apply'}
+                    </button>
+                  </div>
+                  {codeMsg && <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: theme.green, fontWeight: 600 }}>{codeMsg}</p>}
+                  {codeErr && <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: theme.red, fontWeight: 600 }}>{codeErr}</p>}
+                </div>
+                <p style={{ margin: '0.7rem 0 0', fontSize: '0.7rem', color: theme.textDim, fontStyle: 'italic' }}>
+                  Online card billing isn't live yet — paid plans are activated by code for now. Reach out for a code.
+                </p>
+              </div>
             </div>
           </div>
         );

@@ -958,7 +958,8 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   const savedEnv = {
     VERCEL_ENV: process.env.VERCEL_ENV,
     NODE_ENV: process.env.NODE_ENV,
-    MRT_SKIP_USAGE_LIMIT: process.env.MRT_SKIP_USAGE_LIMIT
+    MRT_SKIP_USAGE_LIMIT: process.env.MRT_SKIP_USAGE_LIMIT,
+    MRT_DISABLE_USAGE_LIMIT: process.env.MRT_DISABLE_USAGE_LIMIT
   };
   const restoreEnv = () => {
     for (const [k, v] of Object.entries(savedEnv)) {
@@ -972,6 +973,10 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
     delete process.env.VERCEL_ENV;
     delete process.env.NODE_ENV;
     delete process.env.MRT_SKIP_USAGE_LIMIT;
+    // The metering-enforcement assertions below require the temporary master
+    // kill-switch to be OFF (it defaults ON in production now). Explicitly
+    // re-enable metering so we still exercise the Free/Pro/Max logic.
+    process.env.MRT_DISABLE_USAGE_LIMIT = '0';
 
     const testIp = '203.0.113.99';
     let blocked = false;
@@ -1017,6 +1022,24 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
       fail('MRT_SKIP_USAGE_LIMIT=1 should bypass outside production');
     } else {
       pass('MRT_SKIP_USAGE_LIMIT=1 bypasses outside production');
+    }
+
+    // Master kill-switch: disables metering everywhere, INCLUDING production.
+    process.env.VERCEL_ENV = 'production';
+    delete process.env.MRT_SKIP_USAGE_LIMIT;
+    process.env.MRT_DISABLE_USAGE_LIMIT = '1';
+    if (isUsageLimitBypassed('203.0.113.99')) {
+      pass('MRT_DISABLE_USAGE_LIMIT=1 bypasses metering even in production');
+    } else {
+      fail('MRT_DISABLE_USAGE_LIMIT=1 should bypass metering in all envs');
+    }
+    // Default (env unset) is currently ON → metering disabled in production.
+    process.env.VERCEL_ENV = 'production';
+    delete process.env.MRT_DISABLE_USAGE_LIMIT;
+    if (isUsageLimitBypassed('203.0.113.99')) {
+      pass('usage metering is OFF by default (temporary kill-switch default ON)');
+    } else {
+      fail('expected metering OFF by default while kill-switch default is ON');
     }
 
     process.env.VERCEL_ENV = 'development';

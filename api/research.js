@@ -580,7 +580,14 @@ const SHARED_GUARDRAILS = `
 CITATION RULES (absolute — the single biggest failure mode of AI in medical research is hallucinated citations):
 - CITE ONLY FROM THE GROUNDED EVIDENCE PACK provided below. Do not invent, paraphrase-without-URL, or cite from general knowledge.
 - Every factual claim about efficacy, safety, interactions, or outcomes MUST reference at least one evidence-pack item by its number (e.g. "[#3]") and include a verbatim quoted passage from that item's Content AND a clickable markdown link: [short title](url).
-- EVERY treatment, trial, drug, paper, guideline, and center mention MUST include a clickable markdown link when a URL exists in the evidence pack or trials pull. Bare URLs are acceptable only if markdown link syntax is impossible; prefer [title](url) always.
+- EVERY named entity MUST be a clickable markdown link — no exceptions. This includes treatments, drugs, trials, papers, guidelines, AND non-paper entities: hospitals/centers, clinics, advocacy organizations, patient registries, government bodies (FDA, NIH), and named physicians/experts. The client's hard requirement is "links to everything" — a named entity rendered as plain or bold-only text is a failure.
+- LINK SOURCE PRIORITY (use the first that applies, never invent a deep link to fake a citation):
+  1. If a URL for the entity exists in the evidence pack or trials pull, use that exact URL.
+  2. Trials → [NCT… ](https://clinicaltrials.gov/study/NCT01234567); if no NCT, link a ClinicalTrials.gov search: https://clinicaltrials.gov/search?term=<url-encoded terms>.
+  3. Drugs → FDA label on DailyMed search (https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=<drug>) or a PubMed search; guidelines → the issuing society's guideline page if you are certain of it, else a PubMed search (https://pubmed.ncbi.nlm.nih.gov/?term=<url-encoded>).
+  4. Centers/clinics/advocacy orgs/registries/experts → the entity's official website ONLY if you are confident of the exact URL; otherwise link a Google search (https://www.google.com/search?q=<url-encoded name>). A search link is always acceptable and is preferred over guessing a specific page.
+- NEVER fabricate a specific paper URL, DOI, PMID, or deep link to manufacture a citation. For grounded CLAIMS the link must come from the evidence pack (rule above); the search-URL fallback is ONLY for naming/navigation of non-claim entities.
+- Bare URLs are acceptable only if markdown link syntax is impossible; prefer [title](url) always.
 - If the evidence pack does not support a claim, write "No grounded evidence in pack" — DO NOT make one up.
 - Prefer A+ and A tier journals (NEJM, Lancet, JAMA, BMJ, Nature Medicine, Cochrane, ERJ, AJRCCM, Thorax, Chest) over B/C.
 - Weight evidence on METHODOLOGICAL grounds (RCT > observational > case report; meta-analysis > single study; larger n > smaller n; registered + pre-registered > not). Do NOT down-weight or up-weight by country of origin — a well-conducted RCT from any country is a well-conducted RCT.
@@ -623,7 +630,8 @@ OUTPUT FORMATTING RULES (enforce strictly — the user has explicitly complained
 - When comparing ≥3 items, USE A MARKDOWN TABLE, not prose.
 - No filler words ("Furthermore", "Additionally", "It is worth noting that", "In conclusion"). Every sentence either gives a fact, a number, a name, or an action the patient can take.
 - Every URL MUST be a real clickable markdown link: [PANTHER-IPF trial (NEJM 2012)](https://pubmed.ncbi.nlm.nih.gov/...) or [NCT01234567](https://clinicaltrials.gov/study/NCT01234567).
-- Every drug name, trial, and paper mention in prose MUST also carry its link inline — users need to verify every finding.
+- LINKS TO EVERYTHING (client's hard requirement): every named entity in prose, bullets, AND tables must carry an inline clickable link — drugs, trials, papers, guidelines, AND centers/hospitals, clinics, advocacy orgs, registries, FDA/NIH, and named experts. Follow the LINK SOURCE PRIORITY in the citation rules (pack URL first; ClinicalTrials.gov / DailyMed / PubMed canonical or search URLs; official site or a Google search for centers/orgs/experts). A search link is acceptable; dead text is not.
+- In markdown tables, the entity cell must contain the link itself, e.g. | [Pirfenidone](url) | … |.
 - For every card (treatment / trial / candidate), use the exact fixed-field structure. Do not add prose between fields.
 `;
 
@@ -1416,13 +1424,13 @@ ${dossierInChat ? dossierInChat + '\n' : ''}${hasPriors ? priorPieces.join('\n\n
    - any open-label extensions
 
    **Top centers / experts**
-   - named centers and specialists
+   - named centers and specialists — each as a clickable link (official site if you are sure of the URL, otherwise a Google search link). No center or expert as plain text.
 
    **Patient resources**
-   - advocacy orgs, registries
+   - advocacy orgs, registries — each as a clickable link (official site if certain, else a search link)
 
    **Safety considerations reported in literature**
-   - bullets with clickable links where available; frame as evidence for physician discussion, not directives
+   - bullets with clickable links (pack URL or PubMed search if not in pack); frame as evidence for physician discussion, not directives
 
    **For a deeper personalized analysis** — prompt them: "Add this condition to the Patient Profile tab and hit Run Research for a full 16-section personalised analysis with drug-interaction checks and the live evidence pack."
 
