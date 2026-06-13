@@ -45,7 +45,7 @@ const DEFAULT_MODEL = process.env.ANTHROPIC_RESEARCH_MODEL || 'claude-sonnet-4-2
 // Serverless timeout safety: Opus is typically slower token/sec than Sonnet,
 // so we cap max_tokens lower by default to reduce timeout risk. You can still
 // override directly with ANTHROPIC_MAX_TOKENS if needed.
-const resolveMaxTokens = (model, mode, phase, half) => {
+const resolveMaxTokens = (model, mode, phase, half, isBatch) => {
   const forced = Number(process.env.ANTHROPIC_MAX_TOKENS || 0);
   if (forced > 0) return forced;
   const m = String(model || '').toLowerCase();
@@ -54,11 +54,13 @@ const resolveMaxTokens = (model, mode, phase, half) => {
   // can give synthesis room for fuller output than the old 60s Hobby cap
   // allowed. These stay split across two calls for resilience + streaming UX.
   if (phase === 'synthesize' && mode === 'repurpose') {
-    // The user wants depth over speed (storage upgraded; 3.5-4 min is fine)
-    // and a hard floor of 15 drug candidates. Fifteen full CANDIDATE blocks do
-    // not fit in ~4800 tokens, so the front (candidate) half gets a much
-    // larger budget. Pro's 300s ceiling means no timeout risk.
     if (half === 'back') return isOpus ? 1800 : 2200;
+    // BATCHED front: ~4 candidates per call. Small budget so each call
+    // finishes in well under a minute (Claude runs at ~35 tok/s, so ~2800
+    // tokens ≈ 80s worst case) and several batches run concurrently. This
+    // is what prevents the slow single 200s+ call that gets truncated.
+    if (isBatch) return isOpus ? 2200 : 2800;
+    // Single-shot fallback (API back-compat): one big call for all 15.
     return isOpus ? 5200 : 7000;
   }
   if (phase === 'synthesize' && mode === 'research') return isOpus ? 1600 : 2400;
@@ -757,7 +759,7 @@ CANDIDATE: <name>
 CLASS: <drug class or supplement category — for layperson: use plain category, e.g. "immune-suppressing pill" not "mTOR inhibitor class">
 APPROVED_FOR: <current FDA-approved or common use — plain English for layperson>
 WHAT_IT_DOES: <REQUIRED — one sentence a non-doctor understands: what this drug/supplement is normally for and what it does in the body. No unexplained jargon.>
-WHY_FOR_THIS_CONDITION: <REQUIRED — one plain sentence: "This might help [condition] because …" — everyday words, no jargon without a parenthetical definition>
+WHY_FOR_THIS_CONDITION: <REQUIRED — one plain sentence. For a drug with positive or untested rationale: "This might help [condition] because …". For a drug whose human evidence is NEGATIVE / no-benefit / possible-harm (see STUDIED-AGENT RULE), DO NOT write "this might help" — state the honest finding instead, e.g. "This has been tried for [condition], but the research so far shows no clear benefit and possible harm — it is listed here so you and your doctor know it was already studied." Everyday words, no jargon without a parenthetical definition.>
 MECHANISM_TARGET: <for medical audience: molecular target/pathway. For layperson: ≤12-word plain phrase, e.g. "Helps cells clean up damaged parts" — define any technical term in parentheses>
 REPURPOSE_RATIONALE: <why it might help THIS condition — at the specified audience level. Layperson: 3 bullet lines per LAYPERSON RULES above. Medical: step-by-step biology.>
 EVIDENCE_STRENGTH: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
@@ -785,6 +787,7 @@ Before you label any candidate MECHANISTIC_ONLY or PRECLINICAL, search the GROUN
 - Check EXCLUDED AGENTS in the REQUIRED MENTIONS block — if a drug is listed there, you may still mention it but must lead with the negative literature and cite links.
 - NEVER CONTRADICT YOURSELF: if any field of a candidate states or implies the drug HAS been studied in this condition (e.g. "post-hoc analysis", "trials show", "no benefit in studies", "observational data"), then its EVIDENCE_STRENGTH must NOT be MECHANISTIC_ONLY and it must NOT appear under any "not yet studied / never researched" heading. The "not yet studied" group is reserved for drugs with ZERO human OR animal research for this condition.
 - WORKED EXAMPLE — metformin in IPF: metformin HAS been studied in IPF (post-hoc analyses of pirfenidone trials and observational cohorts; results show no clear benefit and possible harm). So metformin is "studied, evidence is negative" — it is NOT an unexplored/never-researched drug. Label it OBSERVATIONAL (or higher) and state the negative findings plainly.
+- NEGATIVE-EVIDENCE WHY LINE: when a drug's human evidence is negative / no-benefit / possible-harm, its WHY_FOR_THIS_CONDITION must NOT be a hopeful "this might help" sentence. It must say the honest finding (e.g. "Tried for this condition, but the research so far shows no clear benefit and possible harm — listed so you and your doctor know it was already studied"). A positive WHY line on a negative-evidence drug is a CONTRADICTION and a failure.
 
 ## Mechanistic Hypotheses (genuinely no human data for this condition)
 Produce 5-8 candidates where EVIDENCE_STRENGTH is MECHANISTIC_ONLY or PRECLINICAL ONLY when the evidence pack truly contains no human studies for that drug + this condition.
@@ -826,6 +829,33 @@ const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
 Produce 15 candidates (mechanistic/preclinical candidates FIRST, at least 5, then published-support candidates). 15 is the benchmark; returning fewer than 13 is a FAILURE of this task.
+Keep EVERY field to ONE or TWO concise sentences. Every candidate MUST include WHY_FOR_THIS_CONDITION (a plain "this might help because…" sentence) and at least one clickable link in REFERENCES. FINISH the last candidate fully and never stop mid-block.
+
+${REPURPOSE_CANDIDATE_FORMAT}
+
+${SHARED_GUARDRAILS}`;
+
+// Distinct "lanes" of drug types. Each batched front call covers ONE lane so
+// the concurrent batches don't produce the same drugs. Lane D is the one that
+// forces honest handling of drugs already studied in this condition (e.g.
+// metformin in IPF) so a studied-but-negative drug can never be mislabeled as
+// "never researched".
+const REPURPOSE_LANES = [
+  'LANE A — anti-inflammatory & immune-modulating drugs already approved for OTHER inflammatory or autoimmune conditions that could plausibly slow this condition. These are typically mechanistic/preclinical for THIS condition.',
+  'LANE B — metabolic, antifibrotic, hormonal, and cardiovascular drugs (e.g. drugs that affect scarring/fibrosis pathways, blood-pressure or heart drugs, metabolic drugs) that could be repurposed for this condition. Typically mechanistic/preclinical for THIS condition.',
+  'LANE C — widely-available over-the-counter supplements, vitamins, and antioxidants with a plausible biological mechanism for this condition. Typically mechanistic/preclinical for THIS condition.',
+  'LANE D — drugs that HAVE already been tested in PEOPLE for this exact condition (observational studies, post-hoc analyses of other trials, or dedicated trials). Report each one HONESTLY, including negative / no-benefit / possible-harm results. You MUST include here every agent listed under EXCLUDED AGENTS or negative-evidence in the grounding, lead with the negative finding, and give EVIDENCE_STRENGTH of OBSERVATIONAL or higher (NEVER MECHANISTIC_ONLY) with clickable links to the studies. A drug in this lane must NEVER be described as "not yet studied".'
+];
+
+// Batched front prompt: one lane, a handful of candidates, finishes fast.
+// Does NOT hardcode "15" (that quota belongs to the single-shot prompt); the
+// per-batch count comes from the user message. Keeps the STUDIED-AGENT rule
+// and the candidate format so quality + the metformin guardrail are intact.
+const REPURPOSE_PROMPT_FRONT_BATCH_STATIC = `${REPURPOSE_PROMPT_INTRO}
+
+THIS IS ONE BATCH of a larger candidate list. Other batches (running at the same time) cover the other drug lanes, so produce ONLY candidates that fit the LANE named in the user message — do not stray into other lanes, or you will duplicate another batch.
+Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary, no preamble.
+Produce the EXACT number of candidates requested in the user message. Quality over padding, but do not stop short of the requested count.
 Keep EVERY field to ONE or TWO concise sentences. Every candidate MUST include WHY_FOR_THIS_CONDITION (a plain "this might help because…" sentence) and at least one clickable link in REFERENCES. FINISH the last candidate fully and never stop mid-block.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
@@ -952,10 +982,22 @@ export default async function handler(req, res) {
       // evaluated" transparency block can correctly mark approved
       // drugs (which appear in the front half's section 3) as
       // discussed.
-      priorText = ''
+      priorText = '',
+      // Repurpose candidate generation is split into several SMALL batches
+      // that run concurrently on the client, instead of one slow ~200s call
+      // that risks hitting the function time limit and returning a truncated
+      // 3-candidate, no-links result. Each batch covers a distinct "lane" of
+      // drug types so the batches don't duplicate each other.
+      //   batchLane  → 0-based index into REPURPOSE_LANES (front half only)
+      //   batchSize  → how many candidates this batch should produce
+      batchLane = null,
+      batchSize = null
     } = req.body || {};
     const model = String(req.body?.model || DEFAULT_MODEL);
-    const maxTokens = resolveMaxTokens(model, mode, phase, half);
+    const isRepurposeBatch =
+      mode === 'repurpose' && phase === 'synthesize' && half === 'front' &&
+      batchLane !== null && batchLane !== undefined;
+    const maxTokens = resolveMaxTokens(model, mode, phase, half, isRepurposeBatch);
 
     // ============================================================
     // Utility modes consolidated into /api/research so we stay
@@ -1355,7 +1397,9 @@ export default async function handler(req, res) {
       case 'repurpose': {
         const repStatic = (phase === 'synthesize' && half === 'back')
           ? REPURPOSE_PROMPT_BACK_STATIC
-          : (phase === 'synthesize' ? REPURPOSE_PROMPT_FRONT_STATIC : REPURPOSE_PROMPT_STATIC);
+          : isRepurposeBatch
+            ? REPURPOSE_PROMPT_FRONT_BATCH_STATIC
+            : (phase === 'synthesize' ? REPURPOSE_PROMPT_FRONT_STATIC : REPURPOSE_PROMPT_STATIC);
         systemBlocks = [
           { type: 'text', text: repStatic, cache_control: { type: 'ephemeral' } },
           { type: 'text', text: buildDynamicHeader(patient, audience, 'repurpose') + (extraContext ? `\n\n${extraContext}` : '') }
@@ -1476,6 +1520,11 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
         // the evidence pack + standard-of-care, not from a Part 1 list.
         return 'Produce Part 2 only: combination candidates + reasoning summary + "What This Is NOT" disclaimer. Derive combinations from the disease biology, the grounded evidence pack, and standard-of-care. Do NOT output individual CANDIDATE blocks.';
       }
+      if (isRepurposeBatch) {
+        const laneIdx = Math.max(0, Math.min(REPURPOSE_LANES.length - 1, Number(batchLane) || 0));
+        const count = Math.max(1, Math.min(8, Number(batchSize) || 4));
+        return `Produce EXACTLY ${count} CANDIDATE blocks, and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the ${count} CANDIDATE blocks.`;
+      }
       if (mode === 'repurpose' && phase === 'synthesize' && half === 'front') {
         return 'Produce Part 1 only: ranked CANDIDATE blocks (mechanistic/preclinical first, then published-support). No combinations or summary.';
       }
@@ -1552,6 +1601,13 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
     //   If `half` is undefined (single-shot research mode), audit everything.
     const pipelineDrugs = (() => {
       if (mode === 'repurpose') {
+        // Batched front calls each produce only ~4 candidates for one lane,
+        // so a per-batch coverage audit would flag almost every pipeline drug
+        // as "missed" and trigger a needless forced full rewrite on each
+        // batch — defeating the whole point of batching. Skip it; coverage is
+        // spread across the lanes (lane D explicitly forces studied/excluded
+        // agents) and the single-shot fallback still audits.
+        if (isRepurposeBatch) return [];
         // Repurpose synthesis is split into a candidate list (front) and a
         // combinations section (back) that run in PARALLEL. Pipeline-drug
         // coverage belongs to the candidate list; the combinations section
@@ -1664,6 +1720,11 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
       isSynthesisMode &&
       allPipelineDrugs.length &&
       claudeText &&
+      // Batched repurpose: no single batch sees all candidates, so the
+      // "✓ discussed / NOT DISCUSSED" scan would be wrong. Skip it; the
+      // studied/excluded agents (e.g. metformin) are surfaced directly in
+      // the lane-D candidates instead, which is clearer for the reader.
+      !isRepurposeBatch &&
       (!half || half === transparencyHalf);
     if (shouldAppendTransparency) {
       // For split synthesis, include the front-half text when scanning

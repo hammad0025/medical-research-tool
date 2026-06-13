@@ -728,10 +728,26 @@
           }
         });
         if (cur) out.push(cur);
-        return out.sort((a, b) =>
+        // Candidates now come from several parallel "lane" batches, so the
+        // same drug can occasionally appear twice. De-duplicate by name,
+        // keeping the higher-confidence copy.
+        const sorted = out.sort((a, b) =>
           (b.confidence_pct || b.efficacy_hypothesis_pct || 0) -
           (a.confidence_pct || a.efficacy_hypothesis_pct || 0)
         );
+        const seenNames = new Set();
+        const deduped = [];
+        for (const cand of sorted) {
+          const norm = String(cand.candidate || '')
+            .toLowerCase()
+            .replace(/\(.*?\)/g, '')        // drop parenthetical brand/generic
+            .replace(/[^a-z0-9]/g, '')      // ignore spacing/punctuation
+            .trim();
+          if (norm && seenNames.has(norm)) continue;
+          if (norm) seenNames.add(norm);
+          deduped.push(cand);
+        }
+        return deduped;
       };
 
       const isMechanisticEvidence = (value) => {
@@ -1677,12 +1693,15 @@
                   validation: back.validation || front.validation || null
                 };
               } else if (mode === 'repurpose') {
-                // Run candidates (front) and combinations (back) CONCURRENTLY.
-                // The combinations call reasons from the same evidence pack
-                // and standard-of-care rather than waiting on the candidate
-                // text, so both fit in one ~70s window instead of stacking
-                // to ~120s+. Cuts total runtime by ~45s.
-                updateStep('synth', { status: 'running', detail: 'Drug ideas and drug pairs (at the same time)' });
+                // Candidate generation is split into several SMALL "lane"
+                // batches that run CONCURRENTLY, plus the combinations (back)
+                // call. One big 15-candidate call took ~200s+ — close enough
+                // to the function/connection limit that it often got cut off,
+                // returning a truncated 3-candidate, no-links result. Each
+                // small batch finishes in ~50s; running them at the same time
+                // keeps total time low AND means a single batch hiccup only
+                // costs a few candidates instead of the whole report.
+                updateStep('synth', { status: 'running', detail: 'Looking at several groups of drug ideas at once' });
                 const synthArgs = {
                   mode, patient, audience,
                   phase: 'synthesize',
@@ -1691,23 +1710,43 @@
                   providedTrials: gathered.trials,
                   ...extra
                 };
-                const [front, back] = await Promise.all([
-                  callResearch({ ...synthArgs, half: 'front' }),
-                  callResearch({ ...synthArgs, half: 'back' })
-                ]);
-                const frontText = (front.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-                const backText = (back.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+                // 4 lanes x 4 candidates = up to 16 (well above the 13 floor).
+                const LANE_COUNT = 4;
+                const PER_LANE = 4;
+                const batchCalls = [];
+                for (let lane = 0; lane < LANE_COUNT; lane++) {
+                  batchCalls.push(callResearch({
+                    ...synthArgs, half: 'front', batchLane: lane, batchSize: PER_LANE
+                  }));
+                }
+                // The combinations/summary section runs alongside the lanes.
+                const backCall = callResearch({ ...synthArgs, half: 'back' });
+                const settled = await Promise.allSettled([...batchCalls, backCall]);
+                const backSettled = settled[settled.length - 1];
+                const frontSettled = settled.slice(0, LANE_COUNT);
+                const okFronts = frontSettled
+                  .filter(s => s.status === 'fulfilled' && s.value)
+                  .map(s => s.value);
+                // If EVERY candidate batch failed, surface the error instead of
+                // silently showing an empty list.
+                if (!okFronts.length) {
+                  const firstErr = frontSettled.find(s => s.status === 'rejected');
+                  throw new Error(firstErr?.reason?.message || 'Drug idea generation failed — please run it again.');
+                }
+                const back = backSettled.status === 'fulfilled' ? backSettled.value : null;
+                const textOf = (r) => (r?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+                const frontText = okFronts.map(textOf).join('\n\n');
+                const backText = back ? textOf(back) : '';
+                const sumTok = (key) =>
+                  okFronts.reduce((n, r) => n + (r.usage?.[key] || 0), 0) + (back?.usage?.[key] || 0);
                 data = {
-                  ...back,
-                  content: [{ type: 'text', text: frontText + '\n\n' + backText }],
-                  usage: {
-                    input_tokens:  (front.usage?.input_tokens  || 0) + (back.usage?.input_tokens  || 0),
-                    output_tokens: (front.usage?.output_tokens || 0) + (back.usage?.output_tokens || 0)
-                  },
-                  dossier: back.dossier || front.dossier,
-                  evidence: back.evidence || front.evidence,
-                  trials: back.trials || front.trials,
-                  validation: back.validation || front.validation || null
+                  ...(back || okFronts[0]),
+                  content: [{ type: 'text', text: frontText + (backText ? '\n\n' + backText : '') }],
+                  usage: { input_tokens: sumTok('input_tokens'), output_tokens: sumTok('output_tokens') },
+                  dossier: back?.dossier || okFronts[0]?.dossier,
+                  evidence: back?.evidence || okFronts[0]?.evidence,
+                  trials: back?.trials || okFronts[0]?.trials,
+                  validation: back?.validation || okFronts[0]?.validation || null
                 };
               } else {
                 data = await callResearch({ mode, patient, audience, phase: 'synthesize', ...extra });
