@@ -680,7 +680,15 @@ Your output MUST include the following 3 sections IN THIS ORDER, and nothing els
 Then list 3–5 individual **named experts** with affiliations. Peer-recognised only — no clinic self-advertising.
 
 ## 3. Approved Treatments (Backed by Research)
-Ranked by evidence strength, best first. Include the 3-5 most important treatments only. For EACH output this EXACT card structure (the UI parses these fields):
+Include the 3-5 most important treatments.
+
+DRUG-APPROVAL RECENCY RULE (critical — your training data may be out of date):
+- The curated knowledge base and evidence pack below are kept CURRENT and may be NEWER than your training cutoff. If a drug is marked "approved" in the REQUIRED MENTIONS list or the grounded evidence/FDA-label items, treat it as APPROVED and put it in this section — even if your own training data says it is investigational, "in trials", or "not yet approved". Never override the KB's approval status with older internal knowledge.
+- ORDER: list the MOST RECENTLY APPROVED / newest-mechanism drug FIRST when the evidence shows it is approved and effective, then the older approved drugs. Do not bury a newer approved drug beneath older ones.
+- Every drug the KB marks "approved" for this condition MUST appear here as its own card.
+- When you include an OLDER drug, be honest about why a newer option may be preferred (e.g. more side effects, older mechanism) in its RISKS/EFFICACY lines — do not present an older drug as the single best choice if a newer approved drug exists.
+
+Ranked as above. For EACH output this EXACT card structure (the UI parses these fields):
 
 PROVIDER: <doctor / clinic / manufacturer with phone or URL>
 TREATMENT: <drug / biologic / device / surgery; include dose, strength, route>

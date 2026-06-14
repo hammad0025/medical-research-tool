@@ -1416,7 +1416,7 @@
         // report right after it renders (a separate, non-blocking call — it
         // can never delay or crash the report). Roughly doubles per-run cost.
         // Persisted so the preference survives refreshes.
-        const [autoVerify, setAutoVerify] = useState(() => loadLS('mrt_auto_verify', false));
+        const [autoVerify, setAutoVerify] = useState(() => loadLS('mrt_auto_verify', true));
         useEffect(() => saveLS('mrt_auto_verify', autoVerify), [autoVerify]);
         // Token usage + model + wall-clock per last run for the cost meter.
         // Dorothy asked: "how much more is Opus vs Sonnet, and per 1k users?"

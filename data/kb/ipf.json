@@ -8,9 +8,9 @@
     "usual interstitial pneumonia",
     "idiopathic interstitial pneumonia"
   ],
-  "version": "2026-04c",
+  "version": "2026-06a",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-23",
+  "lastUpdated": "2026-06-14",
   "editorialNote": "Landmark references for IPF decision-support. All items below are pinned into every IPF query's evidence pack. Editorial summaries are written by the curator; keyPassages are verbatim from the source where available.",
   "subspecialty": "Pulmonology / Interstitial Lung Disease",
   "icd10": "J84.112",
@@ -147,8 +147,8 @@
     },
     {
       "acronym": "FIBRONEER-IPF",
-      "name": "Nerandomilast (BI 1015550) vs placebo",
-      "topic": "Phase 3 positive readout Sept 2024 — first novel IPF drug in a decade."
+      "name": "Nerandomilast (BI 1015550 / Jascayd) vs placebo",
+      "topic": "Phase 3 positive readout Sept 2024; led to FDA approval of nerandomilast (Jascayd) for IPF on Oct 7, 2025 — first novel-mechanism IPF drug in a decade."
     },
     {
       "acronym": "INCREASE",
@@ -619,9 +619,93 @@
           "quote": "Treatment with BI 1015550, either alone or with background antifibrotic therapy, prevented a decrease in lung function in patients with idiopathic pulmonary fibrosis."
         }
       ]
+    },
+    {
+      "id": "ipf-fda-label-nerandomilast",
+      "category": "fda-label",
+      "tier": "A+",
+      "title": "JASCAYD (nerandomilast) — US FDA Prescribing Information",
+      "authors": "Boehringer Ingelheim",
+      "journal": "US FDA",
+      "year": 2026,
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/218764s001lbl.pdf",
+      "accessLevel": "full-text",
+      "summary": "FDA-approved label for nerandomilast (Jascayd), a preferential PDE4B inhibitor and the FIRST new-mechanism IPF drug in over a decade. FDA approved it for idiopathic pulmonary fibrosis on October 7, 2025, and for progressive pulmonary fibrosis in December 2025, based on the FIBRONEER-IPF phase 3 trial (1,177 patients, treated with or without background nintedanib or pirfenidone). Recommended dose: 18 mg orally twice daily (9 mg twice daily with strong CYP3A inhibitors). This is the newest FDA-approved antifibrotic and a leading current treatment option; because it was approved in late 2025 it may be missing from older training data and older guideline documents.",
+      "keyPassages": [
+        {
+          "topic": "indication",
+          "quote": "JASCAYD is a phosphodiesterase 4 (PDE4) inhibitor indicated for: the treatment of idiopathic pulmonary fibrosis in adult patients; the treatment of progressive pulmonary fibrosis in adult patients."
+        },
+        {
+          "topic": "dose",
+          "quote": "Recommended Dosage: 18 mg orally twice daily, approximately 12 hours apart, with or without food."
+        },
+        {
+          "topic": "trial basis",
+          "quote": "Approval was based on FIBRONEER-IPF, a randomized, double-blind, placebo-controlled trial in patients with IPF, with or without background antifibrotic therapy."
+        }
+      ]
+    },
+    {
+      "id": "ipf-metformin-spagnolo-2018",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Metformin Does Not Affect Clinically Relevant Outcomes in Patients with Idiopathic Pulmonary Fibrosis",
+      "authors": "Spagnolo P, Kreuter M, Maher TM, et al.",
+      "journal": "Respiration",
+      "year": 2018,
+      "doi": "10.1159/000489668",
+      "pmid": "30025392",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/30025392/",
+      "accessLevel": "abstract",
+      "summary": "KEY HUMAN EVIDENCE ON METFORMIN IN IPF. A post-hoc analysis of 624 placebo-arm patients across three phase 3 pirfenidone trials (CAPACITY 004, CAPACITY 006, ASCEND) compared metformin users vs non-users. Metformin had NO effect on disease progression, FVC decline, 6-minute walk distance, hospitalization, or mortality. If anything, slightly more metformin users had a ≥5% FVC decline. Conclusion: metformin has no effect on clinically relevant outcomes in IPF. This means metformin HAS been studied in people with IPF — it is NOT an unstudied drug — and the human evidence does not support it as an IPF treatment.",
+      "keyPassages": [
+        {
+          "topic": "no benefit",
+          "quote": "Metformin has no effect on clinically relevant outcomes in patients with IPF."
+        },
+        {
+          "topic": "possible worse FVC",
+          "quote": "A higher proportion of metformin users compared with nonmetformin users had a relative FVC decline of >=5% (63.4 vs. 50.6%, p = 0.043)."
+        }
+      ]
+    },
+    {
+      "id": "ipf-metformin-rangarajan-2018",
+      "category": "review",
+      "tier": "A",
+      "title": "Metformin reverses established lung fibrosis in a bleomycin model",
+      "authors": "Rangarajan S, Bone NB, Zmijewska AA, et al.",
+      "journal": "Nature Medicine",
+      "year": 2018,
+      "doi": "10.1038/s41591-018-0087-6",
+      "pmid": "29967351",
+      "url": "https://www.nature.com/articles/s41591-018-0087-6",
+      "accessLevel": "abstract",
+      "summary": "PRECLINICAL (ANIMAL/CELL) study that generated the metformin-for-IPF hypothesis. In mouse lungs and in fibroblasts from human IPF patients, activating AMPK with metformin reduced and even reversed established fibrosis. This is exciting laboratory science, but it is NOT human proof. It explains WHY metformin keeps coming up for IPF — but the human post-hoc data (Spagnolo 2018) did not show benefit. So research on metformin in IPF clearly exists; it is just not positive in people yet.",
+      "keyPassages": [
+        {
+          "topic": "mouse model",
+          "quote": "In a bleomycin model of lung fibrosis in mice, metformin therapeutically accelerates the resolution of well-established fibrosis in an AMPK-dependent manner."
+        }
+      ]
     }
   ],
   "canonicalFacts": [
+    {
+      "claim": "Nerandomilast (brand name Jascayd) is FDA-approved for IPF (October 7, 2025) and for progressive pulmonary fibrosis (December 2025). It is the newest approved antifibrotic, taken by mouth at 18 mg twice daily, and can be used alone or added to nintedanib or pirfenidone. Treat it as an approved, leading current option — not as investigational.",
+      "evidenceRefs": [
+        "ipf-fda-label-nerandomilast",
+        "ipf-nerandomilast-richeldi-2022"
+      ]
+    },
+    {
+      "claim": "Metformin has been studied in people with IPF and did NOT improve outcomes (Spagnolo 2018, post-hoc analysis of 3 phase 3 trials), even though lab/mouse studies were promising (Rangarajan 2018). So metformin is studied-but-not-effective for IPF — it must never be described as 'not researched' or 'never studied.'",
+      "evidenceRefs": [
+        "ipf-metformin-spagnolo-2018",
+        "ipf-metformin-rangarajan-2018"
+      ]
+    },
     {
       "claim": "Median survival after IPF diagnosis without antifibrotic therapy is approximately 3-5 years.",
       "evidenceRefs": [
@@ -757,17 +841,18 @@
     {
       "name": "Nerandomilast",
       "aliases": [
+        "Jascayd",
         "BI 1015550",
         "BI1015550"
       ],
       "mechanism": "Preferential PDE4B inhibitor — anti-inflammatory and anti-fibrotic",
       "sponsor": "Boehringer Ingelheim",
-      "status": "Phase 3 — FIBRONEER-IPF met primary endpoint September 2024; FDA filing anticipated 2025-2026",
-      "approvalStatus": "investigational",
+      "status": "FDA-APPROVED for IPF on October 7, 2025 (brand name Jascayd); also approved for progressive pulmonary fibrosis December 2025. Oral, 18 mg twice daily. Based on the FIBRONEER-IPF phase 3 trial.",
+      "approvalStatus": "approved",
       "pmid": "35569036",
       "doi": "10.1056/NEJMoa2201737",
       "nct": "NCT05321069",
-      "whyItMatters": "The first mechanistically novel IPF agent to read out positive in a pivotal phase 3 in over a decade. Currently the best-in-class investigational anti-fibrotic for IPF."
+      "whyItMatters": "The newest FDA-approved IPF drug and the first with a new mechanism in over a decade. It is taken by mouth and can be used on its own OR added on top of the older antifibrotics (nintedanib or pirfenidone). Because it was approved in late 2025, it is often missing from older AI training data and older guideline PDFs — but it is approved and is a leading current treatment choice. Do NOT describe it as investigational or unapproved."
     },
     {
       "name": "Pirfenidone",
@@ -898,8 +983,8 @@
     },
     {
       "name": "Metformin as an IPF antifibrotic",
-      "reason": "Post-hoc analyses of pirfenidone phase 3 trials and large observational cohorts found no meaningful slowing of FVC decline in IPF; some analyses suggested possible harm. A claims-based study in diabetic IPF patients showed lower mortality likely confounded by diabetes management, not a direct antifibrotic effect. Phase 3 trial NCT07520110 is ongoing. Not supported as an IPF treatment outside clinical trials.",
-      "evidenceRef": null
+      "reason": "Metformin HAS been researched for IPF — it is NOT an unstudied drug. Lab studies in mice and in human IPF cells (Rangarajan, Nature Medicine 2018) showed metformin can reverse lung scarring, which created excitement. BUT the human data do not back this up: a post-hoc analysis of 624 patients across three phase 3 pirfenidone trials (Spagnolo, Respiration 2018) found metformin had no effect on lung-function decline, walking distance, hospitalization, or survival, and slightly more metformin users had a >=5% drop in FVC. A dedicated phase 3 trial is ongoing. Bottom line: studied in people, but not shown to help — not an established IPF treatment outside a trial. Never describe metformin as 'not researched' or 'never studied' for IPF.",
+      "evidenceRef": "ipf-metformin-spagnolo-2018"
     }
   ]
 }
