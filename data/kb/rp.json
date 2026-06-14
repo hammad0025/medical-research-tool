@@ -484,19 +484,6 @@
       "whyItMatters": "Gene-agnostic cell therapy for RP. Unlike the offshore stem-cell clinics, this is a properly-run IRB trial with defined cells and endpoints — the legitimate cell therapy path for RP."
     },
     {
-      "name": "Nerandomilast-unrelated — Ocugen OCU410 (dry AMD / geographic atrophy)",
-      "aliases": [
-        "OCU-410",
-        "AAV5-hRORA",
-        "nuclear receptor RORA"
-      ],
-      "mechanism": "Gene-agnostic modifier gene therapy — AAV5-RORA for dry age-related macular degeneration / geographic atrophy",
-      "sponsor": "Ocugen, Inc.",
-      "status": "Phase 2 ArMaDa trial ongoing. Mentioned here because Ocugen patients and investors often conflate OCU400 (RP) and OCU410 (AMD/GA). They are distinct programs on the same modifier-gene-therapy platform.",
-      "approvalStatus": "investigational",
-      "whyItMatters": "Included for disambiguation — OCU410 is for dry AMD / geographic atrophy, NOT for RP. If a patient with RP asks about OCU410, the answer is 'wrong program — you want OCU400.'"
-    },
-    {
       "name": "N-acetylcysteine amide (NACA)",
       "aliases": [
         "NACA",

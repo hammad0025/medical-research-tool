@@ -748,13 +748,19 @@ Your output MUST include the following 3 sections IN THIS ORDER, and nothing els
 Then list 3–5 individual **named experts** with affiliations. Peer-recognised only — no clinic self-advertising.
 
 ## 3. Approved Treatments (Backed by Research)
-Include the 3-5 most important treatments.
+Include the most important treatments (up to 5). Quality over quantity — see the FDA-STATUS HONESTY RULE; do NOT pad this list to hit a number.
 
 DRUG-APPROVAL RECENCY RULE (critical — your training data may be out of date):
 - The curated knowledge base and evidence pack below are kept CURRENT and may be NEWER than your training cutoff. If a drug is marked "approved" in the REQUIRED MENTIONS list or the grounded evidence/FDA-label items, treat it as APPROVED and put it in this section — even if your own training data says it is investigational, "in trials", or "not yet approved". Never override the KB's approval status with older internal knowledge.
 - ORDER: list the MOST RECENTLY APPROVED / newest-mechanism drug FIRST when the evidence shows it is approved and effective, then the older approved drugs. Do not bury a newer approved drug beneath older ones.
 - Every drug the KB marks "approved" for this condition MUST appear here as its own card.
 - When you include an OLDER drug, be honest about why a newer option may be preferred (e.g. more side effects, older mechanism) in its RISKS/EFFICACY lines — do not present an older drug as the single best choice if a newer approved drug exists.
+
+FDA-STATUS HONESTY RULE (critical — NEVER imply a drug is approved when it is not):
+- This section is titled "Approved Treatments." A treatment counts as APPROVED only if it is FDA-approved FOR THIS CONDITION (or the KB marks it approved for this condition). Approved drugs MUST be listed FIRST.
+- Supplements, vitamins, and off-label or investigational drugs (e.g. N-acetylcysteine / NAC, vitamin A, metformin) are NOT approved treatments. Do NOT present them as approved. If one is genuinely important enough to include, you MUST (a) place it AFTER every approved drug, and (b) start its TREATMENT line with a plain flag a 7th grader understands, e.g. "NOT FDA-approved for this condition — sold as a supplement" or "NOT FDA-approved for this condition — used off-label" or "Still in trials — not approved yet". Never use wording that suggests approval.
+- Set FDA_STATUS accurately on EVERY card. Whenever FDA_STATUS is anything other than "approved", the card's own text must read as clearly NOT-approved.
+- If this condition has only one or two genuinely approved drugs, that is the honest answer — list just those. It is FINE for this section to be short. Do NOT inflate it with supplements or off-label drugs dressed up as approved options.
 
 Ranked as above. For EACH output this EXACT card structure (the UI parses these fields):
 
