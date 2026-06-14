@@ -511,11 +511,13 @@
       "whyItMatters": "Another 2024 α-synuclein disease-modifying failure."
     },
     {
-      "name": "AMT-130 (for PD — not the same as AMT-130 for HD)",
+      "name": "Gene therapy programs for Parkinson's (early-phase)",
       "aliases": [
-        "uniQure GBA-PD gene therapy"
+        "VY-AADC",
+        "AAV-GDNF",
+        "AXO-Lenti-PD"
       ],
-      "mechanism": "(Various AAV gene therapy programs — Voyager VY-AADC, uniQure AAV-GDNF, Axovant AXO-Lenti-PD)",
+      "mechanism": "Various AAV gene therapy programs (Voyager VY-AADC, AAV-GDNF, Axovant AXO-Lenti-PD)",
       "sponsor": "Multiple",
       "status": "Early-phase",
       "approvalStatus": "investigational",
