@@ -26,6 +26,7 @@ import evidenceHandler from '../lib/evidence.js';
 import validateHandler from '../lib/validate.js';
 import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
+import { loadKb } from '../lib/kb.js';
 import {
   consumeResearchCredit,
   limits as usageLimits,
@@ -102,6 +103,73 @@ const invokeInProcess = async (handler, body) => {
 const invokeEvidence = (body) => invokeInProcess(evidenceHandler, body);
 const invokeValidate = (body) => invokeInProcess(validateHandler, body);
 const invokeTrials = (body) => invokeInProcess(trialsHandler, body);
+
+// KB-ONLY EVIDENCE FALLBACK.
+// The live evidence fetch (PubMed/EPMC/OpenAlex fan-out) can be slow and is
+// wrapped in a 120s deadline that resolves to `null` on timeout OR error. When
+// that happened, the synthesis ran with NO grounding at all — which is exactly
+// what produced Dorothy's bug report: only ~3 candidates, no source links, and
+// metformin mislabeled as "not yet studied" (the excludedAgents guardrail never
+// reached the prompt). The curated KB is a LOCAL file that loads in <50ms, so
+// there is no excuse to ever run ungrounded when a KB exists for the condition.
+// This builds an evidence object from the KB alone, shaped exactly like the
+// real evidence.js response (groundedForPrompt + pipelineDrugs + excludedAgents
+// + canonicalFacts), so the synthesis prompt, required-mentions, and coverage
+// audit all keep working even when every external API is down.
+const buildKbFallbackEvidence = async (condition) => {
+  try {
+    if (!condition) return null;
+    const kb = await loadKb(condition);
+    if (!kb || !kb.matched) return null;
+    const grounded = (kb.items || []).map((it) => ({
+      id: it.id || it.doi || it.pmid || null,
+      title: it.title,
+      journal: it.journal || '',
+      publisher: it.publisher || '',
+      tier: it.tier || it.journalTier || null,
+      year: it.year || null,
+      sources: ['CuratedKB'],
+      isCuratedKB: true,
+      kbCategory: it.category || null,
+      openAccess: !!it.openAccess,
+      accessLevel: it.accessLevel || 'abstract',
+      citations: 0,
+      isRCT: !!it.isRCT,
+      isMetaAnalysis: !!it.isMetaAnalysis,
+      isSystematicReview: !!it.isSystematicReview,
+      url: it.url || '',
+      text: (it.abstract || it.summary || '').slice(0, 3500)
+    }));
+    return {
+      totalUnique: grounded.length,
+      totalFetched: grounded.length,
+      uniqueJournals: grounded.length,
+      groundedForPrompt: grounded,
+      topRanked: grounded.slice(0, 50),
+      pipelineDrugs: kb.meta?.pipelineDrugs || [],
+      excludedAgents: kb.meta?.excludedAgents || [],
+      canonicalFacts: kb.meta?.canonicalFacts || [],
+      fdaLabels: [],
+      fdaManufacturers: [],
+      promptPackBreakdown: { total: grounded.length, curatedKB: grounded.length, live: 0 },
+      knowledgeBase: {
+        matched: true,
+        ...kb.meta,
+        matchedOn: kb.matchedOn,
+        score: kb.score,
+        degraded: true // signals this is KB-only (external sources unavailable)
+      }
+    };
+  } catch (e) {
+    console.warn('[research] buildKbFallbackEvidence failed:', e?.message || e);
+    return null;
+  }
+};
+
+// True when an evidence object actually carries grounding the synthesis can
+// cite. A null result OR an empty groundedForPrompt both mean "ungrounded".
+const evidenceIsUsable = (ev) =>
+  !!ev && Array.isArray(ev.groundedForPrompt) && ev.groundedForPrompt.length > 0;
 
 // Gather returns pools to the browser, which POSTs them back for synthesize.
 // Trials + evidence can exceed 1MB and break slow clients; trim to what the
@@ -1296,6 +1364,18 @@ export default async function handler(req, res) {
       dossier = providedDossier || null;
       evidence = providedEvidence || null;
       trials = providedTrials || null;
+      // Same safety net on the synth side: if the gather handed us empty/null
+      // evidence (slow PubMed, old client payload), rebuild grounding from the
+      // curated KB so the candidate lanes still get the excludedAgents guardrail,
+      // pipeline drugs, and real citable papers. Prevents the "3 candidates / no
+      // links / metformin mislabeled" failure even when gather degraded.
+      if ((mode === 'research' || mode === 'repurpose') && !evidenceIsUsable(evidence)) {
+        const fallback = await buildKbFallbackEvidence(effectiveCondition);
+        if (evidenceIsUsable(fallback)) {
+          console.warn(`[research.synth] provided evidence unusable — using KB-only fallback (${fallback.groundedForPrompt.length} curated refs)`);
+          evidence = fallback;
+        }
+      }
     } else {
       // Hard deadline for the entire gather phase. On Vercel Pro functions
       // may run up to 300s (see vercel.json maxDuration); 120s gives the
@@ -1357,6 +1437,19 @@ export default async function handler(req, res) {
       dossier = dossierResult;
       evidence = evidenceResult;
       trials = trialsResult;
+
+      // SAFETY NET: if the live evidence fetch timed out or errored (withDeadline
+      // → null) OR came back with zero grounded papers, fall back to the curated
+      // KB so the synthesis is never ungrounded. Without this, a slow PubMed day
+      // silently degrades the report to ~3 candidates, no links, and a mislabeled
+      // metformin. The KB load is local and instant.
+      if (needsEvidence && !evidenceIsUsable(evidence)) {
+        const fallback = await buildKbFallbackEvidence(effectiveCondition);
+        if (evidenceIsUsable(fallback)) {
+          console.warn(`[research.gather] live evidence unusable — using KB-only fallback (${fallback.groundedForPrompt.length} curated refs)`);
+          evidence = fallback;
+        }
+      }
     }
 
     // Phase='gather' short-circuits here. We hand the raw pools back to the
