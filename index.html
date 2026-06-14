@@ -4017,7 +4017,7 @@
             style={{ cursor: 'pointer' }}
           />
           <ShieldCheck size={14} color={autoVerify ? theme.green : theme.textDim} />
-          Double-check every report with a second AI (about 2× cost)
+          Double-check every report with a second AI (costs about twice as much)
         </label>
       );
 
@@ -4385,10 +4385,10 @@
                     : tier === 'concern' ? theme.red
                     : theme.textDim;
         const title = tier === 'concern'
-          ? `First-author country: ${country} — documented research-integrity concerns for this jurisdiction; paper was down-weighted in ranking`
+          ? `Lead author is from ${country}. Research from here can be harder to check, so we ranked this paper a bit lower.`
           : tier === 'strong'
-          ? `First-author country: ${country} — strong-integrity jurisdiction`
-          : `First-author country: ${country}`;
+          ? `Lead author is from ${country}. Research from here is usually easy to check.`
+          : `Lead author is from ${country}.`;
         return (
           <span title={title} style={{
             display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
@@ -4835,7 +4835,7 @@
                   background: `${theme.red}22`, color: theme.red, fontWeight: 700,
                   border: `1px solid ${theme.red}55`
                 }}>
-                  {qb.predatoryExcluded} low-integrity publisher{qb.predatoryExcluded === 1 ? '' : 's'} filtered out
+                  {qb.predatoryExcluded} publisher{qb.predatoryExcluded === 1 ? '' : 's'} known for poor quality removed
                 </span>
               )}
               {(qb.preprintsInPool || 0) > 0 && (
@@ -5853,27 +5853,27 @@
           if (!s.hasPlacebo) chunks.push({ label: 'No placebo', value: 10, color: theme.green,
             why: 'Every participant gets the actual drug (no sugar-pill arm). You are guaranteed treatment, not a coin flip.' });
           if (s.designations?.fastTrack) chunks.push({ label: 'Fast Track', value: 5, color: theme.accent,
-            why: 'FDA granted Fast Track because the drug addresses an unmet need. The agency commits to more frequent meetings + rolling review, shortening time-to-approval.' });
+            why: 'The FDA put this drug on a faster path because patients need better options. That can mean it reaches people sooner.' });
           if (s.designations?.breakthrough) chunks.push({ label: 'Breakthrough', value: 8, color: theme.accent,
-            why: 'FDA Breakthrough Therapy status — the strongest sign a drug works much better than the options we have now on an important health measure. The FDA only gives this to rare, very promising drugs.' });
-          if (s.designations?.orphan) chunks.push({ label: 'Orphan', value: 3, color: theme.accent,
-            why: 'Orphan-drug status means the FDA recognized this is a rare disease. Sponsor gets tax credits + 7-year market exclusivity, which makes them more likely to actually finish development for small patient populations.' });
-          if (s.designations?.hasExpandedAccess) chunks.push({ label: 'Expanded Access', value: 20, color: theme.green,
-            why: 'You can get the drug OUTSIDE the trial — usually for patients who do not qualify (too sick, too far away, or have other health conditions). This is the "compassionate use" path. Very few drugs offer it.' });
-          if (s.designations?.hasOpenLabelExtension) chunks.push({ label: 'OLE', value: 15, color: theme.green,
-            why: 'Open-Label Extension: patients who finish the main trial can keep taking the drug long-term, without going back on placebo. Critical for chronic diseases where you do not want the drug withdrawn after the study ends.' });
-          if (s.designations?.hasPostTrialAccess) chunks.push({ label: 'PTA', value: 6, color: theme.yellow,
-            why: 'Post-Trial Access: the sponsor commits to providing the drug after the trial ends but before FDA approval. Better than nothing, but sometimes involves a fee or limited supply.' });
-          if ((s.topCenterScore || 0) > 0) chunks.push({ label: 'Top-center match', value: s.topCenterScore, color: theme.accent,
-            why: 'At least one trial site is a peer-recognized top center for THIS specific disease (from the disease dossier, e.g. Pittsburgh Simmons for ILD, Bascom Palmer for RP, MGH for ALS). The care + workup at these centers is usually best-in-class.' });
+            why: 'The FDA gave this its "Breakthrough" label — an early sign the drug may work much better than what we have now. The FDA only gives this to a few very promising drugs.' });
+          if (s.designations?.orphan) chunks.push({ label: 'Rare-disease drug', value: 3, color: theme.accent,
+            why: 'The FDA says this is for a rare disease. The company gets extra rewards for making it, so they are more likely to finish the work.' });
+          if (s.designations?.hasExpandedAccess) chunks.push({ label: 'Can get drug outside trial', value: 20, color: theme.green,
+            why: 'You may be able to get the drug even if you cannot join the study (for example, if you are too sick or live too far away). This is sometimes called "compassionate use." Few drugs offer it.' });
+          if (s.designations?.hasOpenLabelExtension) chunks.push({ label: 'Can keep drug after study', value: 15, color: theme.green,
+            why: 'Open-Label Extension: if the drug seems to work, people in the study can keep taking it after it ends — and everyone gets the real drug, not a dummy pill. This matters for long-term illnesses.' });
+          if (s.designations?.hasPostTrialAccess) chunks.push({ label: 'Drug after the trial', value: 6, color: theme.yellow,
+            why: 'The company promises to keep giving you the drug after the study ends, even before the FDA approves it. Better than nothing, but it may cost money or run low.' });
+          if ((s.topCenterScore || 0) > 0) chunks.push({ label: 'Top hospital', value: s.topCenterScore, color: theme.accent,
+            why: 'At least one study site is one of the best-known hospitals for this exact disease. The care and testing at these places is usually top-notch.' });
           const westernHit = (s.countries || []).some(c => WESTERN.has(c));
           const chinaHit = (s.countries || []).some(c => CHINA_LIKE.has(c));
-          if (westernHit) chunks.push({ label: 'Western-site bonus', value: 10, color: theme.accent,
-            why: 'Trial has at least one US / Canada / Western Europe site — easier logistics, IRB oversight you can verify, FDA-regulated drug supply chain, and your insurance is more likely to cover travel.' });
-          if (chinaHit) chunks.push({ label: 'High-risk jurisdiction penalty', value: -15, color: theme.red,
-            why: 'Trial has sites only (or primarily) in jurisdictions with documented systemic regulatory-integrity concerns. You may still be able to participate, but oversight, drug-supply provenance, and data quality are harder to verify from the US.' });
-          if (s.oversight?.oversightHasDMC) chunks.push({ label: 'DSMB', value: 4, color: theme.green,
-            why: 'Data Safety Monitoring Board (DSMB) is overseeing the trial — an independent panel that can halt the study early if safety signals emerge. Standard for high-quality, ethics-board-reviewed studies.' });
+          if (westernHit) chunks.push({ label: 'Easy-to-check location', value: 10, color: theme.accent,
+            why: 'This study has at least one site in the US, Canada, or Western Europe. That usually means easier travel, rules you can check, a safe drug supply, and better odds your insurance helps.' });
+          if (chinaHit) chunks.push({ label: 'Hard-to-check location', value: -15, color: theme.red,
+            why: 'This study runs mostly in places where the rules and data are harder to check from the US. You may still be able to join, but it is harder to be sure about safety and quality.' });
+          if (s.oversight?.oversightHasDMC) chunks.push({ label: 'Safety watchdog', value: 4, color: theme.green,
+            why: 'An independent safety team is watching this study and can stop it early if something looks unsafe. This is a sign of a careful, well-run study.' });
           return chunks;
         };
         const efficacyProxyScore = (s) => {
@@ -5952,17 +5952,16 @@
                         </td>
                         <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                            {s.designations?.hasOpenLabelExtension && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.accent}55`, color: theme.accent }}>OLE</span>}
-                            {s.designations?.hasExpandedAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Expanded Access</span>}
-                            {s.designations?.hasExpandedAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Compassionate Use</span>}
-                            {s.designations?.hasPostTrialAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.yellow}55`, color: theme.yellow }}>PTA</span>}
-                            {s.designations?.hasPayToAccess && <span style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.red}55`, color: theme.red }}>Pay-to-access</span>}
+                            {s.designations?.hasOpenLabelExtension && <span title="Open-Label Extension: if the drug works, you can keep taking it after the study ends." style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.accent}55`, color: theme.accent }}>Can keep drug after</span>}
+                            {s.designations?.hasExpandedAccess && <span title="A way to get a not-yet-approved drug outside of the study, usually for a serious illness." style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Can get drug outside trial</span>}
+                            {s.designations?.hasPostTrialAccess && <span title="The company keeps giving you the drug after the study ends, even before the FDA approves it." style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.yellow}55`, color: theme.yellow }}>Drug after the trial</span>}
+                            {s.designations?.hasPayToAccess && <span title="You may have to pay to get the drug." style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.red}55`, color: theme.red }}>You may have to pay</span>}
                             {!s.designations?.hasOpenLabelExtension && !s.designations?.hasExpandedAccess && !s.designations?.hasPostTrialAccess && !s.designations?.hasPayToAccess && <span>—</span>}
                           </div>
                         </td>
                         <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>{(s.countries || []).join(', ') || '—'}</td>
                         <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
-                          {s.oversight?.oversightHasDMC ? 'DSMB ✓' : ''} {s.oversight?.fdaRegulatedDrug ? 'FDA ✓' : ''}
+                          {s.oversight?.oversightHasDMC ? <span title="An independent safety team watches the study and can stop it early if something looks unsafe.">Safety team ✓ </span> : ''}{s.oversight?.fdaRegulatedDrug ? <span title="The drug is made under FDA rules.">FDA-checked drug ✓</span> : ''}
                         </td>
                         <td style={{ padding: '0.6rem', fontWeight: 700 }}>
                           <div>{s.promiseScore}</div>
