@@ -1,0 +1,499 @@
+{
+  "condition": "Polycystic Ovary Syndrome",
+  "slug": "polycystic-ovary-syndrome",
+  "aliases": [
+    "PCOS",
+    "polycystic ovarian syndrome",
+    "Stein-Leventhal syndrome"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "GLP-1 receptor agonists",
+    "N-acetylcysteine"
+  ],
+  "items": [
+    {
+      "id": "polycystic-ovary-syndrome-1",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "2023 International Evidence-Based Polycystic Ovary Syndrome Guideline Update: Insights From a Systematic Review and Meta-Analysis on Elevated Clinical Cardiovascular Disease in Polycystic Ovary Syndrome.",
+      "authors": [
+        "Tay CT",
+        "Mousa A",
+        "Vyas A",
+        "Pattuwage L",
+        "Tehrani FR",
+        "Teede H"
+      ],
+      "journal": "Journal of the American Heart Association",
+      "year": "2024",
+      "doi": "10.1161/JAHA.123.033572",
+      "pmid": "39119982",
+      "url": "https://doi.org/10.1161/JAHA.123.033572",
+      "accessLevel": "abstract",
+      "summary": "2023 International Evidence-Based PCOS Guideline Update with systematic review and meta-analysis on cardiovascular disease risk in PCOS.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-2",
+      "category": "review",
+      "tier": "A",
+      "title": "The efficacy and safety of GLP-1 agonists in PCOS women living with obesity in promoting weight loss and hormonal regulation: A meta-analysis of randomized controlled trials.",
+      "authors": [
+        "Austregésilo de Athayde De Hollanda Morais B",
+        "Martins Prizão V",
+        "de Moura de Souza M",
+        "Ximenes Mendes B",
+        "Rodrigues Defante ML",
+        "Cosendey Martins O",
+        "Rodrigues AM"
+      ],
+      "journal": "Journal of diabetes and its complications",
+      "year": "2024",
+      "doi": "10.1016/j.jdiacomp.2024.108834",
+      "pmid": "39178623",
+      "url": "https://doi.org/10.1016/j.jdiacomp.2024.108834",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis showing GLP-1 receptor agonists reduce BMI, waist circumference, and improve hyperinsulinism and hyperandrogenism in PCOS women with obesity.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-3",
+      "category": "review",
+      "tier": "A",
+      "title": "N-acetylcysteine for polycystic ovary syndrome: a systematic review and meta-analysis of randomized controlled clinical trials.",
+      "authors": [
+        "Thakker D",
+        "Raval A",
+        "Patel I",
+        "Walia R"
+      ],
+      "journal": "Obstetrics and gynecology international",
+      "year": "2015",
+      "doi": "10.1155/2015/817849",
+      "pmid": "25653680",
+      "url": "https://doi.org/10.1155/2015/817849",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis of N-acetylcysteine in PCOS showing higher odds of live birth and pregnancy.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Effects of polyphenol in women with polycystic ovary syndrome: A systematic review and meta-analysis of randomized controlled trials.",
+      "authors": [
+        "Almeida Balieiro CC",
+        "Hespanhol LC",
+        "Mendes Fonseca L",
+        "Wantowski S",
+        "Freitas MAA",
+        "Dias YJM",
+        "Burlá MM",
+        "Maria Lima de Oliveira L"
+      ],
+      "journal": "European journal of obstetrics, gynecology, and reproductive biology",
+      "year": "2024",
+      "doi": "10.1016/j.ejogrb.2023.12.038",
+      "pmid": "38219608",
+      "url": "https://doi.org/10.1016/j.ejogrb.2023.12.038",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis of polyphenols in PCOS showing promising effects on insulin sensitivity and hormone regulation.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-5",
+      "category": "review",
+      "tier": "A",
+      "title": "Comparison of different drug for reducing testosterone levels in women with polycystic ovary syndrome: A systematic review and network meta-analysis.",
+      "authors": [
+        "Hao SL",
+        "Zhang CL",
+        "Meng XY"
+      ],
+      "journal": "Medicine",
+      "year": "2023",
+      "doi": "10.1097/MD.0000000000035152",
+      "pmid": "37832133",
+      "url": "https://doi.org/10.1097/MD.0000000000035152",
+      "accessLevel": "abstract",
+      "summary": "Network meta-analysis comparing different drugs for reducing testosterone levels in women with PCOS.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-6",
+      "category": "review",
+      "tier": "A",
+      "title": "Long-term cardiometabolic disease risk in women with PCOS: a systematic review and meta-analysis.",
+      "authors": [
+        "Wekker V",
+        "van Dammen L",
+        "Koning A",
+        "Heida KY",
+        "Painter RC",
+        "Limpens J",
+        "Laven JSE",
+        "Roeters van Lennep JE"
+      ],
+      "journal": "Human reproduction update",
+      "year": "2020",
+      "doi": "10.1093/humupd/dmaa029",
+      "pmid": "32995872",
+      "url": "https://doi.org/10.1093/humupd/dmaa029",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis quantifying long-term cardiometabolic disease risk in women with PCOS.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-7",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Effect of acupuncture and metformin on insulin sensitivity in women with polycystic ovary syndrome and insulin resistance: a three-armed randomized controlled trial.",
+      "authors": [
+        "Wen Q",
+        "Hu M",
+        "Lai M",
+        "Li J",
+        "Hu Z",
+        "Quan K",
+        "Liu J",
+        "Liu H"
+      ],
+      "journal": "Human reproduction (Oxford, England)",
+      "year": "2022",
+      "doi": "10.1093/humrep/deab272",
+      "pmid": "34907435",
+      "url": "https://doi.org/10.1093/humrep/deab272",
+      "accessLevel": "abstract",
+      "summary": "Three-armed RCT showing acupuncture was not more effective than metformin or sham acupuncture in improving insulin sensitivity in PCOS women with insulin resistance.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-8",
+      "category": "rct",
+      "tier": "B",
+      "title": "Quercetin and polycystic ovary syndrome; inflammation, hormonal parameters and pregnancy outcome: A randomized clinical trial.",
+      "authors": [
+        "Vaez S",
+        "Parivr K",
+        "Amidi F",
+        "Rudbari NH",
+        "Moini A",
+        "Amini N"
+      ],
+      "journal": "American journal of reproductive immunology (New York, N.Y. : 1989)",
+      "year": "2023",
+      "doi": "10.1111/aji.13644",
+      "pmid": "36317442",
+      "url": "https://doi.org/10.1111/aji.13644",
+      "accessLevel": "abstract",
+      "summary": "Randomized clinical trial of quercetin effects on inflammatory and hormonal factors in PCOS patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-9",
+      "category": "rct",
+      "tier": "B",
+      "title": "Effects of Synbiotic-Containing Bacillus coagulans (GBI-30) on the Cardiovascular Status of Patients With Polycystic Ovary Syndrome: A Triple-blinded, Randomized, Placebo-controlled Study.",
+      "authors": [
+        "Hariri Z",
+        "Yari Z",
+        "Hoseini S",
+        "Mehrnami A",
+        "Abhari K",
+        "Sohrab G"
+      ],
+      "journal": "Clinical therapeutics",
+      "year": "2023",
+      "doi": "10.1016/j.clinthera.2023.07.024",
+      "pmid": "37640616",
+      "url": "https://doi.org/10.1016/j.clinthera.2023.07.024",
+      "accessLevel": "abstract",
+      "summary": "Triple-blinded RCT investigating synbiotic-containing Bacillus coagulans effects on cardiometabolic indicators in PCOS patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-10",
+      "category": "rct",
+      "tier": "B",
+      "title": "The effect of hormonal contraceptives combined with vitamin D3 supplements on sexual dysfunction in women with polycystic ovary syndrome: a randomized double-blind placebo-controlled trial.",
+      "authors": [
+        "Jahanian Sadatmahalleh S",
+        "Razavinia F",
+        "Lotfi R",
+        "Hajimoosayi F",
+        "Nasiri M",
+        "Rezasoltani P"
+      ],
+      "journal": "Archives of gynecology and obstetrics",
+      "year": "2025",
+      "doi": "10.1007/s00404-025-08159-4",
+      "pmid": "40913650",
+      "url": "https://doi.org/10.1007/s00404-025-08159-4",
+      "accessLevel": "abstract",
+      "summary": "Randomized double-blind placebo-controlled trial of hormonal contraceptives combined with vitamin D3 on sexual dysfunction in PCOS women.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-11",
+      "category": "review",
+      "tier": "A",
+      "title": "Polycystic ovary syndrome: etiology, pathogenesis and diagnosis.",
+      "authors": [
+        "Goodarzi MO",
+        "Dumesic DA",
+        "Chazenbalk G",
+        "Azziz R"
+      ],
+      "journal": "Nature reviews. Endocrinology",
+      "year": "2011",
+      "doi": "10.1038/nrendo.2010.217",
+      "pmid": "21263450",
+      "url": "https://doi.org/10.1038/nrendo.2010.217",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of PCOS etiology, pathogenesis and diagnosis covering hyperandrogenism, insulin resistance, and adipose tissue dysfunction.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-12",
+      "category": "review",
+      "tier": "A",
+      "title": "Polycystic ovarian syndrome (PCOS): Long-term metabolic consequences.",
+      "authors": [
+        "Anagnostis P",
+        "Tarlatzis BC",
+        "Kauffman RP"
+      ],
+      "journal": "Metabolism: clinical and experimental",
+      "year": "2018",
+      "doi": "10.1016/j.metabol.2017.09.016",
+      "pmid": "29024702",
+      "url": "https://doi.org/10.1016/j.metabol.2017.09.016",
+      "accessLevel": "abstract",
+      "summary": "Review of long-term metabolic consequences of PCOS including diabetes, dyslipidemia, inflammation, and cardiovascular disease risk.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-13",
+      "category": "review",
+      "tier": "A",
+      "title": "The effects of different exercises on weight loss and hormonal changes in women with polycystic ovarian syndrome: a network meta-analysis study.",
+      "authors": [
+        "Motaharinezhad F",
+        "Emadi A",
+        "Hosnian M",
+        "Kheirkhahan A",
+        "Jayedi A",
+        "Ehsani F"
+      ],
+      "journal": "BMC women's health",
+      "year": "2024",
+      "doi": "10.1186/s12905-024-03297-4",
+      "pmid": "39272076",
+      "url": "https://doi.org/10.1186/s12905-024-03297-4",
+      "accessLevel": "abstract",
+      "summary": "Network meta-analysis evaluating efficacy of different exercise types on BMI, hormone concentrations, and menstruation in PCOS women.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-14",
+      "category": "review",
+      "tier": "B",
+      "title": "The pathogenesis and treatment of polycystic ovary syndrome: What's new?",
+      "authors": [
+        "Bednarska S",
+        "Siejka A"
+      ],
+      "journal": "Advances in clinical and experimental medicine : official organ Wroclaw Medical University",
+      "year": "2017",
+      "doi": "10.17219/acem/59380",
+      "pmid": "28791858",
+      "url": "https://doi.org/10.17219/acem/59380",
+      "accessLevel": "abstract",
+      "summary": "Review of PCOS pathogenesis and treatment covering hyperandrogenism, ovulation abnormalities, and comorbidities.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-15",
+      "category": "review",
+      "tier": "A",
+      "title": "Obesity, Polycystic Ovary Syndrome, and Infertility: A New Avenue for GLP-1 Receptor Agonists.",
+      "authors": [
+        "Cena H",
+        "Chiovato L",
+        "Nappi RE"
+      ],
+      "journal": "The Journal of clinical endocrinology and metabolism",
+      "year": "2020",
+      "doi": "10.1210/clinem/dgaa285",
+      "pmid": "32442310",
+      "url": "https://doi.org/10.1210/clinem/dgaa285",
+      "accessLevel": "abstract",
+      "summary": "Narrative review describing mechanisms of obesity-related infertility and PCOS with focus on emerging role of GLP-1 receptor agonists.",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-16",
+      "category": "review",
+      "tier": "B",
+      "title": "Epigenetic inheritance of polycystic ovary syndrome - challenges and opportunities for treatment.",
+      "authors": [
+        "Stener-Victorin E",
+        "Deng Q"
+      ],
+      "journal": "Nature reviews. Endocrinology",
+      "year": "2021",
+      "doi": "10.1038/s41574-021-00517-x",
+      "pmid": "34234312",
+      "url": "https://doi.org/10.1038/s41574-021-00517-x",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-17",
+      "category": "review",
+      "tier": "B",
+      "title": "Role of Omega-3 Fatty Acids in Improving Metabolic Dysfunctions in Polycystic Ovary Syndrome.",
+      "authors": [
+        "Albardan L",
+        "Platat C",
+        "Kalupahana NS"
+      ],
+      "journal": "Nutrients",
+      "year": "2024",
+      "doi": "10.3390/nu16172961",
+      "pmid": "39275277",
+      "url": "https://doi.org/10.3390/nu16172961",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "polycystic-ovary-syndrome-18",
+      "category": "review",
+      "tier": "B",
+      "title": "Dietary Interventions: A Promising Treatment for Polycystic Ovary Syndrome.",
+      "authors": [
+        "Che X",
+        "Chen Z",
+        "Liu M",
+        "Mo Z"
+      ],
+      "journal": "Annals of nutrition & metabolism",
+      "year": "2021",
+      "doi": "10.1159/000519302",
+      "pmid": "34610596",
+      "url": "https://doi.org/10.1159/000519302",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "PCOS is the most common endocrine disorder in women of reproductive age with prevalence up to 10-15%",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-11",
+        "polycystic-ovary-syndrome-16"
+      ]
+    },
+    {
+      "claim": "PCOS is characterized by hyperandrogenism, ovulation abnormalities, and polycystic ovarian morphology",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-11",
+        "polycystic-ovary-syndrome-14"
+      ]
+    },
+    {
+      "claim": "Insulin resistance is present in majority of PCOS cases with compensatory hyperinsulinemia contributing to hyperandrogenism",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-11",
+        "polycystic-ovary-syndrome-12"
+      ]
+    },
+    {
+      "claim": "PCOS increases risk of cardiovascular disease, type 2 diabetes, metabolic syndrome, and dyslipidemia",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-1",
+        "polycystic-ovary-syndrome-12",
+        "polycystic-ovary-syndrome-6"
+      ]
+    },
+    {
+      "claim": "GLP-1 receptor agonists reduce BMI, waist circumference, and improve hyperinsulinism and hyperandrogenism in PCOS women with obesity",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-2",
+        "polycystic-ovary-syndrome-15"
+      ]
+    },
+    {
+      "claim": "N-acetylcysteine increases odds of live birth and pregnancy in women with PCOS",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-3"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Weight reduction can help manage metabolic complications in overweight or obese women with PCOS",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-17",
+        "polycystic-ovary-syndrome-18"
+      ]
+    },
+    {
+      "recommendation": "Various dietary patterns including Mediterranean diet, ketogenic diet, and DASH diet can impact weight loss and insulin resistance in PCOS",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-18"
+      ]
+    },
+    {
+      "recommendation": "Exercise training positively affects improvement of pathogenic factors in women with PCOS",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-13"
+      ]
+    },
+    {
+      "recommendation": "Proper diet and maintenance of adequate nutritional status are important in PCOS prevention and treatment",
+      "evidenceRefs": [
+        "polycystic-ovary-syndrome-18"
+      ]
+    }
+  ],
+  "redFlags": [
+    "PCOS substantially increases lifetime risk of type 2 diabetes, psychiatric disorders, and gynecological cancers",
+    "Women with PCOS have increased risk of ovarian hyperstimulation syndrome during IVF treatment",
+    "PCOS is associated with increased cardiovascular disease risk factors and clinical events"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "GLP-1 receptor agonists",
+      "aliases": [
+        "GLP-1 RAs",
+        "glucagon-like peptide-1 receptor agonists"
+      ],
+      "mechanism": "GLP-1 receptor activation promoting weight loss and metabolic improvement",
+      "sponsor": "Various",
+      "status": "Approved for diabetes/obesity, emerging use in PCOS",
+      "approvalStatus": "approved",
+      "evidenceRef": "polycystic-ovary-syndrome-2"
+    },
+    {
+      "name": "N-acetylcysteine",
+      "aliases": [
+        "NAC"
+      ],
+      "mechanism": "Antioxidant and insulin sensitizer",
+      "sponsor": "Generic",
+      "status": "Used off-label for PCOS",
+      "approvalStatus": "approved",
+      "evidenceRef": "polycystic-ovary-syndrome-3"
+    }
+  ],
+  "excludedAgents": []
+}

@@ -1,0 +1,404 @@
+{
+  "condition": "Prostate Cancer",
+  "slug": "prostate-cancer",
+  "aliases": [
+    "prostate carcinoma",
+    "prostate adenocarcinoma"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Lutetium-177 PSMA-617",
+    "Actinium-225 PSMA",
+    "Ipatasertib",
+    "Metformin",
+    "Curcumin",
+    "Ipilimumab",
+    "Nanocurcumin"
+  ],
+  "items": [
+    {
+      "id": "prostate-cancer-1",
+      "category": "review",
+      "tier": "A+",
+      "title": "Treatment of Advanced Prostate Cancer.",
+      "authors": [
+        "Teo MY",
+        "Rathkopf DE",
+        "Kantoff P"
+      ],
+      "journal": "Annual review of medicine",
+      "year": "2019",
+      "doi": "10.1146/annurev-med-051517-011947",
+      "pmid": "30691365",
+      "url": "https://doi.org/10.1146/annurev-med-051517-011947",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of advanced prostate cancer treatment landscape transformation over the last decade with six new systemic agents approved for castration-resistant disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-2",
+      "category": "review",
+      "tier": "A+",
+      "title": "The contemporary management of prostate cancer.",
+      "authors": [
+        "Chakrabarti D",
+        "Albertsen P",
+        "Adkins A",
+        "Kishan A",
+        "Murthy V",
+        "Parker C",
+        "Pathmanathan A",
+        "Reid A"
+      ],
+      "journal": "CA: a cancer journal for clinicians",
+      "year": "2025",
+      "doi": "10.3322/caac.70020",
+      "pmid": "40572035",
+      "url": "https://doi.org/10.3322/caac.70020",
+      "accessLevel": "abstract",
+      "summary": "Contemporary management overview covering rapid developments in prostate cancer diagnostics and therapeutics including multiparametric MRI, PET imaging, robotic surgery, and novel anti-androgens.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-3",
+      "category": "review",
+      "tier": "A+",
+      "title": "Prostate cancer.",
+      "authors": [
+        "Sandhu S",
+        "Moore CM",
+        "Chiong E",
+        "Beltran H",
+        "Bristow RG",
+        "Williams SG"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2021",
+      "doi": "10.1016/S0140-6736(21)00950-8",
+      "pmid": "34370973",
+      "url": "https://doi.org/10.1016/S0140-6736(21)00950-8",
+      "accessLevel": "abstract",
+      "summary": "Current prostate cancer management review highlighting genomic advances, improved imaging methods, personalized therapeutics targeting DNA repair pathways, and metastatic-directed therapies.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Revolutionizing prostate cancer treatment: PSMA-targeted therapy in modern therapeutics.",
+      "authors": [
+        "Ricaurte-Fajardo A",
+        "Marulanda-Corzo V",
+        "Ruder S",
+        "Cardoza-Ochoa DR",
+        "Granados CE",
+        "Yadav D",
+        "López-Delgado D",
+        "Fatima M"
+      ],
+      "journal": "Revista espanola de medicina nuclear e imagen molecular",
+      "year": "2025",
+      "doi": "10.1016/j.remnie.2025.500162",
+      "pmid": "40403928",
+      "url": "https://doi.org/10.1016/j.remnie.2025.500162",
+      "accessLevel": "abstract",
+      "summary": "Review of PSMA-targeted radionuclide therapy including lutetium-177 PSMA-617 showing significant overall survival benefits and novel radionuclides like actinium-225 for resistant cases.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-5",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Ipatasertib plus abiraterone and prednisolone in metastatic castration-resistant prostate cancer (IPATential150): a multicentre, randomised, double-blind, phase 3 trial.",
+      "authors": [
+        "Sweeney C",
+        "Bracarda S",
+        "Sternberg CN",
+        "Chi KN",
+        "Olmos D",
+        "Sandhu S",
+        "Massard C",
+        "Matsubara N"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2021",
+      "doi": "10.1016/S0140-6736(21)00580-8",
+      "pmid": "34246347",
+      "url": "https://doi.org/10.1016/S0140-6736(21)00580-8",
+      "accessLevel": "abstract",
+      "summary": "Phase 3 randomized trial of ipatasertib plus abiraterone versus placebo plus abiraterone in previously untreated metastatic castration-resistant prostate cancer.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-6",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Metformin Active Surveillance Trial in Low-Risk Prostate Cancer.",
+      "authors": [
+        "Fleshner NE",
+        "Bernardino RM",
+        "Izawa J",
+        "Drachenberg D",
+        "Saranchuk JW",
+        "Fairey A",
+        "Tanguay S",
+        "Leveridge M"
+      ],
+      "journal": "Journal of clinical oncology : official journal of the American Society of Clinical Oncology",
+      "year": "2025",
+      "doi": "10.1200/JCO-25-01070",
+      "pmid": "41166665",
+      "url": "https://doi.org/10.1200/JCO-25-01070",
+      "accessLevel": "abstract",
+      "summary": "Multicenter randomized phase III trial evaluating metformin efficacy in men with low-risk localized prostate cancer managed with active surveillance.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-7",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "A randomized, double-blind, placebo-controlled trial to evaluate the role of curcumin in prostate cancer patients with intermittent androgen deprivation.",
+      "authors": [
+        "Choi YH",
+        "Han DH",
+        "Kim SW",
+        "Kim MJ",
+        "Sung HH",
+        "Jeon HG",
+        "Jeong BC",
+        "Seo SI"
+      ],
+      "journal": "The Prostate",
+      "year": "2019",
+      "doi": "10.1002/pros.23766",
+      "pmid": "30671976",
+      "url": "https://doi.org/10.1002/pros.23766",
+      "accessLevel": "abstract",
+      "summary": "Randomized placebo-controlled trial evaluating oral curcumin anti-cancer activity in prostate cancer patients receiving intermittent androgen deprivation.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-8",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Commentary on: \"Ipilimumab versus placebo after radiotherapy in patients with metastatic castration-resistant prostate cancer that had progressed after docetaxel chemotherapy (CA184-043): A multicentre, randomised, double-blind, phase 3 trial.\" Kwon ED, Drake CG, Scher HI, Fizazi K, Bossi A, van den Eertwegh AJ, Krainer M, Houede N, Santos R, Mahammedi H, Ng S, Maio M, Franke FA, Sundar S, Agarwal N, Bergman AM, Ciuleanu TE, Korbenfeld E, Sengeløv L, Hansen S, Logothetis C, Beer TM, McHenry MB, Gagnier P, Liu D, Gerritsen WR, CA184-043 Investigators. Departments of Urology and Immunology and Mayo Clinic Comprehensive Cancer Center, Mayo Clinic, Rochester, MN, USA, Electronic address: kwon.eugene@mayo.edu; Johns Hopkins Sidney Kimmel Comprehensive Cancer Center and Brady Urological Institute, Baltimore, MD, USA; Memorial Sloan Kettering Cancer Center and Weill Cornell Medical College, New York, NY, USA; Institut Gustave Roussy, University of Paris-Sud, Villejuif, France; Institut Gustave Roussy, Villejuif, France; VU University Medical Centre, Amsterdam, Netherlands; Vienna General Hospital, Medical University Vienna, Vienna, Austria; Institut Bergonié, Bordeaux, France; CHU Caremeau, Nimes, France; Centro Médico Austral, Buenos Aires, Argentina; Centre Jean Perrin, Clermont-Ferrand, France; St John of God Hospital, Subiaco, WA, Australia; University Hospital of Siena, Istituto Toscano Tumori, Siena, Italy; Hospital de Caridade de Ijuí, Ijuí, Brazil; Nottingham University Hospital, Nottingham, UK; Huntsman Cancer Institute, University of Utah, Salt Lake City, UT, USA; Netherlands Cancer Institute and Antoni van Leeuwenhoek Hospital, Amsterdam, Netherlands; Institute of Oncology Ion Chiricuta and University of Medicine and Pharmacy Iuliu Hatieganu, Cluj-Napoca, Romania; Hospital Británico de Buenos Aires, Buenos Aires, Argentina; Herlev Hospital, Herlev, Denmark; Odense University Hospital, Odense, Denmark; University of Texas MD Anderson Cancer Center, Houston,",
+      "authors": [
+        "Trump D"
+      ],
+      "journal": "Urologic oncology",
+      "year": "2016",
+      "doi": "10.1016/j.urolonc.2015.03.013",
+      "pmid": "25907621",
+      "url": "https://doi.org/10.1016/j.urolonc.2015.03.013",
+      "accessLevel": "abstract",
+      "summary": "Phase 3 trial of ipilimumab versus placebo after radiotherapy in metastatic castration-resistant prostate cancer that progressed after docetaxel chemotherapy.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-9",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "High Omega-3, Low Omega-6 Diet With Fish Oil for Men With Prostate Cancer on Active Surveillance: The CAPFISH-3 Randomized Clinical Trial.",
+      "authors": [
+        "Aronson WJ",
+        "Grogan T",
+        "Liang P",
+        "Jardack P",
+        "Liddell AR",
+        "Perez C",
+        "Elashoff D",
+        "Said J"
+      ],
+      "journal": "Journal of clinical oncology : official journal of the American Society of Clinical Oncology",
+      "year": "2025",
+      "doi": "10.1200/JCO.24.00608",
+      "pmid": "39671538",
+      "url": "https://doi.org/10.1200/JCO.24.00608",
+      "accessLevel": "abstract",
+      "summary": "Phase II randomized trial of high omega-3, low omega-6 diet with fish oil capsules in men with prostate cancer on active surveillance.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-10",
+      "category": "review",
+      "tier": "A",
+      "title": "Bisphosphonates or RANK-ligand-inhibitors for men with prostate cancer and bone metastases: a network meta-analysis.",
+      "authors": [
+        "Jakob T",
+        "Tesfamariam YM",
+        "Macherey S",
+        "Kuhr K",
+        "Adams A",
+        "Monsef I",
+        "Heidenreich A",
+        "Skoetz N"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2020",
+      "doi": "10.1002/14651858.CD013020.pub2",
+      "pmid": "33270906",
+      "url": "https://doi.org/10.1002/14651858.CD013020.pub2",
+      "accessLevel": "abstract",
+      "summary": "Network meta-analysis of bisphosphonates and RANK-ligand inhibitors for men with prostate cancer and bone metastases to prevent skeletal-related events.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-11",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Randomized, double-blind, placebo-controlled phase II trial of nanocurcumin in prostate cancer patients undergoing radiotherapy.",
+      "authors": [
+        "Saadipoor A",
+        "Razzaghdoust A",
+        "Simforoosh N",
+        "Mahdavi A",
+        "Bakhshandeh M",
+        "Moghadam M",
+        "Abdollahi H",
+        "Mofid B"
+      ],
+      "journal": "Phytotherapy research : PTR",
+      "year": "2019",
+      "doi": "10.1002/ptr.6230",
+      "pmid": "30427093",
+      "url": "https://doi.org/10.1002/ptr.6230",
+      "accessLevel": "abstract",
+      "summary": "Randomized placebo-controlled trial assessing nanocurcumin to prevent radiation-induced proctitis in prostate cancer patients undergoing radiotherapy.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-12",
+      "category": "rct",
+      "tier": "B",
+      "title": "Prior Local Therapy and First-Line Apalutamide in Patients With Nonmetastatic Castration-Resistant Prostate Cancer: A Secondary Analysis of the SPARTAN Randomized Clinical Trial.",
+      "authors": [
+        "Roy S",
+        "Malone S",
+        "Wing K",
+        "Chowdhury S",
+        "Kishan AU",
+        "Sun Y",
+        "Wallis CJD",
+        "Mohamad O"
+      ],
+      "journal": "JAMA network open",
+      "year": "2024",
+      "doi": "10.1001/jamanetworkopen.2024.39434",
+      "pmid": "39405060",
+      "url": "https://doi.org/10.1001/jamanetworkopen.2024.39434",
+      "accessLevel": "abstract",
+      "summary": "Secondary analysis of SPARTAN trial examining whether prior prostate-directed local therapy influenced apalutamide efficacy in nonmetastatic castration-resistant prostate cancer.",
+      "keyPassages": []
+    },
+    {
+      "id": "prostate-cancer-13",
+      "category": "review",
+      "tier": "B",
+      "title": "[Anti-androgen withdrawal syndrome].",
+      "authors": [
+        "Breul J",
+        "Paul R"
+      ],
+      "journal": "Der Urologe. Ausg. A",
+      "year": "1998",
+      "doi": "10.1007/s001200050165",
+      "pmid": "9563126",
+      "url": "https://doi.org/10.1007/s001200050165",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Prostate cancer is the most common cancer in two thirds of the world, with expected doubling in both incidence and mortality in the next two decades.",
+      "evidenceRefs": [
+        "prostate-cancer-2"
+      ]
+    },
+    {
+      "claim": "Six systemic agents have been approved for castration-resistant prostate cancer treatment in the last decade.",
+      "evidenceRefs": [
+        "prostate-cancer-1"
+      ]
+    },
+    {
+      "claim": "PSMA-targeted radionuclide therapy has reshaped treatment landscape for metastatic castration-resistant prostate cancer, with lutetium-177 PSMA-617 showing significant overall survival benefits.",
+      "evidenceRefs": [
+        "prostate-cancer-4"
+      ]
+    },
+    {
+      "claim": "Personalized therapeutics targeting genomic alterations in DNA repair pathways are now clinically validated for prostate cancer treatment.",
+      "evidenceRefs": [
+        "prostate-cancer-3"
+      ]
+    },
+    {
+      "claim": "Antiandrogen withdrawal can cause PSA reduction and clinical improvement in approximately 30-50% of patients with hormone-resistant prostate cancer.",
+      "evidenceRefs": [
+        "prostate-cancer-13"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [],
+  "redFlags": [
+    "Medication-related osteonecrosis of the jaw can occur with bisphosphonates, denosumab, and antiangiogenic agents used in cancer treatment",
+    "Vertebral fractures can occur after denosumab discontinuation, with increased risk of multiple vertebral fractures"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Lutetium-177 PSMA-617",
+      "aliases": [
+        "177Lu-PSMA-617"
+      ],
+      "mechanism": "PSMA-targeted radionuclide therapy",
+      "sponsor": "Not specified",
+      "status": "Approved for mCRPC",
+      "approvalStatus": "approved",
+      "evidenceRef": "prostate-cancer-4"
+    },
+    {
+      "name": "Actinium-225 PSMA",
+      "aliases": [
+        "225Ac-PSMA"
+      ],
+      "mechanism": "Alpha-emitting PSMA-targeted radionuclide therapy",
+      "sponsor": "Not specified",
+      "status": "Investigational for resistant cases",
+      "approvalStatus": "investigational",
+      "evidenceRef": "prostate-cancer-4"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Ipatasertib",
+      "reason": "Phase 3 trial failed to show benefit when added to abiraterone and prednisolone in metastatic castration-resistant prostate cancer",
+      "evidenceRef": "prostate-cancer-5"
+    },
+    {
+      "name": "Metformin",
+      "reason": "Phase III randomized trial showed no efficacy in delaying prostate cancer progression in men with low-risk disease on active surveillance",
+      "evidenceRef": "prostate-cancer-6"
+    },
+    {
+      "name": "Curcumin",
+      "reason": "Randomized placebo-controlled trial found no anti-cancer activity in prostate cancer patients receiving intermittent androgen deprivation",
+      "evidenceRef": "prostate-cancer-7"
+    },
+    {
+      "name": "Ipilimumab",
+      "reason": "Phase 3 trial failed to show benefit versus placebo after radiotherapy in metastatic castration-resistant prostate cancer that progressed after docetaxel",
+      "evidenceRef": "prostate-cancer-8"
+    },
+    {
+      "name": "Nanocurcumin",
+      "reason": "Randomized trial failed to show significant benefit in preventing radiation-induced proctitis in prostate cancer patients undergoing radiotherapy",
+      "evidenceRef": "prostate-cancer-11"
+    }
+  ]
+}

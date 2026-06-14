@@ -1,0 +1,495 @@
+{
+  "condition": "Metabolic Dysfunction-Associated Steatotic Liver Disease",
+  "slug": "masld-nafld",
+  "aliases": [
+    "MASLD",
+    "NAFLD",
+    "NASH",
+    "fatty liver disease",
+    "MASH",
+    "nonalcoholic steatohepatitis"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Semaglutide",
+    "Empagliflozin",
+    "Luseogliflozin",
+    "Empagliflozin",
+    "Silymarin",
+    "Belapectin (GR-MD-02)",
+    "Pemafibrate",
+    "Rimonabant"
+  ],
+  "items": [
+    {
+      "id": "masld-nafld-1",
+      "category": "review",
+      "tier": "A+",
+      "title": "Metabolic Dysfunction-Associated Steatotic Liver Disease in Adults: A Review.",
+      "authors": [
+        "Tilg H",
+        "Petta S",
+        "Stefan N",
+        "Targher G"
+      ],
+      "journal": "JAMA",
+      "year": "2026",
+      "doi": "10.1001/jama.2025.19615",
+      "pmid": "41212550",
+      "url": "https://doi.org/10.1001/jama.2025.19615",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive 2026 JAMA review of MASLD covering the full spectrum from isolated steatosis to MASH with associated morbidity and mortality.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-2",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "EASL-EASD-EASO Clinical Practice Guidelines on the management of metabolic dysfunction-associated steatotic liver disease (MASLD).",
+      "authors": [
+        "European Association for the Study of the Liver (EASL)",
+        "European Association for the Study of Diabetes (EASD)",
+        "European Association for the Study of Obesity (EASO)"
+      ],
+      "journal": "Journal of hepatology",
+      "year": "2024",
+      "doi": "10.1016/j.jhep.2024.04.031",
+      "pmid": "38851997",
+      "url": "https://doi.org/10.1016/j.jhep.2024.04.031",
+      "accessLevel": "abstract",
+      "summary": "Joint EASL-EASD-EASO clinical practice guidelines on management of MASLD providing updated definitions, prevention, screening, diagnosis and treatment recommendations.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-3",
+      "category": "rct",
+      "tier": "A",
+      "title": "Semaglutide 2·4 mg once weekly in patients with non-alcoholic steatohepatitis-related cirrhosis: a randomised, placebo-controlled phase 2 trial.",
+      "authors": [
+        "Loomba R",
+        "Abdelmalek MF",
+        "Armstrong MJ",
+        "Jara M",
+        "Kjær MS",
+        "Krarup N",
+        "Lawitz E",
+        "Ratziu V"
+      ],
+      "journal": "The lancet. Gastroenterology & hepatology",
+      "year": "2023",
+      "doi": "10.1016/S2468-1253(23)00068-7",
+      "pmid": "36934740",
+      "url": "https://doi.org/10.1016/S2468-1253(23)00068-7",
+      "accessLevel": "abstract",
+      "summary": "Phase 2 randomized trial of semaglutide 2.4 mg weekly in patients with NASH-related cirrhosis showing efficacy and safety.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-4",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Effects of empagliflozin on liver fat in patients with metabolic dysfunction-associated steatotic liver disease without diabetes mellitus: A randomized, double-blind, placebo-controlled trial.",
+      "authors": [
+        "Cheung KS",
+        "Ng HY",
+        "Hui RWH",
+        "Lam LK",
+        "Mak LY",
+        "Ho YC",
+        "Tan JT",
+        "Chan EW"
+      ],
+      "journal": "Hepatology (Baltimore, Md.)",
+      "year": "2024",
+      "doi": "10.1097/HEP.0000000000000855",
+      "pmid": "38536017",
+      "url": "https://doi.org/10.1097/HEP.0000000000000855",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial showing empagliflozin failed to reduce hepatic steatosis in MASLD patients without diabetes.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-5",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "A Randomized Trial of Silymarin for the Treatment of Nonalcoholic Steatohepatitis.",
+      "authors": [
+        "Wah Kheong C",
+        "Nik Mustapha NR",
+        "Mahadeva S"
+      ],
+      "journal": "Clinical gastroenterology and hepatology : the official clinical practice journal of the American Gastroenterological Association",
+      "year": "2017",
+      "doi": "10.1016/j.cgh.2017.04.016",
+      "pmid": "28419855",
+      "url": "https://doi.org/10.1016/j.cgh.2017.04.016",
+      "accessLevel": "abstract",
+      "summary": "Randomized trial demonstrating silymarin was ineffective for treating nonalcoholic steatohepatitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-6",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Effects of Belapectin, an Inhibitor of Galectin-3, in Patients With Nonalcoholic Steatohepatitis With Cirrhosis and Portal Hypertension.",
+      "authors": [
+        "Chalasani N",
+        "Abdelmalek MF",
+        "Garcia-Tsao G",
+        "Vuppalanchi R",
+        "Alkhouri N",
+        "Rinella M",
+        "Noureddin M",
+        "Pyko M"
+      ],
+      "journal": "Gastroenterology",
+      "year": "2020",
+      "doi": "10.1053/j.gastro.2019.11.296",
+      "pmid": "31812510",
+      "url": "https://doi.org/10.1053/j.gastro.2019.11.296",
+      "accessLevel": "abstract",
+      "summary": "Phase 2b trial of belapectin (GR-MD-02) failed to show efficacy in NASH patients with cirrhosis and portal hypertension.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-7",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Randomised clinical trial: Pemafibrate, a novel selective peroxisome proliferator-activated receptor α modulator (SPPARMα), versus placebo in patients with non-alcoholic fatty liver disease.",
+      "authors": [
+        "Nakajima A",
+        "Eguchi Y",
+        "Yoneda M",
+        "Imajo K",
+        "Tamaki N",
+        "Suganami H",
+        "Nojima T",
+        "Tanigawa R"
+      ],
+      "journal": "Alimentary pharmacology & therapeutics",
+      "year": "2021",
+      "doi": "10.1111/apt.16596",
+      "pmid": "34528723",
+      "url": "https://doi.org/10.1111/apt.16596",
+      "accessLevel": "abstract",
+      "summary": "Randomized trial showing pemafibrate was ineffective in patients with high-risk non-alcoholic fatty liver disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Metabolic dysfunction-associated steatotic liver disease in children.",
+      "authors": [
+        "Goyal NP",
+        "Xanthakos S",
+        "Schwimmer JB"
+      ],
+      "journal": "Gut",
+      "year": "2025",
+      "doi": "10.1136/gutjnl-2023-331090",
+      "pmid": "39848671",
+      "url": "https://doi.org/10.1136/gutjnl-2023-331090",
+      "accessLevel": "abstract",
+      "summary": "Review of MASLD in children highlighting it as the most common chronic liver disease in pediatric populations.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-9",
+      "category": "expert-consensus",
+      "tier": "B",
+      "title": "Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD) in People With Diabetes: The Need for Screening and Early Intervention. A Consensus Report of the American Diabetes Association.",
+      "authors": [
+        "Cusi K",
+        "Abdelmalek MF",
+        "Apovian CM",
+        "Balapattabi K",
+        "Bannuru RR",
+        "Barb D",
+        "Bardsley JK",
+        "Beverly EA"
+      ],
+      "journal": "Diabetes care",
+      "year": "2025",
+      "doi": "10.2337/dci24-0094",
+      "pmid": "40434108",
+      "url": "https://doi.org/10.2337/dci24-0094",
+      "accessLevel": "abstract",
+      "summary": "American Diabetes Association consensus report on MASLD screening and intervention needs in people with diabetes.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-10",
+      "category": "review",
+      "tier": "B",
+      "title": "Steatotic liver disease.",
+      "authors": [
+        "Israelsen M",
+        "Francque S",
+        "Tsochatzis EA",
+        "Krag A"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2024",
+      "doi": "10.1016/S0140-6736(24)01811-7",
+      "pmid": "39488409",
+      "url": "https://doi.org/10.1016/S0140-6736(24)01811-7",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of steatotic liver disease as an overarching term encompassing MASLD, ALD, and MetALD.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Estimated Burden of Metabolic Dysfunction-Associated Steatotic Liver Disease in US Adults, 2020 to 2050.",
+      "authors": [
+        "Le P",
+        "Tatar M",
+        "Dasarathy S",
+        "Alkhouri N",
+        "Herman WH",
+        "Taksler GB",
+        "Deshpande A",
+        "Ye W"
+      ],
+      "journal": "JAMA network open",
+      "year": "2025",
+      "doi": "10.1001/jamanetworkopen.2024.54707",
+      "pmid": "39821400",
+      "url": "https://doi.org/10.1001/jamanetworkopen.2024.54707",
+      "accessLevel": "abstract",
+      "summary": "Modeling study projecting the burden of MASLD in US adults from 2020 to 2050.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-12",
+      "category": "review",
+      "tier": "C",
+      "title": "Effects of luseogliflozin on suspected MASLD in patients with diabetes: a pooled meta-analysis of phase III clinical trials.",
+      "authors": [
+        "Kawaguchi T",
+        "Murotani K",
+        "Kajiyama H",
+        "Obara H",
+        "Yamaguchi H",
+        "Toyofuku Y",
+        "Kaneko F",
+        "Seino Y"
+      ],
+      "journal": "Journal of gastroenterology",
+      "year": "2024",
+      "doi": "10.1007/s00535-024-02122-x",
+      "pmid": "39060520",
+      "url": "https://doi.org/10.1007/s00535-024-02122-x",
+      "accessLevel": "abstract",
+      "summary": "Pooled meta-analysis showing effects of luseogliflozin on suspected MASLD in diabetic patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-13",
+      "category": "review",
+      "tier": "B",
+      "title": "NAFLD: a multisystem disease.",
+      "authors": [
+        "Byrne CD",
+        "Targher G"
+      ],
+      "journal": "Journal of hepatology",
+      "year": "2015",
+      "doi": "10.1016/j.jhep.2014.12.012",
+      "pmid": "25920090",
+      "url": "https://doi.org/10.1016/j.jhep.2014.12.012",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-14",
+      "category": "review",
+      "tier": "B",
+      "title": "EASL-EASD-EASO Clinical Practice Guidelines on the Management of Metabolic Dysfunction-Associated Steatotic Liver Disease (MASLD).",
+      "authors": [
+        "European Association for the Study of the Liver (EASL)",
+        "European Association for the Study of Diabetes (EASD)",
+        "European Association for the Study of Obesity (EASO)"
+      ],
+      "journal": "Obesity facts",
+      "year": "2024",
+      "doi": "10.1159/000539371",
+      "pmid": "38852583",
+      "url": "https://doi.org/10.1159/000539371",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-15",
+      "category": "review",
+      "tier": "B",
+      "title": "Non-invasive Scores and Serum Biomarkers for Fatty Liver in the Era of Metabolic Dysfunction-associated Steatotic Liver Disease (MASLD): A Comprehensive Review From NAFLD to MAFLD and MASLD.",
+      "authors": [
+        "Abdelhameed F",
+        "Kite C",
+        "Lagojda L",
+        "Dallaway A",
+        "Chatha KK",
+        "Chaggar SS",
+        "Dalamaga M",
+        "Kassi E"
+      ],
+      "journal": "Current obesity reports",
+      "year": "2024",
+      "doi": "10.1007/s13679-024-00574-z",
+      "pmid": "38809396",
+      "url": "https://doi.org/10.1007/s13679-024-00574-z",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "masld-nafld-16",
+      "category": "review",
+      "tier": "B",
+      "title": "Cannabinoid signaling and liver therapeutics.",
+      "authors": [
+        "Mallat A",
+        "Teixeira-Clerc F",
+        "Lotersztajn S"
+      ],
+      "journal": "Journal of hepatology",
+      "year": "2013",
+      "doi": "10.1016/j.jhep.2013.03.032",
+      "pmid": "23567085",
+      "url": "https://doi.org/10.1016/j.jhep.2013.03.032",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "MASLD affects approximately 30-40% of the general adult population globally and is the most common chronic liver disease worldwide",
+      "evidenceRefs": [
+        "masld-nafld-1",
+        "masld-nafld-8"
+      ]
+    },
+    {
+      "claim": "MASLD encompasses a spectrum from isolated steatosis to MASH, fibrosis, cirrhosis, and hepatocellular carcinoma",
+      "evidenceRefs": [
+        "masld-nafld-1",
+        "masld-nafld-2",
+        "masld-nafld-10"
+      ]
+    },
+    {
+      "claim": "MASLD is associated with increased morbidity and mortality from liver-related complications, cardiovascular disease, and certain cancers",
+      "evidenceRefs": [
+        "masld-nafld-1",
+        "masld-nafld-13"
+      ]
+    },
+    {
+      "claim": "MASLD is defined as steatotic liver disease in the presence of one or more cardiometabolic risk factors and absence of harmful alcohol intake",
+      "evidenceRefs": [
+        "masld-nafld-2",
+        "masld-nafld-14"
+      ]
+    },
+    {
+      "claim": "Liver biopsy remains the gold standard for diagnosing and staging MASH and fibrosis",
+      "evidenceRefs": [
+        "masld-nafld-8",
+        "masld-nafld-15"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Weight loss and lifestyle modifications are first-line interventions for MASLD management",
+      "evidenceRefs": [
+        "masld-nafld-2",
+        "masld-nafld-14"
+      ]
+    },
+    {
+      "recommendation": "Case-finding strategies should focus on identifying MASLD with liver fibrosis in high-risk populations",
+      "evidenceRefs": [
+        "masld-nafld-2",
+        "masld-nafld-14"
+      ]
+    }
+  ],
+  "redFlags": [
+    "MASLD increases risk of hepatocellular carcinoma and liver-related mortality",
+    "10% of children with MASLD present with advanced fibrosis",
+    "MASLD is projected to become the leading indication for liver transplantation"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Semaglutide",
+      "aliases": [
+        "GLP-1 receptor agonist"
+      ],
+      "mechanism": "Glucagon-like peptide-1 receptor agonist",
+      "sponsor": "Novo Nordisk",
+      "status": "Phase 2 completed for NASH",
+      "approvalStatus": "approved",
+      "evidenceRef": "masld-nafld-3"
+    },
+    {
+      "name": "Empagliflozin",
+      "aliases": [
+        "SGLT2 inhibitor"
+      ],
+      "mechanism": "Sodium-glucose cotransporter 2 inhibitor",
+      "sponsor": "Boehringer Ingelheim",
+      "status": "Investigated for MASLD",
+      "approvalStatus": "approved",
+      "evidenceRef": "masld-nafld-4"
+    },
+    {
+      "name": "Luseogliflozin",
+      "aliases": [
+        "SGLT2 inhibitor"
+      ],
+      "mechanism": "Sodium-glucose cotransporter 2 inhibitor",
+      "sponsor": "Taisho Pharmaceutical",
+      "status": "Phase III completed",
+      "approvalStatus": "approved",
+      "evidenceRef": "masld-nafld-12"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Empagliflozin",
+      "reason": "Failed to reduce hepatic steatosis in MASLD patients without diabetes in randomized controlled trial",
+      "evidenceRef": "masld-nafld-4"
+    },
+    {
+      "name": "Silymarin",
+      "reason": "Showed no efficacy in treating nonalcoholic steatohepatitis in randomized placebo-controlled trial",
+      "evidenceRef": "masld-nafld-5"
+    },
+    {
+      "name": "Belapectin (GR-MD-02)",
+      "reason": "Failed to show efficacy in phase 2b trial for NASH patients with cirrhosis and portal hypertension",
+      "evidenceRef": "masld-nafld-6"
+    },
+    {
+      "name": "Pemafibrate",
+      "reason": "Showed no efficacy in randomized placebo-controlled trial for high-risk non-alcoholic fatty liver disease",
+      "evidenceRef": "masld-nafld-7"
+    },
+    {
+      "name": "Rimonabant",
+      "reason": "CB1 receptor antagonist was withdrawn from market due to alarming psychiatric side effects despite potential liver benefits",
+      "evidenceRef": "masld-nafld-16"
+    }
+  ]
+}

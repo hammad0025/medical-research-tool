@@ -1,0 +1,450 @@
+{
+  "condition": "Chronic Lymphocytic Leukemia",
+  "slug": "chronic-lymphocytic-leukemia",
+  "aliases": [
+    "CLL",
+    "leukemia"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "ibrutinib",
+    "idelalisib",
+    "venetoclax",
+    "obinutuzumab",
+    "ofatumumab",
+    "lenalidomide",
+    "ibrutinib",
+    "intravenous immunoglobulin"
+  ],
+  "items": [
+    {
+      "id": "chronic-lymphocytic-leukemia-1",
+      "category": "review",
+      "tier": "A+",
+      "title": "Chronic lymphocytic leukaemia.",
+      "authors": [
+        "Jain N",
+        "Wierda WG",
+        "O'Brien S"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2024",
+      "doi": "10.1016/S0140-6736(24)00595-6",
+      "pmid": "39068951",
+      "url": "https://doi.org/10.1016/S0140-6736(24)00595-6",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive 2024 review of CLL biology and targeted therapies showing improved outcomes with BTK inhibitors, BCL2 inhibitors, and CD20 antibodies compared to chemoimmunotherapy.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-2",
+      "category": "expert-consensus",
+      "tier": "A",
+      "title": "Chronic lymphocytic leukemia treatment algorithm 2018.",
+      "authors": [
+        "Parikh SA"
+      ],
+      "journal": "Blood cancer journal",
+      "year": "2018",
+      "doi": "10.1038/s41408-018-0131-2",
+      "pmid": "30283014",
+      "url": "https://doi.org/10.1038/s41408-018-0131-2",
+      "accessLevel": "abstract",
+      "summary": "2018 treatment algorithm for CLL incorporating oral targeted therapies (ibrutinib, idelalisib, venetoclax) and next-generation anti-CD20 antibodies for improved outcomes.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-3",
+      "category": "review",
+      "tier": "A",
+      "title": "Chronic lymphocytic leukaemia.",
+      "authors": [
+        "Hallek M",
+        "Shanafelt TD",
+        "Eichhorst B"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2018",
+      "doi": "10.1016/S0140-6736(18)30422-7",
+      "pmid": "29477250",
+      "url": "https://doi.org/10.1016/S0140-6736(18)30422-7",
+      "accessLevel": "abstract",
+      "summary": "Major 2018 Lancet review detailing pathogenesis advances and novel targeted therapies that have improved clinical outcomes in CLL.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Frontline Treatment of Chronic Lymphocytic Leukemia with Continuous Bruton's Tyrosine Kinase Inhibitors: A Comprehensive Overview.",
+      "authors": [
+        "Bhat SA",
+        "Woyach JA"
+      ],
+      "journal": "Hematology/oncology clinics of North America",
+      "year": "2025",
+      "doi": "10.1016/j.hoc.2025.05.006",
+      "pmid": "40628615",
+      "url": "https://doi.org/10.1016/j.hoc.2025.05.006",
+      "accessLevel": "abstract",
+      "summary": "2025 comprehensive overview of frontline BTK inhibitor treatment showing near-normal life expectancy with continuous ibrutinib therapy.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-5",
+      "category": "clinical-guideline",
+      "tier": "A",
+      "title": "Canadian evidence-based guideline for frontline treatment of chronic lymphocytic leukemia: 2022 update.",
+      "authors": [
+        "Owen C",
+        "Banerji V",
+        "Johnson N",
+        "Gerrie A",
+        "Aw A",
+        "Chen C",
+        "Robinson S"
+      ],
+      "journal": "Leukemia research",
+      "year": "2023",
+      "doi": "10.1016/j.leukres.2023.107016",
+      "pmid": "36634577",
+      "url": "https://doi.org/10.1016/j.leukres.2023.107016",
+      "accessLevel": "abstract",
+      "summary": "2022 Canadian evidence-based guideline update for frontline CLL treatment incorporating new targeted therapies and treatment approaches.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-6",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Lenalidomide maintenance therapy in previously treated chronic lymphocytic leukaemia (CONTINUUM): a randomised, double-blind, placebo-controlled, phase 3 trial.",
+      "authors": [
+        "Chanan-Khan AA",
+        "Zaritskey A",
+        "Egyed M",
+        "Vokurka S",
+        "Semochkin S",
+        "Schuh A",
+        "Kassis J",
+        "Simpson D"
+      ],
+      "journal": "The Lancet. Haematology",
+      "year": "2017",
+      "doi": "10.1016/S2352-3026(17)30168-0",
+      "pmid": "28958469",
+      "url": "https://doi.org/10.1016/S2352-3026(17)30168-0",
+      "accessLevel": "abstract",
+      "summary": "Phase 3 randomized trial (CONTINUUM) evaluating lenalidomide maintenance therapy after second-line chemotherapy in previously treated CLL patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-7",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Ibrutinib in Early-Stage Chronic Lymphocytic Leukemia: The Randomized, Placebo-Controlled, Double-Blind, Phase III CLL12 Trial.",
+      "authors": [
+        "Langerbeins P",
+        "Robrecht S",
+        "Nieper P",
+        "Cramer P",
+        "Fürstenau M",
+        "Al-Sawaf O",
+        "Simon F",
+        "Fink AM"
+      ],
+      "journal": "Journal of clinical oncology : official journal of the American Society of Clinical Oncology",
+      "year": "2025",
+      "doi": "10.1200/JCO.24.00975",
+      "pmid": "39602678",
+      "url": "https://doi.org/10.1200/JCO.24.00975",
+      "accessLevel": "abstract",
+      "summary": "Phase III randomized, placebo-controlled CLL12 trial testing ibrutinib versus placebo in early-stage asymptomatic CLL patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-8",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Effect of Lenalidomide Maintenance in Chronic Lymphocytic Leukemia: A Meta-Analysis and Trial-Sequential Analysis.",
+      "authors": [
+        "Yu TY",
+        "Jhou HJ",
+        "Chen PH",
+        "Lee CH"
+      ],
+      "journal": "Current oncology (Toronto, Ont.)",
+      "year": "2022",
+      "doi": "10.3390/curroncol29060339",
+      "pmid": "35735448",
+      "url": "https://doi.org/10.3390/curroncol29060339",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis and trial-sequential analysis examining the efficacy and safety of lenalidomide maintenance therapy in CLL.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-9",
+      "category": "negative-trial",
+      "tier": "C",
+      "title": "Intravenous immunoglobulin for the prevention of infection in chronic lymphocytic leukemia. A randomized, controlled clinical trial.",
+      "authors": [
+        "Cooperative Group for the Study of Immunoglobulin in Chronic Lymphocytic Leukemia",
+        "Gale RP",
+        "Chapel HM",
+        "Bunch C",
+        "Rai KR",
+        "Foon K",
+        "Courter SG",
+        "Tait D"
+      ],
+      "journal": "The New England journal of medicine",
+      "year": "1988",
+      "doi": "10.1056/NEJM198810063191403",
+      "pmid": "2901668",
+      "url": "https://doi.org/10.1056/NEJM198810063191403",
+      "accessLevel": "abstract",
+      "summary": "Double-blind RCT of intravenous immunoglobulin versus placebo for infection prevention in CLL patients with hypogammaglobulinemia.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-10",
+      "category": "review",
+      "tier": "B",
+      "title": "Current Treatment of Chronic Lymphocytic Leukemia.",
+      "authors": [
+        "Jamroziak K",
+        "Puła B",
+        "Walewski J"
+      ],
+      "journal": "Current treatment options in oncology",
+      "year": "2017",
+      "doi": "10.1007/s11864-017-0448-2",
+      "pmid": "28185174",
+      "url": "https://doi.org/10.1007/s11864-017-0448-2",
+      "accessLevel": "abstract",
+      "summary": "2017 review of current CLL treatment options including BTK inhibitors, PI3K inhibitors, BCL-2 antagonists, and anti-CD20 antibodies.",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-11",
+      "category": "review",
+      "tier": "B",
+      "title": "[Chronic lymphocytic leukemia].",
+      "authors": [
+        "Maurer C",
+        "Hallek M"
+      ],
+      "journal": "Deutsche medizinische Wochenschrift (1946)",
+      "year": "2013",
+      "doi": "10.1055/s-0033-1349491",
+      "pmid": "24104591",
+      "url": "https://doi.org/10.1055/s-0033-1349491",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-12",
+      "category": "review",
+      "tier": "B",
+      "title": "Management of chronic lymphocytic leukemia.",
+      "authors": [
+        "Stilgenbauer S",
+        "Furman RR",
+        "Zent CS"
+      ],
+      "journal": "American Society of Clinical Oncology educational book. American Society of Clinical Oncology. Annual Meeting",
+      "year": "2015",
+      "doi": "10.14694/EdBook_AM.2015.35.164",
+      "pmid": "25993154",
+      "url": "https://doi.org/10.14694/EdBook_AM.2015.35.164",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-13",
+      "category": "review",
+      "tier": "B",
+      "title": "Novel Therapies for Chronic Lymphocytic Leukemia: A Canadian Perspective.",
+      "authors": [
+        "Owen C",
+        "Assouline S",
+        "Kuruvilla J",
+        "Uchida C",
+        "Bellingham C",
+        "Sehn L"
+      ],
+      "journal": "Clinical lymphoma, myeloma & leukemia",
+      "year": "2015",
+      "doi": "10.1016/j.clml.2015.07.649",
+      "pmid": "26416145",
+      "url": "https://doi.org/10.1016/j.clml.2015.07.649",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-14",
+      "category": "review",
+      "tier": "B",
+      "title": "Immunoglobulin replacement in patients with chronic lymphocytic leukaemia: a comparison of two dose regimes.",
+      "authors": [
+        "Chapel H",
+        "Dicato M",
+        "Gamm H",
+        "Brennan V",
+        "Ries F",
+        "Bunch C",
+        "Lee M"
+      ],
+      "journal": "British journal of haematology",
+      "year": "1994",
+      "doi": "10.1111/j.1365-2141.1994.tb05002.x",
+      "pmid": "7803248",
+      "url": "https://doi.org/10.1111/j.1365-2141.1994.tb05002.x",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "chronic-lymphocytic-leukemia-15",
+      "category": "review",
+      "tier": "B",
+      "title": "Chronic lymphocytic leukemia.",
+      "authors": [
+        "Wierda WG",
+        "Kipps TJ"
+      ],
+      "journal": "Current opinion in hematology",
+      "year": "1999",
+      "doi": "10.1097/00062752-199907000-00010",
+      "pmid": "10400375",
+      "url": "https://doi.org/10.1097/00062752-199907000-00010",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "CLL is the most common adult leukemia in Western countries with a median age at diagnosis of 70-72 years",
+      "evidenceRefs": [
+        "chronic-lymphocytic-leukemia-11",
+        "chronic-lymphocytic-leukemia-1",
+        "chronic-lymphocytic-leukemia-3",
+        "chronic-lymphocytic-leukemia-5"
+      ]
+    },
+    {
+      "claim": "Standard management for early-stage asymptomatic CLL is careful observation until patients meet IWCLL criteria for active disease requiring treatment",
+      "evidenceRefs": [
+        "chronic-lymphocytic-leukemia-12",
+        "chronic-lymphocytic-leukemia-1",
+        "chronic-lymphocytic-leukemia-3"
+      ]
+    },
+    {
+      "claim": "Targeted therapies including BTK inhibitors, BCL2 inhibitors, and CD20 monoclonal antibodies have shown improved progression-free survival and overall survival compared to chemoimmunotherapy",
+      "evidenceRefs": [
+        "chronic-lymphocytic-leukemia-1",
+        "chronic-lymphocytic-leukemia-2",
+        "chronic-lymphocytic-leukemia-3",
+        "chronic-lymphocytic-leukemia-4"
+      ]
+    },
+    {
+      "claim": "Patients with TP53 deletion/mutation represent a high-risk subgroup where ibrutinib is the preferred primary treatment choice",
+      "evidenceRefs": [
+        "chronic-lymphocytic-leukemia-10",
+        "chronic-lymphocytic-leukemia-13",
+        "chronic-lymphocytic-leukemia-2"
+      ]
+    },
+    {
+      "claim": "CLL is characterized by immune dysfunction including hypogammaglobulinemia and increased susceptibility to infections",
+      "evidenceRefs": [
+        "chronic-lymphocytic-leukemia-9",
+        "chronic-lymphocytic-leukemia-14",
+        "chronic-lymphocytic-leukemia-11",
+        "chronic-lymphocytic-leukemia-15"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [],
+  "redFlags": [
+    "Infection risk due to hypogammaglobulinemia",
+    "Autoimmune complications",
+    "Secondary malignancies",
+    "Tumor lysis syndrome with targeted therapies"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "ibrutinib",
+      "aliases": [
+        "Imbruvica"
+      ],
+      "mechanism": "BTK inhibitor",
+      "sponsor": "Pharmacyclics/AbbVie",
+      "status": "approved for CLL",
+      "approvalStatus": "approved",
+      "evidenceRef": "chronic-lymphocytic-leukemia-10"
+    },
+    {
+      "name": "idelalisib",
+      "aliases": [],
+      "mechanism": "PI3K delta inhibitor",
+      "sponsor": "Gilead",
+      "status": "approved for CLL",
+      "approvalStatus": "approved",
+      "evidenceRef": "chronic-lymphocytic-leukemia-10"
+    },
+    {
+      "name": "venetoclax",
+      "aliases": [],
+      "mechanism": "BCL-2 antagonist",
+      "sponsor": "AbbVie",
+      "status": "approved for CLL",
+      "approvalStatus": "approved",
+      "evidenceRef": "chronic-lymphocytic-leukemia-10"
+    },
+    {
+      "name": "obinutuzumab",
+      "aliases": [],
+      "mechanism": "anti-CD20 monoclonal antibody",
+      "sponsor": "Genentech",
+      "status": "approved for CLL",
+      "approvalStatus": "approved",
+      "evidenceRef": "chronic-lymphocytic-leukemia-10"
+    },
+    {
+      "name": "ofatumumab",
+      "aliases": [],
+      "mechanism": "anti-CD20 monoclonal antibody",
+      "sponsor": "Novartis",
+      "status": "approved for CLL",
+      "approvalStatus": "approved",
+      "evidenceRef": "chronic-lymphocytic-leukemia-10"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "lenalidomide",
+      "reason": "Phase 3 CONTINUUM trial showed no significant benefit as maintenance therapy after second-line chemotherapy in previously treated CLL",
+      "evidenceRef": "chronic-lymphocytic-leukemia-6"
+    },
+    {
+      "name": "ibrutinib",
+      "reason": "Phase III CLL12 trial showed no benefit versus placebo in early-stage asymptomatic CLL patients (watch-and-wait population)",
+      "evidenceRef": "chronic-lymphocytic-leukemia-7"
+    },
+    {
+      "name": "intravenous immunoglobulin",
+      "reason": "Randomized trials showed reduction in bacterial infections but no clear evidence of improved survival or disease outcomes in CLL",
+      "evidenceRef": "chronic-lymphocytic-leukemia-9"
+    }
+  ]
+}

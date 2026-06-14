@@ -1,0 +1,335 @@
+{
+  "condition": "Post-Traumatic Stress Disorder",
+  "slug": "ptsd",
+  "aliases": [
+    "PTSD",
+    "post traumatic stress"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "MDMA",
+    "Losartan",
+    "Benzodiazepines"
+  ],
+  "items": [
+    {
+      "id": "ptsd-1",
+      "category": "review",
+      "tier": "A",
+      "title": "MDMA-assisted psychotherapy for the treatment of PTSD: A systematic review and meta-analysis of randomized controlled trials (RCTs).",
+      "authors": [
+        "Shahrour G",
+        "Sohail K",
+        "Elrais S",
+        "Khan MH",
+        "Javeid J",
+        "Samdani K",
+        "Mansoor H",
+        "Hussain SI"
+      ],
+      "journal": "Neuropsychopharmacology reports",
+      "year": "2024",
+      "doi": "10.1002/npr2.12485",
+      "pmid": "39381877",
+      "url": "https://doi.org/10.1002/npr2.12485",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis of randomized controlled trials examining MDMA-assisted psychotherapy for PTSD treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-2",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Randomized, Placebo-Controlled Trial of the Angiotensin Receptor Antagonist Losartan for Posttraumatic Stress Disorder.",
+      "authors": [
+        "Stein MB",
+        "Jain S",
+        "Simon NM",
+        "West JC",
+        "Marvar PJ",
+        "Bui E",
+        "He F",
+        "Benedek DM"
+      ],
+      "journal": "Biological psychiatry",
+      "year": "2021",
+      "doi": "10.1016/j.biopsych.2021.05.012",
+      "pmid": "34275593",
+      "url": "https://doi.org/10.1016/j.biopsych.2021.05.012",
+      "accessLevel": "abstract",
+      "summary": "Randomized placebo-controlled trial of losartan (angiotensin receptor antagonist) for PTSD that failed to show efficacy.",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-3",
+      "category": "review",
+      "tier": "A",
+      "title": "The effects of prazosin on sleep disturbances in post-traumatic stress disorder: a systematic review and meta-analysis.",
+      "authors": [
+        "Zhang Y",
+        "Ren R",
+        "Sanford LD",
+        "Yang L",
+        "Ni Y",
+        "Zhou J",
+        "Zhang J",
+        "Wing YK"
+      ],
+      "journal": "Sleep medicine",
+      "year": "2020",
+      "doi": "10.1016/j.sleep.2019.06.010",
+      "pmid": "31972510",
+      "url": "https://doi.org/10.1016/j.sleep.2019.06.010",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis of prazosin effects on sleep disturbances in PTSD with mixed conclusions.",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-4",
+      "category": "review",
+      "tier": "B",
+      "title": "N-acetylcysteine for patients with alcohol use disorder, post-traumatic stress disorder, and their co-occurrence: a systematic review of placebo-controlled randomized trials.",
+      "authors": [
+        "Ahmed MAE",
+        "Amin M",
+        "Abdalla YE",
+        "Abdelghani A",
+        "Eid N",
+        "Samy A",
+        "Kassar O",
+        "Alsaadany KR"
+      ],
+      "journal": "BMC psychiatry",
+      "year": "2026",
+      "doi": "10.1186/s12888-026-08124-8",
+      "pmid": "42115982",
+      "url": "https://doi.org/10.1186/s12888-026-08124-8",
+      "accessLevel": "abstract",
+      "summary": "Systematic review of N-acetylcysteine placebo-controlled trials for alcohol use disorder, PTSD, and their co-occurrence.",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-5",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Risperidone monotherapy for post-traumatic stress disorder related to sexual assault and domestic abuse in women.",
+      "authors": [
+        "Padala PR",
+        "Madison J",
+        "Monnahan M",
+        "Marcil W",
+        "Price P",
+        "Ramaswamy S",
+        "Din AU",
+        "Wilson DR"
+      ],
+      "journal": "International clinical psychopharmacology",
+      "year": "2006",
+      "doi": "10.1097/00004850-200609000-00005",
+      "pmid": "16877898",
+      "url": "https://doi.org/10.1097/00004850-200609000-00005",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial of risperidone monotherapy for PTSD related to sexual assault and domestic abuse in women.",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-6",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Treatment of posttraumatic stress disorder with venlafaxine extended release: a 6-month randomized controlled trial.",
+      "authors": [
+        "Davidson J",
+        "Baldwin D",
+        "Stein DJ",
+        "Kuper E",
+        "Benattia I",
+        "Ahmed S",
+        "Pedersen R",
+        "Musgnung J"
+      ],
+      "journal": "Archives of general psychiatry",
+      "year": "2006",
+      "doi": "10.1001/archpsyc.63.10.1158",
+      "pmid": "17015818",
+      "url": "https://doi.org/10.1001/archpsyc.63.10.1158",
+      "accessLevel": "abstract",
+      "summary": "Six-month randomized controlled trial evaluating venlafaxine extended release efficacy in posttraumatic stress disorder.",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-7",
+      "category": "review",
+      "tier": "A",
+      "title": "Benzodiazepines for PTSD: A Systematic Review and Meta-Analysis.",
+      "authors": [
+        "Guina J",
+        "Rossetter SR",
+        "DeRHODES BJ",
+        "Nahhas RW",
+        "Welton RS"
+      ],
+      "journal": "Journal of psychiatric practice",
+      "year": "2015",
+      "doi": "10.1097/PRA.0000000000000091",
+      "pmid": "26164054",
+      "url": "https://doi.org/10.1097/PRA.0000000000000091",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis specifically examining benzodiazepine efficacy in treating PTSD.",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-8",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Post-traumatic Stress Disorder.",
+      "authors": [
+        "Merians AN",
+        "Spiller T",
+        "Harpaz-Rotem I",
+        "Krystal JH",
+        "Pietrzak RH"
+      ],
+      "journal": "The Medical clinics of North America",
+      "year": "2023",
+      "doi": "10.1016/j.mcna.2022.04.003",
+      "pmid": "36402502",
+      "url": "https://doi.org/10.1016/j.mcna.2022.04.003",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive clinical review of PTSD assessment, evidence-based psychotherapies, and pharmacological treatments.",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-9",
+      "category": "review",
+      "tier": "B",
+      "title": "Efficacy and acceptability of music therapy for post-traumatic stress disorder: a systematic review and meta-analysis of randomized controlled trials.",
+      "authors": [
+        "Ma YM",
+        "Yuan MD",
+        "Zhong BL"
+      ],
+      "journal": "European journal of psychotraumatology",
+      "year": "2024",
+      "doi": "10.1080/20008066.2024.2342739",
+      "pmid": "38647566",
+      "url": "https://doi.org/10.1080/20008066.2024.2342739",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis evaluating music therapy efficacy and acceptability for PTSD treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-10",
+      "category": "review",
+      "tier": "B",
+      "title": "Drug treatment strategies for insomnia in patients with post-traumatic stress disorder.",
+      "authors": [
+        "Akinnusi M",
+        "El Solh AA"
+      ],
+      "journal": "Expert opinion on pharmacotherapy",
+      "year": "2019",
+      "doi": "10.1080/14656566.2019.1574745",
+      "pmid": "30794468",
+      "url": "https://doi.org/10.1080/14656566.2019.1574745",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "ptsd-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Moving to Beat Anxiety: Epidemiology and Therapeutic Issues with Physical Activity for Anxiety.",
+      "authors": [
+        "Kandola A",
+        "Vancampfort D",
+        "Herring M",
+        "Rebar A",
+        "Hallgren M",
+        "Firth J",
+        "Stubbs B"
+      ],
+      "journal": "Current psychiatry reports",
+      "year": "2018",
+      "doi": "10.1007/s11920-018-0923-x",
+      "pmid": "30043270",
+      "url": "https://doi.org/10.1007/s11920-018-0923-x",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Evidence-based psychotherapies including cognitive processing therapy, prolonged exposure, and EMDR are first-line treatments for PTSD",
+      "evidenceRefs": [
+        "ptsd-8"
+      ]
+    },
+    {
+      "claim": "Serotonin reuptake inhibitors are established pharmacological treatments for PTSD",
+      "evidenceRefs": [
+        "ptsd-8"
+      ]
+    },
+    {
+      "claim": "PTSD is characterized by re-experiencing, avoidance, negative alterations in cognition and mood, and marked alterations in arousal and reactivity",
+      "evidenceRefs": [
+        "ptsd-8"
+      ]
+    },
+    {
+      "claim": "Insomnia is among the most reported sleep disturbances in PTSD patients and is associated with reduced quality of life and impaired functioning",
+      "evidenceRefs": [
+        "ptsd-10"
+      ]
+    },
+    {
+      "claim": "PTSD can be assessed by structured interviews and screening measures in both psychiatric and nonpsychiatric settings",
+      "evidenceRefs": [
+        "ptsd-8"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Physical activity may help prevent and manage anxiety disorders based on epidemiological data and systematic reviews",
+      "evidenceRefs": [
+        "ptsd-11"
+      ]
+    }
+  ],
+  "redFlags": [
+    "Antidepressant discontinuation can cause withdrawal symptoms",
+    "Sexual side effects of antidepressants are common and may persist after discontinuation"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "MDMA",
+      "aliases": [
+        "3,4-methylenedioxymethamphetamine"
+      ],
+      "mechanism": "Serotonin and dopamine reuptake inhibitor with empathogenic effects",
+      "sponsor": "Various research institutions",
+      "status": "Under investigation in clinical trials",
+      "approvalStatus": "investigational",
+      "evidenceRef": "ptsd-1"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Losartan",
+      "reason": "Randomized placebo-controlled trial failed to show efficacy for PTSD treatment",
+      "evidenceRef": "ptsd-2"
+    },
+    {
+      "name": "Benzodiazepines",
+      "reason": "Systematic review and meta-analysis found insufficient evidence for efficacy in PTSD treatment",
+      "evidenceRef": "ptsd-7"
+    }
+  ]
+}

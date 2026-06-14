@@ -1,0 +1,314 @@
+{
+  "condition": "Glaucoma",
+  "slug": "glaucoma",
+  "aliases": [
+    "open-angle glaucoma",
+    "primary open-angle glaucoma",
+    "POAG"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Metformin",
+    "Erigeron breviscapus extract",
+    "Betaxolol"
+  ],
+  "items": [
+    {
+      "id": "glaucoma-1",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Single intraoperative application of 5-Fluorouracil versus placebo in low-risk trabeculectomy surgery: a randomized trial.",
+      "authors": [
+        "Leyland M",
+        "Bloom P",
+        "Zinicola E",
+        "McAlister J",
+        "Rassam S",
+        "Migdal C"
+      ],
+      "journal": "Journal of glaucoma",
+      "year": "2001",
+      "doi": "10.1097/00061198-200112000-00003",
+      "pmid": "11740214",
+      "url": "https://doi.org/10.1097/00061198-200112000-00003",
+      "accessLevel": "abstract",
+      "summary": "Randomized trial of 5-fluorouracil versus placebo in low-risk trabeculectomy surgery for glaucoma.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-2",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Visual field protective effect of Erigeron breviscapus (vant.) Hand. Mazz. extract on glaucoma with controlled intraocular pressure: a randomized, double-blind, clinical trial.",
+      "authors": [
+        "Zhong Y",
+        "Xiang M",
+        "Ye W",
+        "Cheng Y",
+        "Jiang Y"
+      ],
+      "journal": "Drugs in R&D",
+      "year": "2010",
+      "doi": "10.2165/11539090-000000000-00000",
+      "pmid": "20698715",
+      "url": "https://doi.org/10.2165/11539090-000000000-00000",
+      "accessLevel": "abstract",
+      "summary": "Randomized, double-blind trial of Erigeron breviscapus extract for visual field protection in glaucoma with controlled intraocular pressure.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-3",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Assessing safety and success after using bevacizumab, 5-fluorouracil or placebo in primary trabeculectomy. A prospective randomized placebo controlled 1-year follow-up study.",
+      "authors": [
+        "Kandarakis S",
+        "Kontaxakis A",
+        "Doumazos L",
+        "Petrou P",
+        "Droutsas K",
+        "Papaconstantinou D",
+        "Georgalas I"
+      ],
+      "journal": "Cutaneous and ocular toxicology",
+      "year": "2022",
+      "doi": "10.1080/15569527.2021.2003376",
+      "pmid": "34749555",
+      "url": "https://doi.org/10.1080/15569527.2021.2003376",
+      "accessLevel": "abstract",
+      "summary": "Prospective randomized placebo-controlled study comparing bevacizumab, 5-fluorouracil, and placebo in primary trabeculectomy.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-4",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Influence on intraocular pressure of anti-inflammatory treatments after selective laser trabeculoplasty.",
+      "authors": [
+        "Champagne S",
+        "Anctil JL",
+        "Goyette A",
+        "Lajoie C",
+        "Des Marchais B"
+      ],
+      "journal": "Journal francais d'ophtalmologie",
+      "year": "2015",
+      "doi": "10.1016/j.jfo.2015.01.008",
+      "pmid": "26025033",
+      "url": "https://doi.org/10.1016/j.jfo.2015.01.008",
+      "accessLevel": "abstract",
+      "summary": "Prospective, randomized, double-blind study of anti-inflammatory treatments after selective laser trabeculoplasty.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-5",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "The Singapore 5-fluorouracil trial: intraocular pressure outcomes at 8 years.",
+      "authors": [
+        "Wong MH",
+        "Husain R",
+        "Ang BC",
+        "Gazzard G",
+        "Foster PJ",
+        "Htoon HM",
+        "Wong TT",
+        "Oen FT"
+      ],
+      "journal": "Ophthalmology",
+      "year": "2013",
+      "doi": "10.1016/j.ophtha.2012.12.004",
+      "pmid": "23466269",
+      "url": "https://doi.org/10.1016/j.ophtha.2012.12.004",
+      "accessLevel": "abstract",
+      "summary": "8-year outcomes of Asian subjects who underwent trabeculectomy augmented by intraoperative 5-fluorouracil or placebo.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-6",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Results of the betaxolol versus placebo treatment trial in ocular hypertension.",
+      "authors": [
+        "Kamal D",
+        "Garway-Heath D",
+        "Ruben S",
+        "O'Sullivan F",
+        "Bunce C",
+        "Viswanathan A",
+        "Franks W",
+        "Hitchings R"
+      ],
+      "journal": "Graefe's archive for clinical and experimental ophthalmology = Albrecht von Graefes Archiv fur klinische und experimentelle Ophthalmologie",
+      "year": "2003",
+      "doi": "10.1007/s00417-002-0614-4",
+      "pmid": "12644943",
+      "url": "https://doi.org/10.1007/s00417-002-0614-4",
+      "accessLevel": "abstract",
+      "summary": "Prospective, randomized, placebo-controlled trial of betaxolol versus placebo in ocular hypertension.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-7",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "The singapore 5-Fluorouracil trabeculectomy study: effects on intraocular pressure control and disease progression at 3 years.",
+      "authors": [
+        "Wong TT",
+        "Khaw PT",
+        "Aung T",
+        "Foster PJ",
+        "Htoon HM",
+        "Oen FT",
+        "Gazzard G",
+        "Husain R"
+      ],
+      "journal": "Ophthalmology",
+      "year": "2009",
+      "doi": "10.1016/j.ophtha.2008.09.049",
+      "pmid": "19187822",
+      "url": "https://doi.org/10.1016/j.ophtha.2008.09.049",
+      "accessLevel": "abstract",
+      "summary": "3-year results of randomized controlled trial comparing 5-fluorouracil with placebo in trabeculectomy surgery.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Metformin in Glaucoma Treatment.",
+      "authors": [
+        "Daka Q",
+        "Neziri B",
+        "Lindner E",
+        "Azuara Blanco A"
+      ],
+      "journal": "Journal of glaucoma",
+      "year": "2024",
+      "doi": "10.1097/IJG.0000000000002387",
+      "pmid": "38536124",
+      "url": "https://doi.org/10.1097/IJG.0000000000002387",
+      "accessLevel": "abstract",
+      "summary": "Review evaluating the potentially beneficial effect of metformin on glaucoma risk factors and underlying mechanisms.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-9",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Glaucoma.",
+      "authors": [
+        "Kang JM",
+        "Tanna AP"
+      ],
+      "journal": "The Medical clinics of North America",
+      "year": "2021",
+      "doi": "10.1016/j.mcna.2021.01.004",
+      "pmid": "33926643",
+      "url": "https://doi.org/10.1016/j.mcna.2021.01.004",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of glaucoma pathophysiology, classification, clinical manifestations, diagnosis, and management.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-10",
+      "category": "review",
+      "tier": "B",
+      "title": "Novel Biomaterials in Glaucoma Treatment.",
+      "authors": [
+        "Klézlová A",
+        "Bulíř P",
+        "Klápšťová A",
+        "Netuková M",
+        "Šenková K",
+        "Horáková J",
+        "Studený P"
+      ],
+      "journal": "Biomedicines",
+      "year": "2024",
+      "doi": "10.3390/biomedicines12040813",
+      "pmid": "38672168",
+      "url": "https://doi.org/10.3390/biomedicines12040813",
+      "accessLevel": "abstract",
+      "summary": "Review of novel biomaterials being developed for glaucoma treatment applications.",
+      "keyPassages": []
+    },
+    {
+      "id": "glaucoma-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Herbal Medicines in Glaucoma Treatment.",
+      "authors": [
+        "Ige M",
+        "Liu J"
+      ],
+      "journal": "The Yale journal of biology and medicine",
+      "year": "2020",
+      "doi": "",
+      "pmid": "32607093",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/32607093/",
+      "accessLevel": "abstract",
+      "summary": "Review of herbal medicines including Ginkgo biloba, bilberry, and medical marijuana in glaucoma treatment.",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Glaucoma is the leading cause of irreversible blindness worldwide with an estimated global prevalence of 3.5% in people aged 40-80 years.",
+      "evidenceRefs": [
+        "glaucoma-9"
+      ]
+    },
+    {
+      "claim": "High intraocular pressure is a common risk factor for glaucoma, and current standard therapy involves lowering IOP through medical, laser, and/or surgical approaches.",
+      "evidenceRefs": [
+        "glaucoma-9",
+        "glaucoma-11"
+      ]
+    },
+    {
+      "claim": "Currently available treatments cannot reverse glaucomatous damage to the visual system, but early diagnosis and treatment can prevent disease progression.",
+      "evidenceRefs": [
+        "glaucoma-9"
+      ]
+    },
+    {
+      "claim": "Trabeculectomy is the procedure of choice for surgical control of glaucoma and is often augmented by intraoperative antimetabolite application to reduce scarring.",
+      "evidenceRefs": [
+        "glaucoma-1"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [],
+  "redFlags": [
+    "Glaucoma causes irreversible vision loss and requires lifelong management",
+    "Early diagnosis is critical as damage cannot be reversed once it occurs"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Metformin",
+      "aliases": [],
+      "mechanism": "Potential neuroprotective effects on glaucoma risk factors",
+      "sponsor": "Various",
+      "status": "Under investigation",
+      "approvalStatus": "investigational",
+      "evidenceRef": "glaucoma-8"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Erigeron breviscapus extract",
+      "reason": "Randomized double-blind trial showed no visual field protective effect in glaucoma patients with controlled intraocular pressure",
+      "evidenceRef": "glaucoma-2"
+    },
+    {
+      "name": "Betaxolol",
+      "reason": "Randomized placebo-controlled trial failed to delay or prevent conversion from ocular hypertension to early glaucoma based on visual field criteria",
+      "evidenceRef": "glaucoma-6"
+    }
+  ]
+}

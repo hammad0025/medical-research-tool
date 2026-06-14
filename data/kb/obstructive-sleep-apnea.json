@@ -1,0 +1,570 @@
+{
+  "condition": "Obstructive Sleep Apnea",
+  "slug": "obstructive-sleep-apnea",
+  "aliases": [
+    "OSA",
+    "sleep apnea",
+    "sleep-disordered breathing"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Tirzepatide",
+    "Solriamfetol",
+    "Oxybutynin plus reboxetine combination",
+    "Donepezil",
+    "Supplemental oxygen therapy",
+    "Adalimumab",
+    "Soft tissue lubricant"
+  ],
+  "items": [
+    {
+      "id": "obstructive-sleep-apnea-1",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Clinical Practice Guideline for the Treatment of Obstructive Sleep Apnea and Snoring with Oral Appliance Therapy: An Update for 2015.",
+      "authors": [
+        "Ramar K",
+        "Dort LC",
+        "Katz SG",
+        "Lettieri CJ",
+        "Harrod CG",
+        "Thomas SM",
+        "Chervin RD"
+      ],
+      "journal": "Journal of clinical sleep medicine : JCSM : official publication of the American Academy of Sleep Medicine",
+      "year": "2015",
+      "doi": "10.5664/jcsm.4858",
+      "pmid": "26094920",
+      "url": "https://doi.org/10.5664/jcsm.4858",
+      "accessLevel": "abstract",
+      "summary": "AASM/AADSM clinical practice guideline for oral appliance therapy in OSA treatment, providing evidence-based recommendations for mandibular advancement devices.",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-2",
+      "category": "review",
+      "tier": "A",
+      "title": "Adult obstructive sleep apnoea.",
+      "authors": [
+        "Jordan AS",
+        "McSharry DG",
+        "Malhotra A"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2014",
+      "doi": "10.1016/S0140-6736(13)60734-5",
+      "pmid": "23910433",
+      "url": "https://doi.org/10.1016/S0140-6736(13)60734-5",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of adult obstructive sleep apnea pathogenesis, risk factors, and treatment approaches in a leading medical journal.",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-3",
+      "category": "review",
+      "tier": "A",
+      "title": "Positive airway pressure therapy and all-cause and cardiovascular mortality in people with obstructive sleep apnoea: a systematic review and meta-analysis of randomised controlled trials and confounder-adjusted, non-randomised controlled studies.",
+      "authors": [
+        "Benjafield AV",
+        "Pepin JL",
+        "Cistulli PA",
+        "Wimms A",
+        "Lavergne F",
+        "Sert Kuniyoshi FH",
+        "Munson SH",
+        "Schuler B"
+      ],
+      "journal": "The Lancet. Respiratory medicine",
+      "year": "2025",
+      "doi": "10.1016/S2213-2600(25)00002-5",
+      "pmid": "40118084",
+      "url": "https://doi.org/10.1016/S2213-2600(25)00002-5",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis examining the effect of positive airway pressure therapy on all-cause and cardiovascular mortality in OSA patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Obstructive Sleep Apnea.",
+      "authors": [
+        "Anderson N",
+        "Tran P"
+      ],
+      "journal": "Primary care",
+      "year": "2025",
+      "doi": "10.1016/j.pop.2024.09.007",
+      "pmid": "39939090",
+      "url": "https://doi.org/10.1016/j.pop.2024.09.007",
+      "accessLevel": "abstract",
+      "summary": "Current primary care review of OSA diagnosis, testing methods, and treatment options for both adult and pediatric populations.",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-5",
+      "category": "review",
+      "tier": "B",
+      "title": "Positional Treatment of Obstructive Sleep Apnea.",
+      "authors": [
+        "Ravesloot MJL"
+      ],
+      "journal": "Otolaryngologic clinics of North America",
+      "year": "2024",
+      "doi": "10.1016/j.otc.2024.01.002",
+      "pmid": "38311472",
+      "url": "https://doi.org/10.1016/j.otc.2024.01.002",
+      "accessLevel": "abstract",
+      "summary": "Review of positional therapy for positional sleep apnea, including new-generation devices and compliance considerations.",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-6",
+      "category": "review",
+      "tier": "B",
+      "title": "Surgery for obstructive sleep apnoea.",
+      "authors": [
+        "Sundaram S",
+        "Bridgman SA",
+        "Lim J",
+        "Lasserson TJ"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2005",
+      "doi": "10.1002/14651858.CD001004.pub2",
+      "pmid": "16235277",
+      "url": "https://doi.org/10.1002/14651858.CD001004.pub2",
+      "accessLevel": "abstract",
+      "summary": "Cochrane systematic review assessing the effects of surgical interventions for obstructive sleep apnea treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-7",
+      "category": "rct",
+      "tier": "A",
+      "title": "Obstructive sleep apnea as a risk factor for stroke and death.",
+      "authors": [
+        "Yaggi HK",
+        "Concato J",
+        "Kernan WN",
+        "Lichtman JH",
+        "Brass LM",
+        "Mohsenin V"
+      ],
+      "journal": "The New England journal of medicine",
+      "year": "2005",
+      "doi": "10.1056/NEJMoa043104",
+      "pmid": "16282178",
+      "url": "https://doi.org/10.1056/NEJMoa043104",
+      "accessLevel": "abstract",
+      "summary": "Observational cohort study demonstrating OSA as an independent risk factor for stroke and death after adjustment for other cardiovascular risk factors.",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-8",
+      "category": "rct",
+      "tier": "A",
+      "title": "Effect of tirzepatide treatment on patient-reported outcomes among SURMOUNT-OSA participants with obstructive sleep apnea and obesity.",
+      "authors": [
+        "Kanu C",
+        "Shinde S",
+        "Chakladar S",
+        "Dennehy EB",
+        "Weaver TE",
+        "Poon JL",
+        "Malhotra A"
+      ],
+      "journal": "Sleep medicine",
+      "year": "2025",
+      "doi": "10.1016/j.sleep.2025.106719",
+      "pmid": "40774158",
+      "url": "https://doi.org/10.1016/j.sleep.2025.106719",
+      "accessLevel": "abstract",
+      "summary": "Phase 3 SURMOUNT-OSA trials showing tirzepatide significantly reduced apnea-hypopnea index in patients with moderate-to-severe OSA and obesity.",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-9",
+      "category": "review",
+      "tier": "B",
+      "title": "Solriamfetol for the treatment of daytime sleepiness in obstructive sleep apnea.",
+      "authors": [
+        "Abad VC",
+        "Guilleminault C"
+      ],
+      "journal": "Expert review of respiratory medicine",
+      "year": "2018",
+      "doi": "10.1080/17476348.2018.1541742",
+      "pmid": "30365900",
+      "url": "https://doi.org/10.1080/17476348.2018.1541742",
+      "accessLevel": "abstract",
+      "summary": "Expert review of solriamfetol, a selective norepinephrine-dopamine reuptake inhibitor for treating excessive daytime sleepiness in OSA patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-10",
+      "category": "review",
+      "tier": "B",
+      "title": "Obstructive sleep apnea and cardiovascular risk.",
+      "authors": [
+        "Torres G",
+        "Sánchez de la Torre M",
+        "Pinilla L",
+        "Barbé F"
+      ],
+      "journal": "Clinica e investigacion en arteriosclerosis : publicacion oficial de la Sociedad Espanola de Arteriosclerosis",
+      "year": "2024",
+      "doi": "10.1016/j.arteri.2024.01.004",
+      "pmid": "38413245",
+      "url": "https://doi.org/10.1016/j.arteri.2024.01.004",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Obstructive sleep apnea: a cardiometabolic risk in obesity and the metabolic syndrome.",
+      "authors": [
+        "Drager LF",
+        "Togeiro SM",
+        "Polotsky VY",
+        "Lorenzi-Filho G"
+      ],
+      "journal": "Journal of the American College of Cardiology",
+      "year": "2013",
+      "doi": "10.1016/j.jacc.2013.05.045",
+      "pmid": "23770180",
+      "url": "https://doi.org/10.1016/j.jacc.2013.05.045",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-12",
+      "category": "review",
+      "tier": "B",
+      "title": "Obstructive sleep apnoea syndrome.",
+      "authors": [
+        "Lévy P",
+        "Kohler M",
+        "McNicholas WT",
+        "Barbé F",
+        "McEvoy RD",
+        "Somers VK",
+        "Lavie L",
+        "Pépin JL"
+      ],
+      "journal": "Nature reviews. Disease primers",
+      "year": "2015",
+      "doi": "10.1038/nrdp.2015.15",
+      "pmid": "27188535",
+      "url": "https://doi.org/10.1038/nrdp.2015.15",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-13",
+      "category": "review",
+      "tier": "B",
+      "title": "Interactions of Obstructive Sleep Apnea With the Pathophysiology of Cardiovascular Disease, Part 1: JACC State-of-the-Art Review.",
+      "authors": [
+        "Javaheri S",
+        "Javaheri S",
+        "Somers VK",
+        "Gozal D",
+        "Mokhlesi B",
+        "Mehra R",
+        "McNicholas WT",
+        "Zee PC"
+      ],
+      "journal": "Journal of the American College of Cardiology",
+      "year": "2024",
+      "doi": "10.1016/j.jacc.2024.02.059",
+      "pmid": "39293884",
+      "url": "https://doi.org/10.1016/j.jacc.2024.02.059",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-14",
+      "category": "review",
+      "tier": "B",
+      "title": "Sleep apnea is a common and dangerous cardiovascular risk factor.",
+      "authors": [
+        "Henning RJ",
+        "Anderson WM"
+      ],
+      "journal": "Current problems in cardiology",
+      "year": "2025",
+      "doi": "10.1016/j.cpcardiol.2024.102838",
+      "pmid": "39242062",
+      "url": "https://doi.org/10.1016/j.cpcardiol.2024.102838",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-15",
+      "category": "review",
+      "tier": "B",
+      "title": "Oral appliance therapy versus nasal continuous positive airway pressure in obstructive sleep apnea: a randomized, placebo-controlled trial on psychological distress.",
+      "authors": [
+        "Aarab G",
+        "Nikolopoulou M",
+        "Ahlberg J",
+        "Heymans MW",
+        "Hamburger HL",
+        "de Lange J",
+        "Lobbezoo F"
+      ],
+      "journal": "Clinical oral investigations",
+      "year": "2017",
+      "doi": "10.1007/s00784-016-2045-3",
+      "pmid": "28083705",
+      "url": "https://doi.org/10.1007/s00784-016-2045-3",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-16",
+      "category": "review",
+      "tier": "B",
+      "title": "Efficacy of Donepezil in the Treatment of Obstructive Sleep Apnea: A Placebo-Controlled Trial.",
+      "authors": [
+        "Hunchaisri N",
+        "Chalermsuwiwattanakan W"
+      ],
+      "journal": "Journal of the Medical Association of Thailand = Chotmaihet thangphaet",
+      "year": "2016",
+      "doi": "",
+      "pmid": "29901379",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29901379/",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-17",
+      "category": "review",
+      "tier": "B",
+      "title": "Effect of oxybutynin and reboxetine on obstructive sleep apnea: a randomized, placebo-controlled, double-blind, crossover trial.",
+      "authors": [
+        "Berger M",
+        "Solelhac G",
+        "Marchi NA",
+        "Dussez R",
+        "Bradley B",
+        "Lecciso G",
+        "Heiniger G",
+        "Bayon V"
+      ],
+      "journal": "Sleep",
+      "year": "2023",
+      "doi": "10.1093/sleep/zsad051",
+      "pmid": "36861433",
+      "url": "https://doi.org/10.1093/sleep/zsad051",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-18",
+      "category": "review",
+      "tier": "B",
+      "title": "A randomized controlled trial of oxygen therapy for patients who do not respond to upper airway surgery for obstructive sleep apnea.",
+      "authors": [
+        "Joosten SA",
+        "Tan M",
+        "Wong AM",
+        "Landry SA",
+        "Leong P",
+        "Sands SA",
+        "Beatty C",
+        "Thomson L"
+      ],
+      "journal": "Journal of clinical sleep medicine : JCSM : official publication of the American Academy of Sleep Medicine",
+      "year": "2021",
+      "doi": "10.5664/jcsm.8920",
+      "pmid": "33094725",
+      "url": "https://doi.org/10.5664/jcsm.8920",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-19",
+      "category": "review",
+      "tier": "B",
+      "title": "Effect of adalimumab on sleep parameters in patients with psoriasis and obstructive sleep apnea: a randomized controlled trial.",
+      "authors": [
+        "Maari C",
+        "Bolduc C",
+        "Nigen S",
+        "Marchessault P",
+        "Bissonnette R"
+      ],
+      "journal": "The Journal of dermatological treatment",
+      "year": "2014",
+      "doi": "10.3109/09546634.2012.713458",
+      "pmid": "22834968",
+      "url": "https://doi.org/10.3109/09546634.2012.713458",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obstructive-sleep-apnea-20",
+      "category": "review",
+      "tier": "B",
+      "title": "Surface tension forces in sleep apnea: the role of a soft tissue lubricant: a randomized double-blind, placebo-controlled trial.",
+      "authors": [
+        "Jokic R",
+        "Klimaszewski A",
+        "Mink J",
+        "Fitzpatrick MF"
+      ],
+      "journal": "American journal of respiratory and critical care medicine",
+      "year": "1998",
+      "doi": "10.1164/ajrccm.157.5.9708070",
+      "pmid": "9603132",
+      "url": "https://doi.org/10.1164/ajrccm.157.5.9708070",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "OSA is characterized by recurrent upper airway collapse during sleep leading to intermittent hypoxia, sleep fragmentation, and cardiovascular consequences",
+      "evidenceRefs": [
+        "obstructive-sleep-apnea-10",
+        "obstructive-sleep-apnea-11",
+        "obstructive-sleep-apnea-12",
+        "obstructive-sleep-apnea-2"
+      ]
+    },
+    {
+      "claim": "OSA is associated with increased risk of cardiovascular morbidity, mortality, stroke, and systemic hypertension",
+      "evidenceRefs": [
+        "obstructive-sleep-apnea-10",
+        "obstructive-sleep-apnea-13",
+        "obstructive-sleep-apnea-7",
+        "obstructive-sleep-apnea-14"
+      ]
+    },
+    {
+      "claim": "Positive airway pressure therapy is the primary treatment for OSA",
+      "evidenceRefs": [
+        "obstructive-sleep-apnea-3",
+        "obstructive-sleep-apnea-1",
+        "obstructive-sleep-apnea-2"
+      ]
+    },
+    {
+      "claim": "Oral appliance therapy with mandibular advancement devices is an effective alternative treatment for OSA",
+      "evidenceRefs": [
+        "obstructive-sleep-apnea-15",
+        "obstructive-sleep-apnea-1"
+      ]
+    },
+    {
+      "claim": "OSA prevalence is increasing worldwide due to the obesity epidemic",
+      "evidenceRefs": [
+        "obstructive-sleep-apnea-11",
+        "obstructive-sleep-apnea-14"
+      ]
+    },
+    {
+      "claim": "Positional therapy can be effective for positional sleep apnea patients",
+      "evidenceRefs": [
+        "obstructive-sleep-apnea-5"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Weight reduction for obese patients with OSA",
+      "evidenceRefs": [
+        "obstructive-sleep-apnea-16",
+        "obstructive-sleep-apnea-2"
+      ]
+    },
+    {
+      "recommendation": "Avoid smoking as it is a risk factor for OSA",
+      "evidenceRefs": [
+        "obstructive-sleep-apnea-2"
+      ]
+    },
+    {
+      "recommendation": "Consider positional therapy for patients with positional sleep apnea",
+      "evidenceRefs": [
+        "obstructive-sleep-apnea-5"
+      ]
+    }
+  ],
+  "redFlags": [
+    "OSA increases risk of motor vehicle accidents due to daytime sleepiness",
+    "Untreated OSA is associated with increased cardiovascular mortality",
+    "OSA may worsen during menopause and with fluid retention"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Tirzepatide",
+      "aliases": [
+        "GLP-1/GIP receptor agonist"
+      ],
+      "mechanism": "Dual glucose-dependent insulinotropic polypeptide and glucagon-like peptide-1 receptor agonist",
+      "sponsor": "Eli Lilly",
+      "status": "Phase 3 completed",
+      "approvalStatus": "approved",
+      "evidenceRef": "obstructive-sleep-apnea-8"
+    },
+    {
+      "name": "Solriamfetol",
+      "aliases": [
+        "JZP-110"
+      ],
+      "mechanism": "Selective norepinephrine-dopamine reuptake inhibitor",
+      "sponsor": "Jazz Pharmaceuticals",
+      "status": "FDA approved for excessive daytime sleepiness",
+      "approvalStatus": "approved",
+      "evidenceRef": "obstructive-sleep-apnea-9"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Oxybutynin plus reboxetine combination",
+      "reason": "Randomized controlled trial showed no significant improvement in OSA severity compared to placebo after 1 week of treatment",
+      "evidenceRef": "obstructive-sleep-apnea-17"
+    },
+    {
+      "name": "Donepezil",
+      "reason": "Placebo-controlled trial failed to demonstrate significant efficacy in treating OSA patients",
+      "evidenceRef": "obstructive-sleep-apnea-16"
+    },
+    {
+      "name": "Supplemental oxygen therapy",
+      "reason": "Randomized controlled trial in patients who failed upper airway surgery showed no significant benefit for OSA treatment",
+      "evidenceRef": "obstructive-sleep-apnea-18"
+    },
+    {
+      "name": "Adalimumab",
+      "reason": "Randomized controlled trial showed no significant effect on sleep parameters in patients with psoriasis and OSA",
+      "evidenceRef": "obstructive-sleep-apnea-19"
+    },
+    {
+      "name": "Soft tissue lubricant",
+      "reason": "While showing some improvement in arousal index, the randomized controlled trial did not demonstrate clinically significant improvement in overall OSA severity",
+      "evidenceRef": "obstructive-sleep-apnea-20"
+    }
+  ]
+}

@@ -1,0 +1,506 @@
+{
+  "condition": "Breast Cancer",
+  "slug": "breast-cancer",
+  "aliases": [
+    "breast carcinoma",
+    "mammary carcinoma"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Trastuzumab deruxtecan",
+    "Datopotamab deruxtecan",
+    "Ado-trastuzumab emtansine",
+    "Atezolizumab plus nab-paclitaxel",
+    "Myofascial release",
+    "Lavender aromatherapy massage",
+    "Dexamethasone plus physical activity",
+    "Antibiotic prophylaxis (cefazolin)",
+    "Estrogen plus progestin hormone therapy",
+    "Estrogen alone hormone therapy"
+  ],
+  "items": [
+    {
+      "id": "breast-cancer-1",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Atezolizumab plus nab-paclitaxel as first-line treatment for unresectable, locally advanced or metastatic triple-negative breast cancer (IMpassion130): updated efficacy results from a randomised, double-blind, placebo-controlled, phase 3 trial.",
+      "authors": [
+        "Schmid P",
+        "Rugo HS",
+        "Adams S",
+        "Schneeweiss A",
+        "Barrios CH",
+        "Iwata H",
+        "Diéras V",
+        "Henschel V"
+      ],
+      "journal": "The Lancet. Oncology",
+      "year": "2020",
+      "doi": "10.1016/S1470-2045(19)30689-8",
+      "pmid": "31786121",
+      "url": "https://doi.org/10.1016/S1470-2045(19)30689-8",
+      "accessLevel": "abstract",
+      "summary": "Phase 3 trial showing atezolizumab plus nab-paclitaxel did not improve overall survival in metastatic triple-negative breast cancer.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-2",
+      "category": "negative-trial",
+      "tier": "A+",
+      "title": "Association of Menopausal Hormone Therapy With Breast Cancer Incidence and Mortality During Long-term Follow-up of the Women's Health Initiative Randomized Clinical Trials.",
+      "authors": [
+        "Chlebowski RT",
+        "Anderson GL",
+        "Aragaki AK",
+        "Manson JE",
+        "Stefanick ML",
+        "Pan K",
+        "Barrington W",
+        "Kuller LH"
+      ],
+      "journal": "JAMA",
+      "year": "2020",
+      "doi": "10.1001/jama.2020.9482",
+      "pmid": "32721007",
+      "url": "https://doi.org/10.1001/jama.2020.9482",
+      "accessLevel": "abstract",
+      "summary": "Women's Health Initiative trial demonstrating increased breast cancer incidence and mortality with menopausal hormone therapy.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-3",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Adjuvant Letrozole and Tamoxifen Alone or Sequentially for Postmenopausal Women With Hormone Receptor-Positive Breast Cancer: Long-Term Follow-Up of the BIG 1-98 Trial.",
+      "authors": [
+        "Ruhstaller T",
+        "Giobbie-Hurder A",
+        "Colleoni M",
+        "Jensen MB",
+        "Ejlertsen B",
+        "de Azambuja E",
+        "Neven P",
+        "Láng I"
+      ],
+      "journal": "Journal of clinical oncology : official journal of the American Society of Clinical Oncology",
+      "year": "2019",
+      "doi": "10.1200/JCO.18.00440",
+      "pmid": "30475668",
+      "url": "https://doi.org/10.1200/JCO.18.00440",
+      "accessLevel": "abstract",
+      "summary": "BIG 1-98 trial comparing adjuvant letrozole versus tamoxifen in postmenopausal women with hormone receptor-positive breast cancer.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-4",
+      "category": "review",
+      "tier": "A+",
+      "title": "Long-term hormone therapy for perimenopausal and postmenopausal women.",
+      "authors": [
+        "Marjoribanks J",
+        "Farquhar C",
+        "Roberts H",
+        "Lethaby A",
+        "Lee J"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2017",
+      "doi": "10.1002/14651858.CD004143.pub5",
+      "pmid": "28093732",
+      "url": "https://doi.org/10.1002/14651858.CD004143.pub5",
+      "accessLevel": "abstract",
+      "summary": "Cochrane systematic review of long-term hormone therapy effects on mortality, cardiovascular outcomes, and cancer in postmenopausal women.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-5",
+      "category": "rct",
+      "tier": "A",
+      "title": "Trastuzumab Deruxtecan in Previously Treated HER2-Low Advanced Breast Cancer.",
+      "authors": [
+        "Modi S",
+        "Jacot W",
+        "Yamashita T",
+        "Sohn J",
+        "Vidal M",
+        "Tokunaga E",
+        "Tsurutani J",
+        "Ueno NT"
+      ],
+      "journal": "The New England journal of medicine",
+      "year": "2022",
+      "doi": "10.1056/NEJMoa2203690",
+      "pmid": "35665782",
+      "url": "https://doi.org/10.1056/NEJMoa2203690",
+      "accessLevel": "abstract",
+      "summary": "Phase 3 trial of trastuzumab deruxtecan in HER2-low advanced breast cancer showing efficacy in previously treated patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-6",
+      "category": "review",
+      "tier": "A+",
+      "title": "Aromatase inhibitors versus tamoxifen in premenopausal women with oestrogen receptor-positive early-stage breast cancer treated with ovarian suppression: a patient-level meta-analysis of 7030 women from four randomised trials.",
+      "authors": [
+        "Early Breast Cancer Trialists' Collaborative Group (EBCTCG)"
+      ],
+      "journal": "The Lancet. Oncology",
+      "year": "2022",
+      "doi": "10.1016/S1470-2045(21)00758-0",
+      "pmid": "35123662",
+      "url": "https://doi.org/10.1016/S1470-2045(21)00758-0",
+      "accessLevel": "abstract",
+      "summary": "Patient-level meta-analysis of 7030 premenopausal women comparing aromatase inhibitors versus tamoxifen with ovarian suppression.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-7",
+      "category": "clinical-guideline",
+      "tier": "A",
+      "title": "Treatment of breast cancer.",
+      "authors": [
+        "Maughan KL",
+        "Lutterbie MA",
+        "Ham PS"
+      ],
+      "journal": "American family physician",
+      "year": "2010",
+      "doi": "",
+      "pmid": "20521754",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/20521754/",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of breast cancer treatment options based on stage, histology, and biomarkers for family physicians.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Advances in the prevention and treatment of breast cancer-related lymphedema.",
+      "authors": [
+        "Donahue PMC",
+        "MacKenzie A",
+        "Filipovic A",
+        "Koelmeyer L"
+      ],
+      "journal": "Breast cancer research and treatment",
+      "year": "2023",
+      "doi": "10.1007/s10549-023-06947-7",
+      "pmid": "37103598",
+      "url": "https://doi.org/10.1007/s10549-023-06947-7",
+      "accessLevel": "abstract",
+      "summary": "Review of current prevention and treatment strategies for breast cancer-related lymphedema.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-9",
+      "category": "review",
+      "tier": "B",
+      "title": "The History of Early Breast Cancer Treatment.",
+      "authors": [
+        "Ben-Dror J",
+        "Shalamov M",
+        "Sonnenblick A"
+      ],
+      "journal": "Genes",
+      "year": "2022",
+      "doi": "10.3390/genes13060960",
+      "pmid": "35741721",
+      "url": "https://doi.org/10.3390/genes13060960",
+      "accessLevel": "abstract",
+      "summary": "Historical review of early breast cancer treatment evolution from local therapy emphasis to systemic precision treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-10",
+      "category": "review",
+      "tier": "A",
+      "title": "New Treatment Approaches for Triple-Negative Breast Cancer.",
+      "authors": [
+        "Riaz F",
+        "Gruber JJ",
+        "Telli ML"
+      ],
+      "journal": "American Society of Clinical Oncology educational book. American Society of Clinical Oncology. Annual Meeting",
+      "year": "2025",
+      "doi": "10.1200/EDBK-25-481154",
+      "pmid": "40460322",
+      "url": "https://doi.org/10.1200/EDBK-25-481154",
+      "accessLevel": "abstract",
+      "summary": "Review of therapeutic advances and novel treatment approaches for metastatic triple-negative breast cancer.",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Breast cancer statistics, 2011.",
+      "authors": [
+        "DeSantis C",
+        "Siegel R",
+        "Bandi P",
+        "Jemal A"
+      ],
+      "journal": "CA: a cancer journal for clinicians",
+      "year": "2011",
+      "doi": "10.3322/caac.20134",
+      "pmid": "21969133",
+      "url": "https://doi.org/10.3322/caac.20134",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-12",
+      "category": "review",
+      "tier": "B",
+      "title": "TROPION-Breast02: Datopotamab deruxtecan for locally recurrent inoperable or metastatic triple-negative breast cancer.",
+      "authors": [
+        "Dent RA",
+        "Cescon DW",
+        "Bachelot T",
+        "Jung KH",
+        "Shao ZM",
+        "Saji S",
+        "Traina TA",
+        "Vukovic P"
+      ],
+      "journal": "Future oncology (London, England)",
+      "year": "2023",
+      "doi": "10.2217/fon-2023-0228",
+      "pmid": "37526149",
+      "url": "https://doi.org/10.2217/fon-2023-0228",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-13",
+      "category": "review",
+      "tier": "B",
+      "title": "Antibody-drug conjugates: present and future.",
+      "authors": [
+        "Beck A",
+        "Reichert JM"
+      ],
+      "journal": "mAbs",
+      "year": "2014",
+      "doi": "10.4161/mabs.27436",
+      "pmid": "24423577",
+      "url": "https://doi.org/10.4161/mabs.27436",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-14",
+      "category": "review",
+      "tier": "B",
+      "title": "The effect of myofascial release in patients with breast cancer-related lymphedema: a cross-over randomized controlled trial.",
+      "authors": [
+        "Kim Y",
+        "Park EY",
+        "Lee H"
+      ],
+      "journal": "European journal of physical and rehabilitation medicine",
+      "year": "2023",
+      "doi": "10.23736/S1973-9087.22.07698-5",
+      "pmid": "36637800",
+      "url": "https://doi.org/10.23736/S1973-9087.22.07698-5",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-15",
+      "category": "review",
+      "tier": "B",
+      "title": "Effect of aromatherapy massage with lavender essential oil on sleep quality, pain, and mental and psychiatric disorders among breast cancer patients undergoing chemotherapy: a randomized controlled trial.",
+      "authors": [
+        "Zhang F",
+        "Cheng L",
+        "Qin S",
+        "Wang L",
+        "Liu Y",
+        "Liu Y",
+        "Yang J",
+        "Fang S"
+      ],
+      "journal": "Supportive care in cancer : official journal of the Multinational Association of Supportive Care in Cancer",
+      "year": "2025",
+      "doi": "10.1007/s00520-025-09741-x",
+      "pmid": "40653563",
+      "url": "https://doi.org/10.1007/s00520-025-09741-x",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-16",
+      "category": "review",
+      "tier": "B",
+      "title": "Physical Activity and Dexamethasone for Cancer-Related Fatigue: A Preliminary Placebo-Controlled, Randomized, Double-Blind Trial.",
+      "authors": [
+        "Yennurajalingam S",
+        "Valero V",
+        "Smalgo BG",
+        "Overman MJ",
+        "Dasari A",
+        "Wolff RA",
+        "Raghav KPS",
+        "Barcenas CH"
+      ],
+      "journal": "Journal of the National Comprehensive Cancer Network : JNCCN",
+      "year": "2025",
+      "doi": "10.6004/jnccn.2024.7071",
+      "pmid": "39773433",
+      "url": "https://doi.org/10.6004/jnccn.2024.7071",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "breast-cancer-17",
+      "category": "review",
+      "tier": "B",
+      "title": "Antibiotic prophylaxis in breast cancer surgery. A randomized controlled trial.",
+      "authors": [
+        "Prudencio RMA",
+        "Campos FSM",
+        "Loyola ABAT",
+        "Archangelo Junior I",
+        "Novo NF",
+        "Ferreira LM",
+        "Veiga DF"
+      ],
+      "journal": "Acta cirurgica brasileira",
+      "year": "2020",
+      "doi": "10.1590/s0102-865020200090000007",
+      "pmid": "33027362",
+      "url": "https://doi.org/10.1590/s0102-865020200090000007",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Breast cancer incidence rates were stable among all racial/ethnic groups from 2004 to 2008, with approximately 230,480 new cases expected in 2011",
+      "evidenceRefs": [
+        "breast-cancer-11"
+      ]
+    },
+    {
+      "claim": "Breast cancer death rates have been declining since the early 1990s for all women except American Indians/Alaska Natives",
+      "evidenceRefs": [
+        "breast-cancer-11"
+      ]
+    },
+    {
+      "claim": "Aromatase inhibitors are more effective than tamoxifen in postmenopausal women but are ineffective in premenopausal women when used without ovarian suppression",
+      "evidenceRefs": [
+        "breast-cancer-6"
+      ]
+    },
+    {
+      "claim": "Radiation therapy following breast-conserving surgery decreases mortality and recurrence in early-stage breast cancer",
+      "evidenceRefs": [
+        "breast-cancer-7"
+      ]
+    },
+    {
+      "claim": "Sentinel lymph node removal is now standard of care for patients with early stage breast cancer without sentinel lymph node metastases",
+      "evidenceRefs": [
+        "breast-cancer-8"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Patient education and early surveillance for breast cancer-related lymphedema to reduce incidence and progression",
+      "evidenceRefs": [
+        "breast-cancer-8"
+      ]
+    }
+  ],
+  "redFlags": [
+    "Menopausal hormone therapy increases breast cancer risk and mortality",
+    "Denosumab discontinuation may increase risk of multiple vertebral fractures"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Trastuzumab deruxtecan",
+      "aliases": [
+        "T-DXd"
+      ],
+      "mechanism": "HER2-targeted antibody-drug conjugate",
+      "sponsor": "Not specified",
+      "status": "Approved for HER2-low breast cancer",
+      "approvalStatus": "approved",
+      "evidenceRef": "breast-cancer-5"
+    },
+    {
+      "name": "Datopotamab deruxtecan",
+      "aliases": [
+        "Dato-DXd"
+      ],
+      "mechanism": "TROP2-targeted antibody-drug conjugate with topoisomerase I inhibitor payload",
+      "sponsor": "Not specified",
+      "status": "Phase III trial ongoing",
+      "approvalStatus": "investigational",
+      "evidenceRef": "breast-cancer-12"
+    },
+    {
+      "name": "Ado-trastuzumab emtansine",
+      "aliases": [
+        "Kadcyla"
+      ],
+      "mechanism": "HER2-targeted antibody-drug conjugate",
+      "sponsor": "Not specified",
+      "status": "Approved for HER2-positive breast cancer",
+      "approvalStatus": "approved",
+      "evidenceRef": "breast-cancer-13"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Atezolizumab plus nab-paclitaxel",
+      "reason": "Failed to improve overall survival in phase 3 trial for metastatic triple-negative breast cancer",
+      "evidenceRef": "breast-cancer-1"
+    },
+    {
+      "name": "Myofascial release",
+      "reason": "Showed no significant effect on upper extremity volume in breast cancer-related lymphedema in randomized controlled trial",
+      "evidenceRef": "breast-cancer-14"
+    },
+    {
+      "name": "Lavender aromatherapy massage",
+      "reason": "Did not show significant improvement in sleep quality, pain, or mental disorders compared to placebo in breast cancer patients",
+      "evidenceRef": "breast-cancer-15"
+    },
+    {
+      "name": "Dexamethasone plus physical activity",
+      "reason": "Did not show superior benefit over physical activity plus placebo for cancer-related fatigue",
+      "evidenceRef": "breast-cancer-16"
+    },
+    {
+      "name": "Antibiotic prophylaxis (cefazolin)",
+      "reason": "Did not reduce surgical site infection rates in breast cancer surgery compared to placebo",
+      "evidenceRef": "breast-cancer-17"
+    },
+    {
+      "name": "Estrogen plus progestin hormone therapy",
+      "reason": "Increased breast cancer incidence and mortality in Women's Health Initiative trial",
+      "evidenceRef": "breast-cancer-2"
+    },
+    {
+      "name": "Estrogen alone hormone therapy",
+      "reason": "Associated with increased breast cancer risk in Women's Health Initiative trial",
+      "evidenceRef": "breast-cancer-2"
+    }
+  ]
+}

@@ -1,0 +1,478 @@
+{
+  "condition": "Atopic Dermatitis",
+  "slug": "atopic-dermatitis",
+  "aliases": [
+    "eczema",
+    "atopic eczema"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "rocatinlimab",
+    "NuGel",
+    "early emollient use",
+    "risankizumab",
+    "probiotic mixture",
+    "fluoxetine",
+    "cetirizine"
+  ],
+  "items": [
+    {
+      "id": "atopic-dermatitis-1",
+      "category": "rct",
+      "tier": "A",
+      "title": "Efficacy and safety of dupilumab with concomitant topical corticosteroids in Japanese pediatric patients with moderate-to-severe atopic dermatitis: A randomized, double-blind, placebo-controlled phase 3 study.",
+      "authors": [
+        "Ebisawa M",
+        "Kataoka Y",
+        "Tanaka A",
+        "Nagao M",
+        "Laws E",
+        "Mortensen E",
+        "Nawata H",
+        "Arima K"
+      ],
+      "journal": "Allergology international : official journal of the Japanese Society of Allergology",
+      "year": "2024",
+      "doi": "10.1016/j.alit.2024.04.006",
+      "pmid": "38735810",
+      "url": "https://doi.org/10.1016/j.alit.2024.04.006",
+      "accessLevel": "abstract",
+      "summary": "Phase 3 RCT showing dupilumab with topical corticosteroids significantly improved EASI-75 response in Japanese pediatric patients with moderate-to-severe atopic dermatitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-2",
+      "category": "review",
+      "tier": "A",
+      "title": "Update on Atopic Dermatitis: Diagnosis, Severity Assessment, and Treatment Selection.",
+      "authors": [
+        "Fishbein AB",
+        "Silverberg JI",
+        "Wilson EJ",
+        "Ong PY"
+      ],
+      "journal": "The journal of allergy and clinical immunology. In practice",
+      "year": "2020",
+      "doi": "10.1016/j.jaip.2019.06.044",
+      "pmid": "31474543",
+      "url": "https://doi.org/10.1016/j.jaip.2019.06.044",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of atopic dermatitis diagnosis, severity assessment, and treatment selection including new therapies crisaborole and dupilumab.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-3",
+      "category": "clinical-guideline",
+      "tier": "A",
+      "title": "Atopic Dermatitis: Diagnosis and Treatment.",
+      "authors": [
+        "Frazier W",
+        "Bhardwaj N"
+      ],
+      "journal": "American family physician",
+      "year": "2020",
+      "doi": "",
+      "pmid": "32412211",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/32412211/",
+      "accessLevel": "abstract",
+      "summary": "American Academy of Dermatology diagnostic criteria and treatment guidelines for atopic dermatitis including maintenance therapy recommendations.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-4",
+      "category": "review",
+      "tier": "A",
+      "title": "The translational revolution in atopic dermatitis: the paradigm shift from pathogenesis to treatment.",
+      "authors": [
+        "Facheris P",
+        "Jeffery J",
+        "Del Duca E",
+        "Guttman-Yassky E"
+      ],
+      "journal": "Cellular & molecular immunology",
+      "year": "2023",
+      "doi": "10.1038/s41423-023-00992-4",
+      "pmid": "36928371",
+      "url": "https://doi.org/10.1038/s41423-023-00992-4",
+      "accessLevel": "abstract",
+      "summary": "Review of the translational revolution in atopic dermatitis from pathogenesis understanding to personalized treatment approaches and therapeutic pipeline expansion.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-5",
+      "category": "review",
+      "tier": "B",
+      "title": "The Future of Atopic Dermatitis Treatment.",
+      "authors": [
+        "Lovell K",
+        "Patel N",
+        "Rao S",
+        "Strowd LC"
+      ],
+      "journal": "Advances in experimental medicine and biology",
+      "year": "2024",
+      "doi": "10.1007/978-3-031-54513-9_19",
+      "pmid": "38724797",
+      "url": "https://doi.org/10.1007/978-3-031-54513-9_19",
+      "accessLevel": "abstract",
+      "summary": "Overview of future atopic dermatitis treatments including biologics targeting IL-31, IL-22, IL-2, OX40-OX40L interaction, and novel oral and topical agents.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-6",
+      "category": "review",
+      "tier": "B",
+      "title": "Atopic dermatitis: new insight into the etiology, pathogenesis, diagnosis and novel treatment strategies.",
+      "authors": [
+        "Mandlik DS",
+        "Mandlik SK"
+      ],
+      "journal": "Immunopharmacology and immunotoxicology",
+      "year": "2021",
+      "doi": "10.1080/08923973.2021.1889583",
+      "pmid": "33645388",
+      "url": "https://doi.org/10.1080/08923973.2021.1889583",
+      "accessLevel": "abstract",
+      "summary": "Review of atopic dermatitis etiology, pathogenesis involving epidermal barrier dysfunction and T-helper 2 pathways, and novel treatment strategies.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-7",
+      "category": "expert-consensus",
+      "tier": "B",
+      "title": "An expert consensus on managing dupilumab-related ocular surface disorders in people with atopic dermatitis 2024.",
+      "authors": [
+        "Ardern-Jones MR",
+        "Brown SJ",
+        "Flohr C",
+        "Hossain P",
+        "Irvine AD",
+        "Johnston GA",
+        "Lane M",
+        "Langan SM"
+      ],
+      "journal": "The British journal of dermatology",
+      "year": "2024",
+      "doi": "10.1093/bjd/ljae344",
+      "pmid": "39236226",
+      "url": "https://doi.org/10.1093/bjd/ljae344",
+      "accessLevel": "abstract",
+      "summary": "Expert consensus on managing dupilumab-related ocular surface disorders in atopic dermatitis patients from British Association of Dermatologists and Royal College of Ophthalmologists.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Cardiovascular and Venous Thromboembolic Risk With JAK Inhibitors in Immune-Mediated Inflammatory Skin Diseases: A Systematic Review and Meta-Analysis.",
+      "authors": [
+        "Ingrassia JP",
+        "Maqsood MH",
+        "Gelfand JM",
+        "Weber BN",
+        "Bangalore S",
+        "Lo Sicco KI",
+        "Garshick MS"
+      ],
+      "journal": "JAMA dermatology",
+      "year": "2024",
+      "doi": "10.1001/jamadermatol.2023.4090",
+      "pmid": "37910098",
+      "url": "https://doi.org/10.1001/jamadermatol.2023.4090",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis examining cardiovascular and venous thromboembolic risk with JAK inhibitors in immune-mediated inflammatory skin diseases including atopic dermatitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-9",
+      "category": "review",
+      "tier": "B",
+      "title": "Global, regional, and national burden of asthma and atopic dermatitis, 1990-2021, and projections to 2050: a systematic analysis of the Global Burden of Disease Study 2021.",
+      "authors": [
+        "GBD 2021 Asthma and Allergic Diseases Collaborators"
+      ],
+      "journal": "The Lancet. Respiratory medicine",
+      "year": "2025",
+      "doi": "10.1016/S2213-2600(25)00003-7",
+      "pmid": "40147466",
+      "url": "https://doi.org/10.1016/S2213-2600(25)00003-7",
+      "accessLevel": "abstract",
+      "summary": "Global Burden of Disease Study 2021 systematic analysis of worldwide burden of asthma and atopic dermatitis with projections to 2050.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-10",
+      "category": "review",
+      "tier": "C",
+      "title": "Efficacy and safety of Chinese herbal medicine for atopic dermatitis: Evidence from eight high-quality randomized placebo-controlled trials.",
+      "authors": [
+        "Cai X",
+        "Sun X",
+        "Liu L",
+        "Zhou Y",
+        "Hong S",
+        "Wang J",
+        "Chen J",
+        "Zhang M"
+      ],
+      "journal": "Frontiers in pharmacology",
+      "year": "2022",
+      "doi": "10.3389/fphar.2022.927304",
+      "pmid": "36238577",
+      "url": "https://doi.org/10.3389/fphar.2022.927304",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis of eight high-quality RCTs evaluating efficacy and safety of Chinese herbal medicine for atopic dermatitis treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-11",
+      "category": "rct",
+      "tier": "C",
+      "title": "ROCKET: a phase 3 program evaluating the efficacy and safety of rocatinlimab in moderate-to-severe atopic dermatitis.",
+      "authors": [
+        "Guttman-Yassky E",
+        "Simpson E",
+        "Bissonnette R",
+        "Eichenfield LF",
+        "Kabashima K",
+        "Luna PC",
+        "Hercogová JT",
+        "Spelman L"
+      ],
+      "journal": "Immunotherapy",
+      "year": "2025",
+      "doi": "10.1080/1750743X.2025.2464528",
+      "pmid": "40012373",
+      "url": "https://doi.org/10.1080/1750743X.2025.2464528",
+      "accessLevel": "abstract",
+      "summary": "Description of ROCKET phase 3 program evaluating rocatinlimab, a T-cell rebalancing therapy targeting OX40 receptor, in moderate-to-severe atopic dermatitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-12",
+      "category": "review",
+      "tier": "B",
+      "title": "A phase 2a double-blind, placebo-controlled, randomized clinical trial evaluating the efficacy and safety of NuGel, a novel topical GPCR19-mediated inflammasome inhibitor, in patients with mild to moderate atopic dermatitis: a proof-of-concept study with Post-hoc biomarker analysis.",
+      "authors": [
+        "Baek GH",
+        "Kim BR",
+        "Shin JW",
+        "Huh CH",
+        "Hwang J",
+        "Ko S",
+        "Kim S",
+        "Ho PS"
+      ],
+      "journal": "Frontiers in immunology",
+      "year": "2025",
+      "doi": "10.3389/fimmu.2025.1560447",
+      "pmid": "40458407",
+      "url": "https://doi.org/10.3389/fimmu.2025.1560447",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-13",
+      "category": "review",
+      "tier": "B",
+      "title": "Early initiation of short-term emollient use for the prevention of atopic dermatitis in high-risk infants-The STOP-AD randomised controlled trial.",
+      "authors": [
+        "Ní Chaoimh C",
+        "Lad D",
+        "Nico C",
+        "Puppels GJ",
+        "Wong XFCC",
+        "Common JE",
+        "Murray DM",
+        "Irvine AD"
+      ],
+      "journal": "Allergy",
+      "year": "2023",
+      "doi": "10.1111/all.15491",
+      "pmid": "35997592",
+      "url": "https://doi.org/10.1111/all.15491",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-14",
+      "category": "review",
+      "tier": "B",
+      "title": "Risankizumab in Patients with Moderate-to-Severe Atopic Dermatitis: A Phase 2, Randomized, Double-Blind, Placebo-Controlled Study.",
+      "authors": [
+        "Tyring SK",
+        "Rich P",
+        "Tada Y",
+        "Beeck S",
+        "Messina I",
+        "Liu J",
+        "Huang X",
+        "Shumack S"
+      ],
+      "journal": "Dermatology and therapy",
+      "year": "2023",
+      "doi": "10.1007/s13555-022-00876-x",
+      "pmid": "36588137",
+      "url": "https://doi.org/10.1007/s13555-022-00876-x",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-15",
+      "category": "review",
+      "tier": "B",
+      "title": "Randomized double-blind placebo-controlled clinical trial to evaluate the effect of a mixture of probiotic strains on symptom severity and use of corticosteroids in children and adolescents with atopic dermatitis.",
+      "authors": [
+        "Feíto-Rodríguez M",
+        "Ramírez-Boscà A",
+        "Vidal-Asensi S",
+        "Fernández-Nieto D",
+        "Ros-Cervera G",
+        "Alonso-Usero V",
+        "Prieto-Merino D",
+        "Núñez-Delegido E"
+      ],
+      "journal": "Clinical and experimental dermatology",
+      "year": "2023",
+      "doi": "10.1093/ced/llad007",
+      "pmid": "36637147",
+      "url": "https://doi.org/10.1093/ced/llad007",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-16",
+      "category": "review",
+      "tier": "B",
+      "title": "Fluoxetine (SSRI) treatment of canine atopic dermatitis: a randomized, double-blind, placebo-controlled, crossover trial.",
+      "authors": [
+        "Fujimura M",
+        "Ishimaru H",
+        "Nakatsuji Y"
+      ],
+      "journal": "Polish journal of veterinary sciences",
+      "year": "2014",
+      "doi": "10.2478/pjvs-2014-0053",
+      "pmid": "24988868",
+      "url": "https://doi.org/10.2478/pjvs-2014-0053",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "atopic-dermatitis-17",
+      "category": "review",
+      "tier": "B",
+      "title": "Effects of cetirizine in dogs with chronic atopic dermatitis: a randomized, double blind, placebo-controlled trial.",
+      "authors": [
+        "Hsiao YH",
+        "Chen C",
+        "Willemse T"
+      ],
+      "journal": "Journal of veterinary science",
+      "year": "2016",
+      "doi": "10.4142/jvs.2016.17.4.549",
+      "pmid": "27297415",
+      "url": "https://doi.org/10.4142/jvs.2016.17.4.549",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Atopic dermatitis affects approximately 10% of adults and 20% of children globally",
+      "evidenceRefs": [
+        "atopic-dermatitis-11"
+      ]
+    },
+    {
+      "claim": "Dupilumab has dramatically improved outcomes for adults with severe atopic dermatitis since becoming available in 2016",
+      "evidenceRefs": [
+        "atopic-dermatitis-2"
+      ]
+    },
+    {
+      "claim": "Atopic dermatitis is caused by complex interaction of immune dysregulation, epidermal gene mutations, and environmental factors disrupting the epidermis",
+      "evidenceRefs": [
+        "atopic-dermatitis-3"
+      ]
+    },
+    {
+      "claim": "Different phenotypes of atopic dermatitis are defined by patient age at onset, race, ethnic background, disease duration, and other characteristics",
+      "evidenceRefs": [
+        "atopic-dermatitis-4"
+      ]
+    },
+    {
+      "claim": "Dupilumab treatment is associated with increased frequency of ocular adverse effects in clinical practice",
+      "evidenceRefs": [
+        "atopic-dermatitis-7"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Liberal use of emollients as maintenance therapy",
+      "evidenceRefs": [
+        "atopic-dermatitis-3"
+      ]
+    },
+    {
+      "recommendation": "Avoid environmental triggers that disrupt the epidermal barrier",
+      "evidenceRefs": [
+        "atopic-dermatitis-3",
+        "atopic-dermatitis-6"
+      ]
+    }
+  ],
+  "redFlags": [
+    "JAK inhibitors carry FDA boxed warning for cardiovascular events and venous thromboembolism",
+    "Dupilumab may cause unpredictable ocular adverse effects requiring ophthalmologic monitoring"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "rocatinlimab",
+      "aliases": [],
+      "mechanism": "OX40 receptor antagonist for T-cell rebalancing",
+      "sponsor": "not specified",
+      "status": "Phase 3",
+      "approvalStatus": "investigational",
+      "evidenceRef": "atopic-dermatitis-11"
+    },
+    {
+      "name": "NuGel",
+      "aliases": [],
+      "mechanism": "GPCR19 agonist and inflammasome inhibitor",
+      "sponsor": "not specified",
+      "status": "Phase 2a",
+      "approvalStatus": "investigational",
+      "evidenceRef": "atopic-dermatitis-12"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "early emollient use",
+      "reason": "Failed to reduce atopic dermatitis incidence at 12 months in high-risk infants in randomized controlled trial",
+      "evidenceRef": "atopic-dermatitis-13"
+    },
+    {
+      "name": "risankizumab",
+      "reason": "IL-23 inhibitor showed no significant efficacy in phase 2 randomized controlled trial for moderate-to-severe atopic dermatitis",
+      "evidenceRef": "atopic-dermatitis-14"
+    },
+    {
+      "name": "probiotic mixture",
+      "reason": "Failed to show clinical efficacy in randomized double-blind placebo-controlled trial in children and adolescents with atopic dermatitis",
+      "evidenceRef": "atopic-dermatitis-15"
+    }
+  ]
+}

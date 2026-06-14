@@ -1,0 +1,451 @@
+{
+  "condition": "Epilepsy",
+  "slug": "epilepsy",
+  "aliases": [
+    "seizure disorder",
+    "epileptic seizures"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Cannabidiol",
+    "Fenfluramine",
+    "Stiripentol",
+    "Lacosamide",
+    "Acupuncture",
+    "Intravenous immunoglobulins",
+    "Progesterone",
+    "Transdermal cannabidiol",
+    "Ezogabine"
+  ],
+  "items": [
+    {
+      "id": "epilepsy-1",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Evidence-Based Guideline: Treatment of Convulsive Status Epilepticus in Children and Adults: Report of the Guideline Committee of the American Epilepsy Society.",
+      "authors": [
+        "Glauser T",
+        "Shinnar S",
+        "Gloss D",
+        "Alldredge B",
+        "Arya R",
+        "Bainbridge J",
+        "Bare M",
+        "Bleck T"
+      ],
+      "journal": "Epilepsy currents",
+      "year": "2016",
+      "doi": "10.5698/1535-7597-16.1.48",
+      "pmid": "26900382",
+      "url": "https://doi.org/10.5698/1535-7597-16.1.48",
+      "accessLevel": "abstract",
+      "summary": "Evidence-based guideline for treatment of convulsive status epilepticus in children and adults from the American Epilepsy Society.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-2",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Practice guideline summary: Sudden unexpected death in epilepsy incidence rates and risk factors: Report of the Guideline Development, Dissemination, and Implementation Subcommittee of the American Academy of Neurology and the American Epilepsy Society.",
+      "authors": [
+        "Harden C",
+        "Tomson T",
+        "Gloss D",
+        "Buchhalter J",
+        "Cross JH",
+        "Donner E",
+        "French JA",
+        "Gil-Nagel A"
+      ],
+      "journal": "Neurology",
+      "year": "2017",
+      "doi": "10.1212/WNL.0000000000003685",
+      "pmid": "28438841",
+      "url": "https://doi.org/10.1212/WNL.0000000000003685",
+      "accessLevel": "abstract",
+      "summary": "Practice guideline on sudden unexpected death in epilepsy (SUDEP) incidence rates and risk factors from the American Academy of Neurology and American Epilepsy Society.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-3",
+      "category": "rct",
+      "tier": "A",
+      "title": "Effect of Cannabidiol on Drop Seizures in the Lennox-Gastaut Syndrome.",
+      "authors": [
+        "Devinsky O",
+        "Patel AD",
+        "Cross JH",
+        "Villanueva V",
+        "Wirrell EC",
+        "Privitera M",
+        "Greenwood SM",
+        "Roberts C"
+      ],
+      "journal": "The New England journal of medicine",
+      "year": "2018",
+      "doi": "10.1056/NEJMoa1714631",
+      "pmid": "29768152",
+      "url": "https://doi.org/10.1056/NEJMoa1714631",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial showing cannabidiol significantly reduced drop seizures in Lennox-Gastaut syndrome compared to placebo.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-4",
+      "category": "rct",
+      "tier": "A",
+      "title": "Cannabidiol in patients with treatment-resistant epilepsy: an open-label interventional trial.",
+      "authors": [
+        "Devinsky O",
+        "Marsh E",
+        "Friedman D",
+        "Thiele E",
+        "Laux L",
+        "Sullivan J",
+        "Miller I",
+        "Flamini R"
+      ],
+      "journal": "The Lancet. Neurology",
+      "year": "2016",
+      "doi": "10.1016/S1474-4422(15)00379-8",
+      "pmid": "26724101",
+      "url": "https://doi.org/10.1016/S1474-4422(15)00379-8",
+      "accessLevel": "abstract",
+      "summary": "Open-label trial demonstrating cannabidiol reduced seizure frequency in children and young adults with treatment-resistant epilepsy.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-5",
+      "category": "review",
+      "tier": "A",
+      "title": "Comparative efficacy and safety of stiripentol, cannabidiol and fenfluramine as first-line add-on therapies for seizures in Dravet syndrome: A network meta-analysis.",
+      "authors": [
+        "Guerrini R",
+        "Chiron C",
+        "Vandame D",
+        "Linley W",
+        "Toward T"
+      ],
+      "journal": "Epilepsia open",
+      "year": "2024",
+      "doi": "10.1002/epi4.12923",
+      "pmid": "38427284",
+      "url": "https://doi.org/10.1002/epi4.12923",
+      "accessLevel": "abstract",
+      "summary": "Network meta-analysis comparing efficacy and safety of stiripentol, cannabidiol, and fenfluramine as first-line add-on therapies for Dravet syndrome seizures.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-6",
+      "category": "review",
+      "tier": "B",
+      "title": "Recent advances in epilepsy.",
+      "authors": [
+        "Manford M"
+      ],
+      "journal": "Journal of neurology",
+      "year": "2017",
+      "doi": "10.1007/s00415-017-8394-2",
+      "pmid": "28120042",
+      "url": "https://doi.org/10.1007/s00415-017-8394-2",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of recent advances in epilepsy therapeutics, mechanisms, and treatment approaches including status epilepticus and drug-resistant epilepsy.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-7",
+      "category": "review",
+      "tier": "B",
+      "title": "Epilepsy with myoclonic-atonic seizures: an update on genetic causes, nosological limits, and treatment strategies.",
+      "authors": [
+        "Guerrini R",
+        "Scheffer I",
+        "Balestrini S"
+      ],
+      "journal": "The Lancet. Neurology",
+      "year": "2025",
+      "doi": "10.1016/S1474-4422(25)00032-8",
+      "pmid": "40120618",
+      "url": "https://doi.org/10.1016/S1474-4422(25)00032-8",
+      "accessLevel": "abstract",
+      "summary": "Updated review on epilepsy with myoclonic-atonic seizures covering genetic causes, classification, and treatment strategies.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Advances in the Treatment of Drug-Resistant Pediatric Epilepsy.",
+      "authors": [
+        "Gonzalez-Giraldo E",
+        "Sullivan JE"
+      ],
+      "journal": "Seminars in neurology",
+      "year": "2020",
+      "doi": "10.1055/s-0040-1702941",
+      "pmid": "32185791",
+      "url": "https://doi.org/10.1055/s-0040-1702941",
+      "accessLevel": "abstract",
+      "summary": "Overview of recent advancements in management of treatment-resistant epilepsy in pediatric patients including new pharmaceutical options.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-9",
+      "category": "review",
+      "tier": "B",
+      "title": "Global, regional, and national burden of epilepsy, 1990-2016: a systematic analysis for the Global Burden of Disease Study 2016.",
+      "authors": [
+        "GBD 2016 Epilepsy Collaborators"
+      ],
+      "journal": "The Lancet. Neurology",
+      "year": "2019",
+      "doi": "10.1016/S1474-4422(18)30454-X",
+      "pmid": "30773428",
+      "url": "https://doi.org/10.1016/S1474-4422(18)30454-X",
+      "accessLevel": "abstract",
+      "summary": "Global burden of disease study quantifying health loss due to epilepsy by age, sex, year, and location from 1990-2016.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-10",
+      "category": "rct",
+      "tier": "B",
+      "title": "Long-term safety and efficacy of adjunctive lacosamide in the treatment of generalized onset tonic-clonic seizures: An open-label extension trial.",
+      "authors": [
+        "Vossler DG",
+        "Farkas MK",
+        "Poverennova I",
+        "Watanabe M",
+        "Conrath P",
+        "Dimova S",
+        "McClung C",
+        "Roebling R"
+      ],
+      "journal": "Epilepsia",
+      "year": "2024",
+      "doi": "10.1111/epi.18158",
+      "pmid": "39460685",
+      "url": "https://doi.org/10.1111/epi.18158",
+      "accessLevel": "abstract",
+      "summary": "Open-label extension trial assessing long-term safety and efficacy of adjunctive lacosamide for generalized onset tonic-clonic seizures.",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Acupuncture for epilepsy.",
+      "authors": [
+        "Cheuk DK",
+        "Wong V"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2008",
+      "doi": "10.1002/14651858.CD005062.pub3",
+      "pmid": "18843676",
+      "url": "https://doi.org/10.1002/14651858.CD005062.pub3",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-12",
+      "category": "review",
+      "tier": "B",
+      "title": "Intravenous immunoglobulins for epilepsy.",
+      "authors": [
+        "Geng J",
+        "Dong J",
+        "Li Y",
+        "Ni H",
+        "Jiang K",
+        "Shi LL",
+        "Wang G"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2017",
+      "doi": "10.1002/14651858.CD008557.pub3",
+      "pmid": "28675262",
+      "url": "https://doi.org/10.1002/14651858.CD008557.pub3",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-13",
+      "category": "review",
+      "tier": "B",
+      "title": "Progesterone vs placebo therapy for women with epilepsy: A randomized clinical trial.",
+      "authors": [
+        "Herzog AG",
+        "Fowler KM",
+        "Smithson SD",
+        "Kalayjian LA",
+        "Heck CN",
+        "Sperling MR",
+        "Liporace JD",
+        "Harden CL"
+      ],
+      "journal": "Neurology",
+      "year": "2012",
+      "doi": "10.1212/WNL.0b013e318259e1f9",
+      "pmid": "22649214",
+      "url": "https://doi.org/10.1212/WNL.0b013e318259e1f9",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-14",
+      "category": "review",
+      "tier": "B",
+      "title": "Adjunctive Transdermal Cannabidiol for Adults With Focal Epilepsy: A Randomized Clinical Trial.",
+      "authors": [
+        "O'Brien TJ",
+        "Berkovic SF",
+        "French JA",
+        "Messenheimer JA",
+        "Sebree TB",
+        "Bonn-Miller MO",
+        "Gutterman DL",
+        "STAR 1/STAR 2 Study Group"
+      ],
+      "journal": "JAMA network open",
+      "year": "2022",
+      "doi": "10.1001/jamanetworkopen.2022.20189",
+      "pmid": "35802375",
+      "url": "https://doi.org/10.1001/jamanetworkopen.2022.20189",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "epilepsy-15",
+      "category": "review",
+      "tier": "B",
+      "title": "Targeting Kv7 Potassium Channels for Epilepsy.",
+      "authors": [
+        "Perucca E",
+        "Taglialatela M"
+      ],
+      "journal": "CNS drugs",
+      "year": "2025",
+      "doi": "10.1007/s40263-024-01155-3",
+      "pmid": "39853501",
+      "url": "https://doi.org/10.1007/s40263-024-01155-3",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "SUDEP risk in children with epilepsy (aged 0-17 years) is 0.22/1,000 patient-years",
+      "evidenceRefs": [
+        "epilepsy-2"
+      ]
+    },
+    {
+      "claim": "Cannabidiol significantly reduces drop seizures in Lennox-Gastaut syndrome when added to conventional antiepileptic medications",
+      "evidenceRefs": [
+        "epilepsy-3"
+      ]
+    },
+    {
+      "claim": "Approximately 30% of patients with epilepsy have treatment-resistant forms associated with severe morbidity and increased mortality",
+      "evidenceRefs": [
+        "epilepsy-4"
+      ]
+    },
+    {
+      "claim": "Two-thirds of patients with epilepsy are controlled with established antiseizure medications",
+      "evidenceRefs": [
+        "epilepsy-8"
+      ]
+    },
+    {
+      "claim": "Stiripentol, fenfluramine, and cannabidiol are licensed add-on therapies for treating seizures in Dravet syndrome",
+      "evidenceRefs": [
+        "epilepsy-5"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [],
+  "redFlags": [
+    "Felbamate was associated with aplastic anemia and hepatic failure leading to restricted use",
+    "Ezogabine (retigabine) was withdrawn from market in 2017 due to retinal and skin pigmentation changes"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Cannabidiol",
+      "aliases": [
+        "CBD"
+      ],
+      "mechanism": "Multiple mechanisms including modulation of calcium channels and neurotransmitter systems",
+      "sponsor": "Various",
+      "status": "Approved for specific epilepsy syndromes",
+      "approvalStatus": "approved",
+      "evidenceRef": "epilepsy-3"
+    },
+    {
+      "name": "Fenfluramine",
+      "aliases": [],
+      "mechanism": "Serotonin receptor modulation",
+      "sponsor": "Various",
+      "status": "Approved for Dravet syndrome",
+      "approvalStatus": "approved",
+      "evidenceRef": "epilepsy-5"
+    },
+    {
+      "name": "Stiripentol",
+      "aliases": [],
+      "mechanism": "GABA-A receptor positive allosteric modulator",
+      "sponsor": "Various",
+      "status": "Approved for Dravet syndrome",
+      "approvalStatus": "approved",
+      "evidenceRef": "epilepsy-5"
+    },
+    {
+      "name": "Lacosamide",
+      "aliases": [
+        "LCM"
+      ],
+      "mechanism": "Sodium channel modulation",
+      "sponsor": "Various",
+      "status": "Approved for focal and generalized seizures",
+      "approvalStatus": "approved",
+      "evidenceRef": "epilepsy-10"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Acupuncture",
+      "reason": "Cochrane systematic review found insufficient rigorous evidence to support use in epilepsy",
+      "evidenceRef": "epilepsy-11"
+    },
+    {
+      "name": "Intravenous immunoglobulins",
+      "reason": "Cochrane systematic reviews found no clear evidence of efficacy for epilepsy treatment",
+      "evidenceRef": "epilepsy-12"
+    },
+    {
+      "name": "Progesterone",
+      "reason": "Randomized clinical trial showed no significant difference in seizure response rates compared to placebo in women with partial epilepsy",
+      "evidenceRef": "epilepsy-13"
+    },
+    {
+      "name": "Transdermal cannabidiol",
+      "reason": "Randomized clinical trial in adults with focal epilepsy failed to show efficacy compared to placebo",
+      "evidenceRef": "epilepsy-14"
+    },
+    {
+      "name": "Ezogabine",
+      "reason": "Kv7 potassium channel activator was withdrawn from market in 2017 due to safety concerns including retinal pigmentation changes",
+      "evidenceRef": "epilepsy-15"
+    }
+  ]
+}

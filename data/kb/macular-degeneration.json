@@ -1,0 +1,356 @@
+{
+  "condition": "Age-Related Macular Degeneration",
+  "slug": "macular-degeneration",
+  "aliases": [
+    "AMD",
+    "ARMD",
+    "wet macular degeneration",
+    "dry macular degeneration"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "pegcetacoplan",
+    "avacincaptad pegol",
+    "transpupillary thermotherapy",
+    "dorzolamide",
+    "saffron",
+    "interferon alpha-2a"
+  ],
+  "items": [
+    {
+      "id": "macular-degeneration-1",
+      "category": "rct",
+      "tier": "A+",
+      "title": "A randomized, placebo-controlled, clinical trial of high-dose supplementation with vitamins C and E, beta carotene, and zinc for age-related macular degeneration and vision loss: AREDS report no. 8.",
+      "authors": [
+        "Age-Related Eye Disease Study Research Group"
+      ],
+      "journal": "Archives of ophthalmology (Chicago, Ill. : 1960)",
+      "year": "2001",
+      "doi": "10.1001/archopht.119.10.1417",
+      "pmid": "11594942",
+      "url": "https://doi.org/10.1001/archopht.119.10.1417",
+      "accessLevel": "abstract",
+      "summary": "AREDS report showing high-dose vitamins C and E, beta carotene, and zinc supplements reduce progression of intermediate to advanced AMD by 25% over 6.3 years.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-2",
+      "category": "review",
+      "tier": "A",
+      "title": "Antioxidant vitamin and mineral supplements for slowing the progression of age-related macular degeneration.",
+      "authors": [
+        "Evans JR",
+        "Lawrenson JG"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2023",
+      "doi": "10.1002/14651858.CD000254.pub5",
+      "pmid": "37702300",
+      "url": "https://doi.org/10.1002/14651858.CD000254.pub5",
+      "accessLevel": "abstract",
+      "summary": "Cochrane systematic review confirming antioxidant vitamin and mineral supplements slow progression of intermediate AMD to advanced stages.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-3",
+      "category": "review",
+      "tier": "A",
+      "title": "Geographic Atrophy in Age-Related Macular Degeneration.",
+      "authors": [
+        "Liakopoulos S",
+        "von der Emde L",
+        "Biller ML",
+        "Ach T",
+        "Holz FG"
+      ],
+      "journal": "Deutsches Arzteblatt international",
+      "year": "2025",
+      "doi": "10.3238/arztebl.m2025.0003",
+      "pmid": "39836449",
+      "url": "https://doi.org/10.3238/arztebl.m2025.0003",
+      "accessLevel": "abstract",
+      "summary": "Review of geographic atrophy in AMD, noting 2023 FDA approval of complement inhibitors pegcetacoplan and avacincaptad pegol for treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Treatment of dry age-related macular degeneration: A review.",
+      "authors": [
+        "Girgis S",
+        "Lee LR"
+      ],
+      "journal": "Clinical & experimental ophthalmology",
+      "year": "2023",
+      "doi": "10.1111/ceo.14294",
+      "pmid": "37737509",
+      "url": "https://doi.org/10.1111/ceo.14294",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of dry AMD treatments including complement pathway inhibitors, visual cycle modulators, and other therapeutic categories under investigation.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-5",
+      "category": "review",
+      "tier": "B",
+      "title": "The Diagnosis and Treatment of Age-Related Macular Degeneration.",
+      "authors": [
+        "Stahl A"
+      ],
+      "journal": "Deutsches Arzteblatt international",
+      "year": "2020",
+      "doi": "10.3238/arztebl.2020.0513",
+      "pmid": "33087239",
+      "url": "https://doi.org/10.3238/arztebl.2020.0513",
+      "accessLevel": "abstract",
+      "summary": "Clinical review of AMD diagnosis and treatment, covering risk factors, clinical manifestations, and current therapeutic approaches.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-6",
+      "category": "review",
+      "tier": "B",
+      "title": "Treatment for dry age-related macular degeneration: where we stand in 2024.",
+      "authors": [
+        "Wheeler S",
+        "Mahmoudzadeh R",
+        "Randolph J"
+      ],
+      "journal": "Current opinion in ophthalmology",
+      "year": "2024",
+      "doi": "10.1097/ICU.0000000000001064",
+      "pmid": "38869976",
+      "url": "https://doi.org/10.1097/ICU.0000000000001064",
+      "accessLevel": "abstract",
+      "summary": "2024 update on dry AMD treatment options, highlighting two approved treatments for geographic atrophy in the United States.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-7",
+      "category": "review",
+      "tier": "B",
+      "title": "Neovascular Age-Related Macular Degeneration: Therapeutic Management and New-Upcoming Approaches.",
+      "authors": [
+        "Ricci F",
+        "Bandello F",
+        "Navarra P",
+        "Staurenghi G",
+        "Stumpp M",
+        "Zarbin M"
+      ],
+      "journal": "International journal of molecular sciences",
+      "year": "2020",
+      "doi": "10.3390/ijms21218242",
+      "pmid": "33153227",
+      "url": "https://doi.org/10.3390/ijms21218242",
+      "accessLevel": "abstract",
+      "summary": "Review of neovascular AMD therapeutic management focusing on anti-VEGF therapy as standard treatment and emerging approaches.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Screening for Impaired Visual Acuity in Older Adults: Updated Evidence Report and Systematic Review for the US Preventive Services Task Force.",
+      "authors": [
+        "Chou R",
+        "Dana T",
+        "Bougatsos C",
+        "Grusing S",
+        "Blazina I"
+      ],
+      "journal": "JAMA",
+      "year": "2016",
+      "doi": "10.1001/jama.2016.0783",
+      "pmid": "26934261",
+      "url": "https://doi.org/10.1001/jama.2016.0783",
+      "accessLevel": "abstract",
+      "summary": "USPSTF systematic review on screening for impaired visual acuity in older adults, including evidence on AMD treatment effectiveness.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-9",
+      "category": "negative-trial",
+      "tier": "C",
+      "title": "Transpupillary thermotherapy for the treatment of occult CNV in age-related macular degeneration: a prospective randomized controlled pilot study.",
+      "authors": [
+        "Myint K",
+        "Armbrecht AM",
+        "Mon S",
+        "Dhillon B"
+      ],
+      "journal": "Acta ophthalmologica Scandinavica",
+      "year": "2006",
+      "doi": "10.1111/j.1600-0420.2005.00623.x",
+      "pmid": "16704693",
+      "url": "https://doi.org/10.1111/j.1600-0420.2005.00623.x",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial showing transpupillary thermotherapy failed to reduce moderate visual loss in occult choroidal neovascularization secondary to AMD.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-10",
+      "category": "negative-trial",
+      "tier": "C",
+      "title": "The effects of dorzolamide on choroidal and retinal perfusion in non-exudative age related macular degeneration.",
+      "authors": [
+        "Harris A",
+        "Ciulla TA",
+        "Pratt LM",
+        "Rechtman E",
+        "Kagemann L",
+        "Piper HC",
+        "Garzozi HJ"
+      ],
+      "journal": "The British journal of ophthalmology",
+      "year": "2003",
+      "doi": "10.1136/bjo.87.6.753",
+      "pmid": "12770975",
+      "url": "https://doi.org/10.1136/bjo.87.6.753",
+      "accessLevel": "abstract",
+      "summary": "Randomized trial demonstrating dorzolamide had no beneficial effects on choroidal and retinal perfusion in non-exudative AMD patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-11",
+      "category": "negative-trial",
+      "tier": "C",
+      "title": "Saffron therapy for the treatment of mild/moderate age-related macular degeneration: a randomised clinical trial.",
+      "authors": [
+        "Broadhead GK",
+        "Grigg JR",
+        "McCluskey P",
+        "Hong T",
+        "Schlub TE",
+        "Chang AA"
+      ],
+      "journal": "Graefe's archive for clinical and experimental ophthalmology = Albrecht von Graefes Archiv fur klinische und experimentelle Ophthalmologie",
+      "year": "2019",
+      "doi": "10.1007/s00417-018-4163-x",
+      "pmid": "30343354",
+      "url": "https://doi.org/10.1007/s00417-018-4163-x",
+      "accessLevel": "abstract",
+      "summary": "Randomized crossover trial showing oral saffron supplementation provided no significant benefit for mild/moderate AMD treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "macular-degeneration-12",
+      "category": "review",
+      "tier": "C",
+      "title": "Antiangiogenesis agents.",
+      "authors": [
+        "Ciardella AP",
+        "Donsoff IM",
+        "Guyer DR",
+        "Adamis A",
+        "Yannuzzi LA"
+      ],
+      "journal": "Ophthalmology clinics of North America",
+      "year": "2002",
+      "doi": "10.1016/s0896-1549(02)00042-1",
+      "pmid": "12515077",
+      "url": "https://doi.org/10.1016/s0896-1549(02)00042-1",
+      "accessLevel": "abstract",
+      "summary": "Review noting interferon alpha-2a proved ineffective in halting neovascular AMD progression in double-masked, placebo-controlled clinical trial.",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "AMD is subdivided into early, intermediate, and late stages, with the early stage often being asymptomatic",
+      "evidenceRefs": [
+        "macular-degeneration-5"
+      ]
+    },
+    {
+      "claim": "Anti-VEGF therapy has become the standard treatment for neovascular AMD and dramatically changed the disease prognosis",
+      "evidenceRefs": [
+        "macular-degeneration-7"
+      ]
+    },
+    {
+      "claim": "Two complement inhibitors, pegcetacoplan and avacincaptad pegol, were approved in the USA in 2023 for geographic atrophy treatment",
+      "evidenceRefs": [
+        "macular-degeneration-3"
+      ]
+    },
+    {
+      "claim": "High-dose antioxidant vitamins and zinc supplements reduce progression from intermediate to advanced AMD",
+      "evidenceRefs": [
+        "macular-degeneration-1",
+        "macular-degeneration-2"
+      ]
+    },
+    {
+      "claim": "Advanced dry AMD characterized by geographic atrophy is a leading cause of blindness in the developed world",
+      "evidenceRefs": [
+        "macular-degeneration-6"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Consider antioxidant vitamin and mineral supplementation for intermediate AMD based on AREDS formulation",
+      "evidenceRefs": [
+        "macular-degeneration-1",
+        "macular-degeneration-2"
+      ]
+    }
+  ],
+  "redFlags": [
+    "Beta carotene supplementation may increase lung cancer risk in smokers",
+    "Anti-VEGF injections carry risks of endophthalmitis and retinal detachment"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "pegcetacoplan",
+      "aliases": [
+        "APL-2"
+      ],
+      "mechanism": "complement C3 inhibitor",
+      "sponsor": "Apellis Pharmaceuticals",
+      "status": "approved for geographic atrophy",
+      "approvalStatus": "approved",
+      "evidenceRef": "macular-degeneration-3"
+    },
+    {
+      "name": "avacincaptad pegol",
+      "aliases": [
+        "ARC1905"
+      ],
+      "mechanism": "complement C5 inhibitor",
+      "sponsor": "Iveric Bio",
+      "status": "approved for geographic atrophy",
+      "approvalStatus": "approved",
+      "evidenceRef": "macular-degeneration-3"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "transpupillary thermotherapy",
+      "reason": "randomized controlled trial showed no reduction in moderate visual loss for occult choroidal neovascularization secondary to AMD",
+      "evidenceRef": "macular-degeneration-9"
+    },
+    {
+      "name": "dorzolamide",
+      "reason": "randomized trial demonstrated no beneficial effects on choroidal and retinal perfusion in non-exudative AMD patients",
+      "evidenceRef": "macular-degeneration-10"
+    },
+    {
+      "name": "saffron",
+      "reason": "randomized crossover trial showed oral saffron supplementation provided no significant benefit for mild/moderate AMD",
+      "evidenceRef": "macular-degeneration-11"
+    },
+    {
+      "name": "interferon alpha-2a",
+      "reason": "proved ineffective in halting neovascular AMD progression in double-masked, placebo-controlled clinical trial",
+      "evidenceRef": "macular-degeneration-12"
+    }
+  ]
+}

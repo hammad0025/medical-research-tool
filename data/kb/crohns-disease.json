@@ -1,0 +1,425 @@
+{
+  "condition": "Crohn's Disease",
+  "slug": "crohns-disease",
+  "aliases": [
+    "Crohn disease",
+    "regional enteritis",
+    "inflammatory bowel disease",
+    "IBD"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Filgotinib",
+    "Vedolizumab",
+    "Aminosalicylates",
+    "Fructo-oligosaccharides",
+    "Rifampicin plus ethambutol",
+    "Sargramostim",
+    "Secukinumab"
+  ],
+  "items": [
+    {
+      "id": "crohns-disease-1",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Efficacy and safety of filgotinib as induction and maintenance therapy for Crohn's disease (DIVERSITY): a phase 3, double-blind, randomised, placebo-controlled trial.",
+      "authors": [
+        "Vermeire S",
+        "Schreiber S",
+        "Rubin DT",
+        "D'Haens G",
+        "Reinisch W",
+        "Watanabe M",
+        "Mehta R",
+        "Roblin X"
+      ],
+      "journal": "The lancet. Gastroenterology & hepatology",
+      "year": "2025",
+      "doi": "10.1016/S2468-1253(24)00272-3",
+      "pmid": "39637881",
+      "url": "https://doi.org/10.1016/S2468-1253(24)00272-3",
+      "accessLevel": "abstract",
+      "summary": "Phase 3 randomized controlled trial of filgotinib, an oral JAK1 inhibitor, for induction and maintenance therapy in Crohn's disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-2",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Aminosalicylates for induction of remission or response in Crohn's disease.",
+      "authors": [
+        "Lim WC",
+        "Wang Y",
+        "MacDonald JK",
+        "Hanauer S"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2016",
+      "doi": "10.1002/14651858.CD008870.pub2",
+      "pmid": "27372735",
+      "url": "https://doi.org/10.1002/14651858.CD008870.pub2",
+      "accessLevel": "abstract",
+      "summary": "Cochrane systematic review and meta-analysis evaluating aminosalicylates for induction of remission or response in Crohn's disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-3",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Randomised, double-blind, placebo-controlled trial of fructo-oligosaccharides in active Crohn's disease.",
+      "authors": [
+        "Benjamin JL",
+        "Hedin CR",
+        "Koutsoumpas A",
+        "Ng SC",
+        "McCarthy NE",
+        "Hart AL",
+        "Kamm MA",
+        "Sanderson JD"
+      ],
+      "journal": "Gut",
+      "year": "2011",
+      "doi": "10.1136/gut.2010.232025",
+      "pmid": "21262918",
+      "url": "https://doi.org/10.1136/gut.2010.232025",
+      "accessLevel": "abstract",
+      "summary": "Randomized, double-blind, placebo-controlled trial of fructo-oligosaccharides in active Crohn's disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Comparative Efficacy of Biologic Therapies for Inducing Response and Remission in Fistulizing Crohn's Disease: Systematic Review and Network Meta-Analysis of Randomized Controlled Trials.",
+      "authors": [
+        "Shehab M",
+        "Alrashed F",
+        "Heron V",
+        "Restellini S",
+        "Bessissow T"
+      ],
+      "journal": "Inflammatory bowel diseases",
+      "year": "2023",
+      "doi": "10.1093/ibd/izac103",
+      "pmid": "35604382",
+      "url": "https://doi.org/10.1093/ibd/izac103",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and network meta-analysis comparing efficacy of biologic therapies for inducing response and remission in fistulizing Crohn's disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-5",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Controlled trial of rifampicin and ethambutol in Crohn's disease.",
+      "authors": [
+        "Shaffer JL",
+        "Hughes S",
+        "Linaker BD",
+        "Baker RD",
+        "Turnberg LA"
+      ],
+      "journal": "Gut",
+      "year": "1984",
+      "doi": "10.1136/gut.25.2.203",
+      "pmid": "6363219",
+      "url": "https://doi.org/10.1136/gut.25.2.203",
+      "accessLevel": "abstract",
+      "summary": "Controlled trial of rifampicin and ethambutol versus placebo in Crohn's disease showing no significant difference.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-6",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Sargramostim for active Crohn's disease.",
+      "authors": [
+        "Korzenik JR",
+        "Dieckgraefe BK",
+        "Valentine JF",
+        "Hausman DF",
+        "Gilbert MJ",
+        "Sargramostim in Crohn's Disease Study Group"
+      ],
+      "journal": "The New England journal of medicine",
+      "year": "2005",
+      "doi": "10.1056/NEJMoa041109",
+      "pmid": "15917384",
+      "url": "https://doi.org/10.1056/NEJMoa041109",
+      "accessLevel": "abstract",
+      "summary": "Randomized, placebo-controlled trial of sargramostim (granulocyte-macrophage colony-stimulating factor) for active Crohn's disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-7",
+      "category": "rct",
+      "tier": "A",
+      "title": "Long-term Efficacy of Vedolizumab for Crohn's Disease.",
+      "authors": [
+        "Vermeire S",
+        "Loftus EV Jr",
+        "Colombel JF",
+        "Feagan BG",
+        "Sandborn WJ",
+        "Sands BE",
+        "Danese S",
+        "D'Haens GR"
+      ],
+      "journal": "Journal of Crohn's & colitis",
+      "year": "2017",
+      "doi": "10.1093/ecco-jcc/jjw176",
+      "pmid": "27683798",
+      "url": "https://doi.org/10.1093/ecco-jcc/jjw176",
+      "accessLevel": "abstract",
+      "summary": "Long-term efficacy analysis of vedolizumab for Crohn's disease from the GEMINI long-term safety trial.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-8",
+      "category": "review",
+      "tier": "A",
+      "title": "Withdrawal of immunosuppressant or biologic therapy for patients with quiescent Crohn's disease.",
+      "authors": [
+        "Boyapati RK",
+        "Torres J",
+        "Palmela C",
+        "Parker CE",
+        "Silverberg OM",
+        "Upadhyaya SD",
+        "Nguyen TM",
+        "Colombel JF"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2018",
+      "doi": "10.1002/14651858.CD012540.pub2",
+      "pmid": "29756637",
+      "url": "https://doi.org/10.1002/14651858.CD012540.pub2",
+      "accessLevel": "abstract",
+      "summary": "Cochrane systematic review examining withdrawal of immunosuppressant or biologic therapy in patients with quiescent Crohn's disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-9",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Secukinumab, a human anti-IL-17A monoclonal antibody, for moderate to severe Crohn's disease: unexpected results of a randomised, double-blind placebo-controlled trial.",
+      "authors": [
+        "Hueber W",
+        "Sands BE",
+        "Lewitzky S",
+        "Vandemeulebroecke M",
+        "Reinisch W",
+        "Higgins PD",
+        "Wehkamp J",
+        "Feagan BG"
+      ],
+      "journal": "Gut",
+      "year": "2012",
+      "doi": "10.1136/gutjnl-2011-301668",
+      "pmid": "22595313",
+      "url": "https://doi.org/10.1136/gutjnl-2011-301668",
+      "accessLevel": "abstract",
+      "summary": "Randomized, double-blind placebo-controlled trial of secukinumab, an anti-IL-17A monoclonal antibody, showing unexpected negative results in moderate to severe Crohn's disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-10",
+      "category": "review",
+      "tier": "B",
+      "title": "Crohn's disease: an update.",
+      "authors": [
+        "Cockburn E",
+        "Kamal S",
+        "Chan A",
+        "Rao V",
+        "Liu T",
+        "Huang JY",
+        "Segal JP"
+      ],
+      "journal": "Clinical medicine (London, England)",
+      "year": "2023",
+      "doi": "10.7861/clinmed.2023-0493",
+      "pmid": "38065612",
+      "url": "https://doi.org/10.7861/clinmed.2023-0493",
+      "accessLevel": "abstract",
+      "summary": "Clinical update on Crohn's disease management, therapeutic approaches, and current treatment options.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-11",
+      "category": "review",
+      "tier": "A",
+      "title": "Early Biologic Treatment Decreases Risk of Surgery in Crohn's Disease but not in Ulcerative Colitis: Systematic Review and Meta-Analysis.",
+      "authors": [
+        "Law CCY",
+        "Tkachuk B",
+        "Lieto S",
+        "Narula N",
+        "Walsh S",
+        "Colombel JF",
+        "Ungaro RC"
+      ],
+      "journal": "Inflammatory bowel diseases",
+      "year": "2024",
+      "doi": "10.1093/ibd/izad149",
+      "pmid": "37506265",
+      "url": "https://doi.org/10.1093/ibd/izad149",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis demonstrating that early biologic treatment decreases risk of surgery in Crohn's disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-12",
+      "category": "clinical-guideline",
+      "tier": "A",
+      "title": "Treat to target in Crohn's disease: A practical guide for clinicians.",
+      "authors": [
+        "Srinivasan AR"
+      ],
+      "journal": "World journal of gastroenterology",
+      "year": "2024",
+      "doi": "10.3748/wjg.v30.i1.50",
+      "pmid": "38293329",
+      "url": "https://doi.org/10.3748/wjg.v30.i1.50",
+      "accessLevel": "abstract",
+      "summary": "Practical guide for clinicians on treat-to-target approach in Crohn's disease based on STRIDE-II guidelines.",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-13",
+      "category": "review",
+      "tier": "B",
+      "title": "Epidemiology and natural history of inflammatory bowel diseases.",
+      "authors": [
+        "Cosnes J",
+        "Gower-Rousseau C",
+        "Seksik P",
+        "Cortot A"
+      ],
+      "journal": "Gastroenterology",
+      "year": "2011",
+      "doi": "10.1053/j.gastro.2011.01.055",
+      "pmid": "21530745",
+      "url": "https://doi.org/10.1053/j.gastro.2011.01.055",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "crohns-disease-14",
+      "category": "review",
+      "tier": "B",
+      "title": "The Burden of Inflammatory Bowel Disease in Europe in 2020.",
+      "authors": [
+        "Zhao M",
+        "Gönczi L",
+        "Lakatos PL",
+        "Burisch J"
+      ],
+      "journal": "Journal of Crohn's & colitis",
+      "year": "2021",
+      "doi": "10.1093/ecco-jcc/jjab029",
+      "pmid": "33582812",
+      "url": "https://doi.org/10.1093/ecco-jcc/jjab029",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Crohn's disease is a chronic, relapsing and remitting inflammatory bowel disease with increasing global incidence and prevalence.",
+      "evidenceRefs": [
+        "crohns-disease-13",
+        "crohns-disease-14",
+        "crohns-disease-10"
+      ]
+    },
+    {
+      "claim": "Early biologic treatment decreases the risk of surgery in Crohn's disease patients.",
+      "evidenceRefs": [
+        "crohns-disease-11"
+      ]
+    },
+    {
+      "claim": "Anti-TNF agents play a fundamental role in Crohn's disease treatment, especially in fistulizing disease.",
+      "evidenceRefs": [
+        "crohns-disease-4",
+        "crohns-disease-10"
+      ]
+    },
+    {
+      "claim": "Treat-to-target approach with combination clinical and endoscopic targets is recommended for optimal long-term outcomes.",
+      "evidenceRefs": [
+        "crohns-disease-12"
+      ]
+    },
+    {
+      "claim": "Surgery rates have declined over time in Europe, with 10-30% of Crohn's disease patients requiring surgery within 5 years.",
+      "evidenceRefs": [
+        "crohns-disease-14"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [],
+  "redFlags": [
+    "Risk of relapse after anti-TNF withdrawal varies from 20-50% at 1 year and 50-80% beyond 5 years",
+    "Patients with IBD have increased risk of colorectal cancer requiring surveillance",
+    "Fistula-associated anal carcinoma is a rare but increasingly recognized complication in Crohn's disease"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Filgotinib",
+      "aliases": [
+        "GLPG0634"
+      ],
+      "mechanism": "JAK1 preferential inhibitor",
+      "sponsor": "Gilead Sciences",
+      "status": "Phase 3 completed",
+      "approvalStatus": "investigational",
+      "evidenceRef": "crohns-disease-1"
+    },
+    {
+      "name": "Vedolizumab",
+      "aliases": [
+        "MLN0002"
+      ],
+      "mechanism": "α4β7 integrin antagonist",
+      "sponsor": "Takeda",
+      "status": "Approved",
+      "approvalStatus": "approved",
+      "evidenceRef": "crohns-disease-7"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Aminosalicylates",
+      "reason": "Cochrane meta-analysis found conflicting results with no clear efficacy for inducing remission or response in mildly to moderately active Crohn's disease",
+      "evidenceRef": "crohns-disease-2"
+    },
+    {
+      "name": "Fructo-oligosaccharides",
+      "reason": "Randomized double-blind placebo-controlled trial showed no significant benefit in active Crohn's disease",
+      "evidenceRef": "crohns-disease-3"
+    },
+    {
+      "name": "Rifampicin plus ethambutol",
+      "reason": "Two-year randomized double-blind crossover controlled trial showed no significant difference compared to placebo",
+      "evidenceRef": "crohns-disease-5"
+    },
+    {
+      "name": "Sargramostim",
+      "reason": "Randomized placebo-controlled trial failed to demonstrate efficacy for moderate-to-severe active Crohn's disease",
+      "evidenceRef": "crohns-disease-6"
+    },
+    {
+      "name": "Secukinumab",
+      "reason": "Randomized double-blind placebo-controlled trial showed unexpected negative results with potential worsening of disease in moderate to severe Crohn's disease",
+      "evidenceRef": "crohns-disease-9"
+    }
+  ]
+}

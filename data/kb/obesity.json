@@ -1,0 +1,515 @@
+{
+  "condition": "Obesity",
+  "slug": "obesity",
+  "aliases": [
+    "adiposity",
+    "morbid obesity",
+    "overweight"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "tirzepatide",
+    "retatrutide",
+    "semaglutide",
+    "liraglutide",
+    "orforglipron",
+    "mazdutide",
+    "ziritaxestat"
+  ],
+  "items": [
+    {
+      "id": "obesity-1",
+      "category": "review",
+      "tier": "A+",
+      "title": "Approach to Obesity Treatment in Primary Care: A Review.",
+      "authors": [
+        "Yanovski SZ",
+        "Yanovski JA"
+      ],
+      "journal": "JAMA internal medicine",
+      "year": "2024",
+      "doi": "10.1001/jamainternmed.2023.8526",
+      "pmid": "38466272",
+      "url": "https://doi.org/10.1001/jamainternmed.2023.8526",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of obesity treatment in primary care, covering lifestyle interventions, antiobesity medications, and integration of weight-management approaches.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-2",
+      "category": "review",
+      "tier": "A+",
+      "title": "Contemporary medical, device, and surgical therapies for obesity in adults.",
+      "authors": [
+        "Perdomo CM",
+        "Cohen RV",
+        "Sumithran P",
+        "Clément K",
+        "Frühbeck G"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2023",
+      "doi": "10.1016/S0140-6736(22)02403-5",
+      "pmid": "36774932",
+      "url": "https://doi.org/10.1016/S0140-6736(22)02403-5",
+      "accessLevel": "abstract",
+      "summary": "Contemporary overview of medical, device, and surgical therapies for obesity in adults, emphasizing multimodal long-term approach.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-3",
+      "category": "review",
+      "tier": "A",
+      "title": "Seven glucagon-like peptide-1 receptor agonists and polyagonists for weight loss in patients with obesity or overweight: an updated systematic review and network meta-analysis of randomized controlled trials.",
+      "authors": [
+        "Xie Z",
+        "Zheng G",
+        "Liang Z",
+        "Li M",
+        "Deng W",
+        "Cao W"
+      ],
+      "journal": "Metabolism: clinical and experimental",
+      "year": "2024",
+      "doi": "10.1016/j.metabol.2024.156038",
+      "pmid": "39305981",
+      "url": "https://doi.org/10.1016/j.metabol.2024.156038",
+      "accessLevel": "abstract",
+      "summary": "Network meta-analysis of seven GLP-1 receptor agonists and polyagonists for weight loss in patients with obesity or overweight.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Efficacy and safety of tirzepatide for treatment of overweight or obesity. A systematic review and meta-analysis.",
+      "authors": [
+        "Tan B",
+        "Pan XH",
+        "Chew HSJ",
+        "Goh RSJ",
+        "Lin C",
+        "Anand VV",
+        "Lee ECZ",
+        "Chan KE"
+      ],
+      "journal": "International journal of obesity (2005)",
+      "year": "2023",
+      "doi": "10.1038/s41366-023-01321-5",
+      "pmid": "37253796",
+      "url": "https://doi.org/10.1038/s41366-023-01321-5",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis assessing efficacy and safety of tirzepatide for weight loss in patients with overweight or obesity.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-5",
+      "category": "review",
+      "tier": "A",
+      "title": "Efficacy and safety of retatrutide, a novel GLP-1, GIP, and glucagon receptor agonist for obesity treatment: a systematic review and meta-analysis of randomized controlled trials.",
+      "authors": [
+        "Abdrabou Abouelmagd A",
+        "Abdelrehim AM",
+        "Bashir MN",
+        "Abdelsalam F",
+        "Marey A",
+        "Tanas Y",
+        "Abuklish DM",
+        "Belal MM"
+      ],
+      "journal": "Proceedings (Baylor University. Medical Center)",
+      "year": "2025",
+      "doi": "10.1080/08998280.2025.2456441",
+      "pmid": "40291085",
+      "url": "https://doi.org/10.1080/08998280.2025.2456441",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis of retatrutide, a novel triple agonist targeting GLP-1, GIP, and glucagon receptors for obesity treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-6",
+      "category": "review",
+      "tier": "B",
+      "title": "The efficacy and safety of GLP-1 agonists in PCOS women living with obesity in promoting weight loss and hormonal regulation: A meta-analysis of randomized controlled trials.",
+      "authors": [
+        "Austregésilo de Athayde De Hollanda Morais B",
+        "Martins Prizão V",
+        "de Moura de Souza M",
+        "Ximenes Mendes B",
+        "Rodrigues Defante ML",
+        "Cosendey Martins O",
+        "Rodrigues AM"
+      ],
+      "journal": "Journal of diabetes and its complications",
+      "year": "2024",
+      "doi": "10.1016/j.jdiacomp.2024.108834",
+      "pmid": "39178623",
+      "url": "https://doi.org/10.1016/j.jdiacomp.2024.108834",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis of GLP-1 agonists efficacy in PCOS women with obesity for weight loss and hormonal regulation.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-7",
+      "category": "rct",
+      "tier": "A",
+      "title": "3 years of liraglutide versus placebo for type 2 diabetes risk reduction and weight management in individuals with prediabetes: a randomised, double-blind trial.",
+      "authors": [
+        "le Roux CW",
+        "Astrup A",
+        "Fujioka K",
+        "Greenway F",
+        "Lau DCW",
+        "Van Gaal L",
+        "Ortiz RV",
+        "Wilding JPH"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2017",
+      "doi": "10.1016/S0140-6736(17)30069-7",
+      "pmid": "28237263",
+      "url": "https://doi.org/10.1016/S0140-6736(17)30069-7",
+      "accessLevel": "abstract",
+      "summary": "3-year randomized trial of liraglutide 3.0 mg versus placebo for type 2 diabetes risk reduction and weight management in prediabetes.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-8",
+      "category": "rct",
+      "tier": "B",
+      "title": "Efficacy and safety of orlistat in male patients with overweight/obesity and hyperuricemia: results of a randomized, double-blind, placebo-controlled trial.",
+      "authors": [
+        "Liu S",
+        "Lin X",
+        "Tao M",
+        "Chen Q",
+        "Sun H",
+        "Han Y",
+        "Yang S",
+        "Gao Y"
+      ],
+      "journal": "Lipids in health and disease",
+      "year": "2024",
+      "doi": "10.1186/s12944-024-02047-7",
+      "pmid": "38468241",
+      "url": "https://doi.org/10.1186/s12944-024-02047-7",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial of orlistat efficacy and safety in male patients with overweight/obesity and hyperuricemia.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-9",
+      "category": "rct",
+      "tier": "B",
+      "title": "Cardiometabolic Parameter Change by Weight Regain on Tirzepatide Withdrawal in Adults With Obesity: A Post Hoc Analysis of the SURMOUNT-4 Trial.",
+      "authors": [
+        "Horn DB",
+        "Linetzky B",
+        "Davies MJ",
+        "Laffin LJ",
+        "Wang H",
+        "Murphy MA",
+        "Zimner-Rapuch S",
+        "Lau E"
+      ],
+      "journal": "JAMA internal medicine",
+      "year": "2026",
+      "doi": "10.1001/jamainternmed.2025.6112",
+      "pmid": "41284285",
+      "url": "https://doi.org/10.1001/jamainternmed.2025.6112",
+      "accessLevel": "abstract",
+      "summary": "Post hoc analysis of SURMOUNT-4 trial examining cardiometabolic parameter changes with weight regain after tirzepatide withdrawal.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-10",
+      "category": "clinical-guideline",
+      "tier": "A",
+      "title": "Association of BMI with overall and cause-specific mortality: a population-based cohort study of 3·6 million adults in the UK.",
+      "authors": [
+        "Bhaskaran K",
+        "Dos-Santos-Silva I",
+        "Leon DA",
+        "Douglas IJ",
+        "Smeeth L"
+      ],
+      "journal": "The lancet. Diabetes & endocrinology",
+      "year": "2018",
+      "doi": "10.1016/S2213-8587(18)30288-2",
+      "pmid": "30389323",
+      "url": "https://doi.org/10.1016/S2213-8587(18)30288-2",
+      "accessLevel": "abstract",
+      "summary": "Population-based cohort study of 3.6 million UK adults examining BMI associations with overall and cause-specific mortality.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-11",
+      "category": "clinical-guideline",
+      "tier": "A",
+      "title": "Weight change across adulthood in relation to all cause and cause specific mortality: prospective cohort study.",
+      "authors": [
+        "Chen C",
+        "Ye Y",
+        "Zhang Y",
+        "Pan XF",
+        "Pan A"
+      ],
+      "journal": "BMJ (Clinical research ed.)",
+      "year": "2019",
+      "doi": "10.1136/bmj.l5584",
+      "pmid": "31619383",
+      "url": "https://doi.org/10.1136/bmj.l5584",
+      "accessLevel": "abstract",
+      "summary": "Prospective cohort study investigating weight changes across adulthood in relation to all-cause and cause-specific mortality.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-12",
+      "category": "review",
+      "tier": "B",
+      "title": "Obesity is Independently Associated With Increased Risk of Hepatocellular Cancer-related Mortality: A Systematic Review and Meta-Analysis.",
+      "authors": [
+        "Gupta A",
+        "Das A",
+        "Majumder K",
+        "Arora N",
+        "Mayo HG",
+        "Singh PP",
+        "Beg MS",
+        "Singh S"
+      ],
+      "journal": "American journal of clinical oncology",
+      "year": "2018",
+      "doi": "10.1097/COC.0000000000000388",
+      "pmid": "28537989",
+      "url": "https://doi.org/10.1097/COC.0000000000000388",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis showing obesity independently associated with increased hepatocellular cancer-related mortality.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-13",
+      "category": "review",
+      "tier": "B",
+      "title": "Bariatric surgery outcomes.",
+      "authors": [
+        "Dumon KR",
+        "Murayama KM"
+      ],
+      "journal": "The Surgical clinics of North America",
+      "year": "2011",
+      "doi": "10.1016/j.suc.2011.08.014",
+      "pmid": "22054156",
+      "url": "https://doi.org/10.1016/j.suc.2011.08.014",
+      "accessLevel": "abstract",
+      "summary": "Review of bariatric surgery outcomes, recognizing it as the only effective treatment for morbid obesity.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-14",
+      "category": "review",
+      "tier": "A",
+      "title": "Emerging pharmacotherapies for obesity: A systematic review.",
+      "authors": [
+        "Kokkorakis M",
+        "Chakhtoura M",
+        "Rhayem C",
+        "Al Rifai J",
+        "Ghezzawi M",
+        "Valenzuela-Vallejo L",
+        "Mantzoros CS"
+      ],
+      "journal": "Pharmacological reviews",
+      "year": "2025",
+      "doi": "10.1124/pharmrev.123.001045",
+      "pmid": "39952695",
+      "url": "https://doi.org/10.1124/pharmrev.123.001045",
+      "accessLevel": "abstract",
+      "summary": "Systematic review of emerging pharmacotherapies for obesity, examining phase 2 and 3 trials of novel weight loss medications.",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-15",
+      "category": "review",
+      "tier": "B",
+      "title": "Obesity drug therapy.",
+      "authors": [
+        "Baretić M"
+      ],
+      "journal": "Minerva endocrinologica",
+      "year": "2013",
+      "doi": "",
+      "pmid": "24126545",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24126545/",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "obesity-16",
+      "category": "review",
+      "tier": "B",
+      "title": "Ziritaxestat, a Novel Autotaxin Inhibitor, and Lung Function in Idiopathic Pulmonary Fibrosis: The ISABELA 1 and 2 Randomized Clinical Trials.",
+      "authors": [
+        "Maher TM",
+        "Ford P",
+        "Brown KK",
+        "Costabel U",
+        "Cottin V",
+        "Danoff SK",
+        "Groenveld I",
+        "Helmer E"
+      ],
+      "journal": "JAMA",
+      "year": "2023",
+      "doi": "10.1001/jama.2023.5355",
+      "pmid": "37159034",
+      "url": "https://doi.org/10.1001/jama.2023.5355",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "GLP-1 receptor agonists are effective for weight loss in obesity, with tirzepatide showing particularly strong efficacy",
+      "evidenceRefs": [
+        "obesity-6",
+        "obesity-4",
+        "obesity-3",
+        "obesity-5"
+      ]
+    },
+    {
+      "claim": "Obesity is independently associated with increased all-cause mortality and cause-specific mortality including cardiovascular disease and cancer",
+      "evidenceRefs": [
+        "obesity-10",
+        "obesity-11",
+        "obesity-12"
+      ]
+    },
+    {
+      "claim": "Bariatric surgery is recognized as the only effective treatment for morbid obesity",
+      "evidenceRefs": [
+        "obesity-13"
+      ]
+    },
+    {
+      "claim": "Sustained weight loss of more than 10% overall bodyweight improves many obesity-related complications",
+      "evidenceRefs": [
+        "obesity-2"
+      ]
+    },
+    {
+      "claim": "Orlistat demonstrates efficacy for weight loss and can reduce serum uric acid levels in overweight/obese patients with hyperuricemia",
+      "evidenceRefs": [
+        "obesity-8"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Lifestyle interventions should always be the first-line treatment for obesity, though results are typically modest",
+      "evidenceRefs": [
+        "obesity-15",
+        "obesity-1"
+      ]
+    },
+    {
+      "recommendation": "Lifestyle interventions can lead to mean weight loss of 2% to 9% of initial weight at 1 year",
+      "evidenceRefs": [
+        "obesity-1"
+      ]
+    },
+    {
+      "recommendation": "Obesity management requires a long-term, multimodal approach taking into account individual treatment goals",
+      "evidenceRefs": [
+        "obesity-2"
+      ]
+    }
+  ],
+  "redFlags": [
+    "Many historical anti-obesity drugs have been withdrawn due to severe side effects",
+    "Weight regain is common after discontinuation of effective obesity medications",
+    "Obesity significantly increases risk of cardiovascular disease, diabetes, and cancer mortality"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "tirzepatide",
+      "aliases": [
+        "dual GIP/GLP-1 agonist"
+      ],
+      "mechanism": "dual glucose-dependent insulinotropic-peptide and GLP-1 receptor agonist",
+      "sponsor": "Eli Lilly",
+      "status": "approved for obesity",
+      "approvalStatus": "approved",
+      "evidenceRef": "obesity-4"
+    },
+    {
+      "name": "retatrutide",
+      "aliases": [
+        "triple agonist"
+      ],
+      "mechanism": "GLP-1, GIP, and glucagon receptor agonist",
+      "sponsor": "Eli Lilly",
+      "status": "investigational",
+      "approvalStatus": "investigational",
+      "evidenceRef": "obesity-5"
+    },
+    {
+      "name": "semaglutide",
+      "aliases": [
+        "GLP-1 agonist"
+      ],
+      "mechanism": "GLP-1 receptor agonist",
+      "sponsor": "Novo Nordisk",
+      "status": "approved for obesity",
+      "approvalStatus": "approved",
+      "evidenceRef": "obesity-3"
+    },
+    {
+      "name": "liraglutide",
+      "aliases": [
+        "GLP-1 agonist"
+      ],
+      "mechanism": "GLP-1 receptor agonist",
+      "sponsor": "Novo Nordisk",
+      "status": "approved for obesity",
+      "approvalStatus": "approved",
+      "evidenceRef": "obesity-3"
+    },
+    {
+      "name": "orforglipron",
+      "aliases": [
+        "oral GLP-1 agonist"
+      ],
+      "mechanism": "oral GLP-1 receptor agonist",
+      "sponsor": "Eli Lilly",
+      "status": "investigational",
+      "approvalStatus": "investigational",
+      "evidenceRef": "obesity-3"
+    },
+    {
+      "name": "mazdutide",
+      "aliases": [
+        "GLP-1/glucagon dual agonist"
+      ],
+      "mechanism": "GLP-1 and glucagon receptor dual agonist",
+      "sponsor": "Innovent Biologics",
+      "status": "investigational",
+      "approvalStatus": "investigational",
+      "evidenceRef": "obesity-3"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "ziritaxestat",
+      "reason": "failed to show efficacy in phase 3 trials for idiopathic pulmonary fibrosis, with studies terminated early due to lack of benefit",
+      "evidenceRef": "obesity-16"
+    }
+  ]
+}

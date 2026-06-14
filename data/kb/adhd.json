@@ -1,0 +1,482 @@
+{
+  "condition": "Attention-Deficit/Hyperactivity Disorder",
+  "slug": "adhd",
+  "aliases": [
+    "ADHD",
+    "ADD",
+    "attention deficit disorder"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Centanafadine",
+    "PRC-063",
+    "Viloxazine extended-release",
+    "Sativex Oromucosal Spray",
+    "Probiotic supplementation",
+    "Extended-release mixed amphetamine salts for comorbid ADHD and cannabis use disorder"
+  ],
+  "items": [
+    {
+      "id": "adhd-1",
+      "category": "review",
+      "tier": "A+",
+      "title": "Pharmacologic treatment of attention deficit hyperactivity disorder in adults: A systematic review and network meta-analysis.",
+      "authors": [
+        "Elliott J",
+        "Johnston A",
+        "Husereau D",
+        "Kelly SE",
+        "Eagles C",
+        "Charach A",
+        "Hsieh SC",
+        "Bai Z"
+      ],
+      "journal": "PloS one",
+      "year": "2020",
+      "doi": "10.1371/journal.pone.0240584",
+      "pmid": "33085721",
+      "url": "https://doi.org/10.1371/journal.pone.0240584",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and network meta-analysis of pharmacologic treatments for adult ADHD comparing benefits and harms of individual treatments.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-2",
+      "category": "review",
+      "tier": "A",
+      "title": "Methylphenidate for attention deficit hyperactivity disorder (ADHD) in children and adolescents - assessment of adverse events in non-randomised studies.",
+      "authors": [
+        "Storebø OJ",
+        "Pedersen N",
+        "Ramstad E",
+        "Kielsholm ML",
+        "Nielsen SS",
+        "Krogh HB",
+        "Moreira-Maia CR",
+        "Magnusson FL"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2018",
+      "doi": "10.1002/14651858.CD012069.pub2",
+      "pmid": "29744873",
+      "url": "https://doi.org/10.1002/14651858.CD012069.pub2",
+      "accessLevel": "abstract",
+      "summary": "Cochrane systematic review assessing adverse events of methylphenidate in children and adolescents with ADHD from non-randomized studies.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-3",
+      "category": "review",
+      "tier": "A",
+      "title": "Mortality in Persons With Autism Spectrum Disorder or Attention-Deficit/Hyperactivity Disorder: A Systematic Review and Meta-analysis.",
+      "authors": [
+        "Catalá-López F",
+        "Hutton B",
+        "Page MJ",
+        "Driver JA",
+        "Ridao M",
+        "Alonso-Arroyo A",
+        "Valencia A",
+        "Macías Saint-Gerons D"
+      ],
+      "journal": "JAMA pediatrics",
+      "year": "2022",
+      "doi": "10.1001/jamapediatrics.2021.6401",
+      "pmid": "35157020",
+      "url": "https://doi.org/10.1001/jamapediatrics.2021.6401",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis examining mortality risk in persons with autism spectrum disorder or ADHD.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-4",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "ADHD Pharmacotherapy and Mortality in Individuals With ADHD.",
+      "authors": [
+        "Li L",
+        "Zhu N",
+        "Zhang L",
+        "Kuja-Halkola R",
+        "D'Onofrio BM",
+        "Brikell I",
+        "Lichtenstein P",
+        "Cortese S"
+      ],
+      "journal": "JAMA",
+      "year": "2024",
+      "doi": "10.1001/jama.2024.0851",
+      "pmid": "38470385",
+      "url": "https://doi.org/10.1001/jama.2024.0851",
+      "accessLevel": "abstract",
+      "summary": "Nationwide cohort study investigating whether ADHD pharmacotherapy initiation was associated with reduced mortality risk.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-5",
+      "category": "review",
+      "tier": "A",
+      "title": "Cardiovascular Effects of Stimulant and Non-Stimulant Medication for Children and Adolescents with ADHD: A Systematic Review and Meta-Analysis of Trials of Methylphenidate, Amphetamines and Atomoxetine.",
+      "authors": [
+        "Hennissen L",
+        "Bakker MJ",
+        "Banaschewski T",
+        "Carucci S",
+        "Coghill D",
+        "Danckaerts M",
+        "Dittmann RW",
+        "Hollis C"
+      ],
+      "journal": "CNS drugs",
+      "year": "2017",
+      "doi": "10.1007/s40263-017-0410-7",
+      "pmid": "28236285",
+      "url": "https://doi.org/10.1007/s40263-017-0410-7",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis of cardiovascular effects of methylphenidate, amphetamines, and atomoxetine in children and adolescents.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-6",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Cannabinoids in attention-deficit/hyperactivity disorder: A randomised-controlled trial.",
+      "authors": [
+        "Cooper RE",
+        "Williams E",
+        "Seegobin S",
+        "Tye C",
+        "Kuntsi J",
+        "Asherson P"
+      ],
+      "journal": "European neuropsychopharmacology : the journal of the European College of Neuropsychopharmacology",
+      "year": "2017",
+      "doi": "10.1016/j.euroneuro.2017.05.005",
+      "pmid": "28576350",
+      "url": "https://doi.org/10.1016/j.euroneuro.2017.05.005",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial of cannabinoid medication (Sativex) in 30 adults with ADHD showing no efficacy.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-7",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Probiotic Supplementation and Executive Function in Children With Attention-Deficit/Hyperactivity Disorder.",
+      "authors": [
+        "Parhiz A",
+        "Samani P",
+        "Kamali M",
+        "Shekari Y",
+        "Naghshi N",
+        "Faghihshojaei N",
+        "Tejareh F",
+        "Lahiji NP"
+      ],
+      "journal": "Neuropsychopharmacology reports",
+      "year": "2026",
+      "doi": "10.1002/npr2.70084",
+      "pmid": "41450035",
+      "url": "https://doi.org/10.1002/npr2.70084",
+      "accessLevel": "abstract",
+      "summary": "Triple-blind randomized controlled trial of probiotic supplementation on executive function in 84 children with ADHD.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-8",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Extended-Release Mixed Amphetamine Salts for Comorbid Adult Attention-Deficit/Hyperactivity Disorder and Cannabis Use Disorder: A Pilot, Randomized Double-Blind, Placebo-Controlled Trial.",
+      "authors": [
+        "Levin FR",
+        "Mariani JJ",
+        "Pavlicova M",
+        "Choi CJ",
+        "Basaraba C",
+        "Mahony AL",
+        "Brooks DJ",
+        "Brezing CA"
+      ],
+      "journal": "Journal of attention disorders",
+      "year": "2024",
+      "doi": "10.1177/10870547241264675",
+      "pmid": "39051597",
+      "url": "https://doi.org/10.1177/10870547241264675",
+      "accessLevel": "abstract",
+      "summary": "Pilot randomized double-blind trial of extended-release mixed amphetamine salts for comorbid adult ADHD and cannabis use disorder.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-9",
+      "category": "review",
+      "tier": "B",
+      "title": "Therapeutic efficacy of probiotics for symptoms of attention-deficit hyperactivity disorder in children and adolescents: meta-analysis.",
+      "authors": [
+        "Liang SC",
+        "Sun CK",
+        "Chang CH",
+        "Cheng YS",
+        "Tzang RF",
+        "Chiu HJ",
+        "Wang MY",
+        "Cheng YC"
+      ],
+      "journal": "BJPsych open",
+      "year": "2024",
+      "doi": "10.1192/bjo.2023.645",
+      "pmid": "38268113",
+      "url": "https://doi.org/10.1192/bjo.2023.645",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis investigating the effectiveness of probiotics for ADHD symptoms in children and adolescents.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-10",
+      "category": "review",
+      "tier": "B",
+      "title": "Novel and complementary treatment approaches in attention-deficit/hyperactivity disorder.",
+      "authors": [
+        "Caterfino A",
+        "Krishna S",
+        "Chen V"
+      ],
+      "journal": "Current opinion in pediatrics",
+      "year": "2024",
+      "doi": "10.1097/MOP.0000000000001378",
+      "pmid": "38957089",
+      "url": "https://doi.org/10.1097/MOP.0000000000001378",
+      "accessLevel": "abstract",
+      "summary": "Updated review of novel and complementary treatment approaches for children and adolescents with ADHD.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Recent advances in pharmacological management of attention-deficit/hyperactivity disorder: moving beyond stimulants.",
+      "authors": [
+        "Childress A"
+      ],
+      "journal": "Expert opinion on pharmacotherapy",
+      "year": "2024",
+      "doi": "10.1080/14656566.2024.2358987",
+      "pmid": "38771653",
+      "url": "https://doi.org/10.1080/14656566.2024.2358987",
+      "accessLevel": "abstract",
+      "summary": "Review of recent advances in pharmacological management of ADHD, focusing on non-stimulant treatments.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-12",
+      "category": "review",
+      "tier": "B",
+      "title": "Adult Attention-Deficit/Hyperactivity Disorder: a Narrative Review of Biological Mechanisms, Treatments, and Outcomes.",
+      "authors": [
+        "Pagán AF",
+        "Huizar YP",
+        "Short TR",
+        "Gotcher Z",
+        "Schmidt AT"
+      ],
+      "journal": "Current neurology and neuroscience reports",
+      "year": "2023",
+      "doi": "10.1007/s11910-023-01280-4",
+      "pmid": "37335460",
+      "url": "https://doi.org/10.1007/s11910-023-01280-4",
+      "accessLevel": "abstract",
+      "summary": "Narrative review of biological mechanisms, treatments, and outcomes of adult ADHD including new research findings.",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-13",
+      "category": "review",
+      "tier": "B",
+      "title": "Functional Impairments Associated With ADHD in Adulthood and the Impact of Pharmacological Treatment.",
+      "authors": [
+        "Kosheleff AR",
+        "Mason O",
+        "Jain R",
+        "Koch J",
+        "Rubin J"
+      ],
+      "journal": "Journal of attention disorders",
+      "year": "2023",
+      "doi": "10.1177/10870547231158572",
+      "pmid": "36876491",
+      "url": "https://doi.org/10.1177/10870547231158572",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-14",
+      "category": "review",
+      "tier": "B",
+      "title": "Effects of physical exercise on children with attention deficit hyperactivity disorder.",
+      "authors": [
+        "Chan YS",
+        "Jang JT",
+        "Ho CS"
+      ],
+      "journal": "Biomedical journal",
+      "year": "2022",
+      "doi": "10.1016/j.bj.2021.11.011",
+      "pmid": "34856393",
+      "url": "https://doi.org/10.1016/j.bj.2021.11.011",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-15",
+      "category": "review",
+      "tier": "B",
+      "title": "A Matching-Adjusted Indirect Comparison (MAIC) of Centanafadine versus Methylphenidate Hydrochloride in Adults with Attention-Deficit/Hyperactivity Disorder (ADHD): Short-Term Safety and Efficacy Outcomes: Comparaison indirecte ajustée par appariement (MAIC) entre centanafadine et le chlorhydrate de méthylphénidate chez les adultes atteints d'un trouble déficitaire de l'attention avec ou sans hyperactivité (TDAH) : Résultats en matière d'innocuité et d'efficacité à court terme.",
+      "authors": [
+        "Schein J",
+        "Catillon M",
+        "Xu C",
+        "Qu A",
+        "Lemyre A",
+        "Gauthier-Loiselle M",
+        "Cloutier M",
+        "Childress A"
+      ],
+      "journal": "Canadian journal of psychiatry. Revue canadienne de psychiatrie",
+      "year": "2025",
+      "doi": "10.1177/07067437251342279",
+      "pmid": "40452389",
+      "url": "https://doi.org/10.1177/07067437251342279",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "adhd-16",
+      "category": "review",
+      "tier": "B",
+      "title": "Efficacy and Safety of PRC-063 for Attention-Deficit/Hyperactivity Disorder: A Systematic Review and Meta-analysis From Randomized Controlled Trials.",
+      "authors": [
+        "Zhu S",
+        "Wang T",
+        "Wang J",
+        "Yang S",
+        "Yu Z",
+        "Gao H",
+        "Chen G"
+      ],
+      "journal": "Journal of attention disorders",
+      "year": "2023",
+      "doi": "10.1177/10870547231153941",
+      "pmid": "36794817",
+      "url": "https://doi.org/10.1177/10870547231153941",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "ADHD affects approximately 3% of adults globally",
+      "evidenceRefs": [
+        "adhd-1"
+      ]
+    },
+    {
+      "claim": "Methylphenidate is the most frequently used medication to treat ADHD in children and adolescents",
+      "evidenceRefs": [
+        "adhd-2"
+      ]
+    },
+    {
+      "claim": "ADHD is associated with increased risks of adverse health outcomes including premature death",
+      "evidenceRefs": [
+        "adhd-4"
+      ]
+    },
+    {
+      "claim": "Among untreated adults, functional impairments associated with ADHD are widespread and cumulative",
+      "evidenceRefs": [
+        "adhd-13"
+      ]
+    },
+    {
+      "claim": "Several nonstimulants including atomoxetine and viloxazine extended-release are approved by the FDA for ADHD treatment",
+      "evidenceRefs": [
+        "adhd-11"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Physical exercise shows potential benefits for children with ADHD and may improve cognitive function",
+      "evidenceRefs": [
+        "adhd-10",
+        "adhd-14"
+      ]
+    },
+    {
+      "recommendation": "Omega-3 polyunsaturated fatty acids have potential benefits that seem to outweigh known risks",
+      "evidenceRefs": [
+        "adhd-10"
+      ]
+    }
+  ],
+  "redFlags": [
+    "ADHD medications may be associated with cardiovascular effects including changes in blood pressure and heart rate",
+    "Stimulant medications carry a risk of misuse and dependence",
+    "ADHD is associated with increased mortality risk"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Centanafadine",
+      "aliases": [],
+      "mechanism": "investigational treatment",
+      "sponsor": "not specified",
+      "status": "investigational",
+      "approvalStatus": "investigational",
+      "evidenceRef": "adhd-15"
+    },
+    {
+      "name": "PRC-063",
+      "aliases": [],
+      "mechanism": "extended-release methylphenidate formulation",
+      "sponsor": "not specified",
+      "status": "approved for ADHD",
+      "approvalStatus": "approved",
+      "evidenceRef": "adhd-16"
+    },
+    {
+      "name": "Viloxazine extended-release",
+      "aliases": [
+        "viloxazine ER"
+      ],
+      "mechanism": "nonstimulant",
+      "sponsor": "not specified",
+      "status": "approved by FDA",
+      "approvalStatus": "approved",
+      "evidenceRef": "adhd-11"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Sativex Oromucosal Spray",
+      "reason": "randomized placebo-controlled trial in 30 adults with ADHD showed no significant efficacy on primary outcome of cognitive performance and activity level",
+      "evidenceRef": "adhd-6"
+    },
+    {
+      "name": "Probiotic supplementation",
+      "reason": "meta-analysis of randomized placebo-controlled trials found no significant effectiveness for ADHD symptoms",
+      "evidenceRef": "adhd-9"
+    },
+    {
+      "name": "Extended-release mixed amphetamine salts for comorbid ADHD and cannabis use disorder",
+      "reason": "pilot randomized double-blind trial showed no significant difference between medication and placebo for ADHD symptom reduction or cannabis abstinence",
+      "evidenceRef": "adhd-8"
+    }
+  ]
+}

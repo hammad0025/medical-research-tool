@@ -1,0 +1,323 @@
+{
+  "condition": "Gastroesophageal Reflux Disease",
+  "slug": "gerd",
+  "aliases": [
+    "GERD",
+    "acid reflux",
+    "reflux disease",
+    "heartburn"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Tegoprazan",
+    "DA-5204",
+    "Cisapride"
+  ],
+  "items": [
+    {
+      "id": "gerd-1",
+      "category": "review",
+      "tier": "A",
+      "title": "A systematic review and meta-analysis of randomized controlled trials: the effect of potassium-competitive acid blockers on nighttime symptoms of gastroesophageal reflux disease.",
+      "authors": [
+        "Koo TH",
+        "Fass R"
+      ],
+      "journal": "Esophagus : official journal of the Japan Esophageal Society",
+      "year": "2026",
+      "doi": "10.1007/s10388-025-01181-0",
+      "pmid": "41524830",
+      "url": "https://doi.org/10.1007/s10388-025-01181-0",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis evaluating potassium-competitive acid blockers versus PPIs or placebo for managing nighttime GERD symptoms.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-2",
+      "category": "rct",
+      "tier": "A",
+      "title": "Randomised clinical trial: comparison of tegoprazan and placebo in non-erosive reflux disease.",
+      "authors": [
+        "Kim SH",
+        "Cho KB",
+        "Chun HJ",
+        "Lee SW",
+        "Kwon JG",
+        "Lee DH",
+        "Kim SG",
+        "Jung HY"
+      ],
+      "journal": "Alimentary pharmacology & therapeutics",
+      "year": "2021",
+      "doi": "10.1111/apt.16477",
+      "pmid": "34227708",
+      "url": "https://doi.org/10.1111/apt.16477",
+      "accessLevel": "abstract",
+      "summary": "Phase 3 randomized controlled trial comparing tegoprazan 50mg and 100mg versus placebo in Korean patients with non-erosive reflux disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-3",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Management of Gastroesophageal Reflux Disease.",
+      "authors": [
+        "Gyawali CP",
+        "Fass R"
+      ],
+      "journal": "Gastroenterology",
+      "year": "2018",
+      "doi": "10.1053/j.gastro.2017.07.049",
+      "pmid": "28827081",
+      "url": "https://doi.org/10.1053/j.gastro.2017.07.049",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive management guidelines for GERD including empiric PPI therapy, lifestyle measures, and advanced treatment options.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-4",
+      "category": "review",
+      "tier": "A",
+      "title": "The Efficacy of Dietary Interventions in Patients with Gastroesophageal Reflux Disease: A Systematic Review and Meta-Analysis of Intervention Studies.",
+      "authors": [
+        "Lakananurak N",
+        "Pitisuttithum P",
+        "Susantitaphong P",
+        "Patcharatrakul T",
+        "Gonlachanvit S"
+      ],
+      "journal": "Nutrients",
+      "year": "2024",
+      "doi": "10.3390/nu16030464",
+      "pmid": "38337748",
+      "url": "https://doi.org/10.3390/nu16030464",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis evaluating the efficacy of dietary interventions on GERD-related outcomes.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-5",
+      "category": "review",
+      "tier": "B",
+      "title": "Presentation and Epidemiology of Gastroesophageal Reflux Disease.",
+      "authors": [
+        "Richter JE",
+        "Rubenstein JH"
+      ],
+      "journal": "Gastroenterology",
+      "year": "2018",
+      "doi": "10.1053/j.gastro.2017.07.045",
+      "pmid": "28780072",
+      "url": "https://doi.org/10.1053/j.gastro.2017.07.045",
+      "accessLevel": "abstract",
+      "summary": "Overview of GERD presentation and epidemiology, noting it as the most prevalent gastrointestinal disorder in the United States.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-6",
+      "category": "review",
+      "tier": "B",
+      "title": "Nonablative Radiofrequency Treatment for Gastroesophageal Reflux Disease (STRETTA).",
+      "authors": [
+        "Sowa P",
+        "Samarasena JB"
+      ],
+      "journal": "Gastrointestinal endoscopy clinics of North America",
+      "year": "2020",
+      "doi": "10.1016/j.giec.2019.12.006",
+      "pmid": "32146945",
+      "url": "https://doi.org/10.1016/j.giec.2019.12.006",
+      "accessLevel": "abstract",
+      "summary": "Review of nonablative radiofrequency treatment (Stretta) for GERD, evaluating efficacy, mechanisms, and safety data.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-7",
+      "category": "review",
+      "tier": "B",
+      "title": "Complications of Antireflux Surgery.",
+      "authors": [
+        "Yadlapati R",
+        "Hungness ES",
+        "Pandolfino JE"
+      ],
+      "journal": "The American journal of gastroenterology",
+      "year": "2018",
+      "doi": "10.1038/s41395-018-0115-7",
+      "pmid": "29899438",
+      "url": "https://doi.org/10.1038/s41395-018-0115-7",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of complications associated with antireflux surgery including wrap disruption, herniation, and adverse events.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Etiology and treatment options for refractory gastroesophageal reflux disease: A scope review.",
+      "authors": [
+        "Wang G",
+        "Zhu C",
+        "Yin J"
+      ],
+      "journal": "Clinics (Sao Paulo, Brazil)",
+      "year": "2025",
+      "doi": "10.1016/j.clinsp.2025.100763",
+      "pmid": "40976133",
+      "url": "https://doi.org/10.1016/j.clinsp.2025.100763",
+      "accessLevel": "abstract",
+      "summary": "Scope review examining etiology and treatment options for refractory gastroesophageal reflux disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-9",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Cisapride in the control of symptoms in infants with gastroesophageal reflux: A randomized, double-blind, placebo-controlled trial.",
+      "authors": [
+        "Cohen RC",
+        "O'Loughlin EV",
+        "Davidson GP",
+        "Moore DJ",
+        "Lawrence DM"
+      ],
+      "journal": "The Journal of pediatrics",
+      "year": "1999",
+      "doi": "10.1016/s0022-3476(99)70451-8",
+      "pmid": "10064663",
+      "url": "https://doi.org/10.1016/s0022-3476(99)70451-8",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial showing cisapride was no more effective than placebo for treating uncomplicated gastroesophageal reflux in infants.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-10",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Double-blind placebo-controlled trial of omeprazole in irritable infants with gastroesophageal reflux.",
+      "authors": [
+        "Moore DJ",
+        "Tao BS",
+        "Lines DR",
+        "Hirte C",
+        "Heddle ML",
+        "Davidson GP"
+      ],
+      "journal": "The Journal of pediatrics",
+      "year": "2003",
+      "doi": "10.1067/S0022-3476(03)00207-5",
+      "pmid": "12970637",
+      "url": "https://doi.org/10.1067/S0022-3476(03)00207-5",
+      "accessLevel": "abstract",
+      "summary": "Double-blind placebo-controlled crossover trial of omeprazole in irritable infants with gastroesophageal reflux.",
+      "keyPassages": []
+    },
+    {
+      "id": "gerd-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Efficacy of DA-5204 (Stillen 2X) for patients with gastroesophageal reflux disease: A randomized, double-blind, placebo-controlled pilot study.",
+      "authors": [
+        "Cho JH",
+        "Yoon H",
+        "Shin CM",
+        "Park YS",
+        "Kim N",
+        "Lee DH"
+      ],
+      "journal": "Medicine",
+      "year": "2020",
+      "doi": "10.1097/MD.0000000000022729",
+      "pmid": "33126310",
+      "url": "https://doi.org/10.1097/MD.0000000000022729",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "GERD is the most prevalent gastrointestinal disorder in the United States",
+      "evidenceRefs": [
+        "gerd-5"
+      ]
+    },
+    {
+      "claim": "Management commonly starts with empiric PPI therapy and lifestyle measures for patients without alarm symptoms",
+      "evidenceRefs": [
+        "gerd-3"
+      ]
+    },
+    {
+      "claim": "Potassium-competitive acid blockers (PCABs) have emerged as an alternative to PPIs for GERD management",
+      "evidenceRefs": [
+        "gerd-1"
+      ]
+    },
+    {
+      "claim": "Coexistent dysphagia is considered an alarm symptom prompting evaluation",
+      "evidenceRefs": [
+        "gerd-5"
+      ]
+    },
+    {
+      "claim": "Risk factors for GERD complications include advanced age, male sex, white race, abdominal obesity, and tobacco use",
+      "evidenceRefs": [
+        "gerd-5"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Dietary interventions are recommended as one of the most important treatments for GERD patients",
+      "evidenceRefs": [
+        "gerd-4"
+      ]
+    },
+    {
+      "recommendation": "Complementary lifestyle measures should be implemented alongside PPI therapy",
+      "evidenceRefs": [
+        "gerd-3"
+      ]
+    }
+  ],
+  "redFlags": [
+    "Dysphagia with GERD symptoms requires prompt evaluation as an alarm symptom",
+    "Antireflux surgery carries risks of wrap disruption, herniation, and adverse events"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Tegoprazan",
+      "aliases": [
+        "K-CAB"
+      ],
+      "mechanism": "Potassium-competitive acid blocker",
+      "sponsor": "Not specified",
+      "status": "Phase 3 completed",
+      "approvalStatus": "investigational",
+      "evidenceRef": "gerd-2"
+    },
+    {
+      "name": "DA-5204",
+      "aliases": [
+        "Stillen 2X"
+      ],
+      "mechanism": "Artemisia asiatica extract",
+      "sponsor": "Not specified",
+      "status": "Pilot study completed",
+      "approvalStatus": "investigational",
+      "evidenceRef": "gerd-11"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Cisapride",
+      "reason": "Randomized controlled trial showed no significant differences in symptoms of crying, vomiting, or gagging compared to placebo in infants with gastroesophageal reflux",
+      "evidenceRef": "gerd-9"
+    }
+  ]
+}

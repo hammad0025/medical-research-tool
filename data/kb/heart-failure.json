@@ -1,0 +1,331 @@
+{
+  "condition": "Heart Failure",
+  "slug": "heart-failure",
+  "aliases": [
+    "CHF",
+    "congestive heart failure",
+    "HFrEF",
+    "HFpEF"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Omecamtiv mecarbil",
+    "Omecamtiv mecarbil"
+  ],
+  "items": [
+    {
+      "id": "heart-failure-1",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Cardiac Myosin Activation with Omecamtiv Mecarbil in Systolic Heart Failure.",
+      "authors": [
+        "Teerlink JR",
+        "Diaz R",
+        "Felker GM",
+        "McMurray JJV",
+        "Metra M",
+        "Solomon SD",
+        "Adams KF",
+        "Anand I"
+      ],
+      "journal": "The New England journal of medicine",
+      "year": "2021",
+      "doi": "10.1056/NEJMoa2025797",
+      "pmid": "33185990",
+      "url": "https://doi.org/10.1056/NEJMoa2025797",
+      "accessLevel": "abstract",
+      "summary": "Omecamtiv mecarbil, a cardiac myosin activator, failed to significantly reduce cardiovascular death or heart failure events in patients with HFrEF in the GALACTIC-HF trial.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-2",
+      "category": "review",
+      "tier": "A+",
+      "title": "Heart failure with preserved ejection fraction: everything the clinician needs to know.",
+      "authors": [
+        "Campbell P",
+        "Rutten FH",
+        "Lee MM",
+        "Hawkins NM",
+        "Petrie MC"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2024",
+      "doi": "10.1016/S0140-6736(23)02756-3",
+      "pmid": "38367642",
+      "url": "https://doi.org/10.1016/S0140-6736(23)02756-3",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of heart failure with preserved ejection fraction covering pathophysiology, diagnosis, and management challenges.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-3",
+      "category": "review",
+      "tier": "A",
+      "title": "Phenotype-Specific Treatment of Heart Failure With Preserved Ejection Fraction: A Multiorgan Roadmap.",
+      "authors": [
+        "Shah SJ",
+        "Kitzman DW",
+        "Borlaug BA",
+        "van Heerebeek L",
+        "Zile MR",
+        "Kass DA",
+        "Paulus WJ"
+      ],
+      "journal": "Circulation",
+      "year": "2016",
+      "doi": "10.1161/CIRCULATIONAHA.116.021884",
+      "pmid": "27358439",
+      "url": "https://doi.org/10.1161/CIRCULATIONAHA.116.021884",
+      "accessLevel": "abstract",
+      "summary": "Proposes phenotype-specific treatment strategies for HFpEF addressing the failure of neurohumoral inhibition trials and phenotypic diversity.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Pathophysiology and Therapeutic Approaches to Acute Decompensated Heart Failure.",
+      "authors": [
+        "Njoroge JN",
+        "Teerlink JR"
+      ],
+      "journal": "Circulation research",
+      "year": "2021",
+      "doi": "10.1161/CIRCRESAHA.121.318186",
+      "pmid": "33983837",
+      "url": "https://doi.org/10.1161/CIRCRESAHA.121.318186",
+      "accessLevel": "abstract",
+      "summary": "Reviews pathophysiology and therapeutic approaches to acute decompensated heart failure, highlighting limited treatment options.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-5",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Withdrawal of pharmacological treatment for heart failure in patients with recovered dilated cardiomyopathy (TRED-HF): an open-label, pilot, randomised trial.",
+      "authors": [
+        "Halliday BP",
+        "Wassall R",
+        "Lota AS",
+        "Khalique Z",
+        "Gregson J",
+        "Newsome S",
+        "Jackson R",
+        "Rahneva T"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2019",
+      "doi": "10.1016/S0140-6736(18)32484-X",
+      "pmid": "30429050",
+      "url": "https://doi.org/10.1016/S0140-6736(18)32484-X",
+      "accessLevel": "abstract",
+      "summary": "TRED-HF trial showed that withdrawing heart failure medications in patients with recovered dilated cardiomyopathy led to relapse in 44% of patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-6",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Withdrawal of heart failure therapy after atrial fibrillation rhythm control with ejection fraction normalization: the WITHDRAW-AF trial.",
+      "authors": [
+        "Segan L",
+        "Kistler PM",
+        "Nanayakkara S",
+        "Taylor A",
+        "Hare J",
+        "Costello B",
+        "Chieng D",
+        "Crowley R"
+      ],
+      "journal": "European heart journal",
+      "year": "2026",
+      "doi": "10.1093/eurheartj/ehaf563",
+      "pmid": "40830055",
+      "url": "https://doi.org/10.1093/eurheartj/ehaf563",
+      "accessLevel": "abstract",
+      "summary": "WITHDRAW-AF trial demonstrated that early withdrawal of heart failure therapy after atrial fibrillation rhythm control increased risk of LVEF decline.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-7",
+      "category": "review",
+      "tier": "B",
+      "title": "Consequences of Discontinuing Long-Term Drug Treatment in Patients With Heart Failure and Reduced Ejection Fraction.",
+      "authors": [
+        "Talha KM",
+        "Butler J",
+        "Packer M"
+      ],
+      "journal": "Journal of the American College of Cardiology",
+      "year": "2024",
+      "doi": "10.1016/j.jacc.2024.09.005",
+      "pmid": "39453366",
+      "url": "https://doi.org/10.1016/j.jacc.2024.09.005",
+      "accessLevel": "abstract",
+      "summary": "Reviews consequences of discontinuing long-term heart failure drug treatment, showing clinical worsening patterns after withdrawal.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Current and future therapeutic perspective in chronic heart failure.",
+      "authors": [
+        "Mascolo A",
+        "di Mauro G",
+        "Cappetta D",
+        "De Angelis A",
+        "Torella D",
+        "Urbanek K",
+        "Berrino L",
+        "Nicoletti GF"
+      ],
+      "journal": "Pharmacological research",
+      "year": "2022",
+      "doi": "10.1016/j.phrs.2021.106035",
+      "pmid": "34915125",
+      "url": "https://doi.org/10.1016/j.phrs.2021.106035",
+      "accessLevel": "abstract",
+      "summary": "Reviews current and future therapeutic perspectives in chronic heart failure, noting lack of established treatments for HFpEF and HFmrEF.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-9",
+      "category": "review",
+      "tier": "B",
+      "title": "'Time is prognosis' in heart failure: time-to-treatment initiation as a modifiable risk factor.",
+      "authors": [
+        "Abdin A",
+        "Anker SD",
+        "Butler J",
+        "Coats AJS",
+        "Kindermann I",
+        "Lainscak M",
+        "Lund LH",
+        "Metra M"
+      ],
+      "journal": "ESC heart failure",
+      "year": "2021",
+      "doi": "10.1002/ehf2.13646",
+      "pmid": "34655282",
+      "url": "https://doi.org/10.1002/ehf2.13646",
+      "accessLevel": "abstract",
+      "summary": "Emphasizes the importance of timely treatment initiation in acute heart failure as a modifiable prognostic factor.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-10",
+      "category": "rct",
+      "tier": "B",
+      "title": "Dapagliflozin Effects on Biomarkers, Symptoms, and Functional Status in Patients With Heart Failure With Reduced Ejection Fraction: The DEFINE-HF Trial.",
+      "authors": [
+        "Nassif ME",
+        "Windsor SL",
+        "Tang F",
+        "Khariton Y",
+        "Husain M",
+        "Inzucchi SE",
+        "McGuire DK",
+        "Pitt B"
+      ],
+      "journal": "Circulation",
+      "year": "2019",
+      "doi": "10.1161/CIRCULATIONAHA.119.042929",
+      "pmid": "31524498",
+      "url": "https://doi.org/10.1161/CIRCULATIONAHA.119.042929",
+      "accessLevel": "abstract",
+      "summary": "DEFINE-HF trial showed dapagliflozin improved symptoms and biomarkers in patients with HFrEF, supporting SGLT2 inhibitor benefits.",
+      "keyPassages": []
+    },
+    {
+      "id": "heart-failure-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Blinded Withdrawal of Long-Term Randomized Treatment With Empagliflozin or Placebo in Patients With Heart Failure.",
+      "authors": [
+        "Packer M",
+        "Butler J",
+        "Zeller C",
+        "Pocock SJ",
+        "Brueckmann M",
+        "Ferreira JP",
+        "Filippatos G",
+        "Usman MS"
+      ],
+      "journal": "Circulation",
+      "year": "2023",
+      "doi": "10.1161/CIRCULATIONAHA.123.065748",
+      "pmid": "37621153",
+      "url": "https://doi.org/10.1161/CIRCULATIONAHA.123.065748",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Heart failure with preserved ejection fraction (HFpEF) represents at least half of all heart failure cases and has a rising prevalence",
+      "evidenceRefs": [
+        "heart-failure-2",
+        "heart-failure-3"
+      ]
+    },
+    {
+      "claim": "Large trials testing neurohumoral inhibition in HFpEF have failed to reach positive outcomes, unlike in HFrEF",
+      "evidenceRefs": [
+        "heart-failure-3"
+      ]
+    },
+    {
+      "claim": "Acute decompensated heart failure has high in-hospital morbidity and mortality with frequent rehospitalizations",
+      "evidenceRefs": [
+        "heart-failure-4"
+      ]
+    },
+    {
+      "claim": "Withdrawal of heart failure medications in patients with recovered function leads to high relapse rates",
+      "evidenceRefs": [
+        "heart-failure-5",
+        "heart-failure-6",
+        "heart-failure-7"
+      ]
+    },
+    {
+      "claim": "SGLT2 inhibitors have demonstrated benefits in heart failure patients with and without diabetes",
+      "evidenceRefs": [
+        "heart-failure-10",
+        "heart-failure-11"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [],
+  "redFlags": [
+    "Withdrawal of heart failure medications after recovery carries high risk of relapse",
+    "Delayed treatment initiation in acute heart failure worsens prognosis"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Omecamtiv mecarbil",
+      "aliases": [
+        "OM"
+      ],
+      "mechanism": "Selective cardiac myosin activator",
+      "sponsor": "Not specified",
+      "status": "Failed Phase 3",
+      "approvalStatus": "investigational",
+      "evidenceRef": "heart-failure-1"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Omecamtiv mecarbil",
+      "reason": "Failed to significantly reduce the primary composite endpoint of cardiovascular death or heart failure events in the GALACTIC-HF randomized trial of 8,256 patients with HFrEF",
+      "evidenceRef": "heart-failure-1"
+    }
+  ]
+}

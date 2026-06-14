@@ -1,0 +1,335 @@
+{
+  "condition": "Psoriasis",
+  "slug": "psoriasis",
+  "aliases": [
+    "plaque psoriasis",
+    "psoriasis vulgaris"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "mirikizumab",
+    "RORγt inhibitors",
+    "ROCK2 inhibitors",
+    "vitamin D3 supplementation",
+    "secukinumab"
+  ],
+  "items": [
+    {
+      "id": "psoriasis-1",
+      "category": "review",
+      "tier": "A+",
+      "title": "Pathophysiology, Clinical Presentation, and Treatment of Psoriasis: A Review.",
+      "authors": [
+        "Armstrong AW",
+        "Read C"
+      ],
+      "journal": "JAMA",
+      "year": "2020",
+      "doi": "10.1001/jama.2020.4006",
+      "pmid": "32427307",
+      "url": "https://doi.org/10.1001/jama.2020.4006",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive JAMA review covering pathophysiology, clinical presentation, and treatment of psoriasis affecting 125 million people worldwide.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-2",
+      "category": "review",
+      "tier": "A+",
+      "title": "Systemic pharmacological treatments for chronic plaque psoriasis: a network meta-analysis.",
+      "authors": [
+        "Sbidian E",
+        "Chaimani A",
+        "Garcia-Doval I",
+        "Doney L",
+        "Dressler C",
+        "Hua C",
+        "Hughes C",
+        "Naldi L"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2022",
+      "doi": "10.1002/14651858.CD011535.pub5",
+      "pmid": "35603936",
+      "url": "https://doi.org/10.1002/14651858.CD011535.pub5",
+      "accessLevel": "abstract",
+      "summary": "Cochrane network meta-analysis comparing efficacy and safety of non-biological systemic agents, small molecules, and biologics for moderate-to-severe psoriasis.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-3",
+      "category": "review",
+      "tier": "A+",
+      "title": "Systemic pharmacological treatments for chronic plaque psoriasis: a network meta-analysis.",
+      "authors": [
+        "Sbidian E",
+        "Chaimani A",
+        "Guelimi R",
+        "Garcia-Doval I",
+        "Hua C",
+        "Hughes C",
+        "Naldi L",
+        "Kinberger M"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2023",
+      "doi": "10.1002/14651858.CD011535.pub6",
+      "pmid": "37436070",
+      "url": "https://doi.org/10.1002/14651858.CD011535.pub6",
+      "accessLevel": "abstract",
+      "summary": "Updated Cochrane network meta-analysis comparing benefits and harms of systemic treatments for chronic plaque psoriasis.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Drug Survival of IL-17 and IL-23 Inhibitors for Psoriasis: A Systematic Review and Meta-Analysis.",
+      "authors": [
+        "Thomas SE",
+        "Barenbrug L",
+        "Hannink G",
+        "Seyger MMB",
+        "de Jong EMGJ",
+        "van den Reek JMPA"
+      ],
+      "journal": "Drugs",
+      "year": "2024",
+      "doi": "10.1007/s40265-024-02028-1",
+      "pmid": "38630365",
+      "url": "https://doi.org/10.1007/s40265-024-02028-1",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis of drug survival for IL-17 and IL-23 inhibitors in psoriasis treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-5",
+      "category": "rct",
+      "tier": "A",
+      "title": "Efficacy and safety of ustekinumab, a human interleukin-12/23 monoclonal antibody, in patients with psoriasis: 76-week results from a randomised, double-blind, placebo-controlled trial (PHOENIX 1).",
+      "authors": [
+        "Leonardi CL",
+        "Kimball AB",
+        "Papp KA",
+        "Yeilding N",
+        "Guzzo C",
+        "Wang Y",
+        "Li S",
+        "Dooley LT"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2008",
+      "doi": "10.1016/S0140-6736(08)60725-4",
+      "pmid": "18486739",
+      "url": "https://doi.org/10.1016/S0140-6736(08)60725-4",
+      "accessLevel": "abstract",
+      "summary": "Phase III PHOENIX 1 trial demonstrating 76-week efficacy and safety of ustekinumab for moderate-to-severe psoriasis.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-6",
+      "category": "review",
+      "tier": "B",
+      "title": "Drug survival of IL-12/23, IL-17 and IL-23 inhibitors for moderate-to-severe plaque psoriasis: a retrospective multicenter real-world experience on 5932 treatment courses - IL PSO (Italian landscape psoriasis).",
+      "authors": [
+        "Gargiulo L",
+        "Ibba L",
+        "Malagoli P",
+        "Balato A",
+        "Bardazzi F",
+        "Burlando M",
+        "Carrera CG",
+        "Damiani G"
+      ],
+      "journal": "Frontiers in immunology",
+      "year": "2023",
+      "doi": "10.3389/fimmu.2023.1341708",
+      "pmid": "38274801",
+      "url": "https://doi.org/10.3389/fimmu.2023.1341708",
+      "accessLevel": "abstract",
+      "summary": "Large multicenter real-world study of 5932 treatment courses evaluating drug survival of IL-12/23, IL-17 and IL-23 inhibitors.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-7",
+      "category": "review",
+      "tier": "B",
+      "title": "Challenges and Future Trends in the Treatment of Psoriasis.",
+      "authors": [
+        "Lee HJ",
+        "Kim M"
+      ],
+      "journal": "International journal of molecular sciences",
+      "year": "2023",
+      "doi": "10.3390/ijms241713313",
+      "pmid": "37686119",
+      "url": "https://doi.org/10.3390/ijms241713313",
+      "accessLevel": "abstract",
+      "summary": "Review of current psoriasis treatment challenges and future trends including emerging biologic agents and small molecule inhibitors.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-8",
+      "category": "review",
+      "tier": "B",
+      "title": "New Treatment Addressing the Pathogenesis of Psoriasis.",
+      "authors": [
+        "Tokuyama M",
+        "Mabuchi T"
+      ],
+      "journal": "International journal of molecular sciences",
+      "year": "2020",
+      "doi": "10.3390/ijms21207488",
+      "pmid": "33050592",
+      "url": "https://doi.org/10.3390/ijms21207488",
+      "accessLevel": "abstract",
+      "summary": "Review of new treatments addressing psoriasis pathogenesis, focusing on IL23/IL17 axis and biologic therapies.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-9",
+      "category": "review",
+      "tier": "B",
+      "title": "Treatment of Nail Psoriasis.",
+      "authors": [
+        "Hwang JK",
+        "Lipner SR"
+      ],
+      "journal": "Dermatologic clinics",
+      "year": "2024",
+      "doi": "10.1016/j.det.2024.02.004",
+      "pmid": "38796270",
+      "url": "https://doi.org/10.1016/j.det.2024.02.004",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of nail psoriasis treatment options including intralesional, topical, and systemic therapies with treatment algorithm.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-10",
+      "category": "negative-trial",
+      "tier": "C",
+      "title": "A randomized, double-blind, placebo-controlled trial of the effect of monthly vitamin D supplementation in mild psoriasis().",
+      "authors": [
+        "Jarrett P",
+        "Camargo CA Jr",
+        "Coomarasamy C",
+        "Scragg R"
+      ],
+      "journal": "The Journal of dermatological treatment",
+      "year": "2018",
+      "doi": "10.1080/09546634.2017.1373735",
+      "pmid": "28849682",
+      "url": "https://doi.org/10.1080/09546634.2017.1373735",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial showing monthly vitamin D3 supplementation (100,000 IU) had no significant effect on mild psoriasis.",
+      "keyPassages": []
+    },
+    {
+      "id": "psoriasis-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Secukinumab in moderate-to-severe hidradenitis suppurativa (SUNSHINE and SUNRISE): week 16 and week 52 results of two identical, multicentre, randomised, placebo-controlled, double-blind phase 3 trials.",
+      "authors": [
+        "Kimball AB",
+        "Jemec GBE",
+        "Alavi A",
+        "Reguiai Z",
+        "Gottlieb AB",
+        "Bechara FG",
+        "Paul C",
+        "Giamarellos Bourboulis EJ"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2023",
+      "doi": "10.1016/S0140-6736(23)00022-3",
+      "pmid": "36746171",
+      "url": "https://doi.org/10.1016/S0140-6736(23)00022-3",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Psoriasis affects approximately 125 million people worldwide and is associated with increased rates of inflammatory arthritis, cardiometabolic diseases, and mental health disorders",
+      "evidenceRefs": [
+        "psoriasis-1"
+      ]
+    },
+    {
+      "claim": "The IL23/IL17 axis plays a central role in psoriasis pathogenesis, validated by the effectiveness of targeted biologic treatments",
+      "evidenceRefs": [
+        "psoriasis-8",
+        "psoriasis-1"
+      ]
+    },
+    {
+      "claim": "Plaque psoriasis is the most common variant of psoriasis",
+      "evidenceRefs": [
+        "psoriasis-1"
+      ]
+    },
+    {
+      "claim": "For mild psoriasis, topical agents remain the mainstay of treatment",
+      "evidenceRefs": [
+        "psoriasis-1"
+      ]
+    },
+    {
+      "claim": "Nail psoriasis is associated with significant disease burden and potential progression to psoriatic arthritis",
+      "evidenceRefs": [
+        "psoriasis-9"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [],
+  "redFlags": [
+    "JAK-STAT inhibitors may carry increased cardiovascular and thrombotic risks in dermatologic patients",
+    "Nail psoriasis may be more resistant to therapies than cutaneous psoriasis"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "mirikizumab",
+      "aliases": [],
+      "mechanism": "IL-23 inhibitor",
+      "sponsor": "",
+      "status": "emerging biologic agent",
+      "approvalStatus": "investigational",
+      "evidenceRef": "psoriasis-7"
+    },
+    {
+      "name": "RORγt inhibitors",
+      "aliases": [],
+      "mechanism": "RORγt inhibition",
+      "sponsor": "",
+      "status": "small molecule inhibitor in development",
+      "approvalStatus": "investigational",
+      "evidenceRef": "psoriasis-7"
+    },
+    {
+      "name": "ROCK2 inhibitors",
+      "aliases": [],
+      "mechanism": "ROCK2 inhibition",
+      "sponsor": "",
+      "status": "small molecule inhibitor in development",
+      "approvalStatus": "investigational",
+      "evidenceRef": "psoriasis-7"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "vitamin D3 supplementation",
+      "reason": "randomized controlled trial showed monthly vitamin D3 supplementation (100,000 IU) had no significant clinical effect on psoriasis outcomes",
+      "evidenceRef": "psoriasis-10"
+    },
+    {
+      "name": "secukinumab",
+      "reason": "failed to meet primary endpoints in two identical phase 3 trials (SUNSHINE and SUNRISE) for hidradenitis suppurativa, though this was not for psoriasis indication",
+      "evidenceRef": "psoriasis-11"
+    }
+  ]
+}

@@ -1,0 +1,334 @@
+{
+  "condition": "Chronic Obstructive Pulmonary Disease",
+  "slug": "copd",
+  "aliases": [
+    "COPD",
+    "emphysema",
+    "chronic bronchitis"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Nemiralisib",
+    "N-acetylcysteine",
+    "Statins",
+    "Carbocysteine",
+    "Tadalafil"
+  ],
+  "items": [
+    {
+      "id": "copd-1",
+      "category": "review",
+      "tier": "A",
+      "title": "Tiotropium versus placebo for chronic obstructive pulmonary disease.",
+      "authors": [
+        "Karner C",
+        "Chong J",
+        "Poole P"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2014",
+      "doi": "10.1002/14651858.CD009285.pub3",
+      "pmid": "25046211",
+      "url": "https://doi.org/10.1002/14651858.CD009285.pub3",
+      "accessLevel": "abstract",
+      "summary": "Cochrane meta-analysis demonstrating tiotropium's efficacy versus placebo in COPD for symptoms and exacerbations.",
+      "keyPassages": []
+    },
+    {
+      "id": "copd-2",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Statins versus placebo for people with chronic obstructive pulmonary disease.",
+      "authors": [
+        "Walsh A",
+        "Perrem L",
+        "Khashan AS",
+        "Henry MT",
+        "Ni Chroinin M"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2019",
+      "doi": "10.1002/14651858.CD011959.pub2",
+      "pmid": "31425628",
+      "url": "https://doi.org/10.1002/14651858.CD011959.pub2",
+      "accessLevel": "abstract",
+      "summary": "Cochrane review finding statins showed no significant benefit versus placebo for COPD exacerbations or outcomes.",
+      "keyPassages": []
+    },
+    {
+      "id": "copd-3",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Effect of high-dose N-acetylcysteine on exacerbations and lung function in patients with mild-to-moderate COPD: a double-blind, parallel group, multicentre randomised clinical trial.",
+      "authors": [
+        "Zhou Y",
+        "Wu F",
+        "Shi Z",
+        "Cao J",
+        "Tian J",
+        "Yao W",
+        "Wei L",
+        "Li F"
+      ],
+      "journal": "Nature communications",
+      "year": "2024",
+      "doi": "10.1038/s41467-024-51079-1",
+      "pmid": "39349461",
+      "url": "https://doi.org/10.1038/s41467-024-51079-1",
+      "accessLevel": "abstract",
+      "summary": "Randomized trial showing high-dose N-acetylcysteine failed to reduce exacerbations in mild-to-moderate COPD.",
+      "keyPassages": []
+    },
+    {
+      "id": "copd-4",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Effect of Carbocysteine on Exacerbations and Lung Function in Patients With Mild-to-Moderate Chronic Obstructive Pulmonary Disease: A Multicentre, Double-Blind, Randomized, Placebo-Controlled Trial.",
+      "authors": [
+        "Zhou Y",
+        "Wu F",
+        "Li H",
+        "Deng Z",
+        "Lin L",
+        "Huang H",
+        "Zhao H",
+        "Wang Y"
+      ],
+      "journal": "Archivos de bronconeumologia",
+      "year": "2025",
+      "doi": "10.1016/j.arbres.2025.01.004",
+      "pmid": "40000348",
+      "url": "https://doi.org/10.1016/j.arbres.2025.01.004",
+      "accessLevel": "abstract",
+      "summary": "Multicenter RCT demonstrating carbocysteine showed no benefit for exacerbations in mild-to-moderate COPD.",
+      "keyPassages": []
+    },
+    {
+      "id": "copd-5",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Tadalafil for veterans with chronic obstructive pulmonary disease-pulmonary hypertension: A multicenter, placebo-controlled randomized trial.",
+      "authors": [
+        "Maron BA",
+        "Choudhary G",
+        "Goldstein RL",
+        "Garshick E",
+        "Jankowich M",
+        "Tucker TJS",
+        "LaCerda KA",
+        "Hattler B"
+      ],
+      "journal": "Pulmonary circulation",
+      "year": "2022",
+      "doi": "10.1002/pul2.12043",
+      "pmid": "35506072",
+      "url": "https://doi.org/10.1002/pul2.12043",
+      "accessLevel": "abstract",
+      "summary": "Randomized trial showing tadalafil failed to improve 6-minute walk distance in COPD-pulmonary hypertension.",
+      "keyPassages": []
+    },
+    {
+      "id": "copd-6",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Efficacy of Nemiralisib in Chronic Obstructive Pulmonary Disease: A Systematic Review.",
+      "authors": [
+        "Yang H",
+        "He S",
+        "Liang L",
+        "Pan J"
+      ],
+      "journal": "Clinical therapeutics",
+      "year": "2024",
+      "doi": "10.1016/j.clinthera.2024.02.008",
+      "pmid": "38503629",
+      "url": "https://doi.org/10.1016/j.clinthera.2024.02.008",
+      "accessLevel": "abstract",
+      "summary": "Systematic review evaluating nemiralisib efficacy and safety in COPD patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "copd-7",
+      "category": "review",
+      "tier": "A",
+      "title": "Self-management interventions including action plans for exacerbations versus usual care in patients with chronic obstructive pulmonary disease.",
+      "authors": [
+        "Lenferink A",
+        "Brusse-Keizer M",
+        "van der Valk PD",
+        "Frith PA",
+        "Zwerink M",
+        "Monninkhof EM",
+        "van der Palen J",
+        "Effing TW"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2017",
+      "doi": "10.1002/14651858.CD011682.pub2",
+      "pmid": "28777450",
+      "url": "https://doi.org/10.1002/14651858.CD011682.pub2",
+      "accessLevel": "abstract",
+      "summary": "Cochrane review of COPD self-management interventions including action plans versus usual care.",
+      "keyPassages": []
+    },
+    {
+      "id": "copd-8",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Chronic Obstructive Pulmonary Disease.",
+      "authors": [
+        "Labaki WW",
+        "Rosenberg SR"
+      ],
+      "journal": "Annals of internal medicine",
+      "year": "2020",
+      "doi": "10.7326/AITC202008040",
+      "pmid": "32745458",
+      "url": "https://doi.org/10.7326/AITC202008040",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive clinical review of COPD diagnosis, management, and treatment recommendations.",
+      "keyPassages": []
+    },
+    {
+      "id": "copd-9",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Chronic obstructive pulmonary disease.",
+      "authors": [
+        "Barnes PJ",
+        "Burney PG",
+        "Silverman EK",
+        "Celli BR",
+        "Vestbo J",
+        "Wedzicha JA",
+        "Wouters EF"
+      ],
+      "journal": "Nature reviews. Disease primers",
+      "year": "2015",
+      "doi": "10.1038/nrdp.2015.76",
+      "pmid": "27189863",
+      "url": "https://doi.org/10.1038/nrdp.2015.76",
+      "accessLevel": "abstract",
+      "summary": "Nature primer on COPD pathophysiology, risk factors, diagnosis, and therapeutic approaches.",
+      "keyPassages": []
+    },
+    {
+      "id": "copd-10",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Chronic obstructive pulmonary disease.",
+      "authors": [
+        "Decramer M",
+        "Janssens W",
+        "Miravitlles M"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2012",
+      "doi": "10.1016/S0140-6736(11)60968-9",
+      "pmid": "22314182",
+      "url": "https://doi.org/10.1016/S0140-6736(11)60968-9",
+      "accessLevel": "abstract",
+      "summary": "Lancet review covering COPD pathobiology, exacerbations, comorbidities, and clinical management.",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "COPD is characterized by progressive airflow obstruction confirmed by post-bronchodilator FEV1/FVC ratio less than 0.70",
+      "evidenceRefs": [
+        "copd-8",
+        "copd-9",
+        "copd-10"
+      ]
+    },
+    {
+      "claim": "Tobacco smoking is the leading cause of COPD but other environmental factors including indoor air pollutants contribute to risk",
+      "evidenceRefs": [
+        "copd-9",
+        "copd-10"
+      ]
+    },
+    {
+      "claim": "COPD exacerbations are associated with worse quality of life, increased hospitalizations, and increased mortality",
+      "evidenceRefs": [
+        "copd-2",
+        "copd-10"
+      ]
+    },
+    {
+      "claim": "Inhaler therapy is the backbone of COPD treatment and should be complemented by smoking cessation, pulmonary rehabilitation, and treatment of comorbidities",
+      "evidenceRefs": [
+        "copd-8"
+      ]
+    },
+    {
+      "claim": "Up to 78% of COPD exacerbations are due to bacterial infections, viral infections, or both",
+      "evidenceRefs": [
+        "copd-10"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Smoking cessation counseling and pharmacotherapy",
+      "evidenceRefs": [
+        "copd-8",
+        "copd-9",
+        "copd-10"
+      ]
+    },
+    {
+      "recommendation": "Pulmonary rehabilitation programs",
+      "evidenceRefs": [
+        "copd-8"
+      ]
+    },
+    {
+      "recommendation": "Influenza and pneumococcal immunizations",
+      "evidenceRefs": [
+        "copd-8"
+      ]
+    }
+  ],
+  "redFlags": [
+    "Long-term oxygen therapy indicated only in hypoxemic patients",
+    "Target oxygen saturations 88-92% in COPD exacerbations unless CO2 levels normal"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Nemiralisib",
+      "aliases": [],
+      "mechanism": "PI3K delta inhibitor",
+      "sponsor": "Not specified",
+      "status": "Under investigation",
+      "approvalStatus": "investigational",
+      "evidenceRef": "copd-6"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "N-acetylcysteine",
+      "reason": "High-dose N-acetylcysteine (600mg twice daily) failed to reduce exacerbations or improve lung function in mild-to-moderate COPD patients in a 2-year randomized controlled trial",
+      "evidenceRef": "copd-3"
+    },
+    {
+      "name": "Statins",
+      "reason": "Cochrane review found statins showed no significant benefit versus placebo for COPD exacerbations or clinical outcomes",
+      "evidenceRef": "copd-2"
+    },
+    {
+      "name": "Carbocysteine",
+      "reason": "Carbocysteine (500mg thrice daily) showed no significant benefit for exacerbation rate or pulmonary function in mild-to-moderate COPD patients in a 12-month randomized controlled trial",
+      "evidenceRef": "copd-4"
+    },
+    {
+      "name": "Tadalafil",
+      "reason": "Tadalafil (40mg daily) failed to improve the primary endpoint of 6-minute walk distance in veterans with COPD-pulmonary hypertension in a 12-month randomized trial",
+      "evidenceRef": "copd-5"
+    }
+  ]
+}

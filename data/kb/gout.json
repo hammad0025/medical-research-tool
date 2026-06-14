@@ -1,0 +1,376 @@
+{
+  "condition": "Gout",
+  "slug": "gout",
+  "aliases": [
+    "gouty arthritis",
+    "hyperuricemia"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "febuxostat",
+    "DKB114"
+  ],
+  "items": [
+    {
+      "id": "gout-1",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "Diagnosis, treatment, and prevention of gout.",
+      "authors": [
+        "Hainer BL",
+        "Matheson E",
+        "Wilkes RT"
+      ],
+      "journal": "American family physician",
+      "year": "2014",
+      "doi": "",
+      "pmid": "25591183",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/25591183/",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive clinical guideline covering diagnosis, treatment, and prevention of gout including acute management and urate-lowering therapy.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-2",
+      "category": "review",
+      "tier": "A",
+      "title": "Inflammation in gout: mechanisms and therapeutic targets.",
+      "authors": [
+        "So AK",
+        "Martinon F"
+      ],
+      "journal": "Nature reviews. Rheumatology",
+      "year": "2017",
+      "doi": "10.1038/nrrheum.2017.155",
+      "pmid": "28959043",
+      "url": "https://doi.org/10.1038/nrrheum.2017.155",
+      "accessLevel": "abstract",
+      "summary": "Detailed review of inflammatory mechanisms in gout, particularly NLRP3 inflammasome activation and IL-1β release pathways.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-3",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Cardiovascular Safety of Febuxostat or Allopurinol in Patients with Gout.",
+      "authors": [
+        "White WB",
+        "Saag KG",
+        "Becker MA",
+        "Borer JS",
+        "Gorelick PB",
+        "Whelton A",
+        "Hunt B",
+        "Castillo M"
+      ],
+      "journal": "The New England journal of medicine",
+      "year": "2018",
+      "doi": "10.1056/NEJMoa1710895",
+      "pmid": "29527974",
+      "url": "https://doi.org/10.1056/NEJMoa1710895",
+      "accessLevel": "abstract",
+      "summary": "Large cardiovascular safety trial comparing febuxostat vs allopurinol in gout patients with cardiovascular disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-4",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Initiation of allopurinol at first medical contact for acute attacks of gout: a randomized clinical trial.",
+      "authors": [
+        "Taylor TH",
+        "Mecchella JN",
+        "Larson RJ",
+        "Kerin KD",
+        "Mackenzie TA"
+      ],
+      "journal": "The American journal of medicine",
+      "year": "2012",
+      "doi": "10.1016/j.amjmed.2012.05.025",
+      "pmid": "23098865",
+      "url": "https://doi.org/10.1016/j.amjmed.2012.05.025",
+      "accessLevel": "abstract",
+      "summary": "Randomized trial testing early vs delayed allopurinol initiation during acute gout attacks.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-5",
+      "category": "review",
+      "tier": "A",
+      "title": "Gout: Rapid Evidence Review.",
+      "authors": [
+        "Clebak KT",
+        "Morrison A",
+        "Croad JR"
+      ],
+      "journal": "American family physician",
+      "year": "2020",
+      "doi": "",
+      "pmid": "33118789",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/33118789/",
+      "accessLevel": "abstract",
+      "summary": "Rapid evidence review covering gout diagnosis, risk factors, and evidence-based treatment approaches.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-6",
+      "category": "review",
+      "tier": "A",
+      "title": "Gout: global epidemiology, risk factors, comorbidities and complications: a narrative review.",
+      "authors": [
+        "Asghari KM",
+        "Zahmatyar M",
+        "Seyedi F",
+        "Motamedi A",
+        "Zolfi M",
+        "Alamdary SJ",
+        "Fazlollahi A",
+        "Shamekh A"
+      ],
+      "journal": "BMC musculoskeletal disorders",
+      "year": "2024",
+      "doi": "10.1186/s12891-024-08180-9",
+      "pmid": "39702222",
+      "url": "https://doi.org/10.1186/s12891-024-08180-9",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive narrative review of global gout epidemiology, risk factors, comorbidities and complications.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-7",
+      "category": "review",
+      "tier": "A",
+      "title": "Controversies and practical management of patients with gout and chronic kidney disease.",
+      "authors": [
+        "Johnson RJ",
+        "Mandell BF",
+        "Schlesinger N",
+        "Mount DB",
+        "Botson JK",
+        "Abdellatif AA",
+        "Rhoades R",
+        "Singh JA"
+      ],
+      "journal": "Kidney international",
+      "year": "2024",
+      "doi": "10.1016/j.kint.2024.05.033",
+      "pmid": "39033815",
+      "url": "https://doi.org/10.1016/j.kint.2024.05.033",
+      "accessLevel": "abstract",
+      "summary": "Expert review addressing practical management challenges in patients with both gout and chronic kidney disease.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Dietary and Lifestyle-Centered Approach in Gout Care and Prevention.",
+      "authors": [
+        "Yokose C",
+        "McCormick N",
+        "Choi HK"
+      ],
+      "journal": "Current rheumatology reports",
+      "year": "2021",
+      "doi": "10.1007/s11926-021-01020-y",
+      "pmid": "34196878",
+      "url": "https://doi.org/10.1007/s11926-021-01020-y",
+      "accessLevel": "abstract",
+      "summary": "Review of dietary and lifestyle interventions for gout care and prevention with focus on holistic approach.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-9",
+      "category": "review",
+      "tier": "B",
+      "title": "Therapeutic potential and pharmacological mechanisms of Traditional Chinese Medicine in gout treatment.",
+      "authors": [
+        "Guo JW",
+        "Lin GQ",
+        "Tang XY",
+        "Yao JY",
+        "Feng CG",
+        "Zuo JP",
+        "He SJ"
+      ],
+      "journal": "Acta pharmacologica Sinica",
+      "year": "2025",
+      "doi": "10.1038/s41401-024-01459-6",
+      "pmid": "39825190",
+      "url": "https://doi.org/10.1038/s41401-024-01459-6",
+      "accessLevel": "abstract",
+      "summary": "Review of Traditional Chinese Medicine therapeutic potential and mechanisms in gout treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-10",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Effects of uric acid-lowering therapy (ULT) on renal outcomes in CKD patients with asymptomatic hyperuricemia: a systematic review and meta-analysis.",
+      "authors": [
+        "Luo Y",
+        "Song Q",
+        "Li J",
+        "Fu S",
+        "Yu W",
+        "Shao X",
+        "Li J",
+        "Huang Y"
+      ],
+      "journal": "BMC nephrology",
+      "year": "2024",
+      "doi": "10.1186/s12882-024-03491-4",
+      "pmid": "38395818",
+      "url": "https://doi.org/10.1186/s12882-024-03491-4",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis examining effects of uric acid-lowering therapy on renal outcomes in CKD patients with asymptomatic hyperuricemia.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-11",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Febuxostat Therapy for Patients With Stage 3 CKD and Asymptomatic Hyperuricemia: A Randomized Trial.",
+      "authors": [
+        "Kimura K",
+        "Hosoya T",
+        "Uchida S",
+        "Inaba M",
+        "Makino H",
+        "Maruyama S",
+        "Ito S",
+        "Yamamoto T"
+      ],
+      "journal": "American journal of kidney diseases : the official journal of the National Kidney Foundation",
+      "year": "2018",
+      "doi": "10.1053/j.ajkd.2018.06.028",
+      "pmid": "30177485",
+      "url": "https://doi.org/10.1053/j.ajkd.2018.06.028",
+      "accessLevel": "abstract",
+      "summary": "Randomized trial of febuxostat vs placebo in stage 3 CKD patients with asymptomatic hyperuricemia.",
+      "keyPassages": []
+    },
+    {
+      "id": "gout-12",
+      "category": "review",
+      "tier": "B",
+      "title": "A 12-Week, Multicenter, Randomized, Double-Blind, Placebo-Controlled Clinical Trial for Evaluation of the Efficacy and Safety of DKB114 on Reduction of Uric Acid in Serum.",
+      "authors": [
+        "Park YH",
+        "Kim DH",
+        "Lee JS",
+        "Jeong HI",
+        "Lee KW",
+        "Kang TH"
+      ],
+      "journal": "Nutrients",
+      "year": "2020",
+      "doi": "10.3390/nu12123794",
+      "pmid": "33322063",
+      "url": "https://doi.org/10.3390/nu12123794",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Gout is caused by monosodium urate crystal deposition in joints and tissues",
+      "evidenceRefs": [
+        "gout-5",
+        "gout-1"
+      ]
+    },
+    {
+      "claim": "Risk factors include male sex, obesity, hypertension, alcohol intake, diuretic use, diet rich in meat and seafood, and chronic kidney disease",
+      "evidenceRefs": [
+        "gout-5",
+        "gout-6"
+      ]
+    },
+    {
+      "claim": "Acute gout inflammation is mediated by NLRP3 inflammasome activation leading to IL-1β release",
+      "evidenceRefs": [
+        "gout-2"
+      ]
+    },
+    {
+      "claim": "Diagnosis can be confirmed by identification of monosodium urate crystals in synovial fluid",
+      "evidenceRefs": [
+        "gout-5",
+        "gout-1"
+      ]
+    },
+    {
+      "claim": "Up to one-third of chronic kidney disease patients have a history of gout",
+      "evidenceRefs": [
+        "gout-7"
+      ]
+    },
+    {
+      "claim": "Patients with gout have increased risk of cardiovascular disease and all-cause mortality",
+      "evidenceRefs": [
+        "gout-6"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Limit consumption of purine-rich foods including organ meats and shellfish",
+      "evidenceRefs": [
+        "gout-1",
+        "gout-8"
+      ]
+    },
+    {
+      "recommendation": "Reduce alcohol consumption, particularly beer and spirits",
+      "evidenceRefs": [
+        "gout-6",
+        "gout-8"
+      ]
+    },
+    {
+      "recommendation": "Maintain healthy weight and address obesity",
+      "evidenceRefs": [
+        "gout-5",
+        "gout-6",
+        "gout-8"
+      ]
+    },
+    {
+      "recommendation": "Limit fructose-rich foods and beverages",
+      "evidenceRefs": [
+        "gout-5",
+        "gout-6"
+      ]
+    },
+    {
+      "recommendation": "Follow dietary approaches that address cardiometabolic comorbidities holistically",
+      "evidenceRefs": [
+        "gout-8"
+      ]
+    }
+  ],
+  "redFlags": [
+    "Febuxostat may increase cardiovascular mortality compared to allopurinol in patients with cardiovascular disease",
+    "Less than 25% of gout patients with chronic kidney disease achieve target serum urate levels",
+    "Multiple drug interactions and dosing adjustments required in patients with kidney disease"
+  ],
+  "pipelineDrugs": [],
+  "excludedAgents": [
+    {
+      "name": "febuxostat",
+      "reason": "showed no benefit over placebo for kidney function preservation in stage 3 CKD patients with asymptomatic hyperuricemia",
+      "evidenceRef": "gout-11"
+    },
+    {
+      "name": "DKB114",
+      "reason": "showed no significant difference from placebo in reducing serum uric acid levels after 6 weeks in patients with asymptomatic hyperuricemia",
+      "evidenceRef": "gout-12"
+    }
+  ]
+}

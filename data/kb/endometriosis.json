@@ -1,0 +1,335 @@
+{
+  "condition": "Endometriosis",
+  "slug": "endometriosis",
+  "aliases": [
+    "endo"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Quinagolide vaginal ring",
+    "Quinagolide vaginal ring"
+  ],
+  "items": [
+    {
+      "id": "endometriosis-1",
+      "category": "review",
+      "tier": "A+",
+      "title": "Endometriosis: A Review.",
+      "authors": [
+        "As-Sanie S",
+        "Mackenzie SC",
+        "Morrison L",
+        "Schrepf A",
+        "Zondervan KT",
+        "Horne AW",
+        "Missmer SA"
+      ],
+      "journal": "JAMA",
+      "year": "2025",
+      "doi": "10.1001/jama.2025.2975",
+      "pmid": "40323608",
+      "url": "https://doi.org/10.1001/jama.2025.2975",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive 2025 JAMA review defining endometriosis as a chronic, estrogen-dependent, inflammatory disease affecting up to 10% of women worldwide with 90% reporting pelvic pain and 26% experiencing infertility.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-2",
+      "category": "review",
+      "tier": "A",
+      "title": "Chinese herbal medicine for endometriosis.",
+      "authors": [
+        "Flower A",
+        "Liu JP",
+        "Lewith G",
+        "Little P",
+        "Li Q"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2012",
+      "doi": "10.1002/14651858.CD006568.pub3",
+      "pmid": "22592712",
+      "url": "https://doi.org/10.1002/14651858.CD006568.pub3",
+      "accessLevel": "abstract",
+      "summary": "2012 Cochrane systematic review evaluating Chinese herbal medicine for endometriosis treatment effectiveness and safety.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-3",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Quinagolide vaginal ring for reduction of endometriotic lesions: Results from the QLARITY trial.",
+      "authors": [
+        "Pellicer A",
+        "Taylor HS",
+        "Alberich-Bayarri A",
+        "Liu Y",
+        "Gamborg M",
+        "Barletta KE",
+        "Pinton P",
+        "Heiser PW"
+      ],
+      "journal": "European journal of obstetrics, gynecology, and reproductive biology",
+      "year": "2025",
+      "doi": "10.1016/j.ejogrb.2025.113946",
+      "pmid": "40188683",
+      "url": "https://doi.org/10.1016/j.ejogrb.2025.113946",
+      "accessLevel": "abstract",
+      "summary": "QLARITY phase 2 randomized controlled trial testing quinagolide vaginal ring for reduction of endometriotic lesions.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-4",
+      "category": "rct",
+      "tier": "B",
+      "title": "Honghua Ruyi Pill, a compound herbal medicine, improves endometriosis-related dysmenorrhea: A multicenter randomized, double-blind, placebo-controlled trial.",
+      "authors": [
+        "Han M",
+        "Liang XF",
+        "Gao J",
+        "Wang Y",
+        "Cao LX",
+        "Wang BJ",
+        "Wang Y",
+        "Zhuoma Z"
+      ],
+      "journal": "Journal of integrative medicine",
+      "year": "2026",
+      "doi": "10.1016/j.joim.2025.12.011",
+      "pmid": "41529972",
+      "url": "https://doi.org/10.1016/j.joim.2025.12.011",
+      "accessLevel": "abstract",
+      "summary": "Multicenter randomized controlled trial evaluating Honghua Ruyi Pill, a Tibetan herbal medication, for endometriosis-related dysmenorrhea.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-5",
+      "category": "rct",
+      "tier": "B",
+      "title": "Efficacy and Safety of Sanjie Analgesic Capsule in Patients with Endometriosis-Associated Pain: A Multicenter, 3:1 Randomized, Double-Blind, Placebo-Controlled Trial.",
+      "authors": [
+        "Leng JH",
+        "Duan H",
+        "Guan Z",
+        "Zhou YF",
+        "Qu H",
+        "Xu KH",
+        "Zhang SF",
+        "Zhang Q"
+      ],
+      "journal": "Chinese journal of integrative medicine",
+      "year": "2024",
+      "doi": "10.1007/s11655-024-3756-y",
+      "pmid": "39046647",
+      "url": "https://doi.org/10.1007/s11655-024-3756-y",
+      "accessLevel": "abstract",
+      "summary": "Multicenter randomized controlled trial assessing Sanjie Analgesic Capsule efficacy and safety in Chinese patients with endometriosis-associated pain.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-6",
+      "category": "rct",
+      "tier": "B",
+      "title": "Comparing the Effect of Dienogest and OCPS on Pain and Quality of Life in Women with Endometriosis: A Randomized, Double-Blind, Placebo-Controlled Trial.",
+      "authors": [
+        "Niakan G",
+        "Rokhgireh S",
+        "Ebrahimpour M",
+        "Mehdizadeh Kashi A"
+      ],
+      "journal": "Archives of Iranian medicine",
+      "year": "2021",
+      "doi": "10.34172/aim.2021.96",
+      "pmid": "34816682",
+      "url": "https://doi.org/10.34172/aim.2021.96",
+      "accessLevel": "abstract",
+      "summary": "Randomized double-blind trial comparing dienogest and oral contraceptive pills effects on pain and quality of life in women with endometriosis.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-7",
+      "category": "rct",
+      "tier": "C",
+      "title": "The Effects of Chamomile and Flaxseed on Pelvic Pain, Dyspareunia, and Dysmenorrhea in Endometriosis: A Controlled Randomized Clinical Trial.",
+      "authors": [
+        "Khalajinia Z",
+        "Falahieh FM",
+        "Aghaali M"
+      ],
+      "journal": "Iranian journal of nursing and midwifery research",
+      "year": "2024",
+      "doi": "10.4103/ijnmr.ijnmr_110_23",
+      "pmid": "39759908",
+      "url": "https://doi.org/10.4103/ijnmr.ijnmr_110_23",
+      "accessLevel": "abstract",
+      "summary": "Controlled randomized trial investigating chamomile and flaxseed effects on pelvic pain, dyspareunia, and dysmenorrhea in endometriosis patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-8",
+      "category": "clinical-guideline",
+      "tier": "A",
+      "title": "Endometriosis and uterine fibroids and risk of premature mortality: prospective cohort study.",
+      "authors": [
+        "Wang YX",
+        "Farland LV",
+        "Gaskins AJ",
+        "Wang S",
+        "Terry KL",
+        "Rexrode KM",
+        "Rich-Edwards JW",
+        "Tamimi R"
+      ],
+      "journal": "BMJ (Clinical research ed.)",
+      "year": "2024",
+      "doi": "10.1136/bmj-2023-078797",
+      "pmid": "39567014",
+      "url": "https://doi.org/10.1136/bmj-2023-078797",
+      "accessLevel": "abstract",
+      "summary": "Prospective cohort study from Nurses' Health Study II examining endometriosis and uterine fibroids association with premature mortality risk.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-9",
+      "category": "review",
+      "tier": "A",
+      "title": "The role of gut and genital microbiota and the estrobolome in endometriosis, infertility and chronic pelvic pain.",
+      "authors": [
+        "Salliss ME",
+        "Farland LV",
+        "Mahnert ND",
+        "Herbst-Kralovetz MM"
+      ],
+      "journal": "Human reproduction update",
+      "year": "2021",
+      "doi": "10.1093/humupd/dmab035",
+      "pmid": "34718567",
+      "url": "https://doi.org/10.1093/humupd/dmab035",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review examining the role of gut and genital microbiota and estrobolome in endometriosis, infertility and chronic pelvic pain.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-10",
+      "category": "review",
+      "tier": "A",
+      "title": "Endometriosis-associated infertility: From pathophysiology to tailored treatment.",
+      "authors": [
+        "Bonavina G",
+        "Taylor HS"
+      ],
+      "journal": "Frontiers in endocrinology",
+      "year": "2022",
+      "doi": "10.3389/fendo.2022.1020827",
+      "pmid": "36387918",
+      "url": "https://doi.org/10.3389/fendo.2022.1020827",
+      "accessLevel": "abstract",
+      "summary": "Review analyzing endometriosis-associated infertility mechanisms and tailored treatment approaches for this heterogeneous patient population.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Endometriosis: A Disease with Few Direct Treatment Options.",
+      "authors": [
+        "França PRC",
+        "Lontra ACP",
+        "Fernandes PD"
+      ],
+      "journal": "Molecules (Basel, Switzerland)",
+      "year": "2022",
+      "doi": "10.3390/molecules27134034",
+      "pmid": "35807280",
+      "url": "https://doi.org/10.3390/molecules27134034",
+      "accessLevel": "abstract",
+      "summary": "Review characterizing endometriosis as a disease with limited direct treatment options, focusing on current medications and new therapeutic possibilities.",
+      "keyPassages": []
+    },
+    {
+      "id": "endometriosis-12",
+      "category": "review",
+      "tier": "A",
+      "title": "Endometriosis and infertility: pathophysiology, treatment strategies, and reproductive outcomes.",
+      "authors": [
+        "Elizur SE",
+        "Mostafa J",
+        "Berkowitz E",
+        "Orvieto R"
+      ],
+      "journal": "Archives of gynecology and obstetrics",
+      "year": "2025",
+      "doi": "10.1007/s00404-025-08124-1",
+      "pmid": "40689964",
+      "url": "https://doi.org/10.1007/s00404-025-08124-1",
+      "accessLevel": "abstract",
+      "summary": "2025 review exploring endometriosis classification, infertility mechanisms, and impact of different subtypes on fertility outcomes and treatment strategies.",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Endometriosis is a chronic, estrogen-dependent, inflammatory disease affecting up to 10% of women worldwide during reproductive years",
+      "evidenceRefs": [
+        "endometriosis-1"
+      ]
+    },
+    {
+      "claim": "90% of people with endometriosis report pelvic pain including dysmenorrhea, nonmenstrual pelvic pain, and dyspareunia, while 26% report infertility",
+      "evidenceRefs": [
+        "endometriosis-1"
+      ]
+    },
+    {
+      "claim": "Risk factors include younger age at menarche, shorter menstrual cycle length, lower body mass index, nulliparity, and congenital obstructive müllerian anomalies",
+      "evidenceRefs": [
+        "endometriosis-1"
+      ]
+    },
+    {
+      "claim": "Endometriosis-associated infertility involves complex interactions between disease subtype, pain, inflammation, altered pelvic anatomy, adhesions, disrupted ovarian function, and compromised endometrial receptivity",
+      "evidenceRefs": [
+        "endometriosis-10"
+      ]
+    },
+    {
+      "claim": "Currently available medications are only effective in treating endometriosis-related pain but are not targeted treatments for the underlying disease",
+      "evidenceRefs": [
+        "endometriosis-11"
+      ]
+    },
+    {
+      "claim": "Medical therapies provide symptom relief but are unsuitable for women wishing to conceive, while surgery may enhance natural conception but can negatively impact ovarian reserve",
+      "evidenceRefs": [
+        "endometriosis-12"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [],
+  "redFlags": [
+    "Surgery for endometriosis may negatively impact ovarian reserve",
+    "Medical/hormonal treatments are unsuitable for women trying to conceive"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Quinagolide vaginal ring",
+      "aliases": [],
+      "mechanism": "Dopamine agonist delivered via vaginal ring",
+      "sponsor": "Not specified",
+      "status": "Phase 2 completed",
+      "approvalStatus": "investigational",
+      "evidenceRef": "endometriosis-3"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Quinagolide vaginal ring",
+      "reason": "Failed to show significant reduction in total endometriotic lesion size in the QLARITY phase 2 randomized controlled trial",
+      "evidenceRef": "endometriosis-3"
+    }
+  ]
+}

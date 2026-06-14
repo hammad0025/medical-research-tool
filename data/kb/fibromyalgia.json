@@ -1,0 +1,361 @@
+{
+  "condition": "Fibromyalgia",
+  "slug": "fibromyalgia",
+  "aliases": [
+    "fibro",
+    "fibromyalgia syndrome",
+    "FMS"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "duloxetine",
+    "pregabalin",
+    "milnacipran"
+  ],
+  "items": [
+    {
+      "id": "fibromyalgia-1",
+      "category": "review",
+      "tier": "A",
+      "title": "Fibromyalgia Pathogenesis and Treatment Options Update.",
+      "authors": [
+        "Chinn S",
+        "Caldwell W",
+        "Gritsenko K"
+      ],
+      "journal": "Current pain and headache reports",
+      "year": "2016",
+      "doi": "10.1007/s11916-016-0556-x",
+      "pmid": "26922414",
+      "url": "https://doi.org/10.1007/s11916-016-0556-x",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of fibromyalgia pathogenesis, clinical manifestations, diagnostic criteria, and current treatment options.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-2",
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "EULAR revised recommendations for the management of fibromyalgia.",
+      "authors": [
+        "Macfarlane GJ",
+        "Kronisch C",
+        "Dean LE",
+        "Atzeni F",
+        "Häuser W",
+        "Fluß E",
+        "Choy E",
+        "Kosek E"
+      ],
+      "journal": "Annals of the rheumatic diseases",
+      "year": "2017",
+      "doi": "10.1136/annrheumdis-2016-209724",
+      "pmid": "27377815",
+      "url": "https://doi.org/10.1136/annrheumdis-2016-209724",
+      "accessLevel": "abstract",
+      "summary": "EULAR revised recommendations for fibromyalgia management based on systematic review of evidence through 2015.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-3",
+      "category": "review",
+      "tier": "A",
+      "title": "Anticonvulsants for fibromyalgia.",
+      "authors": [
+        "Üçeyler N",
+        "Sommer C",
+        "Walitt B",
+        "Häuser W"
+      ],
+      "journal": "The Cochrane database of systematic reviews",
+      "year": "2013",
+      "doi": "10.1002/14651858.CD010782",
+      "pmid": "24129853",
+      "url": "https://doi.org/10.1002/14651858.CD010782",
+      "accessLevel": "abstract",
+      "summary": "Cochrane systematic review assessing benefits and harms of anticonvulsants for treating fibromyalgia symptoms.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-4",
+      "category": "review",
+      "tier": "A",
+      "title": "Efficacy of physiotherapy treatment in medium and long term in adults with fibromyalgia: an umbrella of systematic reviews.",
+      "authors": [
+        "Carrasco-Vega E",
+        "Guiducci S",
+        "Nacci F",
+        "Bellando Randone S",
+        "Bevilacqua C",
+        "Gonzalez-Sanchez M",
+        "Barni L"
+      ],
+      "journal": "Clinical and experimental rheumatology",
+      "year": "2024",
+      "doi": "10.55563/clinexprheumatol/ctfuqe",
+      "pmid": "38966940",
+      "url": "https://doi.org/10.55563/clinexprheumatol/ctfuqe",
+      "accessLevel": "abstract",
+      "summary": "Umbrella review of systematic reviews evaluating medium and long-term effectiveness of physiotherapy treatments in fibromyalgia.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-5",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Efficacy and safety of low-dose naltrexone for the management of fibromyalgia: a systematic review and meta-analysis of randomized controlled trials with trial sequential analysis.",
+      "authors": [
+        "Vatvani AD",
+        "Patel P",
+        "Hariyanto TI",
+        "Yanto TA"
+      ],
+      "journal": "The Korean journal of pain",
+      "year": "2024",
+      "doi": "10.3344/kjp.24202",
+      "pmid": "39344363",
+      "url": "https://doi.org/10.3344/kjp.24202",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis examining efficacy and safety of low-dose naltrexone for fibromyalgia management.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-6",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "A randomized, double-blind, placebo-controlled phase III trial of duloxetine in Japanese fibromyalgia patients.",
+      "authors": [
+        "Murakami M",
+        "Osada K",
+        "Mizuno H",
+        "Ochiai T",
+        "Alev L",
+        "Nishioka K"
+      ],
+      "journal": "Arthritis research & therapy",
+      "year": "2015",
+      "doi": "10.1186/s13075-015-0718-y",
+      "pmid": "26296539",
+      "url": "https://doi.org/10.1186/s13075-015-0718-y",
+      "accessLevel": "abstract",
+      "summary": "Phase III randomized controlled trial of duloxetine 60mg versus placebo in Japanese fibromyalgia patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-7",
+      "category": "rct",
+      "tier": "B",
+      "title": "Effect of prebiotic and probiotic supplementation on reduced pain in patients with fibromyalgia syndrome: a double-blind, placebo-controlled randomized clinical trial.",
+      "authors": [
+        "Aslan Çİn NN",
+        "Açik M",
+        "Tertemİz OF",
+        "Aktan Ç",
+        "Akçali DT",
+        "Çakiroğlu FP",
+        "Özçelİk AÖ"
+      ],
+      "journal": "Psychology, health & medicine",
+      "year": "2024",
+      "doi": "10.1080/13548506.2023.2216464",
+      "pmid": "37224267",
+      "url": "https://doi.org/10.1080/13548506.2023.2216464",
+      "accessLevel": "abstract",
+      "summary": "Double-blind placebo-controlled trial of prebiotic and probiotic supplementation for pain reduction in fibromyalgia syndrome.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-8",
+      "category": "rct",
+      "tier": "B",
+      "title": "Association of low-dose naltrexone and transcranial direct current stimulation in fibromyalgia: a randomized, double-blinded, parallel clinical trial.",
+      "authors": [
+        "Paula TMH",
+        "Castro MS",
+        "Medeiros LF",
+        "Paludo RH",
+        "Couto FF",
+        "Costa TRD",
+        "Fortes JP",
+        "Salbego MO"
+      ],
+      "journal": "Brazilian journal of anesthesiology (Elsevier)",
+      "year": "2023",
+      "doi": "10.1016/j.bjane.2022.08.003",
+      "pmid": "35988815",
+      "url": "https://doi.org/10.1016/j.bjane.2022.08.003",
+      "accessLevel": "abstract",
+      "summary": "Randomized trial evaluating combination of low-dose naltrexone and transcranial direct current stimulation in fibromyalgia.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-9",
+      "category": "rct",
+      "tier": "B",
+      "title": "Efficacy of ozone therapy as an add-on treatment in fibromyalgia: A randomized double-blind placebo-controlled study.",
+      "authors": [
+        "Sucuoğlu H",
+        "Soydaş N"
+      ],
+      "journal": "Journal of back and musculoskeletal rehabilitation",
+      "year": "2023",
+      "doi": "10.3233/BMR-210368",
+      "pmid": "36530072",
+      "url": "https://doi.org/10.3233/BMR-210368",
+      "accessLevel": "abstract",
+      "summary": "Double-blind placebo-controlled study of ozone therapy as add-on treatment for fibromyalgia.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-10",
+      "category": "rct",
+      "tier": "B",
+      "title": "Role of Repetitive Transcranial Magnetic Stimulation in Treatment of Fibromyalgia: A Randomized Controlled Trial.",
+      "authors": [
+        "Kankane AK",
+        "Pandey AK",
+        "Ramesh PM",
+        "Agarwal A"
+      ],
+      "journal": "Annals of Indian Academy of Neurology",
+      "year": "2024",
+      "doi": "10.4103/aian.aian_1041_23",
+      "pmid": "38751921",
+      "url": "https://doi.org/10.4103/aian.aian_1041_23",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial comparing low- and high-frequency repetitive transcranial magnetic stimulation for fibromyalgia treatment.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-11",
+      "category": "review",
+      "tier": "C",
+      "title": "[Digital treatment of fibromyalgia].",
+      "authors": [
+        "Hügle T"
+      ],
+      "journal": "Zeitschrift fur Rheumatologie",
+      "year": "2025",
+      "doi": "10.1007/s00393-025-01738-5",
+      "pmid": "41136791",
+      "url": "https://doi.org/10.1007/s00393-025-01738-5",
+      "accessLevel": "abstract",
+      "summary": "Review of digital treatment approaches for fibromyalgia including apps and online self-management programs.",
+      "keyPassages": []
+    },
+    {
+      "id": "fibromyalgia-12",
+      "category": "review",
+      "tier": "C",
+      "title": "Fibromyalgia treatment update.",
+      "authors": [
+        "Rooks DS"
+      ],
+      "journal": "Current opinion in rheumatology",
+      "year": "2007",
+      "doi": "10.1097/BOR.0b013e328040bffa",
+      "pmid": "17278924",
+      "url": "https://doi.org/10.1097/BOR.0b013e328040bffa",
+      "accessLevel": "abstract",
+      "summary": "Treatment update reviewing fibromyalgia management literature from 2005-2006 including medication and self-management approaches.",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Fibromyalgia is characterized by chronic widespread pain often accompanied by sleep problems, fatigue, and poor health-related quality of life.",
+      "evidenceRefs": [
+        "fibromyalgia-3",
+        "fibromyalgia-1"
+      ]
+    },
+    {
+      "claim": "Current fibromyalgia treatment focuses on reducing key symptoms and disability while improving health-related quality of life.",
+      "evidenceRefs": [
+        "fibromyalgia-3",
+        "fibromyalgia-1",
+        "fibromyalgia-2"
+      ]
+    },
+    {
+      "claim": "Nonpharmacological self-management strategies including exercise, cognitive behavioral therapy, and mindfulness-based approaches are recommended for fibromyalgia.",
+      "evidenceRefs": [
+        "fibromyalgia-11",
+        "fibromyalgia-2"
+      ]
+    },
+    {
+      "claim": "Physiotherapy treatments can provide medium and long-term benefits for adults with fibromyalgia.",
+      "evidenceRefs": [
+        "fibromyalgia-4"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Engage in regular exercise as part of fibromyalgia management",
+      "evidenceRefs": [
+        "fibromyalgia-4",
+        "fibromyalgia-2",
+        "fibromyalgia-12"
+      ]
+    },
+    {
+      "recommendation": "Consider cognitive behavioral therapy and mindfulness-based approaches for symptom management",
+      "evidenceRefs": [
+        "fibromyalgia-11",
+        "fibromyalgia-2"
+      ]
+    },
+    {
+      "recommendation": "Utilize digital self-management programs and apps to improve access to treatment strategies",
+      "evidenceRefs": [
+        "fibromyalgia-11"
+      ]
+    }
+  ],
+  "redFlags": [
+    "Fibromyalgia has limited consistently effective treatment options",
+    "Many treatment approaches show mixed or uncertain results requiring careful evaluation"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "duloxetine",
+      "aliases": [
+        "Cymbalta"
+      ],
+      "mechanism": "serotonin and norepinephrine reuptake inhibitor",
+      "sponsor": "",
+      "status": "approved for fibromyalgia",
+      "approvalStatus": "approved",
+      "evidenceRef": "fibromyalgia-6"
+    },
+    {
+      "name": "pregabalin",
+      "aliases": [
+        "Lyrica"
+      ],
+      "mechanism": "anticonvulsant",
+      "sponsor": "",
+      "status": "approved for fibromyalgia",
+      "approvalStatus": "approved",
+      "evidenceRef": "fibromyalgia-3"
+    },
+    {
+      "name": "milnacipran",
+      "aliases": [
+        "Savella"
+      ],
+      "mechanism": "serotonin and norepinephrine reuptake inhibitor",
+      "sponsor": "",
+      "status": "approved for fibromyalgia",
+      "approvalStatus": "approved",
+      "evidenceRef": "fibromyalgia-12"
+    }
+  ],
+  "excludedAgents": []
+}

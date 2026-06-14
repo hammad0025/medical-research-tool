@@ -1,0 +1,476 @@
+{
+  "condition": "Ulcerative Colitis",
+  "slug": "ulcerative-colitis",
+  "aliases": [
+    "UC",
+    "colitis"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Cobitolimod",
+    "Ziritaxestat",
+    "Fecal microbiota transplantation",
+    "Hookworm infection",
+    "Plantago major seed",
+    "Cobitolimod",
+    "Achillea wilhelmsii extract"
+  ],
+  "items": [
+    {
+      "id": "ulcerative-colitis-1",
+      "category": "review",
+      "tier": "A+",
+      "title": "Ulcerative colitis.",
+      "authors": [
+        "Ungaro R",
+        "Mehandru S",
+        "Allen PB",
+        "Peyrin-Biroulet L",
+        "Colombel JF"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2017",
+      "doi": "10.1016/S0140-6736(16)32126-2",
+      "pmid": "27914657",
+      "url": "https://doi.org/10.1016/S0140-6736(16)32126-2",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of ulcerative colitis pathogenesis, diagnosis, and management approaches.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-2",
+      "category": "review",
+      "tier": "A",
+      "title": "Medical Therapy for Acute Severe Ulcerative Colitis: A Systematic Review With Meta-analysis.",
+      "authors": [
+        "Vuyyuru SK",
+        "Shaban N",
+        "Yuan Y",
+        "Honap S",
+        "Alphonsus L",
+        "De Silva TA",
+        "Alajmi A",
+        "MacDonald JK"
+      ],
+      "journal": "Clinical gastroenterology and hepatology : the official clinical practice journal of the American Gastroenterological Association",
+      "year": "2025",
+      "doi": "10.1016/j.cgh.2025.03.007",
+      "pmid": "40339949",
+      "url": "https://doi.org/10.1016/j.cgh.2025.03.007",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis of medical therapies for acute severe ulcerative colitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-3",
+      "category": "review",
+      "tier": "A",
+      "title": "Differential Efficacy of Advanced Therapies in Inducing Remission in Ulcerative Colitis Based on Prior Exposure to TNF Antagonists.",
+      "authors": [
+        "Lee HH",
+        "Solitano V",
+        "Singh S",
+        "Ananthakrishnan AN",
+        "Jairath V",
+        "Syal G",
+        "Boland BS",
+        "Ghosh P"
+      ],
+      "journal": "Clinical gastroenterology and hepatology : the official clinical practice journal of the American Gastroenterological Association",
+      "year": "2025",
+      "doi": "10.1016/j.cgh.2024.12.007",
+      "pmid": "39732355",
+      "url": "https://doi.org/10.1016/j.cgh.2024.12.007",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis examining differential efficacy of advanced therapies based on prior TNF antagonist exposure.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-4",
+      "category": "review",
+      "tier": "A",
+      "title": "No Benefit of Concomitant 5-Aminosalicylates in Patients With Ulcerative Colitis Escalated to Biologic Therapy: Pooled Analysis of Individual Participant Data From Clinical Trials.",
+      "authors": [
+        "Singh S",
+        "Proudfoot JA",
+        "Dulai PS",
+        "Jairath V",
+        "Fumery M",
+        "Xu R",
+        "Feagan BG",
+        "Sandborn WJ"
+      ],
+      "journal": "The American journal of gastroenterology",
+      "year": "2018",
+      "doi": "10.1038/s41395-018-0144-2",
+      "pmid": "29925913",
+      "url": "https://doi.org/10.1038/s41395-018-0144-2",
+      "accessLevel": "abstract",
+      "summary": "Pooled analysis showing no benefit of concomitant 5-aminosalicylates in patients escalated to biologic therapy.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-5",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Multidonor intensive faecal microbiota transplantation for active ulcerative colitis: a randomised placebo-controlled trial.",
+      "authors": [
+        "Paramsothy S",
+        "Kamm MA",
+        "Kaakoush NO",
+        "Walsh AJ",
+        "van den Bogaerde J",
+        "Samuel D",
+        "Leong RWL",
+        "Connor S"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2017",
+      "doi": "10.1016/S0140-6736(17)30182-4",
+      "pmid": "28214091",
+      "url": "https://doi.org/10.1016/S0140-6736(17)30182-4",
+      "accessLevel": "abstract",
+      "summary": "Randomized controlled trial of intensive multidonor fecal microbiota transplantation for active ulcerative colitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-6",
+      "category": "rct",
+      "tier": "B",
+      "title": "Fecal Microbiota Transplantation Induces Remission in Patients With Active Ulcerative Colitis in a Randomized Controlled Trial.",
+      "authors": [
+        "Moayyedi P",
+        "Surette MG",
+        "Kim PT",
+        "Libertucci J",
+        "Wolfe M",
+        "Onischi C",
+        "Armstrong D",
+        "Marshall JK"
+      ],
+      "journal": "Gastroenterology",
+      "year": "2015",
+      "doi": "10.1053/j.gastro.2015.04.001",
+      "pmid": "25857665",
+      "url": "https://doi.org/10.1053/j.gastro.2015.04.001",
+      "accessLevel": "abstract",
+      "summary": "Placebo-controlled trial investigating fecal microbiota transplantation for inducing remission in active ulcerative colitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-7",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Cobitolimod for moderate-to-severe, left-sided ulcerative colitis (CONDUCT): a phase 2b randomised, double-blind, placebo-controlled, dose-ranging induction trial.",
+      "authors": [
+        "Atreya R",
+        "Peyrin-Biroulet L",
+        "Klymenko A",
+        "Augustyn M",
+        "Bakulin I",
+        "Slankamenac D",
+        "Miheller P",
+        "Gasbarrini A"
+      ],
+      "journal": "The lancet. Gastroenterology & hepatology",
+      "year": "2020",
+      "doi": "10.1016/S2468-1253(20)30301-0",
+      "pmid": "33031757",
+      "url": "https://doi.org/10.1016/S2468-1253(20)30301-0",
+      "accessLevel": "abstract",
+      "summary": "Phase 2b dose-ranging trial of cobitolimod for moderate-to-severe left-sided ulcerative colitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-8",
+      "category": "negative-trial",
+      "tier": "C",
+      "title": "Controlled Hookworm Infection for Medication-free Maintenance in Patients with Ulcerative Colitis: A Pilot, Double-blind, Randomized Control Trial.",
+      "authors": [
+        "Mules TC",
+        "Lavender B",
+        "Maclean K",
+        "Vacca F",
+        "Noble SL",
+        "Yumnam B",
+        "Te Kawa T",
+        "Cait A"
+      ],
+      "journal": "Inflammatory bowel diseases",
+      "year": "2024",
+      "doi": "10.1093/ibd/izad110",
+      "pmid": "37318363",
+      "url": "https://doi.org/10.1093/ibd/izad110",
+      "accessLevel": "abstract",
+      "summary": "Pilot trial of controlled hookworm infection for medication-free maintenance in ulcerative colitis patients.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-9",
+      "category": "review",
+      "tier": "B",
+      "title": "Ulcerative colitis: clinical biomarkers, therapeutic targets, and emerging treatments.",
+      "authors": [
+        "Wangchuk P",
+        "Yeshi K",
+        "Loukas A"
+      ],
+      "journal": "Trends in pharmacological sciences",
+      "year": "2024",
+      "doi": "10.1016/j.tips.2024.08.003",
+      "pmid": "39261229",
+      "url": "https://doi.org/10.1016/j.tips.2024.08.003",
+      "accessLevel": "abstract",
+      "summary": "Review of clinical biomarkers, therapeutic targets, and emerging treatments for ulcerative colitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-10",
+      "category": "review",
+      "tier": "B",
+      "title": "Ulcerative colitis: molecular insights and intervention therapy.",
+      "authors": [
+        "Liang Y",
+        "Li Y",
+        "Lee C",
+        "Yu Z",
+        "Chen C",
+        "Liang C"
+      ],
+      "journal": "Molecular biomedicine",
+      "year": "2024",
+      "doi": "10.1186/s43556-024-00207-w",
+      "pmid": "39384730",
+      "url": "https://doi.org/10.1186/s43556-024-00207-w",
+      "accessLevel": "abstract",
+      "summary": "Review of molecular insights and intervention therapy approaches for ulcerative colitis.",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Ulcerative Colitis: Rapid Evidence Review.",
+      "authors": [
+        "Adams SM",
+        "Close ED",
+        "Shreenath AP"
+      ],
+      "journal": "American family physician",
+      "year": "2022",
+      "doi": "",
+      "pmid": "35426646",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/35426646/",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-12",
+      "category": "review",
+      "tier": "B",
+      "title": "Ulcerative colitis-associated colorectal cancer.",
+      "authors": [
+        "Yashiro M"
+      ],
+      "journal": "World journal of gastroenterology",
+      "year": "2014",
+      "doi": "10.3748/wjg.v20.i44.16389",
+      "pmid": "25469007",
+      "url": "https://doi.org/10.3748/wjg.v20.i44.16389",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-13",
+      "category": "review",
+      "tier": "B",
+      "title": "Colorectal cancer in ulcerative colitis: a Scandinavian population-based cohort study.",
+      "authors": [
+        "Olén O",
+        "Erichsen R",
+        "Sachs MC",
+        "Pedersen L",
+        "Halfvarson J",
+        "Askling J",
+        "Ekbom A",
+        "Sørensen HT"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2020",
+      "doi": "10.1016/S0140-6736(19)32545-0",
+      "pmid": "31929014",
+      "url": "https://doi.org/10.1016/S0140-6736(19)32545-0",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-14",
+      "category": "review",
+      "tier": "B",
+      "title": "Ziritaxestat, a Novel Autotaxin Inhibitor, and Lung Function in Idiopathic Pulmonary Fibrosis: The ISABELA 1 and 2 Randomized Clinical Trials.",
+      "authors": [
+        "Maher TM",
+        "Ford P",
+        "Brown KK",
+        "Costabel U",
+        "Cottin V",
+        "Danoff SK",
+        "Groenveld I",
+        "Helmer E"
+      ],
+      "journal": "JAMA",
+      "year": "2023",
+      "doi": "10.1001/jama.2023.5355",
+      "pmid": "37159034",
+      "url": "https://doi.org/10.1001/jama.2023.5355",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-15",
+      "category": "review",
+      "tier": "B",
+      "title": "Efficacy of Plantago major seed in management of ulcerative colitis symptoms: A randomized, placebo controlled, clinical trial.",
+      "authors": [
+        "Baghizadeh A",
+        "Davati A",
+        "Heidarloo AJ",
+        "Emadi F",
+        "Aliasl J"
+      ],
+      "journal": "Complementary therapies in clinical practice",
+      "year": "2021",
+      "doi": "10.1016/j.ctcp.2021.101444",
+      "pmid": "34265576",
+      "url": "https://doi.org/10.1016/j.ctcp.2021.101444",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "ulcerative-colitis-16",
+      "category": "review",
+      "tier": "B",
+      "title": "Efficacy and safety of a standardized extract from Achillea wilhelmsii C. Koch in patients with ulcerative colitis: A randomized double blind placebo-controlled clinical trial.",
+      "authors": [
+        "Amiri M",
+        "Navabi J",
+        "Shokoohinia Y",
+        "Heydarpour F",
+        "Bahrami G",
+        "Behbood L",
+        "Derakhshandeh P",
+        "Momtaz S"
+      ],
+      "journal": "Complementary therapies in medicine",
+      "year": "2019",
+      "doi": "10.1016/j.ctim.2019.05.001",
+      "pmid": "31331572",
+      "url": "https://doi.org/10.1016/j.ctim.2019.05.001",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Ulcerative colitis is a chronic inflammatory disease affecting the colon with rising worldwide incidence",
+      "evidenceRefs": [
+        "ulcerative-colitis-1",
+        "ulcerative-colitis-9"
+      ]
+    },
+    {
+      "claim": "The pathogenesis involves genetic predisposition, epithelial barrier defects, dysregulated immune responses, and environmental factors",
+      "evidenceRefs": [
+        "ulcerative-colitis-1",
+        "ulcerative-colitis-10"
+      ]
+    },
+    {
+      "claim": "Current treatments include 5-aminosalicylic acids, corticosteroids, immunosuppressants, and biologics with one-year clinical remission rates around 40%",
+      "evidenceRefs": [
+        "ulcerative-colitis-10",
+        "ulcerative-colitis-11"
+      ]
+    },
+    {
+      "claim": "Patients with ulcerative colitis have an increased risk of colorectal cancer, particularly with longer disease duration and greater anatomical extent",
+      "evidenceRefs": [
+        "ulcerative-colitis-12",
+        "ulcerative-colitis-13"
+      ]
+    },
+    {
+      "claim": "Concomitant 5-aminosalicylates provide no additional benefit in patients escalated to biologic therapy",
+      "evidenceRefs": [
+        "ulcerative-colitis-4"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [],
+  "redFlags": [
+    "Acute severe ulcerative colitis is a medical emergency with high morbidity and mortality",
+    "Risk of colorectal cancer increases 8-10 years after UC diagnosis",
+    "Vedolizumab may rarely cause drug-induced liver injury"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Cobitolimod",
+      "aliases": [
+        "DIMS0150"
+      ],
+      "mechanism": "TLR9 agonist",
+      "sponsor": "InDex Pharmaceuticals",
+      "status": "Phase 2b completed",
+      "approvalStatus": "investigational",
+      "evidenceRef": "ulcerative-colitis-7"
+    },
+    {
+      "name": "Ziritaxestat",
+      "aliases": [
+        "GLPG1690"
+      ],
+      "mechanism": "Autotaxin inhibitor",
+      "sponsor": "Galapagos",
+      "status": "Phase 3 terminated",
+      "approvalStatus": "investigational",
+      "evidenceRef": "ulcerative-colitis-14"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Fecal microbiota transplantation",
+      "reason": "Failed to achieve statistical significance for clinical remission in randomized controlled trials",
+      "evidenceRef": "ulcerative-colitis-5"
+    },
+    {
+      "name": "Hookworm infection",
+      "reason": "Pilot trial showed no benefit for maintaining remission compared to placebo",
+      "evidenceRef": "ulcerative-colitis-8"
+    },
+    {
+      "name": "Plantago major seed",
+      "reason": "Randomized trial showed no significant improvement in ulcerative colitis symptoms",
+      "evidenceRef": "ulcerative-colitis-15"
+    },
+    {
+      "name": "Cobitolimod",
+      "reason": "Phase 2b trial failed to meet primary endpoint for clinical remission",
+      "evidenceRef": "ulcerative-colitis-7"
+    },
+    {
+      "name": "Achillea wilhelmsii extract",
+      "reason": "Randomized controlled trial showed no significant benefit over placebo",
+      "evidenceRef": "ulcerative-colitis-16"
+    }
+  ]
+}

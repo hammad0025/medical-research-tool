@@ -1,0 +1,421 @@
+{
+  "condition": "Asthma",
+  "slug": "asthma",
+  "aliases": [
+    "bronchial asthma",
+    "reactive airway disease"
+  ],
+  "version": "2026-06",
+  "curatedBy": "auto-grounded generator",
+  "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
+  "reviewed": false,
+  "lastUpdated": "2026-06-14",
+  "literatureSearchSeeds": [
+    "Dupilumab",
+    "Reslizumab",
+    "Nebulized magnesium sulfate",
+    "Ipratropium",
+    "Propranolol",
+    "Montelukast",
+    "Synbiotics (Kidilact)"
+  ],
+  "items": [
+    {
+      "id": "asthma-1",
+      "category": "rct",
+      "tier": "A",
+      "title": "Dupilumab in persistent asthma with elevated eosinophil levels.",
+      "authors": [
+        "Wenzel S",
+        "Ford L",
+        "Pearlman D",
+        "Spector S",
+        "Sher L",
+        "Skobieranda F",
+        "Wang L",
+        "Kirkesseli S"
+      ],
+      "journal": "The New England journal of medicine",
+      "year": "2013",
+      "doi": "10.1056/NEJMoa1304048",
+      "pmid": "23688323",
+      "url": "https://doi.org/10.1056/NEJMoa1304048",
+      "accessLevel": "abstract",
+      "summary": "Dupilumab showed efficacy in persistent asthma with elevated eosinophil levels in this randomized controlled trial.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-2",
+      "category": "rct",
+      "tier": "A",
+      "title": "Mometasone or Tiotropium in Mild Asthma with a Low Sputum Eosinophil Level.",
+      "authors": [
+        "Lazarus SC",
+        "Krishnan JA",
+        "King TS",
+        "Lang JE",
+        "Blake KV",
+        "Covar R",
+        "Lugogo N",
+        "Wenzel S"
+      ],
+      "journal": "The New England journal of medicine",
+      "year": "2019",
+      "doi": "10.1056/NEJMoa1814917",
+      "pmid": "31112384",
+      "url": "https://doi.org/10.1056/NEJMoa1814917",
+      "accessLevel": "abstract",
+      "summary": "Crossover trial comparing mometasone and tiotropium in mild asthma patients with low sputum eosinophil levels.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-3",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Role of nebulised magnesium sulfate in treating acute asthma in children: a systematic review and meta-analysis.",
+      "authors": [
+        "Kumar J",
+        "Kumar P",
+        "Goyal JP",
+        "Rajvanshi N",
+        "Prabhakaran K",
+        "Meena J",
+        "Gupta A"
+      ],
+      "journal": "BMJ paediatrics open",
+      "year": "2024",
+      "doi": "10.1136/bmjpo-2024-002638",
+      "pmid": "38782483",
+      "url": "https://doi.org/10.1136/bmjpo-2024-002638",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis of 10 RCTs found nebulized magnesium sulfate ineffective as second-line treatment for acute asthma in children.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-4",
+      "category": "negative-trial",
+      "tier": "B",
+      "title": "Randomized pilot trial of ipratropium versus placebo in children with critical asthma.",
+      "authors": [
+        "Murphy K",
+        "Mahmood N",
+        "Craven D",
+        "Gallagher J",
+        "Ross K",
+        "Speicher R",
+        "Rotta AT",
+        "Shein SL"
+      ],
+      "journal": "Pediatric pulmonology",
+      "year": "2020",
+      "doi": "10.1002/ppul.25115",
+      "pmid": "33049119",
+      "url": "https://doi.org/10.1002/ppul.25115",
+      "accessLevel": "abstract",
+      "summary": "Randomized pilot trial found no benefit of ipratropium versus placebo in children with critical asthma.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-5",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Randomized placebo-controlled trial to evaluate chronic dosing effects of propranolol in asthma.",
+      "authors": [
+        "Short PM",
+        "Williamson PA",
+        "Anderson WJ",
+        "Lipworth BJ"
+      ],
+      "journal": "American journal of respiratory and critical care medicine",
+      "year": "2013",
+      "doi": "10.1164/rccm.201212-2206OC",
+      "pmid": "23593932",
+      "url": "https://doi.org/10.1164/rccm.201212-2206OC",
+      "accessLevel": "abstract",
+      "summary": "Double-blind crossover trial found propranolol ineffective as add-on therapy to inhaled corticosteroids in mild-to-moderate asthma.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-6",
+      "category": "rct",
+      "tier": "A",
+      "title": "Reslizumab for inadequately controlled asthma with elevated blood eosinophil counts: results from two multicentre, parallel, double-blind, randomised, placebo-controlled, phase 3 trials.",
+      "authors": [
+        "Castro M",
+        "Zangrilli J",
+        "Wechsler ME",
+        "Bateman ED",
+        "Brusselle GG",
+        "Bardin P",
+        "Murphy K",
+        "Maspero JF"
+      ],
+      "journal": "The Lancet. Respiratory medicine",
+      "year": "2015",
+      "doi": "10.1016/S2213-2600(15)00042-9",
+      "pmid": "25736990",
+      "url": "https://doi.org/10.1016/S2213-2600(15)00042-9",
+      "accessLevel": "abstract",
+      "summary": "Two phase 3 trials demonstrated efficacy of reslizumab in inadequately controlled asthma with elevated blood eosinophil counts.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-7",
+      "category": "review",
+      "tier": "B",
+      "title": "Breastfeeding in the 21st century: epidemiology, mechanisms, and lifelong effect.",
+      "authors": [
+        "Victora CG",
+        "Bahl R",
+        "Barros AJ",
+        "França GV",
+        "Horton S",
+        "Krasevec J",
+        "Murch S",
+        "Sankar MJ"
+      ],
+      "journal": "Lancet (London, England)",
+      "year": "2016",
+      "doi": "10.1016/S0140-6736(15)01024-7",
+      "pmid": "26869575",
+      "url": "https://doi.org/10.1016/S0140-6736(15)01024-7",
+      "accessLevel": "abstract",
+      "summary": "Meta-analysis found no association between breastfeeding and allergic disorders such as asthma.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-8",
+      "category": "review",
+      "tier": "B",
+      "title": "Inner-City Asthma in Children.",
+      "authors": [
+        "Poowuttikul P",
+        "Saini S",
+        "Seth D"
+      ],
+      "journal": "Clinical reviews in allergy & immunology",
+      "year": "2019",
+      "doi": "10.1007/s12016-019-08728-x",
+      "pmid": "30666508",
+      "url": "https://doi.org/10.1007/s12016-019-08728-x",
+      "accessLevel": "abstract",
+      "summary": "Review of inner-city asthma in children highlighting increased morbidity and contributing factors.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-9",
+      "category": "review",
+      "tier": "A",
+      "title": "Global, regional, and national deaths, prevalence, disability-adjusted life years, and years lived with disability for chronic obstructive pulmonary disease and asthma, 1990-2015: a systematic analysis for the Global Burden of Disease Study 2015.",
+      "authors": [
+        "GBD 2015 Chronic Respiratory Disease Collaborators"
+      ],
+      "journal": "The Lancet. Respiratory medicine",
+      "year": "2017",
+      "doi": "10.1016/S2213-2600(17)30293-X",
+      "pmid": "28822787",
+      "url": "https://doi.org/10.1016/S2213-2600(17)30293-X",
+      "accessLevel": "abstract",
+      "summary": "Global Burden of Disease study analysis of COPD and asthma deaths, prevalence, and disability-adjusted life years from 1990-2015.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-10",
+      "category": "review",
+      "tier": "A",
+      "title": "Allergen Immunotherapy for the Prevention and Treatment of Asthma.",
+      "authors": [
+        "Batard T",
+        "Taillé C",
+        "Guilleminault L",
+        "Bozek A",
+        "Floch VB",
+        "Pfaar O",
+        "Canonica WG",
+        "Akdis C"
+      ],
+      "journal": "Clinical and experimental allergy : journal of the British Society for Allergy and Clinical Immunology",
+      "year": "2025",
+      "doi": "10.1111/cea.14575",
+      "pmid": "39363801",
+      "url": "https://doi.org/10.1111/cea.14575",
+      "accessLevel": "abstract",
+      "summary": "Review of allergen immunotherapy as disease-modifying treatment for allergic asthma prevention and management.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-11",
+      "category": "review",
+      "tier": "B",
+      "title": "Asthma: definitions and pathophysiology.",
+      "authors": [
+        "Mims JW"
+      ],
+      "journal": "International forum of allergy & rhinology",
+      "year": "2015",
+      "doi": "10.1002/alr.21609",
+      "pmid": "26335832",
+      "url": "https://doi.org/10.1002/alr.21609",
+      "accessLevel": "abstract",
+      "summary": "Review of asthma definitions and pathophysiology, emphasizing chronic lower respiratory tract inflammation.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-12",
+      "category": "review",
+      "tier": "A",
+      "title": "Understanding the immunology of asthma: Pathophysiology, biomarkers, and treatments for asthma endotypes.",
+      "authors": [
+        "Gans MD",
+        "Gavrilova T"
+      ],
+      "journal": "Paediatric respiratory reviews",
+      "year": "2020",
+      "doi": "10.1016/j.prrv.2019.08.002",
+      "pmid": "31678040",
+      "url": "https://doi.org/10.1016/j.prrv.2019.08.002",
+      "accessLevel": "abstract",
+      "summary": "Comprehensive review of asthma immunology, pathophysiology, biomarkers, and targeted biologic therapies for different endotypes.",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-13",
+      "category": "review",
+      "tier": "B",
+      "title": "The Effect of Oral Montelukast in Controlling Asthma Attacks in Children: A Randomized Double-blind Placebo Control Study.",
+      "authors": [
+        "Jafari M",
+        "Sobhani M",
+        "Eftekhari K",
+        "Malekiantaghi A",
+        "Gharagozlou M",
+        "Shafiei A"
+      ],
+      "journal": "Iranian journal of allergy, asthma, and immunology",
+      "year": "2023",
+      "doi": "10.18502/ijaai.v22i5.13990",
+      "pmid": "38085143",
+      "url": "https://doi.org/10.18502/ijaai.v22i5.13990",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    },
+    {
+      "id": "asthma-14",
+      "category": "review",
+      "tier": "B",
+      "title": "Synbiotics and Treatment of Asthma: A Double-Blinded, Randomized, Placebo-Controlled Clinical Trial.",
+      "authors": [
+        "Hassanzad M",
+        "Maleki Mostashari K",
+        "Ghaffaripour H",
+        "Emami H",
+        "Rahimi Limouei S",
+        "Velayati AA"
+      ],
+      "journal": "Galen medical journal",
+      "year": "2019",
+      "doi": "10.31661/gmj.v8i0.1350",
+      "pmid": "34466498",
+      "url": "https://doi.org/10.31661/gmj.v8i0.1350",
+      "accessLevel": "abstract",
+      "summary": "",
+      "keyPassages": []
+    }
+  ],
+  "canonicalFacts": [
+    {
+      "claim": "Asthma is a heterogeneous disease characterized by chronic inflammation of the lower respiratory tract",
+      "evidenceRefs": [
+        "asthma-11",
+        "asthma-12"
+      ]
+    },
+    {
+      "claim": "Dupilumab is effective in persistent asthma with elevated eosinophil levels",
+      "evidenceRefs": [
+        "asthma-1"
+      ]
+    },
+    {
+      "claim": "Reslizumab is effective for inadequately controlled asthma with elevated blood eosinophil counts",
+      "evidenceRefs": [
+        "asthma-6"
+      ]
+    },
+    {
+      "claim": "Inner-city children have increased asthma morbidity due to multiple environmental and socioeconomic factors",
+      "evidenceRefs": [
+        "asthma-8"
+      ]
+    },
+    {
+      "claim": "Allergen immunotherapy has disease-modifying properties unlike conventional pharmacotherapy or biologics",
+      "evidenceRefs": [
+        "asthma-10"
+      ]
+    }
+  ],
+  "lifestyleRecommendations": [
+    {
+      "recommendation": "Reduce exposure to household pests, pollutants, and tobacco smoke, particularly in inner-city environments",
+      "evidenceRefs": [
+        "asthma-8"
+      ]
+    }
+  ],
+  "redFlags": [
+    "Leukotriene receptor antagonists may unmask Churg-Strauss syndrome as oral glucocorticoids are withdrawn",
+    "Mechanical ventilation in severe asthma requires strategies to avoid ventilator-related complications and excessive hyperinflation"
+  ],
+  "pipelineDrugs": [
+    {
+      "name": "Dupilumab",
+      "aliases": [
+        "SAR231893",
+        "REGN668"
+      ],
+      "mechanism": "Monoclonal antibody to IL-4 receptor alpha subunit",
+      "sponsor": "Sanofi/Regeneron",
+      "status": "Approved for asthma",
+      "approvalStatus": "approved",
+      "evidenceRef": "asthma-1"
+    },
+    {
+      "name": "Reslizumab",
+      "aliases": [],
+      "mechanism": "Anti-IL-5 monoclonal antibody",
+      "sponsor": "Teva",
+      "status": "Approved for eosinophilic asthma",
+      "approvalStatus": "approved",
+      "evidenceRef": "asthma-6"
+    }
+  ],
+  "excludedAgents": [
+    {
+      "name": "Nebulized magnesium sulfate",
+      "reason": "Meta-analysis of 10 RCTs showed no efficacy as second-line treatment for acute asthma in children",
+      "evidenceRef": "asthma-3"
+    },
+    {
+      "name": "Ipratropium",
+      "reason": "Randomized pilot trial found no clinical benefit versus placebo in children with critical asthma",
+      "evidenceRef": "asthma-4"
+    },
+    {
+      "name": "Propranolol",
+      "reason": "Double-blind crossover trial showed no improvement in methacholine challenge when added to inhaled corticosteroids",
+      "evidenceRef": "asthma-5"
+    },
+    {
+      "name": "Montelukast",
+      "reason": "Randomized double-blind trial found no effectiveness in controlling asthma attacks in children",
+      "evidenceRef": "asthma-13"
+    },
+    {
+      "name": "Synbiotics (Kidilact)",
+      "reason": "Double-blind randomized trial showed no efficacy in treatment of mild to moderate asthma in children",
+      "evidenceRef": "asthma-14"
+    }
+  ]
+}
