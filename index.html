@@ -1412,6 +1412,12 @@
         const [validations, setValidations] = useState({
           research: null, repurpose: null, trials: null
         });
+        // Auto-verify: when ON, a second AI automatically double-checks each
+        // report right after it renders (a separate, non-blocking call — it
+        // can never delay or crash the report). Roughly doubles per-run cost.
+        // Persisted so the preference survives refreshes.
+        const [autoVerify, setAutoVerify] = useState(() => loadLS('mrt_auto_verify', false));
+        useEffect(() => saveLS('mrt_auto_verify', autoVerify), [autoVerify]);
         // Token usage + model + wall-clock per last run for the cost meter.
         // Dorothy asked: "how much more is Opus vs Sonnet, and per 1k users?"
         // This is the answer surface — we render it as a small CostMeter
@@ -1777,6 +1783,18 @@
             if (mode !== 'chat' && data.validation) {
               setValidations((v) => ({ ...v, [mode]: data.validation }));
             }
+            // Auto-verify (opt-in): kick off the independent second-AI audit
+            // AFTER the report is in state. Fire-and-forget + silent so it
+            // can never block rendering or pop an error dialog. We pass the
+            // fresh text + evidence pack explicitly to dodge stale closures.
+            if (autoVerify && !data.validation &&
+                (mode === 'research' || mode === 'repurpose' || mode === 'trials') && text) {
+              auditAnalysis(mode, {
+                text,
+                pack: data.evidence?.topRanked || evidencePack,
+                silent: true
+              });
+            }
             if (mode !== 'chat' && data.usage) {
               setLastRunMeta((m) => ({
                 ...m,
@@ -1865,18 +1883,23 @@
         // run path — Perplexity/OpenAI cost is only incurred when a user
         // actually wants the independent second opinion. See cost-cuts
         // 2026-04-23 in api/research.js and api/validate.js.
-        const auditAnalysis = async (mode) => {
-          const analysisText =
+        const auditAnalysis = async (mode, opts = {}) => {
+          // opts.text / opts.pack let the auto-verify path pass the FRESH
+          // analysis + evidence right after a run (React state is still
+          // stale in that closure). opts.silent suppresses the "run first"
+          // alert so the automatic trigger can never pop a dialog.
+          const analysisText = opts.text || (
             mode === 'research'  ? researchText :
             mode === 'repurpose' ? repurposeText :
-            mode === 'trials'    ? trialsText : '';
+            mode === 'trials'    ? trialsText : '');
+          const sourcePack = opts.pack || evidencePack;
           if (!analysisText) {
-            alert('Run the analysis first, then audit it.');
+            if (!opts.silent) alert('Run the analysis first, then audit it.');
             return;
           }
           setValidations((v) => ({ ...v, [mode]: { _auditing: true } }));
           try {
-            const packForValidator = (evidencePack || []).slice(0, 18).map((a) => ({
+            const packForValidator = (sourcePack || []).slice(0, 18).map((a) => ({
               id: a.doi || a.pmid || a.id,
               title: a.title,
               journal: a.journal,
@@ -2064,6 +2087,22 @@
               }} />
             <div style={{ maxWidth: 1400, margin: '0 auto', padding: '1.5rem 2rem' }}>
               <Tabs tab={tab} setTab={setTab} />
+
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: '0.6rem', flexWrap: 'wrap', margin: '0.25rem 0 1rem'
+              }}>
+                <AutoVerifyToggle autoVerify={autoVerify} setAutoVerify={setAutoVerify} />
+                <FullReportExportButton
+                  patient={patient}
+                  researchText={researchText}
+                  repurposeText={repurposeText}
+                  trialsText={trialsText}
+                  treatments={treatments}
+                  candidates={candidates}
+                  references={references}
+                />
+              </div>
 
               {tab === 'profile' && <PatientTab patient={patient} setPatient={setPatient}
                 audience={audience} setAudience={setAudience}
@@ -3869,6 +3908,119 @@
         );
       };
 
+      const escapeHtmlForExport = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      // Assemble the <body> HTML for the SINGLE full-application report.
+      // Dorothy: "one export for the entire application" — research +
+      // repurposing + trials + comparison, in one PDF, links clickable.
+      // Built from app STATE (not the live DOM) so it works no matter which
+      // tab is open and never depends on a tab being mounted.
+      const buildFullReportBody = ({
+        patient, researchText, repurposeText, trialsText,
+        treatments, candidates, references
+      }) => {
+        const parts = [];
+        const cond = patient?.condition || 'your condition';
+        parts.push(`<h1>Full Research Report — ${escapeHtmlForExport(cond)}</h1>`);
+        const bio = [];
+        if (patient?.age) bio.push(`Age ${escapeHtmlForExport(patient.age)}`);
+        if (patient?.sex) bio.push(escapeHtmlForExport(patient.sex));
+        if (patient?.stage) bio.push(`Stage/severity: ${escapeHtmlForExport(patient.stage)}`);
+        if (bio.length) parts.push(`<p><strong>Patient:</strong> ${bio.join(' · ')}</p>`);
+        parts.push('<p style="font-size:11px;color:#555;">This is the complete report from every tab. Every reference below is a clickable link.</p>');
+
+        if (researchText) {
+          parts.push('<h2>1. Research Report</h2>');
+          parts.push(renderMarkdownForExport(researchText));
+        }
+        if (repurposeText) {
+          parts.push('<h2>2. Drug Repurposing Ideas</h2>');
+          parts.push(renderMarkdownForExport(repurposeText));
+        }
+        if (trialsText) {
+          parts.push('<h2>3. Clinical Trials</h2>');
+          parts.push(renderMarkdownForExport(trialsText));
+        }
+        const treatRows = (treatments || []).filter(t => t.treatment).map(t =>
+          `<tr><td>${renderMarkdownForExport(t.treatment)}</td><td>${escapeHtmlForExport(t.efficacy || t.fda_status || '')}</td><td>${renderMarkdownForExport(t.references || '')}</td></tr>`
+        ).join('');
+        const candRows = (candidates || []).filter(c => c.candidate).map(c =>
+          `<tr><td>${renderMarkdownForExport(c.candidate)}</td><td>${escapeHtmlForExport(c.why_for_this_condition || c.repurpose_rationale || '')}</td><td>${renderMarkdownForExport(c.references || '')}</td></tr>`
+        ).join('');
+        if (treatRows || candRows) {
+          parts.push('<h2>4. Comparison</h2>');
+          if (treatRows) parts.push(`<h3>Approved treatments (backed by research)</h3><table><thead><tr><th>Treatment</th><th>How well it works</th><th>Sources</th></tr></thead><tbody>${treatRows}</tbody></table>`);
+          if (candRows) parts.push(`<h3>Repurposing ideas</h3><table><thead><tr><th>Drug</th><th>Why it might help</th><th>Sources</th></tr></thead><tbody>${candRows}</tbody></table>`);
+        }
+        if (references && references.length) {
+          const items = references.map(r =>
+            `<li><a href="${escapeHtmlForExport(r.url)}">${escapeHtmlForExport(r.quote || r.url)}</a></li>`
+          ).join('');
+          parts.push(`<h2>5. All References &amp; Links</h2><ol>${items}</ol>`);
+        }
+        return parts.join('\n');
+      };
+
+      const FullReportExportButton = (props) => {
+        const [busy, setBusy] = useState(false);
+        const hasAny = !!(props.researchText || props.repurposeText || props.trialsText);
+        const onClick = async () => {
+          if (busy) return;
+          if (!hasAny) {
+            alert('Run at least one analysis first (Research, Repurposing, or Clinical Trials), then export the full report.');
+            return;
+          }
+          setBusy(true);
+          try {
+            const bodyHtml = buildFullReportBody(props);
+            const base = `full-report-${(props.patient?.condition || 'analysis').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+            const html = buildExportDocument({ bodyHtml, title: base });
+            await printExportDocument(html);
+          } catch (err) {
+            console.error('[pdf] full report export failed', err);
+            alert('Full report export failed: ' + (err?.message || err));
+          } finally {
+            setBusy(false);
+          }
+        };
+        return (
+          <button
+            onClick={onClick}
+            disabled={busy}
+            title="Save ONE PDF covering every tab — research, drug repurposing, clinical trials, and the comparison — with clickable links throughout."
+            style={{
+              ...exportBtnStyle(busy, false),
+              background: busy ? theme.panel : theme.accent,
+              color: busy ? theme.textDim : '#ffffff',
+              borderColor: theme.accent
+            }}
+          >
+            <Download size={14} /> {busy ? 'Preparing full PDF…' : 'Export Full Report (PDF)'}
+          </button>
+        );
+      };
+
+      const AutoVerifyToggle = ({ autoVerify, setAutoVerify }) => (
+        <label
+          title="When on, a second AI automatically double-checks every report against the research right after it appears. This roughly doubles the cost of each run."
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+            fontSize: '0.8rem', color: theme.textDim, cursor: 'pointer',
+            padding: '0.3rem 0.5rem', borderRadius: 6, border: `1px solid ${theme.border}`
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={!!autoVerify}
+            onChange={(e) => setAutoVerify(e.target.checked)}
+            style={{ cursor: 'pointer' }}
+          />
+          <ShieldCheck size={14} color={autoVerify ? theme.green : theme.textDim} />
+          Double-check every report with a second AI (about 2× cost)
+        </label>
+      );
+
       const AnalysisLanguageToolbar = ({
         sourceText, translatedText, setTranslatedText,
         exportElementId, exportBaseFilename
@@ -5254,6 +5406,7 @@
                   </div>
                 )}
                 <Markdown text={renderedResearchText} />
+                <SourceLinks text={renderedResearchText} label="All sources & links in this report" />
               </div>
             )}
 
