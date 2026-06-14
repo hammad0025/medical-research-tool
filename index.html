@@ -1558,19 +1558,56 @@
           // page (FUNCTION_INVOCATION_TIMEOUT) which is NOT JSON — we detect
           // that specifically and surface a friendlier message instead of
           // the browser's cryptic 'Unexpected token A ... is not valid JSON'.
-          const callResearch = async (payload, retriesLeft = 1) => {
-            const res = await fetch('/api/research', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            const raw = await res.text();
-            const data = parseApiJsonResponse(res, raw, {
-              timeoutMsg: `Server timeout on the ${payload.phase || 'full'} phase. Your search data is saved — click Run again and it should finish faster (often under 30 seconds).`
-            });
-            if (!res.ok && retriesLeft > 0 && payload.phase === 'synthesize' &&
-                res.status !== 402 && res.status !== 401 &&
-                /timeout|FUNCTION_INVOCATION|504|Gateway/i.test(raw)) {
+          const callResearch = async (payload, retriesLeft = 2) => {
+            let res, raw;
+            try {
+              res = await fetch('/api/research', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              raw = await res.text();
+            } catch (netErr) {
+              // The fetch PROMISE rejected — the connection dropped before we
+              // got any HTTP response. On mobile Safari this surfaces as
+              // "Load failed"; other browsers say "NetworkError"/"fetch
+              // failed". This happens on long synthesis calls when the phone
+              // sleeps, the cell signal blips, or the socket is closed mid-
+              // request. It NEVER reached the server-error retry below, which
+              // is why the user saw a dead "Load failed" with no recovery.
+              // Every phase here is safe to replay (gather is cached server-
+              // side; synthesize is idempotent), so auto-retry with backoff.
+              if (retriesLeft > 0) {
+                await new Promise(r => setTimeout(r, 1500));
+                return callResearch(payload, retriesLeft - 1);
+              }
+              throw new Error('Your connection dropped while building the report. Your search is saved — tap Run again and it should finish fast.');
+            }
+            // A retryable failure is a server timeout / 5xx / non-JSON gateway
+            // page on a phase whose inputs are cached or idempotent. Auth and
+            // billing errors (401/402) must NOT be retried.
+            const retryable =
+              retriesLeft > 0 &&
+              (payload.phase === 'synthesize' || payload.phase === 'gather') &&
+              res.status !== 402 && res.status !== 401 &&
+              (res.status >= 500 ||
+               /timeout|FUNCTION_INVOCATION|504|502|Gateway|empty|unexpected end/i.test(raw || ''));
+
+            let data;
+            try {
+              data = parseApiJsonResponse(res, raw, {
+                timeoutMsg: `Server timeout on the ${payload.phase || 'full'} phase. Your search data is saved — click Run again and it should finish faster (often under 30 seconds).`
+              });
+            } catch (parseErr) {
+              // The Vercel timeout page is HTML, so parsing throws here on a
+              // real timeout. Retry instead of surfacing a dead error.
+              if (retryable) {
+                await new Promise(r => setTimeout(r, 1200));
+                return callResearch(payload, retriesLeft - 1);
+              }
+              throw parseErr;
+            }
+            if (!res.ok && retryable) {
               await new Promise(r => setTimeout(r, 1200));
               return callResearch(payload, retriesLeft - 1);
             }
