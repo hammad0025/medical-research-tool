@@ -1146,6 +1146,10 @@ export default async function handler(req, res) {
           available: hasPerplexity || hasOpenAI || hasXai,
           primaryProvider: hasPerplexity ? 'Perplexity' : hasOpenAI ? 'OpenAI' : hasXai ? 'xAI' : null
         },
+        dynamicKb: {
+          enabled: String(process.env.MRT_DYNAMIC_KB || '1').trim() !== '0',
+          store: String(process.env.UPSTASH_REDIS_REST_URL || '').trim() ? 'upstash-redis' : 'in-memory'
+        },
         monetization: {
           devUnlimited,
           freeRunsPerMonth: devUnlimited ? 999999 : lim.free,

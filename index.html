@@ -4355,9 +4355,9 @@
               </div>
             </div>
             <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: '0.5rem' }}>
-              These are trusted, hand-picked medical references for {kb.condition} — major
-              guidelines, important studies, FDA labels, and respected reviews. We always include
-              them so the information you see is grounded in solid sources.
+              {kb.source === 'dynamic-brain'
+                ? <>Reference pack built from PubMed, Perplexity, and Claude for <strong>{kb.condition}</strong>. Saved for future searches — still verify with your specialist.</>
+                : <>These are trusted medical references for {kb.condition} — major guidelines, important studies, FDA labels, and respected reviews. We always include them so the information you see is grounded in solid sources.</>}
             </p>
             {facts.length > 0 && (
               <div style={{ marginTop: '0.75rem' }}>
@@ -5856,7 +5856,9 @@
                 <p style={{ margin: 0, fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.5 }}>
                   Searching as <strong style={{ color: theme.text }}>{data.dossier.canonical}</strong>
                   {data.dossier.subspecialty ? ` (${data.dossier.subspecialty})` : ''}.
-                  No saved reference pack for this condition yet — trials and live literature still apply.
+                  {runtimeConfig?.dynamicKb?.enabled
+                    ? ' No reference pack yet — building one from PubMed + Perplexity for next time.'
+                    : ' No saved reference pack for this condition yet — trials and live literature still apply.'}
                 </p>
               )}
               {!kb && !data.dossier?.canonical && (

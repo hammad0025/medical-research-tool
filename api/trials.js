@@ -33,6 +33,7 @@ import { isTopCenter, topCenterBoost, buildExtendedCenterMatcher } from '../lib/
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb } from '../lib/kb.js';
 import { requireAccess } from '../lib/access-gate.js';
+import { ensureDynamicKb, isDynamicKbEnabled } from '../lib/kb-bootstrap.js';
 
 const CT_API = 'https://clinicaltrials.gov/api/v2/studies';
 
@@ -511,6 +512,9 @@ export default async function handler(req, res) {
       fallbackCanonical: primary,
       fallbackSynonyms: [...aliases, ...meshTerms]
     });
+    if (!kb.matched && isDynamicKbEnabled()) {
+      ensureDynamicKb(primary, dossier).catch(() => {});
+    }
     const pipelineDrugs = Array.isArray(kb.meta?.pipelineDrugs) ? kb.meta.pipelineDrugs : [];
     const pipelineDrugQueryLabels = [];
     for (const drug of pipelineDrugs.slice(0, 6)) {
