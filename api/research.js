@@ -142,10 +142,13 @@ const toGroundedItem = (a, { isCuratedKB = false, kbCategory = null } = {}) => (
 // real evidence.js response (groundedForPrompt + pipelineDrugs + excludedAgents
 // + canonicalFacts), so the synthesis prompt, required-mentions, and coverage
 // audit all keep working even when every external API is down.
-const buildKbFallbackEvidence = async (condition) => {
+const buildKbFallbackEvidence = async (condition, dossier = null) => {
   try {
     if (!condition) return null;
-    const kb = await loadKb(condition);
+    const kb = await loadKb(condition, {
+      fallbackCanonical: dossier?.canonical,
+      fallbackSynonyms: dossier?.synonyms || []
+    });
     if (!kb || !kb.matched) return null;
     const canonical = kb.meta?.canonical || condition;
     const kbGrounded = (kb.items || []).map((it) =>
@@ -1425,7 +1428,7 @@ export default async function handler(req, res) {
       // pipeline drugs, and real citable papers. Prevents the "3 candidates / no
       // links / metformin mislabeled" failure even when gather degraded.
       if ((mode === 'research' || mode === 'repurpose') && !evidenceIsUsable(evidence)) {
-        const fallback = await buildKbFallbackEvidence(effectiveCondition);
+        const fallback = await buildKbFallbackEvidence(effectiveCondition, dossier);
         if (evidenceIsUsable(fallback)) {
           console.warn(`[research.synth] provided evidence unusable — using KB-only fallback (${fallback.groundedForPrompt.length} curated refs)`);
           evidence = fallback;
@@ -1499,7 +1502,7 @@ export default async function handler(req, res) {
       // silently degrades the report to ~3 candidates, no links, and a mislabeled
       // metformin. The KB load is local and instant.
       if (needsEvidence && !evidenceIsUsable(evidence)) {
-        const fallback = await buildKbFallbackEvidence(effectiveCondition);
+        const fallback = await buildKbFallbackEvidence(effectiveCondition, dossier);
         if (evidenceIsUsable(fallback)) {
           console.warn(`[research.gather] live evidence unusable — using KB-only fallback (${fallback.groundedForPrompt.length} curated refs)`);
           evidence = fallback;

@@ -507,7 +507,10 @@ export default async function handler(req, res) {
     // liMeliGhT trial for RP even when the generic condition query
     // fails to surface them. NCTs queried directly always return the
     // exact trial record, bypassing relevance ranking.
-    const kb = await loadKb(condition);
+    const kb = await loadKb(condition, {
+      fallbackCanonical: primary,
+      fallbackSynonyms: [...aliases, ...meshTerms]
+    });
     const pipelineDrugs = Array.isArray(kb.meta?.pipelineDrugs) ? kb.meta.pipelineDrugs : [];
     const pipelineDrugQueryLabels = [];
     for (const drug of pipelineDrugs.slice(0, 6)) {
