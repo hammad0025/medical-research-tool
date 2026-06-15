@@ -166,6 +166,9 @@ const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
   const contacts = extractContacts(protocol.contactsLocationsModule);
   const countries = [...new Set(contacts.locations.map(l => l.country).filter(Boolean))];
 
+  const conditionsModule = protocol.conditionsModule || {};
+  const conditions = [...(conditionsModule.conditions || []), ...(conditionsModule.keywords || [])].filter(Boolean);
+
   // Top-center detection looks at sponsor, organization, every facility, and
   // every overall official affiliation. Any single match is enough to flag
   // the trial as "top center" for UI purposes, and matches stack (capped)
@@ -260,10 +263,78 @@ const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
     briefSummary: desc.briefSummary,
     detailedDescription: desc.detailedDescription,
     primaryOutcomes,
+    conditions,
 
     contacts,
     countries
   };
+};
+
+// Trials returned by CT.gov often include studies for a *different* disease
+// that share a drug code (e.g. "RP-A501" for Danon disease) or a broad mesh
+// term. Score how well each trial actually matches the patient's condition
+// so we can hide obvious mismatches and explain the rest in the UI.
+const buildRelevanceMatcher = (primary, aliases, meshTerms, kbMeta) => {
+  const phrases = new Set();
+  const add = (s) => {
+    if (!s || typeof s !== 'string') return;
+    const t = s.trim().toLowerCase();
+    if (t.length >= 3) phrases.add(t);
+  };
+  add(primary);
+  (aliases || []).forEach(add);
+  (meshTerms || []).forEach(add);
+  (kbMeta?.aliases || []).forEach(add);
+  if (kbMeta?.condition) add(kbMeta.condition);
+  return { primary: String(primary || '').trim().toLowerCase(), phrases: [...phrases] };
+};
+
+const scoreTrialRelevance = (study, matcher) => {
+  const text = [
+    study.briefTitle,
+    study.officialTitle,
+    ...(study.conditions || []),
+    ...(study.interventions || []).map((i) => i.name),
+    study.briefSummary
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  // Hard excludes — wrong disease entirely (common CT.gov noise for IRD searches).
+  const wrongDisease = [
+    /\bdanon disease\b/,
+    /\balstr[öo]m syndrome\b/,
+    /\brelapsing polychondritis\b/,
+    /\barrhythmogenic cardiomyopathy\b/,
+    /\bdilated cardiomyopathy\b/,
+    /\bpkp2[- ]variant\b/,
+    /\bbag3\b.*cardiomyopathy/
+  ];
+  for (const re of wrongDisease) {
+    if (re.test(text)) {
+      return { score: -100, label: 'wrong disease', reason: 'This study is for a different illness, not your condition.' };
+    }
+  }
+
+  // Related IRD subtype but not the condition searched — tag, don't hide.
+  if (/\bstargardt\b/.test(text) && !/\bretinitis pigmentosa\b/.test(text)) {
+    return { score: 8, label: 'related eye disease', reason: 'This is for Stargardt disease (a different inherited eye condition), not classic retinitis pigmentosa.' };
+  }
+  if (/\bchoroideremia\b/.test(text) && !/\bretinitis pigmentosa\b/.test(text)) {
+    return { score: 8, label: 'related eye disease', reason: 'This is for choroideremia (a different inherited eye condition), not classic retinitis pigmentosa.' };
+  }
+
+  let score = 0;
+  if (matcher.primary && text.includes(matcher.primary)) score += 40;
+  for (const phrase of matcher.phrases) {
+    if (phrase.length >= 5 && text.includes(phrase)) score += 12;
+  }
+  // Shorter alias hits (RP, IRD).
+  if (/\bretinitis pigmentosa\b/.test(text)) score += 35;
+  if (/\brod[- ]cone dystrophy\b/.test(text)) score += 25;
+  if (/\binherited retinal\b/.test(text)) score += 20;
+
+  if (score >= 45) return { score, label: 'strong match', reason: 'Title or listed conditions clearly match what you searched for.' };
+  if (score >= 15) return { score, label: 'likely match', reason: 'Appears related to your condition based on title and conditions listed on ClinicalTrials.gov.' };
+  return { score, label: 'weak match', reason: 'Only a loose connection to your search — verify with the study team before assuming it applies to you.' };
 };
 
 // Single CT.gov query wrapper. Returns raw studies[] array or throws.
@@ -495,8 +566,19 @@ export default async function handler(req, res) {
     ]);
     const CHINA_LIKE = new Set(['China', 'Vietnam', 'Mexico', 'India']);
 
+    const relevanceMatcher = buildRelevanceMatcher(primary, aliases, meshTerms, kb.meta || {});
+
     studies.forEach((s) => {
+      const rel = scoreTrialRelevance(s, relevanceMatcher);
+      s.relevanceScore = rel.score;
+      s.relevanceLabel = rel.label;
+      s.relevanceReason = rel.reason;
+
       let score = 0;
+      if (rel.score >= 45) score += 12;
+      else if (rel.score >= 15) score += 4;
+      else if (rel.score < 0) score -= 50;
+
       const phase = (s.phases || []).join(',');
       if (phase.includes('PHASE3')) score += 40;
       else if (phase.includes('PHASE2')) score += 25;
@@ -518,12 +600,23 @@ export default async function handler(req, res) {
       s.promiseScore = score;
     });
 
-    studies.sort((a, b) => (b.promiseScore || 0) - (a.promiseScore || 0));
+    // Drop trials for the wrong disease entirely. Keep weak matches at the
+    // bottom of the list so the user can still see them if they want.
+    const filtered = studies.filter((s) => (s.relevanceScore || 0) > -50);
+    const droppedWrong = studies.length - filtered.length;
+    studies = filtered;
+
+    studies.sort((a, b) => {
+      const relDiff = (b.relevanceScore || 0) - (a.relevanceScore || 0);
+      if (relDiff !== 0 && Math.abs(relDiff) >= 30) return relDiff;
+      return (b.promiseScore || 0) - (a.promiseScore || 0);
+    });
 
     // Summary breakdowns so the UI can surface "we found 14 recruiting trials,
     // 3 expanded access programs, 2 open-label extensions, 8 at top centers".
     const breakdown = {
       total: studies.length,
+      droppedWrongCondition: droppedWrong,
       recruiting: studies.filter((s) => s.acceptingNewPatients).length,
       expandedAccess: studies.filter((s) => s.designations.hasExpandedAccess).length,
       openLabelExtension: studies.filter((s) => s.designations.hasOpenLabelExtension).length,
@@ -550,6 +643,16 @@ export default async function handler(req, res) {
       },
       subQueries: subQueryStats,
       breakdown,
+      kbContext: kb.matched
+        ? {
+            canonical: kb.meta?.condition,
+            approvedDrugs: (kb.meta?.pipelineDrugs || [])
+              .filter((d) => /approved/i.test(String(d.approvalStatus || d.status || '')))
+              .slice(0, 5)
+              .map((d) => ({ name: d.name, status: d.approvalStatus || d.status, why: d.whyItMatters })),
+            keyFacts: (kb.meta?.canonicalFacts || []).slice(0, 4).map((f) => f.claim || f)
+          }
+        : null,
       total: studies.length,
       returned: studies.length,
       studies

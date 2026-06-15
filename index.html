@@ -5676,18 +5676,14 @@
             <AdSlot runtimeConfig={runtimeConfig} slotKey="trialsTop" />
             <div style={panelStyle}>
               <h2 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Beaker size={22} /> Clinical Trials (live ClinicalTrials.gov)
+                <Beaker size={22} /> Clinical trials for {patient.condition || 'your condition'}
               </h2>
-              <p style={{ margin: '0.25rem 0 0', color: theme.textDim, fontSize: '0.82rem', fontStyle: 'italic' }}>
-                Live ClinicalTrials.gov ranked for this patient
+              <p style={{ color: theme.textDim, fontSize: '0.9rem', marginTop: '0.5rem', lineHeight: 1.55 }}>
+                We pull live studies from ClinicalTrials.gov, drop ones for the <strong>wrong disease</strong>,
+                then rank the rest by phase, whether they are still enrolling, placebo use, safety oversight,
+                and whether you can keep the drug after the study ends.
               </p>
-              <p style={{ color: theme.textDim, fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                We search ClinicalTrials.gov and sort the studies by how far along they are, whether they are
-                still taking patients, whether they use a placebo (a dummy treatment), how closely they are
-                watched for safety, and where they are. Then we look at each one for you — checking for drug
-                interactions, how well it fits you, and how risky it might be.
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center', marginTop: '0.75rem' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem' }}>
                   <input type="checkbox" checked={filters.recruitingOnly}
                     onChange={e => setFilters(f => ({ ...f, recruitingOnly: e.target.checked }))} />
@@ -5778,108 +5774,191 @@
       };
 
       const Glossary = () => (
-        <div style={panelStyle}>
-          <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>Trial words explained</h3>
-          <table style={{ width: '100%', fontSize: '0.9rem' }}>
-            <tbody>
-              {[
-                ['Post-Trial Access (PTA)',  'After the study ends, you can keep getting the drug for free — usually what you want.'],
-                ['Expanded Access',          'A way to get a drug that is not yet FDA-approved, outside of a study.'],
-                ['Compassionate Use',        'Another name for Expanded Access, used for serious or life-threatening illness.'],
-                ['Open-Label Extension (OLE)','If the trial drug seems to work, people who were in the study can keep taking it after the study ends — and everyone knows they are getting the real drug, not a placebo.']
-              ].map(([k,v]) => (
-                <tr key={k} style={{ borderTop: `1px solid ${theme.border}` }}>
-                  <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: theme.text, width: 220 }}>{k}</td>
-                  <td style={{ padding: '0.5rem 0.75rem', color: theme.textDim }}>{v}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <details style={{ ...panelStyle, cursor: 'pointer' }}>
+          <summary style={{ color: theme.accent, fontWeight: 700, fontSize: '0.95rem', listStyle: 'none' }}>
+            Trial words explained (OLE, Expanded Access, PTA) ▾
+          </summary>
+          <div style={{ marginTop: '0.75rem' }}>
+            <table style={{ width: '100%', fontSize: '0.88rem' }}>
+              <tbody>
+                {[
+                  ['Open-Label Extension (OLE)', 'If the trial drug seems to work, people in the study can keep taking it after it ends — everyone gets the real drug, not a placebo.'],
+                  ['Expanded Access / Compassionate Use', 'A way to get a drug that is not yet FDA-approved, outside of a normal study — usually for a serious illness.'],
+                  ['Post-Trial Access (PTA)', 'After the study ends, you can keep getting the drug for free.']
+                ].map(([k,v]) => (
+                  <tr key={k} style={{ borderTop: `1px solid ${theme.border}` }}>
+                    <td style={{ padding: '0.5rem 0.75rem', fontWeight: 600, color: theme.text, width: 240, verticalAlign: 'top' }}>{k}</td>
+                    <td style={{ padding: '0.5rem 0.75rem', color: theme.textDim, lineHeight: 1.5 }}>{v}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       );
 
       const ClinicalTrialsSnapshot = ({ patient, data }) => {
         if (!data?.studies?.length) return null;
-        const condition = String(patient?.condition || '').toLowerCase();
         const studies = data.studies || [];
-
-        const approvedByCondition = (() => {
-          if (/androgenetic|male pattern|female pattern|alopecia/i.test(condition)) {
-            return [
-              'FDA-approved medicines for androgenetic alopecia include topical minoxidil (men and women) and oral finasteride (men).',
-              'Dutasteride is used off-label in some settings; discuss risk/benefit with a dermatologist.',
-              'For alopecia areata specifically (different disease), FDA-approved JAK inhibitors now exist (for example baricitinib / ritlecitinib).'
-            ];
-          }
-          return [
-            'Approved standard-of-care depends on condition subtype, stage, and patient-specific factors.',
-            'Use this section as a trial landscape summary, then confirm approved baseline options with specialty guidelines.'
-          ];
-        })();
+        const kb = data.kbContext;
+        const dropped = data.breakdown?.droppedWrongCondition || 0;
 
         const byPhaseLate = studies
+          .filter((s) => (s.relevanceScore || 0) >= 15)
           .filter((s) => (s.phases || []).join(',').includes('PHASE3') || (s.phases || []).join(',').includes('PHASE2'))
-          .slice(0, 10);
+          .slice(0, 8);
 
         const interventionText = (s) => {
           const iv = (s.interventions || []).map((i) => i.name).filter(Boolean).slice(0, 2).join(' + ');
           return iv || s.briefTitle || '';
         };
 
-        const keywordHits = (re) => studies.filter((s) => re.test(`${s.briefTitle || ''} ${(s.interventions || []).map((i) => i.name || '').join(' ')}`));
-        const antioxidantHits = keywordHits(/\bantioxid|NAC|n-?acetyl|vitamin|tocopherol|polyphenol|resveratrol|coq10\b/i);
-        const exosomeHits = keywordHits(/\bexosome|extracellular vesicle|secretome\b/i);
-        const peptideHits = keywordHits(/\bpeptide|oligopeptide|ghk-?cu|tb-?500|bpc-?157\b/i);
-
         return (
           <div style={panelStyle}>
             <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>
-              Clinical trial snapshot for {patient?.condition || 'this condition'}
+              Snapshot · {data.total} trials ranked for {patient?.condition || 'this condition'}
             </h3>
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
-              <div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Approved treatment baseline (context)</div>
-                <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1rem', color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.5 }}>
-                  {approvedByCondition.map((x, i) => <li key={i}>{x}</li>)}
-                </ul>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Access terms in plain language</div>
-                <div style={{ color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.55, marginTop: 4 }}>
-                  <strong style={{ color: theme.text }}>Open-Label Extension (OLE):</strong> if the trial drug seems to work, people who were in the study can keep taking it after it ends.
-                  {' '}<strong style={{ color: theme.text }}>Expanded Access / Compassionate Use:</strong> a way to get a not-yet-approved drug outside of a study, usually for a serious illness.
-                  {' '}<strong style={{ color: theme.text }}>Post-Trial Access (PTA):</strong> keep getting the drug for free after you finish the study.
+            {dropped > 0 && (
+              <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', color: theme.yellow, lineHeight: 1.45 }}>
+                We removed {dropped} stud{dropped === 1 ? 'y' : 'ies'} that were for a <strong>different disease</strong> (for example Danon disease or Alström syndrome) even though they appeared in the search.
+              </p>
+            )}
+            <div style={{ display: 'grid', gap: '0.85rem' }}>
+              {kb?.approvedDrugs?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Approved treatments (for context — not from trials)</div>
+                  <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1rem', color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.55 }}>
+                    {kb.approvedDrugs.map((d, i) => (
+                      <li key={i}><strong style={{ color: theme.text }}>{d.name}</strong>{d.status ? ` — ${d.status}` : ''}</li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
+              )}
+              {kb?.keyFacts?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Key facts from research</div>
+                  <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1rem', color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.55 }}>
+                    {kb.keyFacts.map((f, i) => <li key={i}>{typeof f === 'string' ? f : f}</li>)}
+                  </ul>
+                </div>
+              )}
+              {!kb && (
+                <p style={{ margin: 0, fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.5 }}>
+                  Confirm approved baseline options with your specialist and current guidelines — this list is trial-focused.
+                </p>
+              )}
 
               <div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Late-stage trials (phase 2/3): what they are testing</div>
-                <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1rem', color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.5 }}>
-                  {byPhaseLate.slice(0, 6).map((s) => (
+                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Top late-stage trials (phase 2/3) in this list</div>
+                <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1rem', color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.55 }}>
+                  {byPhaseLate.map((s) => (
                     <li key={s.nctId || s.briefTitle}>
                       <strong style={{ color: theme.text }}>{(s.phases || []).join(', ') || 'N/A'}</strong> — {interventionText(s)}
+                      {s.relevanceLabel === 'related eye disease' && (
+                        <span style={{ color: theme.yellow }}> · related eye disease, not classic RP</span>
+                      )}
                     </li>
                   ))}
-                  {byPhaseLate.length === 0 && <li>No phase 2/3 trials in current filtered set.</li>}
+                  {byPhaseLate.length === 0 && <li>No strong phase 2/3 matches in the current filtered set.</li>}
                 </ul>
               </div>
+            </div>
+          </div>
+        );
+      };
 
-              <div>
-                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Special categories found in this live trial set</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: 6 }}>
-                  {[
-                    { k: 'Antioxidants', arr: antioxidantHits, c: theme.green },
-                    { k: 'Exosomes', arr: exosomeHits, c: theme.accent },
-                    { k: 'Peptides', arr: peptideHits, c: theme.yellow }
-                  ].map(({ k, arr, c }) => (
-                    <span key={k} title={arr.slice(0, 2).map((s) => s.nctId || s.briefTitle).join(' · ')}
-                      style={{ padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.74rem', border: `1px solid ${c}55`, color: c, background: `${c}15`, fontWeight: 700 }}>
-                      {k}: {arr.length}
-                    </span>
-                  ))}
+      // Shared score breakdown for the trials table + explainer panel.
+      const trialPromiseBreakdown = (s) => {
+        const WESTERN = new Set([
+          'United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Italy',
+          'Spain', 'Netherlands', 'Sweden', 'Denmark', 'Norway', 'Finland', 'Belgium',
+          'Switzerland', 'Ireland', 'Austria', 'Australia', 'New Zealand', 'Japan'
+        ]);
+        const CHINA_LIKE = new Set(['China', 'Vietnam', 'Mexico', 'India']);
+        const phase = (s.phases || []).join(',');
+        const chunks = [];
+        if (s.relevanceReason) {
+          chunks.push({
+            label: s.relevanceLabel || 'Condition match',
+            value: s.relevanceScore >= 45 ? '+12' : s.relevanceScore >= 15 ? '+4' : s.relevanceScore < 0 ? '-50' : '0',
+            color: s.relevanceScore >= 15 ? theme.green : s.relevanceScore < 0 ? theme.red : theme.yellow,
+            why: s.relevanceReason
+          });
+        }
+        if (phase.includes('PHASE3')) chunks.push({ label: 'Phase 3', value: '+40', color: theme.green,
+          why: 'Largest stage before FDA approval — strongest evidence that the drug works.' });
+        else if (phase.includes('PHASE2')) chunks.push({ label: 'Phase 2', value: '+25', color: theme.green,
+          why: 'Tests whether the drug works in people — earlier than phase 3 but real human data.' });
+        else if (phase.includes('PHASE1')) chunks.push({ label: 'Phase 1', value: '+10', color: theme.yellow,
+          why: 'Mostly checks safety and dose — we do not yet know if it helps your condition.' });
+        if (s.acceptingNewPatients) chunks.push({ label: 'Still enrolling', value: '+15', color: theme.green,
+          why: 'You can contact a study site today to see if you qualify.' });
+        if (!s.hasPlacebo) chunks.push({ label: 'No placebo', value: '+10', color: theme.green,
+          why: 'Everyone gets the real drug — not a dummy pill.' });
+        if (s.designations?.hasOpenLabelExtension) chunks.push({ label: 'Can keep drug after', value: '+15', color: theme.green,
+          why: 'Open-Label Extension: you may keep the drug after the main study ends.' });
+        if (s.designations?.hasExpandedAccess) chunks.push({ label: 'Outside trial access', value: '+20', color: theme.green,
+          why: 'Expanded Access: you may get the drug even if you cannot join the trial.' });
+        if ((s.topCenterScore || 0) > 0) chunks.push({ label: 'Top hospital site', value: `+${s.topCenterScore}`, color: theme.accent,
+          why: 'At least one site is a leading center for this disease.' });
+        const westernHit = (s.countries || []).some(c => WESTERN.has(c));
+        const chinaHit = (s.countries || []).some(c => CHINA_LIKE.has(c));
+        if (westernHit) chunks.push({ label: 'US/Western site', value: '+10', color: theme.accent,
+          why: 'Has a site in the US, Canada, or Western Europe — easier to verify and travel to.' });
+        if (chinaHit) chunks.push({ label: 'Hard-to-check site', value: '-15', color: theme.red,
+          why: 'Runs in a region where safety data is harder to verify from the US.' });
+        if (s.oversight?.oversightHasDMC) chunks.push({ label: 'Safety watchdog', value: '+4', color: theme.green,
+          why: 'An independent team monitors safety and can stop the study early if needed.' });
+        return chunks;
+      };
+
+      const TrialScoreExplainer = ({ trial, onClose }) => {
+        if (!trial) return null;
+        const chunks = trialPromiseBreakdown(trial);
+        return (
+          <div id="mrt-trial-why-panel" style={{
+            ...panelStyle,
+            borderLeft: `4px solid ${theme.accent}`,
+            marginBottom: '0.75rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: theme.accent, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                  Why this score?
+                </div>
+                <div style={{ fontWeight: 700, color: theme.text, marginTop: 4, lineHeight: 1.35 }}>
+                  {trial.briefTitle}
+                </div>
+                <div style={{ fontSize: '0.78rem', color: theme.textDim, marginTop: 2 }}>
+                  {trial.nctId} · Promise score <strong style={{ color: theme.text }}>{trial.promiseScore}</strong>
+                  {trial.relevanceLabel && <> · Match: <strong style={{ color: theme.text }}>{trial.relevanceLabel}</strong></>}
                 </div>
               </div>
+              <button type="button" onClick={onClose} style={{ ...btn('ghost', false), padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}>Close</button>
+            </div>
+            <div style={{ marginTop: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {chunks.map((c, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                  padding: '0.5rem 0.65rem', borderRadius: 8,
+                  border: `1px solid ${c.color}44`, background: `${c.color}10`
+                }}>
+                  <span style={{
+                    flex: '0 0 auto', minWidth: 110, textAlign: 'center',
+                    padding: '0.18rem 0.5rem', borderRadius: 999,
+                    border: `1px solid ${c.color}77`, color: c.color, background: `${c.color}20`,
+                    fontSize: '0.74rem', fontWeight: 700
+                  }}>
+                    {c.label} {c.value}
+                  </span>
+                  <span style={{ fontSize: '0.84rem', color: theme.text, lineHeight: 1.5 }}>{c.why}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: '0.75rem' }}>
+              <a href={trial.url} target="_blank" rel="noopener noreferrer" style={{ color: theme.accent, fontWeight: 600, fontSize: '0.85rem' }}>
+                Open on ClinicalTrials.gov ↗
+              </a>
             </div>
           </div>
         );
@@ -5887,56 +5966,13 @@
 
       const TrialsTable = ({ data }) => {
         const [sortMode, setSortMode] = useState('promise');
-        const [openWhy, setOpenWhy] = useState(null); // nctId currently expanded
-        const WESTERN = new Set([
-          'United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Italy',
-          'Spain', 'Netherlands', 'Sweden', 'Denmark', 'Norway', 'Finland', 'Belgium',
-          'Switzerland', 'Ireland', 'Austria', 'Australia', 'New Zealand', 'Japan'
-        ]);
-        const CHINA_LIKE = new Set(['China', 'Vietnam', 'Mexico', 'India']);
+        const [whyTrial, setWhyTrial] = useState(null);
         const phaseRank = (s) => {
           const p = (s.phases || []).join(',');
           if (p.includes('PHASE3')) return 4;
           if (p.includes('PHASE2')) return 3;
           if (p.includes('PHASE1')) return 2;
           return 1;
-        };
-        const promiseBreakdown = (s) => {
-          const phase = (s.phases || []).join(',');
-          const chunks = [];
-          if (phase.includes('PHASE3')) chunks.push({ label: 'Phase 3', value: 40, color: theme.green,
-            why: 'Phase 3 is the biggest, most careful stage of testing — the one the FDA looks at before approving a drug. The drug has already shown it is safe and has early signs that it works, and this study decides if it really does.' });
-          else if (phase.includes('PHASE2')) chunks.push({ label: 'Phase 2', value: 25, color: theme.green,
-            why: 'Phase 2 tests whether the drug actually works, not just whether it is safe. It is smaller than Phase 3, but it is the first place we see real signs that it works.' });
-          else if (phase.includes('PHASE1')) chunks.push({ label: 'Phase 1', value: 10, color: theme.yellow,
-            why: 'Phase 1 mostly checks if the drug is safe and finds the right dose. You can join, but we do not yet know if it works, and the drug may not move forward.' });
-          if (s.acceptingNewPatients) chunks.push({ label: 'Accepting', value: 15, color: theme.green,
-            why: 'The trial is actively enrolling — you can reach out to a site today and start the screening process.' });
-          if (!s.hasPlacebo) chunks.push({ label: 'No placebo', value: 10, color: theme.green,
-            why: 'Every participant gets the actual drug (no sugar-pill arm). You are guaranteed treatment, not a coin flip.' });
-          if (s.designations?.fastTrack) chunks.push({ label: 'Fast Track', value: 5, color: theme.accent,
-            why: 'The FDA put this drug on a faster path because patients need better options. That can mean it reaches people sooner.' });
-          if (s.designations?.breakthrough) chunks.push({ label: 'Breakthrough', value: 8, color: theme.accent,
-            why: 'The FDA gave this its "Breakthrough" label — an early sign the drug may work much better than what we have now. The FDA only gives this to a few very promising drugs.' });
-          if (s.designations?.orphan) chunks.push({ label: 'Rare-disease drug', value: 3, color: theme.accent,
-            why: 'The FDA says this is for a rare disease. The company gets extra rewards for making it, so they are more likely to finish the work.' });
-          if (s.designations?.hasExpandedAccess) chunks.push({ label: 'Can get drug outside trial', value: 20, color: theme.green,
-            why: 'You may be able to get the drug even if you cannot join the study (for example, if you are too sick or live too far away). This is sometimes called "compassionate use." Few drugs offer it.' });
-          if (s.designations?.hasOpenLabelExtension) chunks.push({ label: 'Can keep drug after study', value: 15, color: theme.green,
-            why: 'Open-Label Extension: if the drug seems to work, people in the study can keep taking it after it ends — and everyone gets the real drug, not a dummy pill. This matters for long-term illnesses.' });
-          if (s.designations?.hasPostTrialAccess) chunks.push({ label: 'Drug after the trial', value: 6, color: theme.yellow,
-            why: 'The company promises to keep giving you the drug after the study ends, even before the FDA approves it. Better than nothing, but it may cost money or run low.' });
-          if ((s.topCenterScore || 0) > 0) chunks.push({ label: 'Top hospital', value: s.topCenterScore, color: theme.accent,
-            why: 'At least one study site is one of the best-known hospitals for this exact disease. The care and testing at these places is usually top-notch.' });
-          const westernHit = (s.countries || []).some(c => WESTERN.has(c));
-          const chinaHit = (s.countries || []).some(c => CHINA_LIKE.has(c));
-          if (westernHit) chunks.push({ label: 'Easy-to-check location', value: 10, color: theme.accent,
-            why: 'This study has at least one site in the US, Canada, or Western Europe. That usually means easier travel, rules you can check, a safe drug supply, and better odds your insurance helps.' });
-          if (chinaHit) chunks.push({ label: 'Hard-to-check location', value: -15, color: theme.red,
-            why: 'This study runs mostly in places where the rules and data are harder to check from the US. You may still be able to join, but it is harder to be sure about safety and quality.' });
-          if (s.oversight?.oversightHasDMC) chunks.push({ label: 'Safety watchdog', value: 4, color: theme.green,
-            why: 'An independent safety team is watching this study and can stop it early if something looks unsafe. This is a sign of a careful, well-run study.' });
-          return chunks;
         };
         const efficacyProxyScore = (s) => {
           let n = 0;
@@ -5955,22 +5991,27 @@
           }
           return (b.promiseScore || 0) - (a.promiseScore || 0);
         });
+        const matchColor = (label) => {
+          if (label === 'strong match') return theme.green;
+          if (label === 'likely match') return theme.accent;
+          if (label === 'related eye disease' || label === 'weak match') return theme.yellow;
+          if (label === 'wrong disease') return theme.red;
+          return theme.textDim;
+        };
         return (
         <div style={panelStyle}>
+          <TrialScoreExplainer trial={whyTrial} onClose={() => setWhyTrial(null)} />
           <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-            Showing the top 25 trials (out of {data.returned} shown / {data.total} found on ClinicalTrials.gov) · sorted by how promising they are
-            <span
-              title="The promise score adds up several things: how far along the trial is, whether it is taking patients, whether it uses a placebo, how closely it is watched for safety, whether you can get the drug outside the trial, and whether a top center is involved. A higher score means easier access and a better-designed trial."
-              style={{
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                width: 16, height: 16, borderRadius: '50%',
-                border: `1px solid ${theme.border}`, color: theme.textDim,
-                fontSize: '0.68rem', cursor: 'help', lineHeight: 1
-              }}
-            >
-              ?
-            </span>
+            Top {Math.min(25, rows.length)} trials · {data.total} matched after filtering
+            {(data.breakdown?.droppedWrongCondition || 0) > 0 && (
+              <span style={{ fontSize: '0.78rem', color: theme.textDim, fontWeight: 400 }}>
+                ({data.breakdown.droppedWrongCondition} wrong-disease studies removed)
+              </span>
+            )}
           </h3>
+          <p style={{ margin: '0 0 0.65rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.45 }}>
+            Tap <strong>Why this score?</strong> on any row to see exactly how the number was built.
+          </p>
           <div style={{ marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.78rem', color: theme.textDim }}>Sort by:</span>
             <select
@@ -5996,13 +6037,27 @@
               <tbody>
                 {rows.slice(0, 25).map((s, idx) => {
                   const rowKey = s.nctId || `${s.briefTitle || 'trial'}-${idx}`;
-                  const why = promiseBreakdown(s);
+                  const isSelected = whyTrial?.nctId === s.nctId;
                   return (
-                    <React.Fragment key={rowKey}>
-                      <tr style={{ borderBottom: `1px solid ${theme.border}`, verticalAlign: 'top' }}>
+                      <tr key={rowKey} style={{
+                        borderBottom: `1px solid ${theme.border}`,
+                        verticalAlign: 'top',
+                        background: isSelected ? `${theme.accent}12` : 'transparent'
+                      }}>
                         <td style={{ padding: '0.6rem', maxWidth: 360 }}>
                           <div style={{ color: theme.accent, fontWeight: 600 }}>{s.briefTitle}</div>
                           <div style={{ color: theme.textDim, fontSize: '0.75rem' }}>{s.nctId} · {s.sponsor || ''}</div>
+                          {s.relevanceLabel && (
+                            <span style={{
+                              display: 'inline-block', marginTop: 4, fontSize: '0.68rem', fontWeight: 700,
+                              padding: '0.12rem 0.4rem', borderRadius: 999,
+                              color: matchColor(s.relevanceLabel),
+                              border: `1px solid ${matchColor(s.relevanceLabel)}55`,
+                              background: `${matchColor(s.relevanceLabel)}12`
+                            }}>
+                              {s.relevanceLabel}
+                            </span>
+                          )}
                         </td>
                         <td style={{ padding: '0.6rem' }}>{(s.phases || []).join(', ') || '—'}</td>
                         <td style={{ padding: '0.6rem' }}>{s.status}</td>
@@ -6028,16 +6083,25 @@
                         <td style={{ padding: '0.6rem', fontWeight: 700 }}>
                           <div>{s.promiseScore}</div>
                           <button
-                            onClick={() => setOpenWhy((v) => (v === rowKey ? null : rowKey))}
+                            type="button"
+                            onClick={() => {
+                              setWhyTrial(isSelected ? null : s);
+                              if (!isSelected) {
+                                setTimeout(() => {
+                                  document.getElementById('mrt-trial-why-panel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                }, 50);
+                              }
+                            }}
                             style={{
                               marginTop: 4,
-                              background: 'transparent', border: `1px solid ${theme.border}`,
-                              color: theme.textDim, borderRadius: 6, padding: '0.08rem 0.35rem',
-                              fontSize: '0.68rem', cursor: 'pointer'
+                              background: isSelected ? `${theme.accent}22` : 'transparent',
+                              border: `1px solid ${isSelected ? theme.accent : theme.border}`,
+                              color: isSelected ? theme.accent : theme.textDim,
+                              borderRadius: 6, padding: '0.15rem 0.45rem',
+                              fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600
                             }}
-                            title="Show numeric score breakdown"
                           >
-                            {openWhy === rowKey ? 'hide' : 'why?'}
+                            {isSelected ? 'Hide score' : 'Why this score?'}
                           </button>
                         </td>
                         <td style={{ padding: '0.6rem' }}>
@@ -6046,50 +6110,6 @@
                           </a>
                         </td>
                       </tr>
-                      {openWhy === rowKey && (
-                        <tr style={{ borderBottom: `1px solid ${theme.border}` }}>
-                          <td colSpan={10} style={{ padding: '0.6rem 0.8rem 0.85rem', background: `${theme.accent}08` }}>
-                            <div style={{ fontSize: '0.78rem', color: theme.text, marginBottom: 8, fontWeight: 600 }}>
-                              Why this trial scored {s.promiseScore}
-                            </div>
-                            <div style={{ fontSize: '0.72rem', color: theme.textDim, marginBottom: 10, lineHeight: 1.45 }}>
-                              Each factor below contributed to (or subtracted from) the promise score. The score
-                              is meant to surface trials that are <em>practically</em> accessible and rigorously
-                              designed — not just "matches your disease." Hover or read the plain-English reason
-                              under each chip.
-                            </div>
-                            {why.length === 0 ? (
-                              <span style={{ fontSize: '0.78rem', color: theme.textDim }}>
-                                No scoring components detected for this trial — it placed in the top 25 only
-                                because it matched the condition query.
-                              </span>
-                            ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
-                                {why.map((c, i) => (
-                                  <div key={i} style={{
-                                    display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
-                                    padding: '0.45rem 0.6rem', borderRadius: 8,
-                                    border: `1px solid ${c.color}44`, background: `${c.color}10`
-                                  }}>
-                                    <span style={{
-                                      flex: '0 0 auto', minWidth: 96, textAlign: 'center',
-                                      padding: '0.16rem 0.48rem', borderRadius: 999,
-                                      border: `1px solid ${c.color}77`, color: c.color, background: `${c.color}20`,
-                                      fontSize: '0.74rem', fontWeight: 700
-                                    }}>
-                                      {c.label} {c.value >= 0 ? `+${c.value}` : c.value}
-                                    </span>
-                                    <span style={{ fontSize: '0.78rem', color: theme.text, lineHeight: 1.5 }}>
-                                      {c.why || 'Scoring factor — no plain-English explanation available.'}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
                   );
                 })}
               </tbody>
