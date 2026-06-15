@@ -8,6 +8,10 @@
     {
       "path": "/api/alerts-cron",
       "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/api/brain-cron",
+      "schedule": "0 6 * * *"
     }
   ]
 }

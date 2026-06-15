@@ -1148,7 +1148,9 @@ export default async function handler(req, res) {
         },
         dynamicKb: {
           enabled: String(process.env.MRT_DYNAMIC_KB || '1').trim() !== '0',
-          store: String(process.env.UPSTASH_REDIS_REST_URL || '').trim() ? 'upstash-redis' : 'in-memory'
+          store: String(process.env.UPSTASH_REDIS_REST_URL || '').trim() ? 'upstash-redis' : 'in-memory',
+          refreshHours: Number(process.env.MRT_BRAIN_REFRESH_HOURS || 24),
+          dailyCron: String(process.env.MRT_BRAIN_CRON || '1').trim() !== '0'
         },
         monetization: {
           devUnlimited,
