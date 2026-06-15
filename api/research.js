@@ -42,6 +42,12 @@ import { asInternalReq } from '../lib/internal-call.js';
 import { getInfraStatus } from '../lib/infra-status.js';
 import { registryStats as diseaseRegistryStats } from '../lib/disease-registry.js';
 import { registryStats as drugRegistryStats, selectRepurposeDrugs, buildRepurposeDrugLibraryBlock } from '../lib/drug-registry.js';
+import { resolveCondition, detectValidationMismatch } from '../lib/condition-resolver.js';
+import {
+  parsePatientMessage,
+  mergePatientFromMessage,
+  extractConditionFromMessage
+} from '../lib/patient-intake.js';
 
 // Primary synthesis model. User requested "Opus instead of Sonnet" support:
 // set ANTHROPIC_RESEARCH_MODEL in env to any Anthropic model your account has
@@ -222,6 +228,56 @@ const evidenceIsUsable = (ev) =>
 // Gather returns pools to the browser, which POSTs them back for synthesize.
 // Trials + evidence can exceed 1MB and break slow clients; trim to what the
 // UI and synth path actually need (matches the final-response shape below).
+// Slim pools the client POSTs back for synthesize — keeps request bodies
+// under ~500KB so mobile clients and Vercel don't choke.
+const trimSynthPools = (pools = {}) => {
+  const { dossier, evidence, trials } = pools;
+  const slimEvidence = evidence
+    ? {
+        condition: evidence.condition,
+        dossier: evidence.dossier,
+        pipelineDrugs: evidence.pipelineDrugs || [],
+        excludedAgents: evidence.excludedAgents || [],
+        totalUnique: evidence.totalUnique,
+        totalFetched: evidence.totalFetched,
+        perSourceCounts: evidence.perSourceCounts,
+        accessBreakdown: evidence.accessBreakdown,
+        promptPackBreakdown: evidence.promptPackBreakdown,
+        qualityBreakdown: evidence.qualityBreakdown,
+        knowledgeBase: evidence.knowledgeBase,
+        fdaLabels: (evidence.fdaLabels || []).slice(0, 4),
+        fdaManufacturers: (evidence.fdaManufacturers || []).slice(0, 3),
+        groundedForPrompt: (evidence.groundedForPrompt || []).slice(0, 25).map((a) => ({
+          ...a,
+          text: (a.text || '').slice(0, 1800)
+        })),
+        topRanked: (evidence.topRanked || []).slice(0, 15).map((a) => ({
+          id: a.id,
+          title: a.title,
+          journal: a.journal,
+          year: a.year,
+          url: a.url || a.pmcUrl || a.pubmedUrl || a.doiUrl,
+          accessLevel: a.accessLevel,
+          abstract: (a.abstract || '').slice(0, 800)
+        }))
+      }
+    : null;
+  return {
+    dossier,
+    evidence: slimEvidence,
+    trials: trials
+      ? {
+          total: trials.total,
+          returned: trials.returned,
+          breakdown: trials.breakdown,
+          subQueries: trials.subQueries,
+          query: trials.query,
+          studies: (trials.studies || []).slice(0, 20)
+        }
+      : null
+  };
+};
+
 const trimGatherPools = ({ dossier, evidence, trials }) => ({
   dossier,
   evidence: evidence
@@ -246,7 +302,10 @@ const trimGatherPools = ({ dossier, evidence, trials }) => ({
           fullText: (a.fullText || '').slice(0, 2000),
           abstract: (a.abstract || '').slice(0, 1500)
         })),
-        groundedForPrompt: evidence.groundedForPrompt,
+        groundedForPrompt: (evidence.groundedForPrompt || []).slice(0, 25).map((a) => ({
+          ...a,
+          text: (a.text || '').slice(0, 2000)
+        })),
         fdaLabels: evidence.fdaLabels,
         fdaManufacturers: evidence.fdaManufacturers
       }
@@ -654,6 +713,9 @@ const buildPatientContext = (p = {}) => {
   if (p.geneticVariant) {
     lines.push(`CONFIRMED GENETIC MUTATION / VARIANT (use this to gate gene-therapy and gene-targeted small-molecule recommendations): ${p.geneticVariant}
   → For EVERY gene-targeted therapy you mention, you MUST explicitly check whether the therapy targets the SAME gene as the patient's variant. If yes, call out the eligibility match. If no, write "NOT ELIGIBLE — therapy targets <other gene>, patient carries <patient's gene>." Do not silently recommend gene therapies for the wrong gene.`);
+  }
+  if (p.caregiverContext) {
+    lines.push(`CAREGIVER CONTEXT: ${p.caregiverContext} — tailor answers to the person being cared for, not the person typing.`);
   }
   return lines.length ? lines.join('\n') : 'No patient context provided.';
 };
@@ -1193,6 +1255,39 @@ export default async function handler(req, res) {
       });
     }
 
+    if (mode === 'resolve-condition') {
+      const condition = String(req.body?.condition || req.query?.condition || '').trim();
+      if (!condition) return res.status(400).json({ error: 'condition is required' });
+      const resolution = await resolveCondition(condition);
+      return res.status(200).json(resolution);
+    }
+
+    if (mode === 'parse-patient-message') {
+      const message = String(req.body?.message || '').trim();
+      if (!message) return res.status(400).json({ error: 'message is required' });
+      const parsed = parsePatientMessage(message);
+      const { patient: mergedPatient, merged, fieldsUpdated } = mergePatientFromMessage(
+        req.body?.patient || {},
+        parsed
+      );
+      let conditionResolution = null;
+      const cond = parsed.conditionRaw || mergedPatient.condition;
+      if (cond) {
+        conditionResolution = await resolveCondition(cond);
+        if (conditionResolution?.resolved && conditionResolution.matchScore >= 55) {
+          mergedPatient.condition = conditionResolution.resolved;
+        }
+      }
+      return res.status(200).json({
+        ok: true,
+        parsed,
+        merged,
+        fieldsUpdated,
+        patient: mergedPatient,
+        conditionResolution
+      });
+    }
+
     if (mode === 'usage') {
       try {
         const ip = getClientIp(req);
@@ -1406,15 +1501,7 @@ export default async function handler(req, res) {
       return lastUser?.content ? String(lastUser.content).trim() : '';
     })();
     // Heuristic: trim long conversational messages down to the medical noun
-    // phrase. "Ok RP, give me info" → "RP". If the message is short (< 60
-    // chars), just pass it whole to the dossier agent (it handles aliases).
-    const extractConditionFromMessage = (msg) => {
-      if (!msg) return '';
-      const clean = msg.replace(/["?.,!]+/g, ' ').trim();
-      if (clean.length < 60) return clean;
-      const m = clean.match(/\b([A-Z]{2,6}|[a-z][a-z\- ]{3,40})\b/);
-      return (m && m[1]) ? m[1] : clean.slice(0, 60);
-    };
+    // phrase. "My mom has LADA and takes insulin…" → "LADA".
     const effectiveCondition =
       (patient.condition || '').trim() ||
       extractConditionFromMessage(latestUserMsg);
@@ -1433,9 +1520,14 @@ export default async function handler(req, res) {
     // Phase: 'synthesize' trusts client-provided pools, skips fan-out.
     // Everything else (gather / all) does the live pulls.
     if (phase === 'synthesize') {
-      dossier = providedDossier || null;
-      evidence = providedEvidence || null;
-      trials = providedTrials || null;
+      const slim = trimSynthPools({
+        dossier: providedDossier,
+        evidence: providedEvidence,
+        trials: providedTrials
+      });
+      dossier = slim.dossier || null;
+      evidence = slim.evidence || null;
+      trials = slim.trials || null;
       // Same safety net on the synth side: if the gather handed us empty/null
       // evidence (slow PubMed, old client payload), rebuild grounding from the
       // curated KB so the candidate lanes still get the excludedAgents guardrail,
@@ -1531,10 +1623,14 @@ export default async function handler(req, res) {
     // sub-60s serverless invocations.
     if (phase === 'gather') {
       const trimmed = trimGatherPools({ dossier, evidence, trials });
+      const conditionResolution = effectiveCondition
+        ? await resolveCondition(effectiveCondition)
+        : null;
       return res.status(200).json({
         phase: 'gather',
         model,
         maxTokens,
+        conditionResolution,
         ...trimmed
       });
     }
@@ -1681,7 +1777,9 @@ ${dossierInChat ? dossierInChat + '\n' : ''}${hasPriors ? priorPieces.join('\n\n
 
 7. For drug interactions / contraindications / dosing for THIS patient, check their medication list and comorbidities and give specific answers.
 
-8. Keep disclaimers short and at the END if at all. Never lead with a disclaimer.
+9. **Conversational intake:** Users often describe a loved one in plain English ("my mom has LADA and takes insulin twice a day"). If CAREGIVER CONTEXT is set, answer about **that person** — use their meds, age, and condition from the profile. Acknowledge naturally: "For your mom's LADA…" Do NOT ask them to fill out a form before answering.
+
+10. Keep disclaimers short and at the END if at all. Never lead with a disclaimer.
 
 ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer from the dossier, prior analyses if present, and your own medical knowledge.)'}`;
         break;
@@ -1746,8 +1844,13 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error('Anthropic API error:', errorData);
-      return res.status(response.status).json({
-        error: errorData.error?.message || 'API request failed',
+      const msg =
+        errorData.error?.message ||
+        errorData.error?.type ||
+        (typeof errorData.error === 'string' ? errorData.error : null) ||
+        `Claude API failed (HTTP ${response.status})`;
+      return res.status(response.status >= 500 ? 502 : response.status).json({
+        error: msg,
         details: errorData
       });
     }
@@ -1824,6 +1927,12 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
         finalMissed: initialMissed.map((d) => d.name)
       };
       if (initialMissed.length > 0) {
+        // Research front half: skip forced rewrite — it doubles latency and
+        // often causes the whole run to fail on mobile. Missing an approved
+        // drug in section 3 on pass 1 is acceptable; back half + transparency
+        // block still surface the pipeline list.
+        const skipReprompt = mode === 'research' && half === 'front';
+        if (!skipReprompt) {
         // Construct a targeted re-prompt. We don't send the whole system
         // prompt again — we send the previous draft plus a directive that
         // calls out the missed drugs by name.
@@ -1890,6 +1999,7 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
           }
         } catch (err) {
           console.error('[research] coverage-audit reprompt failed:', err.message);
+        }
         }
       }
     }
@@ -2024,10 +2134,17 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
         mode === 'repurpose' && evidence?.repurposeDrugScreen
           ? evidence.repurposeDrugScreen
           : undefined,
+      validationMismatch: detectValidationMismatch(
+        validation,
+        patient?.condition || effectiveCondition
+      ),
       validation
     });
   } catch (error) {
     console.error('research.js error:', error);
-    return res.status(500).json({ error: 'Internal server error', message: error.message });
+    return res.status(500).json({
+      error: error?.message || 'Internal server error',
+      message: error?.message || 'Internal server error'
+    });
   }
 }

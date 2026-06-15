@@ -315,6 +315,14 @@
         console.warn('[MRT] Opened as file:// — /api/* will not work. ' + localApiDevHint);
       }
 
+      const formatApiError = (data, res) => {
+        if (!data) return `Request failed (HTTP ${res?.status || '?'})`;
+        if (typeof data.error === 'string') return data.error;
+        if (data.error?.message) return data.error.message;
+        if (data.message) return data.message;
+        return `Request failed (HTTP ${res?.status || '?'})`;
+      };
+
       // Shared non-JSON / edge-error parser for all /api/research callers.
       const parseApiJsonResponse = (res, raw, { timeoutMsg } = {}) => {
         let data;
@@ -929,10 +937,10 @@
          single tab. */
       const FLOATING_CHAT_LS_KEY = 'mrt_floating_chat_v1';
       const FLOATING_CHAT_QUICK_STARTS = [
-        "Why didn't you discuss CAR-T therapy?",
-        "Are there drugs you considered and rejected for this condition?",
-        "What evidence is your top recommendation based on?",
-        "Did you check my medications for interactions?"
+        'My mom has LADA and takes insulin twice a day — what should we know?',
+        'My dad was just diagnosed with IPF — what are the main treatment options?',
+        'She is 65 with type 1 diabetes and kidney disease — any drug interaction worries?',
+        'What trials are recruiting for retinitis pigmentosa right now?'
       ];
 
       const FloatingChat = ({
@@ -1155,7 +1163,7 @@
                     marginTop: 2,
                     lineHeight: 1.4
                   }}>
-                    Uses your patient profile and any analyses you've run.
+                    Plain-English questions · profile fills in as you talk
                   </div>
                 </div>
                 <button
@@ -1203,14 +1211,15 @@
               >
                 {history.length === 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <div style={{
-                      color: theme.textDim,
-                      fontSize: '0.82rem',
-                      lineHeight: 1.5,
-                      marginBottom: 4
-                    }}>
-                      Try one of these to get started, or type your own question:
-                    </div>
+                  <div style={{
+                    color: theme.textDim,
+                    fontSize: '0.82rem',
+                    lineHeight: 1.5,
+                    marginBottom: 4
+                  }}>
+                    Describe the situation in plain English — we update your profile automatically.
+                    Or tap a suggestion:
+                  </div>
                     {FLOATING_CHAT_QUICK_STARTS.map((p, i) => (
                       <button
                         key={i}
@@ -1255,6 +1264,13 @@
                     }}>
                       {m.role === 'user' ? 'You' : 'Assistant'}
                     </div>
+                    {m.profileNote && (
+                      <div style={{
+                        fontSize: '0.68rem', color: theme.green, marginBottom: 4,
+                        padding: '0.2rem 0.45rem', borderRadius: 5,
+                        background: `${theme.green}12`, border: `1px solid ${theme.green}33`
+                      }}>{m.profileNote}</div>
+                    )}
                     {m.role === 'user'
                       ? (
                         <div style={{
@@ -1361,18 +1377,12 @@
       const App = () => {
         const [tab, setTab] = useState('profile');
         const [patient, setPatient] = useState(() => loadLS('mrt_patient', {
-          condition: 'Idiopathic Pulmonary Fibrosis', stage: '',
+          condition: '', stage: '',
           age: '', gender: '', weight: '',
           smoking: '', exercise: '',
           diagnoses: '', medications: '', symptoms: '', labWork: '', scans: '',
-          // Genetic mutation / variant — critical for gene-therapy eligibility
-          // (e.g. Luxturna is only for biallelic RPE65, OCU400 takes any RP
-          // gene including USH2A, jCell/PTK-7 take rod-cone dystrophy without
-          // requiring a specific mutation, Tofersen is only for SOD1 ALS,
-          // Elevidys is only for confirmed exon-deleted DMD). If we don't
-          // capture this, the analysis silently recommends therapies the
-          // patient can't actually qualify for.
-          geneticVariant: ''
+          geneticVariant: '',
+          caregiverContext: ''
         }));
         const [audience, setAudience] = useState(() => loadLS('mrt_audience', 'layperson'));
         const [acceptedHipaa, setAcceptedHipaa] = useState(() => loadLS('mrt_hipaa', false) || loadLS(MRT_TERMS_KEY, false));
@@ -1433,6 +1443,9 @@
         const [repurposeDrugScreen, setRepurposeDrugScreen] = useState(null);
         const [evidencePack, setEvidencePack] = useState([]);
         const [dossier, setDossier] = useState(null);
+        const [conditionResolution, setConditionResolution] = useState(null);
+        const [validationMismatch, setValidationMismatch] = useState({ research: null, repurpose: null });
+        const [lastGathered, setLastGathered] = useState(null);
 
         // Deep-research progress state. When runResearch('research'|'repurpose')
         // is in flight, `progress.active === true` and `progress.steps` tracks
@@ -1459,6 +1472,20 @@
           });
           if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
           return d;
+        };
+
+        // Turn plain English ("my mom has LADA…") into profile fields before chat
+        // or research runs. Fast regex on the server — no extra LLM call.
+        const applyMessageToProfile = async (message) => {
+          try {
+            const data = await callResearchMode('parse-patient-message', { message, patient });
+            if (data.merged && data.patient) {
+              setPatient(data.patient);
+              if (data.conditionResolution) setConditionResolution(data.conditionResolution);
+              return { fieldsUpdated: data.fieldsUpdated || [], patient: data.patient };
+            }
+          } catch (_) {}
+          return { fieldsUpdated: [], patient };
         };
 
         useEffect(() => saveLS('mrt_patient', patient), [patient]);
@@ -1523,6 +1550,26 @@
             setTab('profile');
             return;
           }
+
+          // Silently canonicalize condition when we can infer a better name.
+          let runPatient = patient;
+          if (mode === 'research' || mode === 'repurpose') {
+            const typed = patient.condition.trim();
+            try {
+              const resolution = await callResearchMode('resolve-condition', { condition: typed });
+              setConditionResolution(resolution);
+              if (resolution?.resolved && resolution.resolved !== typed && resolution.matchScore >= 40) {
+                runPatient = { ...patient, condition: resolution.resolved };
+                setPatient(runPatient);
+              }
+            } catch (_) { /* proceed with typed condition */ }
+          }
+
+          // Retry path: gather already succeeded — only re-run synthesis.
+          const skipGather = extra.skipGather && lastGathered?.mode === mode;
+          const gatheredPools = skipGather ? lastGathered : null;
+
+          setValidationMismatch((v) => ({ ...v, [mode]: null }));
           setBusy(mode);
           if (mode === 'repurpose') setRepurposeDrugScreen(null);
           // Seed deep-research progress for research/repurpose (the heavy,
@@ -1589,9 +1636,10 @@
             const retryable =
               retriesLeft > 0 &&
               (payload.phase === 'synthesize' || payload.phase === 'gather') &&
-              res.status !== 402 && res.status !== 401 &&
+              res.status !== 402 && res.status !== 401 && res.status !== 413 &&
               (res.status >= 500 ||
-               /timeout|FUNCTION_INVOCATION|504|502|Gateway|empty|unexpected end/i.test(raw || ''));
+               res.status === 429 ||
+               /timeout|FUNCTION_INVOCATION|504|502|529|overloaded|Gateway|empty|unexpected end/i.test(raw || ''));
 
             let data;
             try {
@@ -1621,8 +1669,8 @@
                   (p.upgradeUrl ? ` Upgrade: ${p.upgradeUrl}` : ' Enter an upgrade code on the Profile tab.')
                 );
               }
-              const errMsg = data?.error?.message || data?.error || data?.message;
-              throw new Error(typeof errMsg === 'string' ? errMsg : `Request failed (HTTP ${res.status})`);
+              const errMsg = formatApiError(data, res);
+              throw new Error(errMsg);
             }
             return data;
           };
@@ -1633,13 +1681,23 @@
             const useTwoPhase = (mode === 'research' || mode === 'repurpose');
             let data;
             if (useTwoPhase) {
-              const gathered = await callResearch({
-                mode, patient, audience, phase: 'gather', ...extra
+              const gathered = gatheredPools || await callResearch({
+                mode, patient: runPatient, audience, phase: 'gather', ...extra
               });
+              if (!gatheredPools) {
+                setLastGathered({
+                  mode,
+                  dossier: gathered.dossier,
+                  evidence: gathered.evidence,
+                  trials: gathered.trials,
+                  at: Date.now()
+                });
+              }
               // Expose the pools in the UI as soon as phase 1 finishes so
               // the user sees dossier / trials / evidence panels populate
               // before Claude's full narrative arrives.
               if (gathered.dossier) setDossier(gathered.dossier);
+              if (gathered.conditionResolution) setConditionResolution(gathered.conditionResolution);
               if (gathered.evidence) {
                 setEvidenceSummary(gathered.evidence);
                 setEvidencePack(gathered.evidence.topRanked || []);
@@ -1681,7 +1739,7 @@
                 // FRONT half: sections 1-4 (snapshot, centers,
                 // treatments, trials & access programs).
                 const front = await callResearch({
-                  mode, patient, audience,
+                  mode, patient: runPatient, audience,
                   phase: 'synthesize',
                   half: 'front',
                   providedDossier: gathered.dossier,
@@ -1702,7 +1760,7 @@
                   .map(b => b.text)
                   .join('\n');
                 const back = await callResearch({
-                  mode, patient, audience,
+                  mode, patient: runPatient, audience,
                   phase: 'synthesize',
                   half: 'back',
                   providedDossier: gathered.dossier,
@@ -1728,7 +1786,8 @@
                   dossier:    back.dossier    || front.dossier,
                   evidence:   back.evidence   || front.evidence,
                   trials:     back.trials     || front.trials,
-                  validation: back.validation || front.validation || null
+                  validation: back.validation || front.validation || null,
+                  validationMismatch: back.validationMismatch || front.validationMismatch || null
                 };
               } else if (mode === 'repurpose') {
                 // Candidate generation is split into several SMALL "lane"
@@ -1740,7 +1799,7 @@
                 // keeps total time low AND means a single batch hiccup only
                 // costs a few candidates instead of the whole report.
                 const synthArgs = {
-                  mode, patient, audience,
+                  mode, patient: runPatient, audience,
                   phase: 'synthesize',
                   providedDossier: gathered.dossier,
                   providedEvidence: gathered.evidence,
@@ -1783,7 +1842,8 @@
                   dossier: back?.dossier || okFronts[0]?.dossier,
                   evidence: back?.evidence || okFronts[0]?.evidence,
                   trials: back?.trials || okFronts[0]?.trials,
-                  validation: back?.validation || okFronts[0]?.validation || null
+                  validation: back?.validation || okFronts[0]?.validation || null,
+                  validationMismatch: back?.validationMismatch || okFronts[0]?.validationMismatch || null
                 };
               } else {
                 data = await callResearch({ mode, patient, audience, phase: 'synthesize', ...extra });
@@ -1805,6 +1865,9 @@
             }
             if (mode !== 'chat' && data.validation) {
               setValidations((v) => ({ ...v, [mode]: data.validation }));
+            }
+            if (mode !== 'chat' && data.validationMismatch) {
+              setValidationMismatch((v) => ({ ...v, [mode]: data.validationMismatch }));
             }
             // Second-AI check: NEVER mark "not set up" when Perplexity WILL run.
             // Await it during deep modes so the progress bar tells the truth.
@@ -1828,6 +1891,9 @@
                 });
                 if (vResult && !vResult.error && vResult.primary) {
                   const p = vResult.primary;
+                  if (vResult.validationMismatch) {
+                    setValidationMismatch((v) => ({ ...v, [mode]: vResult.validationMismatch }));
+                  }
                   updateStep('validate', {
                     status: 'done',
                     detail: `${p.overallScore ?? '?'}% agreement · ${(p.disputed || []).length} flagged`
@@ -2009,6 +2075,9 @@
               return err;
             }
             setValidations((v) => ({ ...v, [mode]: data }));
+            if (data.validationMismatch) {
+              setValidationMismatch((v) => ({ ...v, [mode]: data.validationMismatch }));
+            }
             return data;
           } catch (err) {
             const errObj = { error: err.message };
@@ -2021,21 +2090,15 @@
           if (!userQuery.trim()) return;
           const q = userQuery.trim();
           setUserQuery('');
-          setChatHistory(h => [...h, { role: 'user', content: q }]);
+          const { fieldsUpdated, patient: chatPatient } = await applyMessageToProfile(q);
+          setChatHistory(h => [...h, {
+            role: 'user',
+            content: q,
+            profileNote: fieldsUpdated.length
+              ? `Saved to your profile: ${fieldsUpdated.join(', ')}`
+              : null
+          }]);
           setBusy('chat');
-
-          // If the user typed a plausible disease name into chat and their
-          // patient profile has no condition yet, auto-populate it from the
-          // chat message. Lets them hit "Run Research" afterward without
-          // having to retype the condition into the profile tab. We keep the
-          // heuristic intentionally loose — the backend's dossier agent will
-          // sanity-check whatever we pass in anyway.
-          if (!patient.condition?.trim() && q.length <= 80 && !/[?]/.test(q)) {
-            const candidate = q.replace(/^(ok|hey|hi|hello|please|tell me about|give me info on|what is|info on)\s+/i, '').trim();
-            if (candidate.length >= 2 && candidate.length <= 80) {
-              setPatient(p => ({ ...p, condition: candidate }));
-            }
-          }
           try {
             // Pass the prior analyses + cached evidence pack so chat mode
             // has real context to answer from. Before this, chat ran with no
@@ -2057,7 +2120,7 @@
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                mode: 'chat', patient, audience, userQuery: q,
+                mode: 'chat', patient: chatPatient, audience, userQuery: q,
                 chatHistory: chatHistory.slice(-10),
                 priorAnalyses: {
                   research: researchText || undefined,
@@ -2092,10 +2155,15 @@
         const sendFloatingChat = async (text) => {
           const q = String(text || '').trim();
           if (!q || floatingChatBusy) return;
-          // Capture history BEFORE appending so the prior turns we send
-          // upstream don't include the user's brand-new message twice.
           const baseHistory = floatingChatHistory.slice(-10);
-          setFloatingChatHistory(h => [...h, { role: 'user', content: q }]);
+          const { fieldsUpdated, patient: chatPatient } = await applyMessageToProfile(q);
+          setFloatingChatHistory(h => [...h, {
+            role: 'user',
+            content: q,
+            profileNote: fieldsUpdated.length
+              ? `Saved to profile: ${fieldsUpdated.join(', ')}`
+              : null
+          }]);
           setFloatingChatBusy(true);
           try {
             const packForChat = (evidencePack || []).slice(0, 18).map((a) => ({
@@ -2113,7 +2181,7 @@
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                mode: 'chat', patient, audience, userQuery: q,
+                mode: 'chat', patient: chatPatient, audience, userQuery: q,
                 chatHistory: baseHistory,
                 priorAnalyses: {
                   research: researchText || undefined,
@@ -2177,6 +2245,7 @@
               {tab === 'profile' && <PatientTab patient={patient} setPatient={setPatient}
                 audience={audience} setAudience={setAudience}
                 setTab={setTab} runResearch={runResearch} busy={busy}
+                applyMessageToProfile={applyMessageToProfile}
                 runtimeConfig={runtimeConfig} usageInfo={usageInfo}
                 acceptedHipaa={acceptedHipaa} setAcceptedHipaa={setAcceptedHipaa}
                 refreshUsage={async () => {
@@ -2185,13 +2254,20 @@
               {tab === 'research' && <ResearchTab
                 patient={patient} busy={busy} runResearch={runResearch}
                 researchText={researchText} treatments={treatments}
-                validation={validations.research} evidenceSummary={evidenceSummary}
+                validation={validations.research}
+                validationMismatch={validationMismatch.research}
+                conditionResolution={conditionResolution}
+                evidenceSummary={evidenceSummary}
                 dossier={dossier} progress={progress} coverageAudit={coverageAudit}
+                onRetrySynth={() => runResearch('research', { skipGather: true })}
+                canRetrySynth={!!lastGathered?.mode && lastGathered.mode === 'research'}
                 chatHistory={chatHistory} userQuery={userQuery}
                 setUserQuery={setUserQuery} sendChat={sendChat}
                 onAudit={() => auditAnalysis('research')}
                 runtimeConfig={runtimeConfig}
-                runMeta={lastRunMeta.research} />}
+                runMeta={lastRunMeta.research}
+                setTab={setTab}
+                onDismissMismatch={() => setValidationMismatch((v) => ({ ...v, research: null }))} />}
               {tab === 'trials' && <TrialsTab
                 patient={patient} busy={busy} trialsData={trialsData}
                 trialBlocks={trialBlocks} trialsText={trialsText}
@@ -2203,11 +2279,17 @@
               {tab === 'repurpose' && <RepurposeTab
                 patient={patient} audience={audience} busy={busy} runResearch={runResearch}
                 repurposeText={repurposeText} candidates={candidates}
-                validation={validations.repurpose} progress={progress}
+                validation={validations.repurpose}
+                validationMismatch={validationMismatch.repurpose}
+                progress={progress}
+                onRetrySynth={() => runResearch('repurpose', { skipGather: true })}
+                canRetrySynth={!!lastGathered?.mode && lastGathered.mode === 'repurpose'}
                 onAudit={() => auditAnalysis('repurpose')}
                 runtimeConfig={runtimeConfig}
                 runMeta={lastRunMeta.repurpose}
-                drugScreen={repurposeDrugScreen} />}
+                drugScreen={repurposeDrugScreen}
+                setTab={setTab}
+                onDismissMismatch={() => setValidationMismatch((v) => ({ ...v, repurpose: null }))} />}
               {tab === 'chart' && <ChartTab treatments={treatments} candidates={candidates} />}
               {tab === 'refs' && <RefsTab references={references} evidencePack={evidencePack} evidenceSummary={evidenceSummary} />}
             </div>
@@ -3039,7 +3121,27 @@
             symptoms: 'Nyctalopia since teens, progressive peripheral field constriction over 10 years, photophobia in bright light, no central vision loss yet',
             labWork: 'Visual acuity 20/30 OD, 20/25 OS. Goldmann visual field <15° remaining both eyes. ERG: severely reduced rod responses, cone responses preserved but reduced. OCT: outer retinal atrophy with preserved central fovea.',
             scans: 'Fundus photo: classic bone-spicule pigmentation in mid-periphery, attenuated retinal vessels, waxy pallor of optic disc. Audiogram: bilateral high-frequency SNHL.',
-            geneticVariant: 'USH2A compound heterozygous: c.2299delG (p.Glu767SerfsTer21) and c.7595-2144A>G (deep intronic). Confirmed via clinical panel at Bascom Palmer (3/2026). USH2A is the most common Usher IIA gene — relevant for OCU400, jCell, antisense oligonucleotide trials (QR-421a / ultevursen). NOT eligible for Luxturna (which is RPE65-only).'
+            geneticVariant: ''
+          }
+        },
+        lada: {
+          label: 'LADA — caregiver demo',
+          icon: '💉',
+          data: {
+            condition: 'Latent autoimmune diabetes in adults',
+            stage: '',
+            age: '62',
+            gender: 'Female',
+            weight: '',
+            smoking: 'Never',
+            exercise: '',
+            diagnoses: '',
+            medications: 'Insulin glargine at bedtime; rapid-acting insulin with meals',
+            symptoms: '',
+            labWork: 'C-peptide low; GAD65 antibodies positive',
+            scans: '',
+            geneticVariant: '',
+            caregiverContext: 'Researching for my mom'
           }
         },
         empty: {
@@ -3048,17 +3150,26 @@
           data: {
             condition: '', stage: '', age: '', gender: '', weight: '', smoking: '',
             exercise: '', diagnoses: '', medications: '', symptoms: '', labWork: '', scans: '',
-            geneticVariant: ''
+            geneticVariant: '', caregiverContext: ''
           }
         }
       };
 
+      const PROFILE_DESCRIBE_EXAMPLES = [
+        'My mom has LADA and takes insulin twice a day',
+        '65-year-old man with IPF on pirfenidone',
+        'My daughter has retinitis pigmentosa, age 34'
+      ];
+
       /* ==================== Patient Tab ==================== */
-      const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runResearch, busy, runtimeConfig, usageInfo, refreshUsage, acceptedHipaa, setAcceptedHipaa }) => {
+      const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runResearch, busy, applyMessageToProfile, runtimeConfig, usageInfo, refreshUsage, acceptedHipaa, setAcceptedHipaa }) => {
         const { openTerms } = React.useContext(TermsContext);
         const set = (k, v) => setPatient(p => ({ ...p, [k]: v }));
         const [upgradeCode, setUpgradeCode] = useState('');
         const [upgradeBusy, setUpgradeBusy] = useState(false);
+        const [describeText, setDescribeText] = useState('');
+        const [describeBusy, setDescribeBusy] = useState(false);
+        const [describeNote, setDescribeNote] = useState('');
         const loadSample = (key) => {
           const s = SAMPLE_PATIENTS[key];
           if (!s) return;
@@ -3066,11 +3177,30 @@
         };
         const startResearch = () => {
           if (!patient.condition?.trim()) {
-            alert('Please enter a Primary Condition first (e.g. "IPF", "Retinitis Pigmentosa", "ALS").');
+            alert('Please enter a primary condition first — or describe the situation in the box below.');
             return;
           }
           setTab && setTab('research');
           setTimeout(() => runResearch && runResearch('research'), 50);
+        };
+        const fillFromDescription = async () => {
+          const msg = describeText.trim();
+          if (!msg || !applyMessageToProfile) return;
+          setDescribeBusy(true);
+          setDescribeNote('');
+          try {
+            const { fieldsUpdated } = await applyMessageToProfile(msg);
+            if (fieldsUpdated.length) {
+              setDescribeNote(`Filled in: ${fieldsUpdated.join(', ')}. Check the fields below and edit anything we got wrong.`);
+              setDescribeText('');
+            } else {
+              setDescribeNote('We could not pick out a condition or medicines from that — try a sentence like "My mom has LADA and takes insulin twice a day."');
+            }
+          } catch (e) {
+            setDescribeNote('Could not parse that — try again or fill the fields manually.');
+          } finally {
+            setDescribeBusy(false);
+          }
         };
         const activatePaidPlan = async () => {
           if (!upgradeCode.trim()) { alert('Enter your upgrade code first.'); return; }
@@ -3140,9 +3270,71 @@
               </div>
             </div>
             <p style={{ color: theme.textDim, fontSize: '0.9rem', marginTop: 0 }}>
-              You only need to fill in the <strong>main condition</strong>. The more you add,
-              the better we can check for safety problems and drug interactions.
+              You only need a <strong>main condition</strong>. Or describe the situation in plain English below —
+              like telling a doctor about your mom — and we fill in the form for you.
             </p>
+
+            <div style={{
+              marginBottom: '1rem', padding: '0.9rem 1rem', borderRadius: 8,
+              border: `1px solid ${theme.accent}44`, background: `${theme.accent}08`
+            }}>
+              <div style={{ fontWeight: 700, color: theme.accent, fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+                Describe it in your own words (optional)
+              </div>
+              <p style={{ margin: '0 0 0.6rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.5 }}>
+                e.g. <em>"My mom has LADA and she takes insulin twice per day"</em> — we pick up the condition,
+                medicines, age, and who you're researching for.
+              </p>
+              <textarea
+                value={describeText}
+                onChange={e => setDescribeText(e.target.value)}
+                placeholder="My mom has LADA and takes insulin twice a day…"
+                rows={3}
+                style={{ ...inputStyle, width: '100%', fontFamily: 'inherit', resize: 'vertical' }}
+              />
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                <button type="button" style={btn('primary', describeBusy || !describeText.trim())}
+                  disabled={describeBusy || !describeText.trim()} onClick={fillFromDescription}>
+                  {describeBusy ? <Loader size={14} className="spin" /> : null}
+                  {describeBusy ? ' Reading…' : ' Fill profile from this'}
+                </button>
+                {PROFILE_DESCRIBE_EXAMPLES.map((ex, i) => (
+                  <button key={i} type="button" style={{ ...btn('ghost'), fontSize: '0.75rem' }}
+                    onClick={() => setDescribeText(ex)}>
+                    {ex.length > 42 ? ex.slice(0, 39) + '…' : ex}
+                  </button>
+                ))}
+              </div>
+              {describeNote && (
+                <p style={{
+                  margin: '0.6rem 0 0', fontSize: '0.82rem', lineHeight: 1.5,
+                  color: describeNote.startsWith('Filled') ? theme.green : theme.textDim
+                }}>{describeNote}</p>
+              )}
+              {(patient.condition || patient.caregiverContext || patient.medications) && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.65rem' }}>
+                  {patient.caregiverContext && (
+                    <span style={{ padding: '0.15rem 0.5rem', borderRadius: 999, fontSize: '0.72rem',
+                      background: `${theme.secondary}18`, color: theme.secondary, border: `1px solid ${theme.secondary}44` }}>
+                      {patient.caregiverContext}
+                    </span>
+                  )}
+                  {patient.condition && (
+                    <span style={{ padding: '0.15rem 0.5rem', borderRadius: 999, fontSize: '0.72rem',
+                      background: `${theme.accent}18`, color: theme.accent, border: `1px solid ${theme.accent}44` }}>
+                      {patient.condition}
+                    </span>
+                  )}
+                  {patient.medications && (
+                    <span style={{ padding: '0.15rem 0.5rem', borderRadius: 999, fontSize: '0.72rem',
+                      background: `${theme.green}18`, color: theme.green, border: `1px solid ${theme.green}44` }}>
+                      Meds on file
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div style={{
               marginBottom: '1rem', padding: '0.85rem 0.95rem', borderRadius: 8,
               border: `1px solid ${theme.accent}44`, background: `${theme.accent}0c`
@@ -4512,7 +4704,7 @@
       //     (e.g. "42 unique peer-reviewed sources", "3200 tokens generated")
       // Intentionally "honest" — nothing is faked. Every step corresponds
       // to real work the backend is doing.
-      const DeepResearchProgress = ({ progress }) => {
+      const DeepResearchProgress = ({ progress, onRetrySynth, canRetrySynth }) => {
         if (!progress) return null;
         const [now, setNow] = useState(Date.now());
         useEffect(() => {
@@ -4638,23 +4830,34 @@
               }}>
                 <strong>{progress.error || 'Something failed'}</strong>
                 <div style={{ marginTop: 3, color: theme.textDim }}>
-                  Your research is saved, so trying again is usually fast. If it keeps failing, check the Chat tab for a quick answer in the meantime.
+                  {canRetrySynth
+                    ? 'Your journals and trials are already saved — retrying the report only (no new search).'
+                    : 'Your research is saved, so trying again is usually fast. If it keeps failing, check the chat bubble for a quick answer.'}
                 </div>
+                {canRetrySynth && onRetrySynth && (
+                  <button type="button" style={{ ...btn('primary'), marginTop: '0.6rem' }}
+                    onClick={onRetrySynth}>
+                    Retry report (skip search)
+                  </button>
+                )}
               </div>
             )}
           </div>
         );
       };
 
-      const DossierPanel = ({ dossier }) => {
+      const DossierPanel = ({ dossier, conditionResolution }) => {
         const [expanded, setExpanded] = useState(true);
         if (!dossier || !dossier.canonical) return null;
         const unc = typeof dossier.uncertainty === 'number' ? dossier.uncertainty : null;
+        const fuzzyKb = typeof dossier.kbMatchScore === 'number' && dossier.kbMatchScore < 100;
         const uncColor = unc == null ? theme.textDim
+          : fuzzyKb ? theme.yellow
           : unc < 0.3 ? theme.green
           : unc < 0.6 ? theme.yellow
           : theme.red;
         const uncLabel = unc == null ? 'n/a'
+          : fuzzyKb ? 'fuzzy match — confirm condition'
           : unc < 0.3 ? 'high confidence'
           : unc < 0.6 ? 'moderate confidence'
           : 'low confidence — verify everything';
@@ -5297,11 +5500,58 @@
         );
       };
 
+      /* ==================== Validation mismatch banner ==================== */
+      const ValidationMismatchBanner = ({ mismatch, onFixProfile, onDismiss }) => {
+        if (!mismatch) return null;
+        const color = mismatch.severity === 'high' ? theme.red : theme.yellow;
+        return (
+          <div style={{
+            ...panelStyle,
+            borderLeft: `4px solid ${color}`,
+            background: `${color}12`
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 280px' }}>
+                <h3 style={{ margin: '0 0 0.35rem', color, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
+                  <AlertTriangle size={18} /> {mismatch.headline}
+                </h3>
+                <p style={{ margin: 0, color: theme.text, fontSize: '0.88rem', lineHeight: 1.55 }}>
+                  {mismatch.summary}
+                  {mismatch.userCondition && (
+                    <> Your profile says <strong>"{mismatch.userCondition}"</strong>.</>
+                  )}
+                </p>
+                {mismatch.disputes?.length > 0 && (
+                  <ul style={{ margin: '0.6rem 0 0', paddingLeft: '1.2rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.45 }}>
+                    {mismatch.disputes.slice(0, 3).map((d, i) => (
+                      <li key={i}>{d.claim || d.reason}</li>
+                    ))}
+                  </ul>
+                )}
+                <p style={{ margin: '0.6rem 0 0', fontSize: '0.82rem', color: theme.textDim }}>
+                  {mismatch.suggestedAction}
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', minWidth: 160 }}>
+                <button style={{ ...btn('primary'), background: color, borderColor: color, color: '#fff' }}
+                  onClick={onFixProfile}>
+                  Fix condition in Profile
+                </button>
+                {onDismiss && (
+                  <button style={btn()} onClick={onDismiss}>Dismiss for now</button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
       /* ==================== Research Tab ==================== */
       const ResearchTab = ({ patient, busy, runResearch, researchText, treatments,
-                              validation, evidenceSummary, dossier, progress, coverageAudit,
+                              validation, validationMismatch, conditionResolution,
+                              evidenceSummary, dossier, progress, coverageAudit,
                               chatHistory, userQuery, setUserQuery, sendChat, onAudit, runtimeConfig,
-                              runMeta }) => {
+                              runMeta, setTab, onDismissMismatch, onRetrySynth, canRetrySynth }) => {
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
         const [translatedText, setTranslatedText] = useState('');
@@ -5360,7 +5610,7 @@
               )}
             </div>
 
-            <DeepResearchProgress progress={progress} />
+            <DeepResearchProgress progress={progress} onRetrySynth={onRetrySynth} canRetrySynth={canRetrySynth} />
 
             {/* Methodology-transparency strip. Surfaces the two guardrails
                 that are hardest to see in the analysis itself:
@@ -5505,11 +5755,17 @@
               </div>
             )}
 
-            <DossierPanel dossier={dossier} />
+            <DossierPanel dossier={dossier} conditionResolution={conditionResolution} />
 
             <KBPanel kb={evidenceSummary?.knowledgeBase} />
 
             <QualityPanel qb={evidenceSummary?.qualityBreakdown} />
+
+            <ValidationMismatchBanner
+              mismatch={validationMismatch}
+              onFixProfile={() => setTab('profile')}
+              onDismiss={onDismissMismatch}
+            />
 
             <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!researchText} />
 
@@ -6516,7 +6772,7 @@
         );
       };
 
-      const RepurposeTab = ({ patient, audience, busy, runResearch, repurposeText, candidates, validation, progress, onAudit, runtimeConfig, runMeta, drugScreen }) => {
+      const RepurposeTab = ({ patient, audience, busy, runResearch, repurposeText, candidates, validation, validationMismatch, progress, onAudit, runtimeConfig, runMeta, drugScreen, setTab, onDismissMismatch, onRetrySynth, canRetrySynth }) => {
         const [showRaw, setShowRaw] = useState(false);
         const [translatedText, setTranslatedText] = useState('');
         const renderedRepurposeText = translatedText || repurposeText;
@@ -6549,7 +6805,7 @@
 
             <RepurposeExplainer />
 
-            <DeepResearchProgress progress={progress} />
+            <DeepResearchProgress progress={progress} onRetrySynth={onRetrySynth} canRetrySynth={canRetrySynth} />
 
             {drugScreen && drugScreen.libraryTotal > 0 && (
               <div style={{
@@ -6579,6 +6835,12 @@
                 )}
               </div>
             )}
+
+            <ValidationMismatchBanner
+              mismatch={validationMismatch}
+              onFixProfile={() => setTab('profile')}
+              onDismiss={onDismissMismatch}
+            />
 
             <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!repurposeText} />
 
