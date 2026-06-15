@@ -24,6 +24,7 @@
 
 import evidenceHandler from '../lib/evidence.js';
 import validateHandler from '../lib/validate.js';
+import perplexitySearchHandler from '../lib/perplexity-search.js';
 import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb } from '../lib/kb.js';
@@ -103,6 +104,30 @@ const invokeInProcess = async (handler, body) => {
 const invokeEvidence = (body) => invokeInProcess(evidenceHandler, body);
 const invokeValidate = (body) => invokeInProcess(validateHandler, body);
 const invokeTrials = (body) => invokeInProcess(trialsHandler, body);
+const invokePerplexitySearch = (body) => invokeInProcess(perplexitySearchHandler, body);
+
+// Map a raw article (KB item or Perplexity web hit) into the groundedForPrompt
+// shape the synthesis prompt expects.
+const toGroundedItem = (a, { isCuratedKB = false, kbCategory = null } = {}) => ({
+  id: a.id || a.doi || a.pmid || null,
+  title: a.title,
+  journal: a.journal || '',
+  publisher: a.publisher || '',
+  tier: a.tier || a.journalTier || null,
+  year: a.year || null,
+  sources: a.sources || (a.source ? [a.source] : isCuratedKB ? ['CuratedKB'] : ['PerplexityWeb']),
+  isCuratedKB,
+  kbCategory,
+  isWebSearch: !!a.isWebSearch,
+  openAccess: !!a.openAccess,
+  accessLevel: a.accessLevel || 'abstract',
+  citations: a.citedByCount || a.citations || 0,
+  isRCT: !!a.isRCT,
+  isMetaAnalysis: !!a.isMetaAnalysis,
+  isSystematicReview: !!a.isSystematicReview,
+  url: a.url || a.pubmedUrl || a.doiUrl || '',
+  text: (a.abstract || a.fullText || a.summary || '').slice(0, 3500)
+});
 
 // KB-ONLY EVIDENCE FALLBACK.
 // The live evidence fetch (PubMed/EPMC/OpenAlex fan-out) can be slow and is
@@ -121,29 +146,39 @@ const buildKbFallbackEvidence = async (condition) => {
     if (!condition) return null;
     const kb = await loadKb(condition);
     if (!kb || !kb.matched) return null;
-    const grounded = (kb.items || []).map((it) => ({
-      id: it.id || it.doi || it.pmid || null,
-      title: it.title,
-      journal: it.journal || '',
-      publisher: it.publisher || '',
-      tier: it.tier || it.journalTier || null,
-      year: it.year || null,
-      sources: ['CuratedKB'],
-      isCuratedKB: true,
-      kbCategory: it.category || null,
-      openAccess: !!it.openAccess,
-      accessLevel: it.accessLevel || 'abstract',
-      citations: 0,
-      isRCT: !!it.isRCT,
-      isMetaAnalysis: !!it.isMetaAnalysis,
-      isSystematicReview: !!it.isSystematicReview,
-      url: it.url || '',
-      text: (it.abstract || it.summary || '').slice(0, 3500)
-    }));
+    const canonical = kb.meta?.canonical || condition;
+    const kbGrounded = (kb.items || []).map((it) =>
+      toGroundedItem(it, { isCuratedKB: true, kbCategory: it.category || null })
+    );
+
+    // Even when PubMed/EPMC time out, Perplexity can still pull recent web
+    // hits (new approvals, negative trials). Without this, KB-only fallback
+    // was static saved sources only — no freshness layer at all.
+    let webGrounded = [];
+    if (process.env.PERPLEXITY_API_KEY) {
+      const drugNames = (kb.meta?.pipelineDrugs || []).map((d) => d.name).filter(Boolean).slice(0, 3);
+      const seeds = (kb.meta?.literatureSearchSeeds || [])
+        .map((s) => (typeof s === 'string' ? s : s?.term)).filter(Boolean).slice(0, 2);
+      try {
+        const webRes = await invokePerplexitySearch({
+          condition: canonical,
+          drugs: [...drugNames, ...seeds].slice(0, 6)
+        });
+        webGrounded = (webRes?.articles || []).map((a) =>
+          toGroundedItem({ ...a, source: 'PerplexityWeb', isWebSearch: true })
+        );
+      } catch (e) {
+        console.warn('[research] KB fallback Perplexity scout failed:', e?.message || e);
+      }
+    }
+
+    const grounded = [...kbGrounded, ...webGrounded];
+    const webCount = webGrounded.length;
     return {
       totalUnique: grounded.length,
       totalFetched: grounded.length,
-      uniqueJournals: grounded.length,
+      uniqueJournals: new Set(grounded.map((g) => g.journal).filter(Boolean)).size || grounded.length,
+      perSourceCounts: { CuratedKB: kbGrounded.length, PerplexityWeb: webCount },
       groundedForPrompt: grounded,
       topRanked: grounded.slice(0, 50),
       pipelineDrugs: kb.meta?.pipelineDrugs || [],
@@ -151,13 +186,19 @@ const buildKbFallbackEvidence = async (condition) => {
       canonicalFacts: kb.meta?.canonicalFacts || [],
       fdaLabels: [],
       fdaManufacturers: [],
-      promptPackBreakdown: { total: grounded.length, curatedKB: grounded.length, live: 0 },
+      promptPackBreakdown: {
+        total: grounded.length,
+        curatedKB: kbGrounded.length,
+        perplexityWeb: webCount,
+        live: webCount
+      },
       knowledgeBase: {
         matched: true,
         ...kb.meta,
         matchedOn: kb.matchedOn,
         score: kb.score,
-        degraded: true // signals this is KB-only (external sources unavailable)
+        degraded: true,
+        perplexityScout: webCount > 0
       }
     };
   } catch (e) {
@@ -1091,9 +1132,16 @@ export default async function handler(req, res) {
       const prices = usagePricing();
       const lim = usageLimits();
       const devUnlimited = isUsageLimitBypassed(getClientIp(req));
+      const hasPerplexity = !!process.env.PERPLEXITY_API_KEY;
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+      const hasXai = !!process.env.XAI_API_KEY;
       return res.status(200).json({
         branding: { productName: 'researchingmycondition.com' },
         ai: { researchModel: String(process.env.ANTHROPIC_RESEARCH_MODEL || DEFAULT_MODEL) },
+        validation: {
+          available: hasPerplexity || hasOpenAI || hasXai,
+          primaryProvider: hasPerplexity ? 'Perplexity' : hasOpenAI ? 'OpenAI' : hasXai ? 'xAI' : null
+        },
         monetization: {
           devUnlimited,
           freeRunsPerMonth: devUnlimited ? 999999 : lim.free,

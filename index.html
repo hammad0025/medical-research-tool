@@ -1532,23 +1532,21 @@
               active: true,
               mode,
               startedAt: Date.now(),
+              // Three HONEST steps — gather runs dossier+journals+trials together
+              // on the server (one API call). Showing 3 fake sequential sub-steps
+              // made it look like we jumped straight to "step 3" when gather returned
+              // fast from cache. Never lie about what ran.
               steps: [
-                { id: 'dossier',  label: 'Understand your condition',
-                  desc: 'Looks up the disease name, top hospitals, and key facts.',
+                { id: 'gather', label: 'Gather research',
+                  desc: 'Looks up your condition, searches medical journals, and scans ClinicalTrials.gov — all at once.',
                   status: 'running' },
-                { id: 'evidence', label: 'Search medical journals',
-                  desc: 'Reads PubMed, medical databases, and FDA records — not a quick Google answer.',
-                  status: 'running' },
-                { id: 'trials',   label: 'Check clinical trials',
-                  desc: 'Scans ClinicalTrials.gov for studies you might join.',
-                  status: 'running' },
-                { id: 'synth',    label: mode === 'repurpose' ? 'Look at drug ideas' : 'Write your full report',
+                { id: 'synth', label: mode === 'repurpose' ? 'Look at drug ideas' : 'Write your full report',
                   desc: mode === 'repurpose'
-                    ? 'Two steps: single drugs first, then drug pairs (takes about 1 to 2 minutes).'
-                    : 'A full report made just for you, in two parts. This is deep research, not a quick answer.',
+                    ? 'Several groups of drug ideas at once, then combinations (about 1 to 2 minutes).'
+                    : 'A full report made just for you, in two parts. Deep research, not a quick answer.',
                   status: 'pending' },
-                { id: 'validate', label: 'Double-check with a second AI (if set up)',
-                  desc: 'A second AI checks every claim against the research we found.',
+                { id: 'validate', label: 'Double-check with Perplexity',
+                  desc: 'A second AI (Perplexity) checks every claim against the research we found.',
                   status: 'pending' }
               ]
             });
@@ -1644,43 +1642,35 @@
                 setEvidenceSummary(gathered.evidence);
                 setEvidencePack(gathered.evidence.topRanked || []);
               }
-              // Mark phase-1 steps as complete with real counts so the UI
-              // can show "Pulled 42 peer-reviewed sources" etc.
-              updateStep('dossier', {
-                status: 'done',
-                detail: gathered.dossier?.canonical
-                  ? `${gathered.dossier.canonical}${gathered.dossier.cacheHit ? ' (cached)' : ''}`
-                  : 'dossier built'
-              });
-              updateStep('evidence', {
+              // One honest gather step — all three pools arrive together.
+              updateStep('gather', {
                 status: 'done',
                 detail: (() => {
+                  const d = gathered.dossier;
                   const e = gathered.evidence;
-                  if (!e) return 'research ready';
-                  const fetched = e.totalFetched || e.totalUnique || 0;
-                  const unique = e.totalUnique || 0;
-                  const journals = e.uniqueJournals || 0;
-                  const pack = e.promptPackBreakdown?.total || 0;
-                  // e.g. "Screened 104 records across PubMed / Europe PMC / OpenAlex / Cochrane — 32 unique across 27 journals, top 25 used in the report"
-                  return `Looked at ${fetched} records from PubMed, Europe PMC, OpenAlex, and Cochrane — ${unique} were one-of-a-kind across ${journals} journals, and the top ${pack} were used in your report`;
+                  const t = gathered.trials;
+                  const parts = [];
+                  if (d?.canonical) {
+                    parts.push(d.canonical + (d.cacheHit ? ' (some cached)' : ''));
+                  }
+                  if (e) {
+                    const fetched = e.totalFetched || e.totalUnique || 0;
+                    const unique = e.totalUnique || 0;
+                    const pack = e.promptPackBreakdown?.total || 0;
+                    const web = e.promptPackBreakdown?.perplexityWeb || e.perSourceCounts?.PerplexityWeb || 0;
+                    parts.push(`${unique} papers (${pack} used in report${web ? `, ${web} from live web` : ''})`);
+                    if (e.knowledgeBase?.degraded) parts.push('saved sources + Perplexity scout');
+                  }
+                  if (t?.total) {
+                    parts.push(`${t.returned || t.total} trials`);
+                  }
+                  return parts.length ? parts.join(' · ') : 'Research gathered';
                 })()
               });
-              updateStep('trials', {
-                status: 'done',
-                detail: gathered.trials?.total
-                  ? `${gathered.trials.returned || gathered.trials.total} trials (of ${gathered.trials.total} matched)`
-                  : 'ClinicalTrials.gov scanned'
-              });
-              // Phase 2: synthesize. For research mode we split Claude's
-              // work into TWO successive calls — each gets its own 60s
-              // Vercel slot so Claude always finishes its half without
-              // hitting stop_reason=max_tokens mid-section. Repurpose
-              // mode still runs a single synth call (its prompt is
-              // smaller and the max_tokens budget is enough).
               updateStep('synth', {
                 status: 'running',
                 detail: mode === 'research' ? 'Part 1 of 2: your condition, experts, treatments'
-                  : mode === 'repurpose' ? 'Part 1 of 2: drug ideas' : undefined
+                  : mode === 'repurpose' ? 'Looking at several groups of drug ideas at once' : undefined
               });
               if (mode === 'research') {
                 // FRONT half: sections 1-4 (snapshot, centers,
@@ -1744,7 +1734,6 @@
                 // small batch finishes in ~50s; running them at the same time
                 // keeps total time low AND means a single batch hiccup only
                 // costs a few candidates instead of the whole report.
-                updateStep('synth', { status: 'running', detail: 'Looking at several groups of drug ideas at once' });
                 const synthArgs = {
                   mode, patient, audience,
                   phase: 'synthesize',
@@ -1796,15 +1785,7 @@
               }
               updateStep('synth', {
                 status: 'done',
-                detail: data.usage?.output_tokens
-                  ? 'Your report is ready'
-                  : 'Your report is ready'
-              });
-              updateStep('validate', {
-                status: data.validation ? 'done' : 'skipped',
-                detail: data.validation
-                  ? `${data.validation.claims?.length || 0} claims checked`
-                  : 'second AI not set up'
+                detail: 'Your report is ready'
               });
             } else {
               data = await callResearch({ mode, patient, audience, ...extra });
@@ -1820,17 +1801,54 @@
             if (mode !== 'chat' && data.validation) {
               setValidations((v) => ({ ...v, [mode]: data.validation }));
             }
-            // Auto-verify (opt-in): kick off the independent second-AI audit
-            // AFTER the report is in state. Fire-and-forget + silent so it
-            // can never block rendering or pop an error dialog. We pass the
-            // fresh text + evidence pack explicitly to dodge stale closures.
-            if (autoVerify && !data.validation &&
-                (mode === 'research' || mode === 'repurpose' || mode === 'trials') && text) {
-              auditAnalysis(mode, {
-                text,
-                pack: data.evidence?.topRanked || evidencePack,
-                silent: true
-              });
+            // Second-AI check: NEVER mark "not set up" when Perplexity WILL run.
+            // Await it during deep modes so the progress bar tells the truth.
+            if (deepMode && (mode === 'research' || mode === 'repurpose')) {
+              const provider = runtimeConfig?.validation?.primaryProvider || 'Perplexity';
+              if (data.validation) {
+                const p = data.validation.primary || data.validation;
+                updateStep('validate', {
+                  status: 'done',
+                  detail: `${p.overallScore ?? '?'}% agreement · checked by ${p.provider || provider}`
+                });
+              } else if (autoVerify && text) {
+                updateStep('validate', {
+                  status: 'running',
+                  detail: `${provider} is checking every claim…`
+                });
+                const vResult = await auditAnalysis(mode, {
+                  text,
+                  pack: data.evidence?.topRanked || evidencePack,
+                  silent: true
+                });
+                if (vResult && !vResult.error && vResult.primary) {
+                  const p = vResult.primary;
+                  updateStep('validate', {
+                    status: 'done',
+                    detail: `${p.overallScore ?? '?'}% agreement · ${(p.disputed || []).length} flagged`
+                  });
+                } else if (vResult?.error) {
+                  updateStep('validate', {
+                    status: 'error',
+                    detail: vResult.error
+                  });
+                } else {
+                  updateStep('validate', {
+                    status: 'skipped',
+                    detail: `${provider} did not return a result — report above is still shown`
+                  });
+                }
+              } else if (!autoVerify) {
+                updateStep('validate', {
+                  status: 'skipped',
+                  detail: 'Auto-check is off (turn it on below the tabs)'
+                });
+              } else {
+                updateStep('validate', {
+                  status: 'skipped',
+                  detail: 'Second AI not configured on server'
+                });
+              }
             }
             if (mode !== 'chat' && data.usage) {
               setLastRunMeta((m) => ({
@@ -1932,7 +1950,7 @@
           const sourcePack = opts.pack || evidencePack;
           if (!analysisText) {
             if (!opts.silent) alert('Run the analysis first, then audit it.');
-            return;
+            return null;
           }
           setValidations((v) => ({ ...v, [mode]: { _auditing: true } }));
           try {
@@ -1944,7 +1962,7 @@
               year: a.year,
               sources: a.sources,
               accessLevel: a.accessLevel,
-              url: a.pmcUrl || a.pubmedUrl || a.doiUrl || a.oaUrl || a.landingUrl || a.europePmcUrl,
+              url: a.pmcUrl || a.pubmedUrl || a.doiUrl || a.oaUrl || a.landingUrl || a.europePmcUrl || a.url,
               text: (a.fullText || a.abstract || '').slice(0, 2000)
             }));
             const r = await fetch('/api/research', {
@@ -1964,23 +1982,30 @@
             try { data = JSON.parse(raw); }
             catch {
               if (isLocalDevHost() && (r.status === 501 || r.status === 404)) {
-                setValidations((v) => ({ ...v, [mode]: { error: localApiDevHint } }));
-                return;
+                const err = { error: localApiDevHint };
+                setValidations((v) => ({ ...v, [mode]: err }));
+                return err;
               }
               if (r.status === 501) {
-                setValidations((v) => ({ ...v, [mode]: { error: 'Server unavailable — deployment may still be building. Try again in 1 minute or contact admin.' } }));
-                return;
+                const err = { error: 'Server unavailable — deployment may still be building. Try again in 1 minute or contact admin.' };
+                setValidations((v) => ({ ...v, [mode]: err }));
+                return err;
               }
-              setValidations((v) => ({ ...v, [mode]: { error: `Server returned non-JSON (HTTP ${r.status})` } }));
-              return;
+              const err = { error: `Server returned non-JSON (HTTP ${r.status})` };
+              setValidations((v) => ({ ...v, [mode]: err }));
+              return err;
             }
             if (!r.ok) {
-              setValidations((v) => ({ ...v, [mode]: { error: data.error || `HTTP ${r.status}`, hint: data.hint } }));
-              return;
+              const err = { error: data.error || `HTTP ${r.status}`, hint: data.hint };
+              setValidations((v) => ({ ...v, [mode]: err }));
+              return err;
             }
             setValidations((v) => ({ ...v, [mode]: data }));
+            return data;
           } catch (err) {
-            setValidations((v) => ({ ...v, [mode]: { error: err.message } }));
+            const errObj = { error: err.message };
+            setValidations((v) => ({ ...v, [mode]: errObj }));
+            return errObj;
           }
         };
 
