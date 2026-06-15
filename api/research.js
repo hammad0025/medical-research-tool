@@ -231,6 +231,7 @@ const trimGatherPools = ({ dossier, evidence, trials }) => ({
         pipelineDrugs: evidence.pipelineDrugs || [],
         excludedAgents: evidence.excludedAgents || [],
         repurposeDrugPool: evidence.repurposeDrugPool || [],
+        repurposeDrugScreen: evidence.repurposeDrugScreen || null,
         totalUnique: evidence.totalUnique,
         totalFetched: evidence.totalFetched,
         perSourceCounts: evidence.perSourceCounts,
@@ -2019,6 +2020,10 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
           }
         : null,
       coverageAudit,
+      repurposeDrugScreen:
+        mode === 'repurpose' && evidence?.repurposeDrugScreen
+          ? evidence.repurposeDrugScreen
+          : undefined,
       validation
     });
   } catch (error) {

@@ -1430,6 +1430,7 @@
         // pipeline-drug coverage audit result (whether any KB-listed
         // drugs were missed and whether a forced re-prompt fired).
         const [coverageAudit, setCoverageAudit] = useState(null);
+        const [repurposeDrugScreen, setRepurposeDrugScreen] = useState(null);
         const [evidencePack, setEvidencePack] = useState([]);
         const [dossier, setDossier] = useState(null);
 
@@ -1523,6 +1524,7 @@
             return;
           }
           setBusy(mode);
+          if (mode === 'repurpose') setRepurposeDrugScreen(null);
           // Seed deep-research progress for research/repurpose (the heavy,
           // multi-phase modes). Chat / trials-analysis stay lightweight and
           // just use the inline spinner.
@@ -1641,6 +1643,9 @@
               if (gathered.evidence) {
                 setEvidenceSummary(gathered.evidence);
                 setEvidencePack(gathered.evidence.topRanked || []);
+                if (mode === 'repurpose' && gathered.evidence.repurposeDrugScreen) {
+                  setRepurposeDrugScreen(gathered.evidence.repurposeDrugScreen);
+                }
               }
               // One honest gather step — all three pools arrive together.
               updateStep('gather', {
@@ -1870,6 +1875,9 @@
             }
             if (data.coverageAudit) {
               setCoverageAudit(data.coverageAudit);
+            }
+            if (mode === 'repurpose' && data.repurposeDrugScreen) {
+              setRepurposeDrugScreen(data.repurposeDrugScreen);
             }
             try {
               setUsageInfo(await callResearchMode('usage'));
@@ -2198,7 +2206,8 @@
                 validation={validations.repurpose} progress={progress}
                 onAudit={() => auditAnalysis('repurpose')}
                 runtimeConfig={runtimeConfig}
-                runMeta={lastRunMeta.repurpose} />}
+                runMeta={lastRunMeta.repurpose}
+                drugScreen={repurposeDrugScreen} />}
               {tab === 'chart' && <ChartTab treatments={treatments} candidates={candidates} />}
               {tab === 'refs' && <RefsTab references={references} evidencePack={evidencePack} evidenceSummary={evidenceSummary} />}
             </div>
@@ -6507,7 +6516,7 @@
         );
       };
 
-      const RepurposeTab = ({ patient, audience, busy, runResearch, repurposeText, candidates, validation, progress, onAudit, runtimeConfig, runMeta }) => {
+      const RepurposeTab = ({ patient, audience, busy, runResearch, repurposeText, candidates, validation, progress, onAudit, runtimeConfig, runMeta, drugScreen }) => {
         const [showRaw, setShowRaw] = useState(false);
         const [translatedText, setTranslatedText] = useState('');
         const renderedRepurposeText = translatedText || repurposeText;
@@ -6541,6 +6550,35 @@
             <RepurposeExplainer />
 
             <DeepResearchProgress progress={progress} />
+
+            {drugScreen && drugScreen.libraryTotal > 0 && (
+              <div style={{
+                ...panelStyle,
+                padding: '0.75rem 0.9rem',
+                borderLeft: `3px solid ${theme.accent}`,
+                display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center'
+              }}>
+                <span style={{ color: theme.textDim, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  How we picked drug ideas
+                </span>
+                <span
+                  title={`We start from a curated library of ${drugScreen.libraryTotal.toLocaleString()} FDA-tracked drugs (${drugScreen.approvedTotal?.toLocaleString() || '?'} approved in the US). For ${drugScreen.condition || patient.condition || 'your condition'}, we selected ${drugScreen.selectedCount} that match the disease biology — then the AI only cites claims backed by live PubMed literature.`}
+                  style={{
+                    padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
+                    background: `${theme.accent}22`, color: theme.accent, fontWeight: 600,
+                    border: `1px solid ${theme.accent}55`, cursor: 'help'
+                  }}
+                >
+                  Screened {drugScreen.libraryTotal.toLocaleString()} FDA-tracked drugs → selected {drugScreen.selectedCount} for {drugScreen.condition || patient.condition || 'this condition'}
+                </span>
+                {drugScreen.selectedNames?.length > 0 && (
+                  <span style={{ color: theme.textDim, fontSize: '0.72rem' }}>
+                    Starting set includes {drugScreen.selectedNames.slice(0, 6).join(', ')}
+                    {drugScreen.selectedNames.length > 6 ? ` +${drugScreen.selectedNames.length - 6} more` : ''}
+                  </span>
+                )}
+              </div>
+            )}
 
             <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!repurposeText} />
 
