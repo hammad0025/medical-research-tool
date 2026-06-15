@@ -47,7 +47,8 @@
     "regression": "node scripts/audit-kb.mjs && node scripts/regression-kb-coverage.mjs",
     "regression:live": "node scripts/audit-kb.mjs && REGRESSION_LIVE=1 node scripts/regression-kb-coverage.mjs",
     "verify:infra": "node scripts/verify-infra.mjs",
-    "build:registry": "node scripts/build-disease-registry.mjs"
+    "build:registry": "node scripts/build-disease-registry.mjs",
+    "build:drugs": "node scripts/build-drug-registry.mjs"
   },
   "phase": "3",
   "status": "phase-3-shipped",

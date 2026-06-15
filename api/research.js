@@ -40,7 +40,8 @@ import {
 import { requireAccess } from '../lib/access-gate.js';
 import { asInternalReq } from '../lib/internal-call.js';
 import { getInfraStatus } from '../lib/infra-status.js';
-import { registryStats } from '../lib/disease-registry.js';
+import { registryStats as diseaseRegistryStats } from '../lib/disease-registry.js';
+import { registryStats as drugRegistryStats, selectRepurposeDrugs, buildRepurposeDrugLibraryBlock } from '../lib/drug-registry.js';
 
 // Primary synthesis model. User requested "Opus instead of Sonnet" support:
 // set ANTHROPIC_RESEARCH_MODEL in env to any Anthropic model your account has
@@ -229,6 +230,7 @@ const trimGatherPools = ({ dossier, evidence, trials }) => ({
         dossier: evidence.dossier,
         pipelineDrugs: evidence.pipelineDrugs || [],
         excludedAgents: evidence.excludedAgents || [],
+        repurposeDrugPool: evidence.repurposeDrugPool || [],
         totalUnique: evidence.totalUnique,
         totalFetched: evidence.totalFetched,
         perSourceCounts: evidence.perSourceCounts,
@@ -1185,7 +1187,8 @@ export default async function handler(req, res) {
           }
         },
         infra: getInfraStatus(),
-        diseaseRegistry: await registryStats()
+        diseaseRegistry: await diseaseRegistryStats(),
+        drugRegistry: await drugRegistryStats()
       });
     }
 
@@ -1478,6 +1481,7 @@ export default async function handler(req, res) {
       const evidenceP = needsEvidence
         ? withDeadline(invokeEvidence({
             condition: effectiveCondition,
+            mode,
             // Trimmed fan-out: 2 treatment cross-products instead of 4.
             // The dossier's synonyms + KB cover the specificity loss.
             treatments: ['treatment', 'systematic review'],
@@ -1541,13 +1545,28 @@ export default async function handler(req, res) {
     // excludedAgents as REQUIRED MENTIONS. See buildRequiredMentionsBlock.
     const requiredMentionsBlock = evidence ? buildRequiredMentionsBlock(evidence) : '';
 
+    let repurposeLibraryBlock = '';
+    if (mode === 'repurpose' && dossier) {
+      const lane = isRepurposeBatch ? Number(batchLane) : null;
+      const pool = (lane != null && !Number.isNaN(lane))
+        ? await selectRepurposeDrugs(dossier, { lane, limit: 14 })
+        : (evidence?.repurposeDrugPool?.length
+          ? evidence.repurposeDrugPool
+          : await selectRepurposeDrugs(dossier, { limit: 20 }));
+      repurposeLibraryBlock = buildRepurposeDrugLibraryBlock(pool, {
+        lane: lane != null && !Number.isNaN(lane) ? lane : null,
+        condition: dossier.canonical || effectiveCondition
+      });
+    }
+
     // Extra context layers stitched onto the base mode prompt. Order matters:
     // dossier first (the AI's starting hypothesis about the disease), then
     // grounded evidence pack (what the literature actually says), then the
     // live trials pull (what's currently enrolling / offering expanded
-    // access), then the REQUIRED MENTIONS list last so Claude sees the
+    // access), then repurpose drug library (open curated drug list),
+    // then the REQUIRED MENTIONS list last so Claude sees the
     // anti-omission constraint immediately before starting to write.
-    const extraContext = [dossierBlock, groundingBlock, trialsBlock, requiredMentionsBlock]
+    const extraContext = [dossierBlock, groundingBlock, trialsBlock, repurposeLibraryBlock, requiredMentionsBlock]
       .filter(Boolean)
       .join('\n\n');
 
