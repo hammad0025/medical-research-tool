@@ -39,6 +39,8 @@ import {
 } from '../lib/usage-store.js';
 import { requireAccess } from '../lib/access-gate.js';
 import { asInternalReq } from '../lib/internal-call.js';
+import { getInfraStatus } from '../lib/infra-status.js';
+import { registryStats } from '../lib/disease-registry.js';
 
 // Primary synthesis model. User requested "Opus instead of Sonnet" support:
 // set ANTHROPIC_RESEARCH_MODEL in env to any Anthropic model your account has
@@ -1181,7 +1183,9 @@ export default async function handler(req, res) {
             trialsTop: String(process.env.MRT_AD_SLOT_TRIALS_TOP || '').trim(),
             footer: String(process.env.MRT_AD_SLOT_FOOTER || '').trim()
           }
-        }
+        },
+        infra: getInfraStatus(),
+        diseaseRegistry: await registryStats()
       });
     }
 
