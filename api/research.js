@@ -38,6 +38,7 @@ import {
   activatePlanForIp
 } from '../lib/usage-store.js';
 import { requireAccess } from '../lib/access-gate.js';
+import { asInternalReq } from '../lib/internal-call.js';
 
 // Primary synthesis model. User requested "Opus instead of Sonnet" support:
 // set ANTHROPIC_RESEARCH_MODEL in env to any Anthropic model your account has
@@ -93,7 +94,7 @@ const invokeInProcess = async (handler, body) => {
     end() {}, json(o) { captured.body = o; return this; }
   };
   try {
-    await handler({ method: 'POST', body, headers: {}, query: {} }, res);
+    await handler(asInternalReq({ method: 'POST', body, headers: {}, query: {} }), res);
   } catch (e) {
     captured.status = 500;
     captured.body = { error: e.message };

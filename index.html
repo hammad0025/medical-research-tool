@@ -5820,7 +5820,7 @@
             </h3>
             {dropped > 0 && (
               <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', color: theme.yellow, lineHeight: 1.45 }}>
-                We removed {dropped} stud{dropped === 1 ? 'y' : 'ies'} that were for a <strong>different disease</strong> (for example Danon disease or Alström syndrome) even though they appeared in the search.
+                We removed {dropped} stud{dropped === 1 ? 'y' : 'ies'} whose listed conditions did not match <strong>{patient?.condition || 'your search'}</strong>.
               </p>
             )}
             <div style={{ display: 'grid', gap: '0.85rem' }}>
@@ -5834,6 +5834,16 @@
                   </ul>
                 </div>
               )}
+              {kb?.pipelineHighlights?.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Drugs in trials (from saved research)</div>
+                  <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1rem', color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.55 }}>
+                    {kb.pipelineHighlights.map((d, i) => (
+                      <li key={i}><strong style={{ color: theme.text }}>{d.name}</strong>{d.status ? ` — ${d.status}` : ''}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {kb?.keyFacts?.length > 0 && (
                 <div>
                   <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Key facts from research</div>
@@ -5842,9 +5852,16 @@
                   </ul>
                 </div>
               )}
-              {!kb && (
+              {!kb && data.dossier?.canonical && (
                 <p style={{ margin: 0, fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.5 }}>
-                  Confirm approved baseline options with your specialist and current guidelines — this list is trial-focused.
+                  Searching as <strong style={{ color: theme.text }}>{data.dossier.canonical}</strong>
+                  {data.dossier.subspecialty ? ` (${data.dossier.subspecialty})` : ''}.
+                  No saved reference pack for this condition yet — trials and live literature still apply.
+                </p>
+              )}
+              {!kb && !data.dossier?.canonical && (
+                <p style={{ margin: 0, fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.5 }}>
+                  Confirm approved baseline options with your specialist — this list is trial-focused.
                 </p>
               )}
 
@@ -5854,8 +5871,8 @@
                   {byPhaseLate.map((s) => (
                     <li key={s.nctId || s.briefTitle}>
                       <strong style={{ color: theme.text }}>{(s.phases || []).join(', ') || 'N/A'}</strong> — {interventionText(s)}
-                      {s.relevanceLabel === 'related eye disease' && (
-                        <span style={{ color: theme.yellow }}> · related eye disease, not classic RP</span>
+                      {s.relevanceLabel === 'unlikely match' && (
+                        <span style={{ color: theme.yellow }}> · verify this applies to you</span>
                       )}
                     </li>
                   ))}
@@ -5994,7 +6011,7 @@
         const matchColor = (label) => {
           if (label === 'strong match') return theme.green;
           if (label === 'likely match') return theme.accent;
-          if (label === 'related eye disease' || label === 'weak match') return theme.yellow;
+          if (label === 'weak match' || label === 'unlikely match') return theme.yellow;
           if (label === 'wrong disease') return theme.red;
           return theme.textDim;
         };

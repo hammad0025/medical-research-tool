@@ -271,22 +271,37 @@ const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
 };
 
 // Trials returned by CT.gov often include studies for a *different* disease
-// that share a drug code (e.g. "RP-A501" for Danon disease) or a broad mesh
-// term. Score how well each trial actually matches the patient's condition
-// so we can hide obvious mismatches and explain the rest in the UI.
+// that share a drug code or a broad search term. Score relevance from the
+// dossier + KB terms for ANY condition — no hardcoded disease list.
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const phraseMatches = (haystack, phrase) => {
+  if (!haystack || !phrase) return false;
+  const p = String(phrase).trim().toLowerCase();
+  if (p.length <= 3) {
+    return new RegExp(`\\b${escapeRegex(p)}\\b`, 'i').test(haystack);
+  }
+  return haystack.includes(p);
+};
+
 const buildRelevanceMatcher = (primary, aliases, meshTerms, kbMeta) => {
   const phrases = new Set();
   const add = (s) => {
     if (!s || typeof s !== 'string') return;
     const t = s.trim().toLowerCase();
-    if (t.length >= 3) phrases.add(t);
+    if (t.length >= 2) phrases.add(t);
   };
   add(primary);
   (aliases || []).forEach(add);
   (meshTerms || []).forEach(add);
   (kbMeta?.aliases || []).forEach(add);
+  (kbMeta?.meshTerms || []).forEach(add);
   if (kbMeta?.condition) add(kbMeta.condition);
-  return { primary: String(primary || '').trim().toLowerCase(), phrases: [...phrases] };
+  return {
+    primary: String(primary || '').trim().toLowerCase(),
+    displayName: kbMeta?.condition || primary || 'your condition',
+    phrases: [...phrases]
+  };
 };
 
 const scoreTrialRelevance = (study, matcher) => {
@@ -298,43 +313,57 @@ const scoreTrialRelevance = (study, matcher) => {
     study.briefSummary
   ].filter(Boolean).join(' ').toLowerCase();
 
-  // Hard excludes — wrong disease entirely (common CT.gov noise for IRD searches).
-  const wrongDisease = [
-    /\bdanon disease\b/,
-    /\balstr[öo]m syndrome\b/,
-    /\brelapsing polychondritis\b/,
-    /\barrhythmogenic cardiomyopathy\b/,
-    /\bdilated cardiomyopathy\b/,
-    /\bpkp2[- ]variant\b/,
-    /\bbag3\b.*cardiomyopathy/
-  ];
-  for (const re of wrongDisease) {
-    if (re.test(text)) {
-      return { score: -100, label: 'wrong disease', reason: 'This study is for a different illness, not your condition.' };
+  const listedConds = (study.conditions || []).map((c) => String(c).toLowerCase());
+  const condBlob = listedConds.join(' ');
+
+  let score = 0;
+  for (const phrase of matcher.phrases) {
+    if (phraseMatches(text, phrase)) {
+      score += phrase.length >= 12 ? 18 : phrase.length >= 6 ? 12 : 8;
+    }
+  }
+  if (matcher.primary && phraseMatches(text, matcher.primary)) score += 25;
+
+  // When CT.gov lists explicit conditions, they are the strongest signal.
+  if (listedConds.length > 0) {
+    const condMatch = matcher.phrases.some((p) => phraseMatches(condBlob, p));
+    if (condMatch) score += 30;
+    else if (score < 20) {
+      const named = listedConds.slice(0, 2).join('; ');
+      return {
+        score: -100,
+        label: 'wrong disease',
+        reason: `ClinicalTrials.gov lists this under "${named}" — not ${matcher.displayName}.`
+      };
     }
   }
 
-  // Related IRD subtype but not the condition searched — tag, don't hide.
-  if (/\bstargardt\b/.test(text) && !/\bretinitis pigmentosa\b/.test(text)) {
-    return { score: 8, label: 'related eye disease', reason: 'This is for Stargardt disease (a different inherited eye condition), not classic retinitis pigmentosa.' };
+  if (score >= 45) {
+    return {
+      score,
+      label: 'strong match',
+      reason: `Title and listed conditions clearly match ${matcher.displayName}.`
+    };
   }
-  if (/\bchoroideremia\b/.test(text) && !/\bretinitis pigmentosa\b/.test(text)) {
-    return { score: 8, label: 'related eye disease', reason: 'This is for choroideremia (a different inherited eye condition), not classic retinitis pigmentosa.' };
+  if (score >= 18) {
+    return {
+      score,
+      label: 'likely match',
+      reason: `Appears related to ${matcher.displayName} based on title and conditions on ClinicalTrials.gov.`
+    };
   }
-
-  let score = 0;
-  if (matcher.primary && text.includes(matcher.primary)) score += 40;
-  for (const phrase of matcher.phrases) {
-    if (phrase.length >= 5 && text.includes(phrase)) score += 12;
+  if (score >= 8) {
+    return {
+      score,
+      label: 'weak match',
+      reason: `Only a loose connection to ${matcher.displayName} — confirm with the study team before assuming you qualify.`
+    };
   }
-  // Shorter alias hits (RP, IRD).
-  if (/\bretinitis pigmentosa\b/.test(text)) score += 35;
-  if (/\brod[- ]cone dystrophy\b/.test(text)) score += 25;
-  if (/\binherited retinal\b/.test(text)) score += 20;
-
-  if (score >= 45) return { score, label: 'strong match', reason: 'Title or listed conditions clearly match what you searched for.' };
-  if (score >= 15) return { score, label: 'likely match', reason: 'Appears related to your condition based on title and conditions listed on ClinicalTrials.gov.' };
-  return { score, label: 'weak match', reason: 'Only a loose connection to your search — verify with the study team before assuming it applies to you.' };
+  return {
+    score,
+    label: 'unlikely match',
+    reason: `Does not clearly mention ${matcher.displayName} — may have appeared because of a shared drug name or broad search.`
+  };
 };
 
 // Single CT.gov query wrapper. Returns raw studies[] array or throws.
@@ -566,7 +595,12 @@ export default async function handler(req, res) {
     ]);
     const CHINA_LIKE = new Set(['China', 'Vietnam', 'Mexico', 'India']);
 
-    const relevanceMatcher = buildRelevanceMatcher(primary, aliases, meshTerms, kb.meta || {});
+    const relevanceMatcher = buildRelevanceMatcher(
+      primary,
+      aliases,
+      [...meshTerms, ...(kb.meta?.meshTerms || [])],
+      kb.meta || {}
+    );
 
     studies.forEach((s) => {
       const rel = scoreTrialRelevance(s, relevanceMatcher);
@@ -600,8 +634,7 @@ export default async function handler(req, res) {
       s.promiseScore = score;
     });
 
-    // Drop trials for the wrong disease entirely. Keep weak matches at the
-    // bottom of the list so the user can still see them if they want.
+    // Drop clear wrong-disease trials; keep weak/unlikely at the bottom.
     const filtered = studies.filter((s) => (s.relevanceScore || 0) > -50);
     const droppedWrong = studies.length - filtered.length;
     studies = filtered;
@@ -650,6 +683,10 @@ export default async function handler(req, res) {
               .filter((d) => /approved/i.test(String(d.approvalStatus || d.status || '')))
               .slice(0, 5)
               .map((d) => ({ name: d.name, status: d.approvalStatus || d.status, why: d.whyItMatters })),
+            pipelineHighlights: (kb.meta?.pipelineDrugs || [])
+              .filter((d) => !/approved/i.test(String(d.approvalStatus || d.status || '')))
+              .slice(0, 4)
+              .map((d) => ({ name: d.name, status: d.approvalStatus || d.status })),
             keyFacts: (kb.meta?.canonicalFacts || []).slice(0, 4).map((f) => f.claim || f)
           }
         : null,
