@@ -48,8 +48,11 @@
     "regression:platform": "node scripts/regression-platform.mjs",
     "regression:live": "node scripts/audit-kb.mjs && REGRESSION_LIVE=1 node scripts/regression-kb-coverage.mjs",
     "verify:infra": "node scripts/verify-infra.mjs",
+    "dev": "vercel dev",
     "build:registry": "node scripts/build-disease-registry.mjs",
-    "build:drugs": "node scripts/build-drug-registry.mjs"
+    "build:drugs": "node scripts/build-drug-registry.mjs",
+    "build:kb": "node scripts/build-kb.mjs",
+    "kb:review": "node scripts/kb-review-report.mjs"
   },
   "phase": "3",
   "status": "phase-3-shipped",

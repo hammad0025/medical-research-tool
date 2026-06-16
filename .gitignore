@@ -20,3 +20,4 @@ yarn-error.log*
 *.swp
 .env*.local
 data/.cache/
+data/kb/_REVIEW.md

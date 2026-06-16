@@ -110,18 +110,19 @@ disputed, unsupported, or citations that were hallucinated.
 └───────────────┬─────────────────────────────────────────────────┘
                 │
 ┌───────────────┴─────────────────────────────────────────────────┐
-│  Vercel serverless functions (api/)                             │
+│  Vercel serverless (api/)                                       │
 │                                                                  │
-│  /api/research     →  Claude Sonnet with grounded evidence pack │
-│  /api/evidence     →  fan-out orchestrator (pulls and merges)   │
-│  /api/kb           →  serves curated per-disease ground truth   │
-│  /api/pubmed       →  NCBI E-utilities (metadata + abstracts)   │
-│  /api/europe-pmc   →  Europe PMC (+ legal open-access fulltext) │
-│  /api/openalex     →  OpenAlex (+ abstract inverted index)      │
-│  /api/openfda      →  FDA labels + FAERS adverse events         │
-│  /api/unpaywall    →  locate legal OA PDFs for paywalled DOIs   │
-│  /api/trials       →  ClinicalTrials.gov v2                     │
-│  /api/validate     →  cross-AI citation audit                   │
+│  POST /api/research   →  Claude pipeline + utility modes          │
+│  POST /api/trials     →  ClinicalTrials.gov v2                  │
+│  GET  /api/health     →  readiness probe                        │
+│  POST /api/alerts-*   →  weekly digest subscribe + cron         │
+│  GET  /api/brain-cron →  nightly dynamic-KB refresh              │
+│                                                                  │
+│  lib/ (in-process — not separate HTTP routes)                   │
+│    evidence.js    →  fan-out PubMed / EPMC / OpenAlex / FDA     │
+│    validate.js    →  cross-AI citation audit                    │
+│    kb.js          →  curated per-disease ground truth             │
+│    pubmed.js, europe-pmc.js, openalex.js, openfda.js, unpaywall  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
