@@ -886,6 +886,24 @@
         return s;
       };
 
+      // Strip internal pipeline jargon before showing or exporting a report.
+      const polishReportForDisplay = (text) => {
+        if (!text) return text;
+        let s = String(text);
+        s = s.replace(/^[^\n]*\bNo grounded evidence[^\n]*$/gim, '');
+        s = s.replace(/^[^\n]*\bno grounded prevalence[^\n]*$/gim, '');
+        s = s.replace(/\bNo grounded evidence in pack\b/gi, '');
+        s = s.replace(/\bconfirmed against grounded evidence\b/gi, '');
+        s = s.replace(/\bdossier source\b/gi, '');
+        s = s.replace(/\bGROUNDED EVIDENCE PACK\b/gi, '');
+        s = s.replace(/\bgrounded evidence pack\b/gi, '');
+        s = s.replace(/\bDisease-dossier uncertainty[^.\n]*/gi, '');
+        s = s.replace(/\buncertainty score[^.\n]*/gi, '');
+        s = s.replace(/\s*\[(FULL-TEXT|ABSTRACT-ONLY|METADATA-ONLY|CURATED KB|PREPRINT[^\]]*)\]\s*/gi, ' ');
+        s = s.replace(/\n{3,}/g, '\n\n').trim();
+        return s;
+      };
+
       const extractLinksFromText = (text) => {
         if (!text) return [];
         const links = [];
@@ -1486,7 +1504,7 @@
         // report right after it renders (a separate, non-blocking call — it
         // can never delay or crash the report). Roughly doubles per-run cost.
         // Persisted so the preference survives refreshes.
-        const [autoVerify, setAutoVerify] = useState(() => loadLS('mrt_auto_verify', true));
+        const [autoVerify, setAutoVerify] = useState(() => loadLS('mrt_auto_verify', false));
         useEffect(() => saveLS('mrt_auto_verify', autoVerify), [autoVerify]);
         // Token usage + model + wall-clock per last run for the cost meter.
         // Dorothy asked: "how much more is Opus vs Sonnet, and per 1k users?"
@@ -1679,18 +1697,10 @@
                   desc: mode === 'repurpose'
                     ? 'Several groups of drug ideas at once, then combinations (about 1 to 2 minutes).'
                     : 'A full report made just for you, in two parts. Deep research, not a quick answer.',
-                  status: 'pending' },
-                { id: 'validate', label: 'Double-check with Perplexity',
-                  desc: 'A second AI (Perplexity) checks every claim against the research we found.',
                   status: 'pending' }
               ]
             });
           }
-          // Helper: POST /api/research with robust non-JSON error handling.
-          // Vercel's 60s serverless cap, when hit, returns a plain-text error
-          // page (FUNCTION_INVOCATION_TIMEOUT) which is NOT JSON — we detect
-          // that specifically and surface a friendlier message instead of
-          // the browser's cryptic 'Unexpected token A ... is not valid JSON'.
           const callResearch = async (payload, retriesLeft = 2) => {
             let res, raw;
             try {
@@ -1759,6 +1769,37 @@
               throw new Error(errMsg);
             }
             return data;
+          };
+          const packForPolish = (ev) => (ev?.topRanked || ev?.groundedForPrompt || []).slice(0, 25).map((a) => ({
+            id: a.doi || a.pmid || a.id,
+            title: a.title,
+            journal: a.journal,
+            url: a.pmcUrl || a.pubmedUrl || a.doiUrl || a.oaUrl || a.landingUrl || a.europePmcUrl || a.url,
+            pmcUrl: a.pmcUrl,
+            pubmedUrl: a.pubmedUrl,
+            doiUrl: a.doiUrl,
+            accessLevel: a.accessLevel,
+            text: (a.fullText || a.abstract || '').slice(0, 2000)
+          }));
+          const polishMergedReport = async (text, reportData) => {
+            if (!text) return '';
+            let out = polishReportForDisplay(text);
+            try {
+              const d = await callResearch({
+                mode: 'polish-report',
+                analysisText: out,
+                excludedAgents: reportData?.evidence?.excludedAgents || [],
+                evidencePack: packForPolish(reportData?.evidence),
+                trials: reportData?.trials || null,
+                patient: runPatient,
+                audience,
+                condition: runPatient.condition,
+                silentFix: true
+              });
+              const polished = (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+              if (polished) out = polished;
+            } catch (_) {}
+            return out;
           };
           try {
             // Two-phase for research + repurpose (fan-out is too heavy to
@@ -1936,14 +1977,21 @@
                 data = await callResearch({ mode, patient, audience, phase: 'synthesize', ...extra });
               }
               updateStep('synth', {
-                status: 'done',
-                detail: 'Your report is ready'
+                status: 'running',
+                detail: 'Checking links and cleaning up the report…'
               });
             } else {
               data = await callResearch({ mode, patient, audience, ...extra });
             }
-            const text = (data.content || [])
+            let text = (data.content || [])
               .filter(b => b.type === 'text').map(b => b.text).join('\n');
+            if (mode === 'research' || mode === 'repurpose') {
+              text = await polishMergedReport(text, data);
+            }
+            updateStep('synth', {
+              status: 'done',
+              detail: 'Your report is ready'
+            });
             if (mode === 'research') setResearchText(text);
             if (mode === 'repurpose') setRepurposeText(text);
             if (mode === 'trials') setTrialsText(text);
@@ -1955,58 +2003,6 @@
             }
             if (mode !== 'chat' && data.validationMismatch) {
               setValidationMismatch((v) => ({ ...v, [mode]: data.validationMismatch }));
-            }
-            // Second-AI check: NEVER mark "not set up" when Perplexity WILL run.
-            // Await it during deep modes so the progress bar tells the truth.
-            if (deepMode && (mode === 'research' || mode === 'repurpose')) {
-              const provider = runtimeConfig?.validation?.primaryProvider || 'Perplexity';
-              if (data.validation) {
-                const p = data.validation.primary || data.validation;
-                updateStep('validate', {
-                  status: 'done',
-                  detail: `${p.overallScore ?? '?'}% agreement · checked by ${p.provider || provider}`
-                });
-              } else if (autoVerify && text) {
-                updateStep('validate', {
-                  status: 'running',
-                  detail: `${provider} is checking every claim…`
-                });
-                const vResult = await auditAnalysis(mode, {
-                  text,
-                  pack: data.evidence?.topRanked || evidencePack,
-                  silent: true
-                });
-                if (vResult && !vResult.error && vResult.primary) {
-                  const p = vResult.primary;
-                  if (vResult.validationMismatch) {
-                    setValidationMismatch((v) => ({ ...v, [mode]: vResult.validationMismatch }));
-                  }
-                  updateStep('validate', {
-                    status: 'done',
-                    detail: `${p.overallScore ?? '?'}% agreement · ${(p.disputed || []).length} flagged`
-                  });
-                } else if (vResult?.error) {
-                  updateStep('validate', {
-                    status: 'error',
-                    detail: vResult.error
-                  });
-                } else {
-                  updateStep('validate', {
-                    status: 'skipped',
-                    detail: `${provider} did not return a result — report above is still shown`
-                  });
-                }
-              } else if (!autoVerify) {
-                updateStep('validate', {
-                  status: 'skipped',
-                  detail: 'Auto-check is off (turn it on below the tabs)'
-                });
-              } else {
-                updateStep('validate', {
-                  status: 'skipped',
-                  detail: 'Second AI not configured on server'
-                });
-              }
             }
             if (mode !== 'chat' && data.usage) {
               setLastRunMeta((m) => ({
@@ -2354,6 +2350,7 @@
                 validationMismatch={validationMismatch.research}
                 conditionResolution={conditionResolution}
                 evidenceSummary={evidenceSummary}
+                evidencePack={evidencePack}
                 dossier={dossier} progress={progress} coverageAudit={coverageAudit}
                 onRetrySynth={() => runResearch('research', { skipGather: true })}
                 canRetrySynth={!!lastGathered?.mode && lastGathered.mode === 'research'}
@@ -2364,30 +2361,6 @@
                 runMeta={lastRunMeta.research}
                 setTab={setTab}
                 onDismissMismatch={() => setValidationMismatch((v) => ({ ...v, research: null }))} />}
-              {tab === 'trials' && <TrialsTab
-                patient={patient} busy={busy} trialsData={trialsData}
-                trialBlocks={trialBlocks} trialsText={trialsText}
-                validation={validations.trials}
-                runTrialsFetch={runTrialsFetch} runTrialsAnalysis={runTrialsAnalysis}
-                onAudit={() => auditAnalysis('trials')}
-                runtimeConfig={runtimeConfig}
-                runMeta={lastRunMeta.trials}
-                evidencePack={evidencePack} />}
-              {tab === 'repurpose' && <RepurposeTab
-                patient={patient} audience={audience} busy={busy} runResearch={runResearch}
-                repurposeText={repurposeText} candidates={candidates}
-                validation={validations.repurpose}
-                validationMismatch={validationMismatch.repurpose}
-                progress={progress}
-                onRetrySynth={() => runResearch('repurpose', { skipGather: true })}
-                canRetrySynth={!!lastGathered?.mode && lastGathered.mode === 'repurpose'}
-                onAudit={() => auditAnalysis('repurpose')}
-                runtimeConfig={runtimeConfig}
-                runMeta={lastRunMeta.repurpose}
-                drugScreen={repurposeDrugScreen}
-                setTab={setTab}
-                onDismissMismatch={() => setValidationMismatch((v) => ({ ...v, repurpose: null }))} />}
-              {tab === 'chart' && <ChartTab treatments={treatments} candidates={candidates} />}
               {tab === 'refs' && <RefsTab references={references} evidencePack={evidencePack} evidenceSummary={evidenceSummary} />}
             </div>
             <Footer runtimeConfig={runtimeConfig} />
@@ -4458,7 +4431,9 @@
         );
       };
 
-      const AutoVerifyToggle = ({ autoVerify, setAutoVerify }) => (
+      const AutoVerifyToggle = () => null;
+
+      const _AutoVerifyToggleLegacy = ({ autoVerify, setAutoVerify }) => (
         <label
           title="When on, a second AI automatically double-checks every report against the research right after it appears. This roughly doubles the cost of each run."
           style={{
@@ -5442,7 +5417,9 @@
         return theme.textDim;
       };
 
-      const ValidatorPanel = ({ validation, onAudit, canAudit }) => {
+      const ValidatorPanel = () => null;
+
+      const _ValidatorPanelLegacy = ({ validation, onAudit, canAudit }) => {
         // When no validation has been requested yet and the analysis is
         // ready, offer the audit button. The validator is opt-in so we
         // only burn Perplexity tokens when the user actually wants the
@@ -5666,7 +5643,9 @@
         if (n >= 0.1) return `$${n.toFixed(3)}`;
         return `$${n.toFixed(4)}`;
       };
-      const CostMeter = ({ meta, label }) => {
+      const CostMeter = () => null;
+
+      const _CostMeterLegacy = ({ meta, label }) => {
         if (!meta || !meta.outputTokens) return null;
         const p = priceFor(meta.model);
         const inCost  = p ? (meta.inputTokens  / 1_000_000) * p.in  : null;
@@ -5695,7 +5674,9 @@
       };
 
       /* ==================== Validation mismatch banner ==================== */
-      const ValidationMismatchBanner = ({ mismatch, onFixProfile, onDismiss }) => {
+      const ValidationMismatchBanner = () => null;
+
+      const _ValidationMismatchBannerLegacy = ({ mismatch, onFixProfile, onDismiss }) => {
         if (!mismatch) return null;
         const color = mismatch.severity === 'high' ? theme.red : theme.yellow;
         return (
@@ -5744,13 +5725,25 @@
       const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treatments,
                               candidates, repurposeText, trialsData, drugScreen,
                               validation, validationMismatch, conditionResolution,
-                              evidenceSummary, dossier, progress, coverageAudit,
+                              evidenceSummary, evidencePack, dossier, progress, coverageAudit,
                               chatHistory, userQuery, setUserQuery, sendChat, onAudit, runtimeConfig,
                               runMeta, setTab, onDismissMismatch, onRetrySynth, canRetrySynth }) => {
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
         const [translatedText, setTranslatedText] = useState('');
-        const renderedResearchText = translatedText || researchText;
+        const reportAllowedUrls = useMemo(() => {
+          const urls = new Set();
+          const add = (u) => { if (u && /^https?:\/\//i.test(String(u))) urls.add(String(u).trim()); };
+          (evidenceSummary?.topRanked || evidencePack || []).forEach((a) => {
+            add(a.url); add(a.pmcUrl); add(a.pubmedUrl); add(a.doiUrl); add(a.oaUrl); add(a.landingUrl); add(a.europePmcUrl);
+          });
+          (trialsData?.studies || []).forEach((s) => {
+            if (s.nctId) add(`https://clinicaltrials.gov/study/${s.nctId}`);
+            add(s.url);
+          });
+          return urls;
+        }, [evidenceSummary, evidencePack, trialsData]);
+        const renderedResearchText = polishReportForDisplay(translatedText || researchText);
         const baseQuickPrompts = [
           `Why did you rank the top treatment #1 over the others? Walk me through the tradeoff.`,
           `Check every treatment you recommended against my current medications for interactions.`,
@@ -5821,8 +5814,6 @@
                 what Claude actually wrote. Moved to the top of the
                 result stack so it's the first thing visible after
                 progress completes. */}
-            <CostMeter meta={runMeta} label="Research run cost" />
-
             {researchText && (
               <div id="mrt-research-export-target" style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem', gap: '0.6rem', flexWrap: 'wrap' }}>
@@ -5884,7 +5875,7 @@
                     You're seeing the translated version. The original English does not change.
                   </div>
                 )}
-                <Markdown text={renderedResearchText} />
+                <Markdown text={renderedResearchText} allowedUrls={reportAllowedUrls} />
                 <SourceLinks text={renderedResearchText} label="All sources & links in this report" />
               </div>
             )}
@@ -5921,149 +5912,6 @@
                     <CandidateCard key={`re-${i}`} c={c} rank={repurposeMechanistic.length + i + 1} audience={audience} />
                   ))}
                 </div>
-              </div>
-            )}
-
-            <DossierPanel dossier={null} conditionResolution={conditionResolution} />
-
-            <KBPanel kb={evidenceSummary?.knowledgeBase} />
-
-            <QualityPanel qb={evidenceSummary?.qualityBreakdown} />
-
-            <ValidationMismatchBanner
-              mismatch={validationMismatch}
-              onFixProfile={() => setTab('profile')}
-              onDismiss={onDismissMismatch}
-            />
-
-            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!researchText} />
-
-            {evidenceSummary && evidenceSummary.totalUnique > 0 && (
-              <div style={panelStyle}>
-                <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Database size={18} /> Where the research came from
-                </h3>
-
-                {/* Funnel: fetched -> unique -> journals -> passed to Claude.
-                    This is the "are you really looking at everything?" answer. */}
-                <div style={{
-                  display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                  gap: '0.6rem', marginTop: '0.6rem'
-                }}>
-                  {[
-                    { n: evidenceSummary.totalFetched || evidenceSummary.totalUnique,
-                      label: 'records found',
-                      sub: 'all hits across databases' },
-                    { n: evidenceSummary.totalUnique,
-                      label: 'papers without repeats',
-                      sub: 'after removing duplicates' },
-                    { n: evidenceSummary.uniqueJournals || '—',
-                      label: 'different journals',
-                      sub: 'found this time' },
-                    { n: evidenceSummary.promptPackBreakdown?.total || 0,
-                      label: 'used in your report',
-                      sub: 'the best by quality and how recent they are' }
-                  ].map((card, i) => (
-                    <div key={i} style={{
-                      padding: '0.6rem 0.8rem', borderRadius: 10,
-                      background: theme.accentSoft, border: `1px solid ${theme.border}`
-                    }}>
-                      <div style={{ color: theme.accent, fontSize: '1.35rem', fontWeight: 700, lineHeight: 1.1 }}>
-                        {card.n}
-                      </div>
-                      <div style={{ color: theme.text, fontSize: '0.8rem', fontWeight: 600 }}>
-                        {card.label}
-                      </div>
-                      <div style={{ color: theme.textDim, fontSize: '0.72rem', marginTop: 2 }}>
-                        {card.sub}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Per-source breakdown — where the records actually came from. */}
-                {evidenceSummary.perSourceCounts && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.75rem' }}>
-                    <span style={{ fontSize: '0.8rem', color: theme.textDim, alignSelf: 'center' }}>By source:</span>
-                    {Object.entries(evidenceSummary.perSourceCounts)
-                      .filter(([, n]) => n > 0)
-                      .map(([src, n]) => (
-                        <span key={src} style={{
-                          padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
-                          background: theme.accentSoft, color: theme.accent, fontWeight: 600,
-                          border: `1px solid ${theme.accentEdge}`
-                        }}>
-                          {src}: {n}
-                        </span>
-                      ))}
-                  </div>
-                )}
-
-                {evidenceSummary.promptPackBreakdown && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem', alignItems: 'center' }}>
-                    <span style={{ fontSize: '0.8rem', color: theme.textDim }}>What the AI read:</span>
-                    <span style={{
-                      padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
-                      background: `${theme.accent}22`, color: theme.accent, fontWeight: 600
-                    }}>
-                      {evidenceSummary.promptPackBreakdown.total} total
-                    </span>
-                    <span style={{
-                      padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
-                      background: `${theme.accent}18`, color: theme.accent, fontWeight: 600,
-                      border: `1px solid ${theme.accent}66`
-                    }}>
-                      {evidenceSummary.promptPackBreakdown.curatedKB} trusted sources
-                    </span>
-                    <span style={{
-                      padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.75rem',
-                      background: 'rgba(110, 231, 183, 0.15)', color: theme.green, fontWeight: 600
-                    }}>
-                      {evidenceSummary.promptPackBreakdown.liveFetched} freshly searched
-                    </span>
-                  </div>
-                )}
-                {evidenceSummary.accessBreakdown && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-                    <span style={{ fontSize: '0.8rem', color: theme.textDim, alignSelf: 'center' }}>How much we could read across all sources:</span>
-                    <AccessBadge level="full-text"   n={evidenceSummary.accessBreakdown['full-text']} />
-                    <AccessBadge level="abstract"    n={evidenceSummary.accessBreakdown['abstract']} />
-                    <AccessBadge level="metadata-only" n={evidenceSummary.accessBreakdown['metadata-only']} />
-                  </div>
-                )}
-
-                {/* Corpus footprint — the "we search the world, not just
-                    30 journals" answer in case someone asks. */}
-                {evidenceSummary.corpusFootprint?.databases && (
-                  <details style={{ marginTop: '0.75rem' }}>
-                    <summary style={{
-                      cursor: 'pointer', color: theme.accent, fontSize: '0.85rem', fontWeight: 600
-                    }}>
-                      What do we search? (all the sources behind this)
-                    </summary>
-                    <ul style={{
-                      margin: '0.5rem 0 0 0', paddingLeft: '1.2rem',
-                      color: theme.text, fontSize: '0.85rem', lineHeight: 1.6
-                    }}>
-                      {evidenceSummary.corpusFootprint.databases.map((d, i) => (
-                        <li key={i}>
-                          <strong style={{ color: theme.accent }}>{d.name}</strong> — {d.journals}
-                        </li>
-                      ))}
-                    </ul>
-                    <p style={{ color: theme.textDim, fontSize: '0.8rem', marginTop: '0.5rem', marginBottom: 0 }}>
-                      {evidenceSummary.corpusFootprint.universityFilter}
-                    </p>
-                  </details>
-                )}
-
-                <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: '0.75rem', marginBottom: 0 }}>
-                  Each source is marked <strong>[FULL-TEXT]</strong> (we read the whole paper),
-                  <strong> [ABSTRACT-ONLY]</strong> (we read just the short summary), or
-                  <strong> [METADATA-ONLY]</strong> (we could only see the title). This keeps the AI
-                  from claiming more than it actually read. Our trusted, hand-picked sources are the
-                  base we always include, and freshly searched papers add the newest research.
-                </p>
               </div>
             )}
 

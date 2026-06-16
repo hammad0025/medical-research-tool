@@ -26,6 +26,12 @@ import evidenceHandler from '../lib/evidence.js';
 import validateHandler from '../lib/validate.js';
 import perplexitySearchHandler from '../lib/perplexity-search.js';
 import trialsHandler from './trials.js';
+import {
+  finalizeReportText,
+  filterExcludedAgentMentions,
+  applyValidationFixes,
+  collectAllowedUrls
+} from '../lib/report-polish.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb, matchKb } from '../lib/kb.js';
 import { ensureDynamicKb } from '../lib/kb-bootstrap.js';
@@ -703,50 +709,7 @@ const scanForMissedPipelineDrugs = (claudeText, pipelineDrugs) => {
 };
 
 // Remove CANDIDATE blocks and prose lines for KB excluded / already-studied drugs (e.g. metformin in IPF).
-const excludedAgentNames = (evidence) => {
-  const excluded = Array.isArray(evidence?.excludedAgents) ? evidence.excludedAgents : [];
-  const names = new Set();
-  for (const x of excluded) {
-    if (x.name) {
-      names.add(String(x.name).toLowerCase());
-      const first = String(x.name).split(/\s+/)[0].replace(/[^a-z0-9-]/gi, '');
-      if (first.length >= 4) names.add(first.toLowerCase());
-    }
-    for (const a of x.aliases || []) {
-      const al = String(a).toLowerCase();
-      if (al.length >= 4) names.add(al);
-    }
-  }
-  return [...names];
-};
-
-const filterExcludedRepurposeCandidates = (text, evidence) => {
-  const names = excludedAgentNames(evidence);
-  if (!text || !names.length) return text;
-  const blocks = String(text).split(/(?=CANDIDATE:)/i);
-  if (blocks.length <= 1) return text;
-  return blocks.filter((block) => {
-    if (!/^CANDIDATE:/i.test(block.trim())) return true;
-    const lower = block.toLowerCase();
-    return !names.some((n) => lower.includes(n));
-  }).join('');
-};
-
-const filterExcludedAgentMentions = (text, evidence) => {
-  if (!text) return text;
-  let out = filterExcludedRepurposeCandidates(text, evidence);
-  const names = excludedAgentNames(evidence);
-  if (!names.length) return out;
-  out = out.split('\n').filter((line) => {
-    const lower = line.toLowerCase();
-    if (/already studied|set aside|excluded|did not help|no benefit|not shown to help|was tried|human data do not/.test(lower)) {
-      return true;
-    }
-    if (/^#{1,3}\s/.test(line.trim())) return true;
-    return !names.some((n) => n.length >= 5 && lower.includes(n));
-  }).join('\n');
-  return out;
-};
+// Implemented in lib/report-polish.js — filterExcludedAgentMentions imported above.
 
 // Build a deterministic "Agents Evaluated" transparency block that gets
 // appended to every research + repurpose synthesis. This is the methodology-
@@ -886,7 +849,7 @@ Use these canonical facts and safety considerations as your backbone. Live evide
     if (bits.length) qualityNoteBlock = `SOURCE-QUALITY NOTES FOR THIS PACK:\n${bits.map((b) => `- ${b}`).join('\n')}\n\n`;
   }
 
-  return `GROUNDED EVIDENCE PACK — you MUST cite only from this list. If a claim is not supported by one of these items, say "No grounded evidence in pack" instead of making one up.
+  return `GROUNDED EVIDENCE PACK (internal — cite only from this list; NEVER echo this header or the phrase "grounded evidence pack" in your output). If a claim is not supported by one of these items, OMIT the claim or use plain English for the reader (e.g. "Published rates vary by region."). Do NOT write "No grounded evidence in pack".
 
 ${kbBlock}
 
@@ -896,7 +859,7 @@ ${qualityNoteBlock}CITATION ACCESS RULES (strict — many medical journals are p
 - [FULL-TEXT] items: you may cite methods, results, secondary endpoints, subgroups, adverse events, and figures, because you actually have the body text.
 - [ABSTRACT-ONLY] items: you may ONLY cite things that literally appear in the Content field (which is the peer-reviewed abstract or, for KB items, editor summary + verbatim passages). You may NOT claim anything about sub-group analyses, exact adverse-event frequencies beyond what the abstract states, study methods beyond what the abstract states, or any detail that requires having read the full paper.
 - [METADATA-ONLY] items: you may NAME the paper and reference it as "peer-reviewed source exists (abstract/full text unavailable in this pack)" but you may NOT claim anything about its findings.
-- In EVERY citation you write, append the access tag in brackets after the URL, exactly like this: \`[#3] (NEJM 2014) https://... [ABSTRACT-ONLY] — "quoted passage"\`. This is non-negotiable.
+- In EVERY citation you write, include the URL and a verbatim quoted passage when available. Do NOT append [FULL-TEXT]/[ABSTRACT-ONLY]/[METADATA-ONLY] tags in patient-facing output — those are internal only.
 - When the Content shows an "Editor's summary", treat that as context — do not quote it as if it were from the paper. Quote only "Verbatim passage" blocks verbatim, or abstract text for live items.
 - When you quote, copy the text verbatim from the Content field below and include the URL.
 
@@ -999,16 +962,19 @@ CITATION RULES (absolute — the single biggest failure mode of AI in medical re
   4. Centers/clinics/advocacy orgs/registries/experts → the entity's official website ONLY if you are confident of the exact URL; otherwise link a Google search (https://www.google.com/search?q=<url-encoded name>). A search link is always acceptable and is preferred over guessing a specific page.
 - NEVER fabricate a specific paper URL, DOI, PMID, or deep link to manufacture a citation. For grounded CLAIMS the link must come from the evidence pack (rule above); the search-URL fallback is ONLY for naming/navigation of non-claim entities.
 - Bare URLs are acceptable only if markdown link syntax is impossible; prefer [title](url) always.
-- If the evidence pack does not support a claim, write "No grounded evidence in pack" — DO NOT make one up.
+- If the evidence pack does not support a claim, OMIT it or use plain English ("Published figures vary — ask your doctor for local rates."). NEVER write "No grounded evidence in pack" or other internal pipeline phrases.
 - Prefer A+ and A tier journals (NEJM, Lancet, JAMA, BMJ, Nature Medicine, Cochrane, ERJ, AJRCCM, Thorax, Chest) over B/C.
 - Weight evidence on METHODOLOGICAL grounds (RCT > observational > case report; meta-analysis > single study; larger n > smaller n; registered + pre-registered > not). Do NOT down-weight or up-weight by country of origin — a well-conducted RCT from any country is a well-conducted RCT.
 
 ACCESS-LEVEL HONESTY (critical — many high-impact medical journals are paywalled):
-- Every evidence item has an [ACCESS] tag: [FULL-TEXT], [ABSTRACT-ONLY], or [METADATA-ONLY].
-- You MUST include this tag after every URL you cite.
-- For [ABSTRACT-ONLY] papers: you have the peer-reviewed abstract and nothing else. You may cite what the abstract literally says. You may NOT invent numeric values, methodological details, subgroup outcomes, or adverse-event frequencies that are not in the abstract text.
-- For [METADATA-ONLY] papers: you may name the paper but you must NOT claim what it found. Say "a peer-reviewed paper exists but the abstract/full text were not available to me in this pack."
-- If a claim cannot be supported without overreaching past abstract content, state the limitation explicitly: "Based on the abstract; the full methods/results were not accessible."
+- Every evidence item has an internal [ACCESS] tag: [FULL-TEXT], [ABSTRACT-ONLY], or [METADATA-ONLY]. These tags are for YOU only — do NOT print [ABSTRACT-ONLY] etc. in the patient-facing report.
+- For abstract-only papers: you may cite what the abstract literally says. You may NOT invent numeric values, methodological details, subgroup outcomes, or adverse-event frequencies that are not in the abstract text.
+- For metadata-only papers: you may name the paper but you must NOT claim what it found. Say "a peer-reviewed paper exists but the full study was not available to us."
+- If a claim cannot be supported without overreaching past abstract content, state the limitation in plain English: "Based on the study summary; the full methods/results were not accessible."
+
+READER-FACING LANGUAGE (critical — demo / lawyer audience):
+- NEVER expose internal terms to the reader: "grounded evidence", "evidence pack", "dossier", "dossier source", "confirmed against grounded evidence", "uncertainty score", or similar.
+- Centers, experts, and advocacy orgs should read like a normal medical report — no mention of where the list came from internally.
 
 LANGUAGE TONE (critical — legal/educational framing):
 - This tool is educational decision-support, NOT medical advice or a prescription service.
@@ -1071,16 +1037,15 @@ Your output MUST include the following 3 sections IN THIS ORDER, and nothing els
 
 ## 1. Condition Snapshot
 - One-sentence definition.
-- Prevalence / incidence (from evidence pack or dossier).
+- Prevalence / incidence if you have a cited source with a number; otherwise one plain sentence ("Affects roughly X people" or "Relatively rare — exact rates vary by region") — never write "no grounded prevalence".
 - Typical trajectory if untreated.
-- Primary medical specialty (from dossier) + one or two named top experts.
-- Disease-dossier uncertainty score if > 0.5 (be transparent about AI confidence).
+- Primary medical specialty + one or two named top experts (with links).
 - **If patient geneticVariant / gene is provided:** name the gene, inheritance pattern if known, and whether approved gene therapies (e.g. Luxturna for RPE65, CRISPR trials) apply ONLY to that mutation — never imply one drug covers all genetic forms of the disease.
 - **Lifestyle & environment (from dossier lifestyleCategories + KB lifestyleRecommendations):** 3-6 bullets framed as "Research suggests…" / "Studies report…" (e.g. IPF → GERD management, feather pillows/bird exposure, pulm rehab; RP → UV protection). Every bullet needs a clickable link from the evidence pack when possible.
 - **Key safety flags (top 3 redFlags from dossier/KB):** literature-framed cautions with links — NOT patient directives.
 
 ## 2. Top Centers & Experts Worldwide
-**Use the disease dossier's topCenters + keyInvestigators as your starting list.** Correct/extend from grounded evidence. Present as a markdown table:
+Use the intake context and evidence below as your starting list; add or correct from peer-reviewed sources. Present as a markdown table (no internal labels like "dossier" or "confirmed against grounded evidence"):
 
 | Center | City | URL / Phone | Why it leads |
 |---|---|---|---|
@@ -1177,7 +1142,7 @@ From the dossier's redFlags + your grounded-evidence knowledge. Frame each item 
 - e.g. LADA: *"Evidence suggests sulfonylureas may accelerate beta-cell failure in LADA when misclassified as type 2 diabetes ([citation](url)) — worth verifying diagnosis and treatment approach with an endocrinologist."*
 - e.g. RP: *"High-dose vitamin A palmitate carries teratogenic risk reported in literature ([citation](url)) — pregnancy planning should be discussed with a physician before use."*
 
-Also cover: overseas clinic concerns (with source URLs where available), unproven 'cures' contradicted by grounded evidence, and excluded agents from the REQUIRED MENTIONS list — each with a clickable link.
+Also cover: overseas clinic concerns (with source URLs where available), unproven 'cures' contradicted by peer-reviewed sources, and excluded agents from the REQUIRED MENTIONS list — each with a clickable link.
 
 ${FORMATTING_RULES}
 
@@ -1193,7 +1158,7 @@ WHY_FOR_THIS_CONDITION: <REQUIRED — one plain sentence. For a drug with positi
 MECHANISM_TARGET: <for medical audience: molecular target/pathway. For layperson: ≤12-word plain phrase, e.g. "Helps cells clean up damaged parts" — define any technical term in parentheses>
 REPURPOSE_RATIONALE: <why it might help THIS condition — at the specified audience level. Layperson: 3 bullet lines per LAYPERSON RULES above. Medical: step-by-step biology.>
 EVIDENCE_STRENGTH: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
-SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. If no grounded evidence exists in the pack, say "Mechanistic hypothesis only — no human data yet".>
+SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. If no human data exists, say "Mechanistic hypothesis only — no human data yet".>
 REFERENCES: <REQUIRED — 1-3 clickable markdown links [short title](url) from the evidence pack or trials pull. Every candidate MUST have at least one link here even if SUPPORTING_EVIDENCE repeats them.>
 EFFICACY_HYPOTHESIS: <1-100>% — <one-line plain-English justification>
 SAFETY: <1-100>% — <higher = safer; reference FDA label / FAERS reactions if available>
@@ -1238,7 +1203,7 @@ Produce 5-8 combination candidates (pairings or triples of agents from Part 1, o
 COMBO: <Agent A + Agent B [+ Agent C]>
 RATIONALE: <one or two sentences on why the mechanisms are complementary or synergistic for THIS condition — pathway diagram in words>
 EVIDENCE_TIER: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
-SUPPORTING_EVIDENCE: <verbatim quotes + clickable markdown links [title](url) from the evidence pack, or "Mechanistic hypothesis only — no human combo data yet" if there is no grounded evidence.>
+SUPPORTING_EVIDENCE: <verbatim quotes + clickable markdown links [title](url) from the evidence pack, or "Mechanistic hypothesis only — no human combo data yet" if there is no supporting literature.>
 INTERACTION_RISK: <severity LOW | MODERATE | HIGH plus the specific pharmacokinetic / pharmacodynamic interaction; reference FDA label drug-interaction text when available>
 PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's current medications + comorbidities; if none, write "None identified">
 CONFIDENCE: <1-100>% — <overall confidence that this combo is worth physician discussion>
@@ -1732,6 +1697,51 @@ export default async function handler(req, res) {
       return validateHandler(req, res);
     }
 
+    if (mode === 'polish-report') {
+      const analysisText = String(req.body?.analysisText || '');
+      const evidence = {
+        excludedAgents: req.body?.excludedAgents || [],
+        groundedForPrompt: req.body?.evidencePack || [],
+        topRanked: req.body?.evidencePack || []
+      };
+      const trials = req.body?.trials || null;
+      let polished = finalizeReportText(analysisText, { evidence, trials });
+      let validation = null;
+      const hasAnyValidatorKey =
+        !!process.env.PERPLEXITY_API_KEY ||
+        !!process.env.OPENAI_API_KEY ||
+        !!process.env.XAI_API_KEY;
+      if (req.body?.silentFix !== false && analysisText && hasAnyValidatorKey && isSpendEnabled()) {
+        try {
+          const vResult = await Promise.race([
+            invokeValidate({
+              analysisText: polished,
+              evidencePack: (req.body.evidencePack || []).slice(0, 18),
+              patient: req.body.patient || {},
+              condition: req.body.condition || req.body.patient?.condition || '',
+              audience: req.body.audience || 'layperson'
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('validate timeout')), 22000))
+          ]);
+          if (vResult?.primary) {
+            validation = vResult;
+            polished = applyValidationFixes(
+              polished,
+              vResult,
+              evidence,
+              collectAllowedUrls(evidence, trials)
+            );
+          }
+        } catch (err) {
+          console.warn('[research] polish-report validate skipped:', err.message);
+        }
+      }
+      return res.status(200).json({
+        content: [{ type: 'text', text: polished }],
+        validation
+      });
+    }
+
     // Monthly per-IP gate:
     // - free: first 4 runs/month
     // - paid: up to 15 runs/month
@@ -2159,16 +2169,21 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
       .map((c) => c.text)
       .join('\n\n');
 
-    if ((mode === 'research' || mode === 'repurpose') && evidence?.excludedAgents?.length) {
+    if ((mode === 'research' || mode === 'repurpose') && evidence) {
       const filtered = filterExcludedAgentMentions(claudeText, evidence);
       if (filtered !== claudeText) {
-        console.warn('[research] stripped excluded-agent candidates from repurpose output');
+        console.warn('[research] stripped excluded-agent content from output');
         claudeText = filtered;
         if (data.content?.length) {
           data.content = data.content.map((c, i) =>
             i === 0 && c?.type === 'text' ? { ...c, text: filtered } : c
           );
         }
+      }
+      claudeText = finalizeReportText(claudeText, { evidence, trials });
+      if (data.content?.length) {
+        const lastText = data.content.findIndex((c) => c?.type === 'text');
+        if (lastText >= 0) data.content[lastText] = { ...data.content[lastText], text: claudeText };
       }
     }
 
