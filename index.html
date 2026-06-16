@@ -965,6 +965,75 @@
         return (s.slice(0, start) + s.slice(start + end)).replace(/\n{3,}/g, '\n\n').trim();
       };
 
+      // Mirror of lib/report-polish.js — index.html cannot import modules, so
+      // the approved-treatment injection logic is duplicated here for runtime.
+      const normalizeDrugKey = (name) =>
+        String(name || '').toLowerCase()
+          .replace(/\(.*?\)/g, '')
+          .replace(/[^a-z0-9]/g, '')
+          .trim();
+      const approvedPipelineDrugs = (pipelineDrugs) =>
+        (Array.isArray(pipelineDrugs) ? pipelineDrugs : [])
+          .filter((d) => /^approved/i.test(String((d && d.approvalStatus) || '')));
+      const drugNameVariants = (d) =>
+        [d && d.name, ...((d && Array.isArray(d.aliases)) ? d.aliases : [])];
+
+      // Inject KB-approved drugs as treatment-card stubs so the approved list
+      // is DATA-DRIVEN, not dependent on the model emitting a structured
+      // TREATMENT block for every drug. Prevents prose-only approved drugs
+      // (e.g. nintedanib, pirfenidone) from vanishing when the Section 3 prose
+      // is stripped. De-dupes against parsed cards by name/alias.
+      const injectApprovedTreatmentStubs = (parsed, pipelineDrugs) => {
+        const list = Array.isArray(parsed) ? parsed : [];
+        const approved = approvedPipelineDrugs(pipelineDrugs);
+        if (!approved.length) return list;
+        const have = new Set();
+        for (const t of list) {
+          const k = normalizeDrugKey(t && t.treatment);
+          if (k) have.add(k);
+        }
+        const stubs = [];
+        const added = new Set();
+        for (const d of approved) {
+          const key = normalizeDrugKey(d && d.name);
+          if (!key || added.has(key)) continue;
+          const already = drugNameVariants(d).some((nm) => {
+            const k = normalizeDrugKey(nm);
+            return k && have.has(k);
+          });
+          if (already) continue;
+          added.add(key);
+          stubs.push({
+            _type: 'treatment',
+            _approvedStub: true,
+            treatment: d.name,
+            fda_status: 'FDA-approved',
+            provider: d.mechanism ? `Mechanism: ${d.mechanism}` : '',
+            efficacy_pct: null,
+            safety_pct: null
+          });
+        }
+        return [...list, ...stubs];
+      };
+
+      // Section 3 prose may only be hidden when every KB-approved drug has a
+      // rendered card. Otherwise keep the prose so no approved drug is lost.
+      const allApprovedDrugsRendered = (pipelineDrugs, treatments) => {
+        const approved = approvedPipelineDrugs(pipelineDrugs);
+        if (!approved.length) return true;
+        const have = new Set();
+        for (const t of (Array.isArray(treatments) ? treatments : [])) {
+          const k = normalizeDrugKey(t && t.treatment);
+          if (k) have.add(k);
+        }
+        return approved.every((d) =>
+          drugNameVariants(d).some((nm) => {
+            const k = normalizeDrugKey(nm);
+            return k && have.has(k);
+          })
+        );
+      };
+
       const extractLinksFromText = (text) => {
         if (!text) return [];
         const links = [];
@@ -1593,16 +1662,9 @@
         const [validations, setValidations] = useState({
           research: null, repurpose: null, trials: null
         });
-        // Auto-verify: when ON, a second AI automatically double-checks each
-        // report right after it renders (a separate, non-blocking call — it
-        // can never delay or crash the report). Roughly doubles per-run cost.
-        // Persisted so the preference survives refreshes.
-        const [autoVerify, setAutoVerify] = useState(() => loadLS('mrt_auto_verify', false));
-        useEffect(() => saveLS('mrt_auto_verify', autoVerify), [autoVerify]);
-        // Token usage + model + wall-clock per last run for the cost meter.
-        // Dorothy asked: "how much more is Opus vs Sonnet, and per 1k users?"
-        // This is the answer surface — we render it as a small CostMeter
-        // strip above each analysis using real per-run numbers, not estimates.
+        // Per-run metadata (token usage, model, repurpose quality) — feeds the
+        // "incomplete run" drug-coverage warning surfaced in the Research and
+        // Repurpose tabs via runMeta.
         const [lastRunMeta, setLastRunMeta] = useState({
           research: null, repurpose: null, trials: null
         });
@@ -1730,7 +1792,10 @@
         }, []);
 
         /* -------- Derived / parsed data -------- */
-        const treatments = useMemo(() => parseTreatments(researchText), [researchText]);
+        const treatments = useMemo(
+          () => injectApprovedTreatmentStubs(parseTreatments(researchText), evidenceSummary?.pipelineDrugs),
+          [researchText, evidenceSummary]
+        );
         const candidates = useMemo(() => {
           const cond = (patient.condition || '').trim().toLowerCase();
           if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) return [];
@@ -2642,7 +2707,6 @@
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 gap: '0.6rem', flexWrap: 'wrap', margin: '0.25rem 0 1rem'
               }}>
-                <AutoVerifyToggle autoVerify={autoVerify} setAutoVerify={setAutoVerify} />
                 <FullReportExportButton
                   patient={patient}
                   researchText={researchText}
@@ -4762,28 +4826,6 @@
         );
       };
 
-      const AutoVerifyToggle = () => null;
-
-      const _AutoVerifyToggleLegacy = ({ autoVerify, setAutoVerify }) => (
-        <label
-          title="When on, a second AI automatically double-checks every report against the research right after it appears. This roughly doubles the cost of each run."
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-            fontSize: '0.8rem', color: theme.textDim, cursor: 'pointer',
-            padding: '0.3rem 0.5rem', borderRadius: 6, border: `1px solid ${theme.border}`
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={!!autoVerify}
-            onChange={(e) => setAutoVerify(e.target.checked)}
-            style={{ cursor: 'pointer' }}
-          />
-          <ShieldCheck size={14} color={autoVerify ? theme.green : theme.textDim} />
-          Double-check every report with a second AI (costs about twice as much)
-        </label>
-      );
-
       const AnalysisLanguageToolbar = ({
         sourceText, translatedText, setTranslatedText,
         exportElementId, exportBaseFilename
@@ -5939,64 +5981,6 @@
         </div>
       );
 
-      /* ==================== Cost Meter ====================
-         Dorothy's question from the WhatsApp thread: "how much more
-         expensive is Opus, and what does it cost per 1k users?" This
-         strip renders a live, per-run, numeric answer using the
-         token-usage payload the server already returns. Pricing is a
-         rough on-device lookup — the real number for Dorothy is the
-         per-run cost on the model you actually shipped.
-      ===================================================== */
-      // Approximate Anthropic public pricing snapshot. These are
-      // intentionally inline so the meter degrades to "model unknown"
-      // gracefully when a future model isn't in the table. Update when
-      // Anthropic ships new tier pricing.
-      //   { in: USD per 1M input tokens, out: USD per 1M output tokens }
-      const MODEL_PRICES_USD_PER_M = [
-        { match: /opus/i,           in: 15.00, out: 75.00 },
-        { match: /sonnet-4|sonnet/i, in: 3.00,  out: 15.00 },
-        { match: /haiku/i,           in: 0.80,  out: 4.00  }
-      ];
-      const priceFor = (model) => {
-        if (!model) return null;
-        return MODEL_PRICES_USD_PER_M.find((p) => p.match.test(model)) || null;
-      };
-      const fmtUsd = (n) => {
-        if (n == null || !isFinite(n)) return '—';
-        if (n >= 1)   return `$${n.toFixed(2)}`;
-        if (n >= 0.1) return `$${n.toFixed(3)}`;
-        return `$${n.toFixed(4)}`;
-      };
-      const CostMeter = () => null;
-
-      const _CostMeterLegacy = ({ meta, label }) => {
-        if (!meta || !meta.outputTokens) return null;
-        const p = priceFor(meta.model);
-        const inCost  = p ? (meta.inputTokens  / 1_000_000) * p.in  : null;
-        const outCost = p ? (meta.outputTokens / 1_000_000) * p.out : null;
-        const runCost = inCost != null && outCost != null ? inCost + outCost : null;
-        const projection1k = runCost != null ? runCost * 1000 : null;
-        return (
-          <div data-pdf-exclude="1" style={{
-            ...panelStyle,
-            padding: '0.6rem 0.85rem',
-            display: 'flex', flexWrap: 'wrap', gap: '0.65rem 1.2rem', alignItems: 'center',
-            fontSize: '0.78rem', color: theme.textDim,
-            borderLeft: `3px solid ${theme.accent}55`
-          }}>
-            <strong style={{ color: theme.accent, fontSize: '0.78rem', letterSpacing: '0.04em' }}>
-              {label || 'Run cost'}
-            </strong>
-            <span title="A rough estimate of what this one run costs to make. It does not include the second-AI check or the research lookups.">
-              This run: <strong style={{ color: theme.text }}>{fmtUsd(runCost)}</strong>
-            </span>
-            <span title="A rough guess if 1,000 people ran the same thing. The real cost is usually lower.">
-              × 1,000 people: <strong style={{ color: theme.text }}>{fmtUsd(projection1k)}</strong>
-            </span>
-          </div>
-        );
-      };
-
       /* ==================== Validation mismatch banner ==================== */
       const ValidationMismatchBanner = ({ mismatch, onFixProfile, onDismiss }) => {
         if (!mismatch) return null;
@@ -6059,7 +6043,7 @@
           return buildAllowedUrlSet(trialsData, evidenceSummary || { topRanked: evidencePack });
         }, [evidenceSummary, evidencePack, trialsData]);
         const renderedResearchText = polishReportForDisplay(
-          treatments.length > 0
+          (treatments.length > 0 && allApprovedDrugsRendered(evidenceSummary?.pipelineDrugs, treatments))
             ? stripApprovedTreatmentsSection(translatedText || researchText)
             : (translatedText || researchText)
         );
