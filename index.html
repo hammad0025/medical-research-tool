@@ -237,7 +237,7 @@
         { title: 'We are not your doctor',
           body: 'Using this site does not make us your doctor or care team. It does not start any kind of health-care relationship between you and the people who run this tool.' },
         { title: 'This tool does not meet HIPAA privacy rules',
-          body: 'This is an early version of the tool. It does not follow HIPAA (the U.S. law that protects your health records). Please do not type names, birth dates, medical record numbers, addresses, phone numbers, or anything that could point to a real person. The profile you fill in stays in your browser. The text you send for AI review is shared with outside services.' },
+          body: 'This is an early version of the tool. It does not follow HIPAA (the U.S. law that protects your health records). Please do not type names, birth dates, medical record numbers, addresses, phone numbers, or anything that could point to a real person. We do not store your profile on our servers, but the text you send is shared with outside AI providers (Anthropic and Perplexity) to create your report.' },
         { title: 'We cannot promise the AI is right',
           body: 'Medical research is hard to read and changes fast. AI summaries can be missing facts, out of date, or wrong. Sometimes the AI even makes up sources — links or papers that do not exist or do not back up what it says. We cannot promise the results are correct, complete, or right for you.' },
         { title: 'Please check the links and facts yourself',
@@ -263,7 +263,7 @@
         'Juniper Publishers'
       ];
 
-      const CHAT_SESSION_FOOTNOTE = 'Answers use this session\u2019s context. We do not use your searches or medical details to train AI models.';
+      const CHAT_SESSION_FOOTNOTE = 'Answers use this session\u2019s context. The text you submit is sent to AI providers (Anthropic, Perplexity) to generate answers; we use API tiers the providers state are not used to train their models.';
 
       const TermsContext = React.createContext({ openTerms: () => {} });
       const getStoredPasscode = () => {
@@ -3341,7 +3341,7 @@
                   {codeErr && <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: theme.red, fontWeight: 600 }}>{codeErr}</p>}
                 </div>
                 <p style={{ margin: '0.7rem 0 0', fontSize: '0.7rem', color: theme.textDim, fontStyle: 'italic' }}>
-                  Online card billing isn&apos;t live yet — paid plans are activated by code for now. Enterprise plans with a no-training guarantee (your searches are not used to train AI models) — contact us.
+                  Online card billing isn&apos;t live yet — paid plans are activated by code for now. Enterprise plans available — contact us. We use AI provider API tiers (Anthropic, Perplexity) that the providers state are not used to train their models.
                 </p>
               </div>
             </div>
@@ -3894,8 +3894,9 @@
                 Where your information is kept
               </div>
               <p style={{ margin: 0, fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.55 }}>
-                Your profile stays in <strong style={{ color: theme.text }}>this browser only</strong>.
-                We do not send your profile to our servers.{' '}
+                We <strong style={{ color: theme.text }}>do not store your profile on our servers</strong>.
+                To create your report, the text you submit is sent to AI providers (Anthropic and Perplexity).
+                Please don&apos;t enter anything that could identify a real person.{' '}
                 <button type="button" onClick={openTerms} style={{
                   background: 'transparent', border: 'none', color: theme.accent,
                   cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit', fontSize: '0.82rem', padding: 0

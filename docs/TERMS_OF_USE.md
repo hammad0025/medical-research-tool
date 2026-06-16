@@ -14,7 +14,7 @@ Use of this site does **not** create a doctor–patient, clinician–patient, or
 
 ## Not HIPAA-compliant
 
-This prototype is **not** HIPAA-compliant. Do not enter names, dates of birth, medical record numbers, addresses, phone numbers, or other personally identifying information. Patient profile data you enter stays in your browser only (see Data storage below), but text you submit for AI analysis is sent to third-party services.
+This prototype is **not** HIPAA-compliant. Do not enter names, dates of birth, medical record numbers, addresses, phone numbers, or other personally identifying information. We do **not** store your patient profile on our servers, but the text you submit for AI analysis is sent to third-party AI providers (Anthropic and Perplexity) to generate your report (see **Data storage** below).
 
 ## No guarantee of accuracy; AI limitations
 
@@ -27,6 +27,12 @@ You are responsible for independently verifying every citation, link, trial list
 ## Email alerts
 
 If you subscribe to weekly email digests, we store your **email address** and **condition of interest** on our server (Upstash) to send those emails. Do not include names, MRNs, or other identifying information in alert subscriptions or profile fields tied to alerts.
+
+## Data storage
+
+We do **not** persist your patient profile (age, sex, medications, conditions, symptoms, and similar fields) on our servers. Your profile is transmitted with each request **only** so our AI providers can generate and cross-check your report: Anthropic produces the analysis, and Perplexity (and, when configured, OpenAI) independently validate it. We do not write the profile to a database, and it is not retained after the request completes. We use AI provider API tiers that the providers state are not used to train their models.
+
+For abuse prevention and monthly usage limits, we store your **IP address** together with a request count. If you subscribe to email alerts, we also store the **email address** and **condition of interest** you provide (see **Email alerts** above). We do not store any other profile data on our servers.
 
 ## Age requirement
 
