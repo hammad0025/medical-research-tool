@@ -1385,7 +1385,14 @@ export default async function handler(req, res) {
       const hasXai = !!process.env.XAI_API_KEY;
       return res.status(200).json({
         branding: { productName: 'researchingmycondition.com' },
-        ai: { researchModel: String(process.env.ANTHROPIC_RESEARCH_MODEL || DEFAULT_MODEL) },
+        build: {
+          sha: String(process.env.VERCEL_GIT_COMMIT_SHA || '').trim().slice(0, 7) || null,
+          at: process.env.VERCEL_GIT_COMMIT_SHA ? undefined : null
+        },
+        ai: {
+          researchModel: String(process.env.ANTHROPIC_RESEARCH_MODEL || DEFAULT_MODEL),
+          modelFallback: true
+        },
         validation: {
           available: hasPerplexity || hasOpenAI || hasXai,
           primaryProvider: hasPerplexity ? 'Perplexity' : hasOpenAI ? 'OpenAI' : hasXai ? 'xAI' : null

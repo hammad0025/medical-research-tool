@@ -317,12 +317,17 @@
 
       const formatApiError = (data, res) => {
         if (!data) return `Request failed (HTTP ${res?.status || '?'})`;
+        const raw = typeof data.error === 'string'
+          ? data.error
+          : (data.error?.message || data.message || '');
+        if (/not_found_error|model:\s*claude-sonnet-4-20250514/i.test(raw)) {
+          return 'Report model unavailable — hard refresh the page (Cmd+Shift+R) and retry. Your gathered research is saved.';
+        }
         if (typeof data.error === 'string') {
-          const base = data.error;
-          if (data.modelAttempted && /model|not_found/i.test(base)) {
-            return `${base} (tried ${data.modelAttempted})`;
+          if (data.modelAttempted && /model|not_found/i.test(data.error)) {
+            return `${data.error} (tried ${data.modelAttempted})`;
           }
-          return base;
+          return data.error;
         }
         if (data.error?.message) return data.error.message;
         if (data.message) return data.message;
