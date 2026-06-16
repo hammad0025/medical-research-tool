@@ -837,6 +837,55 @@
         return s;
       };
 
+      // URLs the AI is allowed to cite — built from live trials pull + evidence pack.
+      const buildAllowedUrlSet = (trialsData, evidencePack) => {
+        const urls = new Set();
+        const add = (u) => {
+          if (!u || typeof u !== 'string') return;
+          urls.add(u.replace(/\/$/, ''));
+        };
+        (trialsData?.studies || []).forEach((s) => {
+          add(s.url);
+          if (s.nctId) add(`https://clinicaltrials.gov/study/${String(s.nctId).toUpperCase()}`);
+        });
+        (evidencePack || []).forEach((a) => {
+          [a.url, a.pmcUrl, a.pubmedUrl, a.doiUrl, a.oaUrl, a.landingUrl, a.europePmcUrl].forEach(add);
+          if (a.pmid) add(`https://pubmed.ncbi.nlm.nih.gov/${a.pmid}/`);
+          if (a.doi) add(`https://doi.org/${String(a.doi).replace(/^https?:\/\/doi\.org\//i, '')}`);
+        });
+        return urls;
+      };
+
+      const urlIsAllowed = (href, allowedUrls) => {
+        if (!allowedUrls || !allowedUrls.size || !href) return true;
+        const h = String(href).replace(/\/$/, '');
+        if (allowedUrls.has(h)) return true;
+        const nct = h.match(/NCT\d{8}/i);
+        if (nct) {
+          const ct = `https://clinicaltrials.gov/study/${nct[0].toUpperCase()}`;
+          if (allowedUrls.has(ct)) return true;
+        }
+        for (const a of allowedUrls) {
+          if (h.startsWith(a) || a.startsWith(h)) return true;
+        }
+        return false;
+      };
+
+      // Strip markdown links the model invented (not in trials/evidence pack).
+      const sanitizeMarkdownLinks = (text, allowedUrls) => {
+        if (!text || !allowedUrls?.size) return text;
+        let s = String(text);
+        s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (m, label, url) =>
+          urlIsAllowed(url, allowedUrls) ? m : `${label} (link removed — not in search results)`);
+        s = s.replace(/(?<![(\[])(https?:\/\/[^\s)\]"']+)/g, (url) => {
+          const clean = url.replace(/[.,;)]+$/, '');
+          return urlIsAllowed(clean, allowedUrls)
+            ? `[${clean.replace(/^https?:\/\//, '').slice(0, 50)}](${clean})`
+            : clean.replace(/^https?:\/\//, '') + ' (link removed)';
+        });
+        return s;
+      };
+
       const extractLinksFromText = (text) => {
         if (!text) return [];
         const links = [];
@@ -1537,7 +1586,18 @@
 
         /* -------- Derived / parsed data -------- */
         const treatments = useMemo(() => parseTreatments(researchText), [researchText]);
-        const candidates = useMemo(() => parseCandidates(repurposeText), [repurposeText]);
+        const candidates = useMemo(() => {
+          const parsed = parseCandidates(repurposeText);
+          const excluded = evidenceSummary?.excludedAgents || [];
+          if (!excluded.length) return parsed;
+          const blockNames = excluded.flatMap((x) =>
+            [x.name, ...(x.aliases || [])].map((n) => String(n).toLowerCase().trim()).filter(Boolean)
+          );
+          return parsed.filter((c) => {
+            const name = String(c.candidate || '').toLowerCase();
+            return !blockNames.some((ex) => name.includes(ex) || ex.includes(name.replace(/[^a-z0-9]/g, '')));
+          });
+        }, [repurposeText, evidenceSummary]);
         const trialBlocks = useMemo(() => parseTrialBlocks(trialsText), [trialsText]);
         const references = useMemo(() => {
           const all = [
@@ -1722,6 +1782,7 @@
               // Expose the pools in the UI as soon as phase 1 finishes so
               // the user sees dossier / trials / evidence panels populate
               // before Claude's full narrative arrives.
+              if (gathered.trials) setTrialsData(gathered.trials);
               if (gathered.dossier) setDossier(gathered.dossier);
               if (gathered.conditionResolution) setConditionResolution(gathered.conditionResolution);
               if (gathered.evidence) {
@@ -1832,9 +1893,9 @@
                   providedTrials: gathered.trials,
                   ...extra
                 };
-                // 4 lanes x 4 candidates = up to 16 (well above the 13 floor).
-                const LANE_COUNT = 4;
-                const PER_LANE = 4;
+                // 3 lanes x 5 candidates = 15 unexplored drug ideas (no studied/failed lane).
+                const LANE_COUNT = 3;
+                const PER_LANE = 5;
                 const batchCalls = [];
                 for (let lane = 0; lane < LANE_COUNT; lane++) {
                   batchCalls.push(callResearch({
@@ -1971,6 +2032,9 @@
             if (mode === 'repurpose' && data.repurposeDrugScreen) {
               setRepurposeDrugScreen(data.repurposeDrugScreen);
             }
+            if (mode === 'research' && extra.chainRepurpose) {
+              await runResearch('repurpose', { skipGather: true });
+            }
             try {
               setUsageInfo(await callResearchMode('usage'));
             } catch (_) {}
@@ -1993,6 +2057,10 @@
               setTimeout(() => setProgress(p => p ? ({ ...p, active: false }) : null), 600);
             }
           }
+        };
+
+        const runFullAnalysis = async () => {
+          await runResearch('research', { chainRepurpose: true });
         };
 
         const runTrialsFetch = async (opts) => {
@@ -2270,7 +2338,7 @@
 
               {tab === 'profile' && <PatientTab patient={patient} setPatient={setPatient}
                 audience={audience} setAudience={setAudience}
-                setTab={setTab} runResearch={runResearch} busy={busy}
+                setTab={setTab} runResearch={runFullAnalysis} busy={busy}
                 applyMessageToProfile={applyMessageToProfile}
                 runtimeConfig={runtimeConfig} usageInfo={usageInfo}
                 acceptedHipaa={acceptedHipaa} setAcceptedHipaa={setAcceptedHipaa}
@@ -2278,8 +2346,10 @@
                   try { setUsageInfo(await callResearchMode('usage')); } catch (_) {}
                 }} />}
               {tab === 'research' && <ResearchTab
-                patient={patient} busy={busy} runResearch={runResearch}
+                patient={patient} audience={audience} busy={busy} runResearch={runFullAnalysis}
                 researchText={researchText} treatments={treatments}
+                candidates={candidates} repurposeText={repurposeText}
+                trialsData={trialsData} drugScreen={repurposeDrugScreen}
                 validation={validations.research}
                 validationMismatch={validationMismatch.research}
                 conditionResolution={conditionResolution}
@@ -2301,7 +2371,8 @@
                 runTrialsFetch={runTrialsFetch} runTrialsAnalysis={runTrialsAnalysis}
                 onAudit={() => auditAnalysis('trials')}
                 runtimeConfig={runtimeConfig}
-                runMeta={lastRunMeta.trials} />}
+                runMeta={lastRunMeta.trials}
+                evidencePack={evidencePack} />}
               {tab === 'repurpose' && <RepurposeTab
                 patient={patient} audience={audience} busy={busy} runResearch={runResearch}
                 repurposeText={repurposeText} candidates={candidates}
@@ -3051,13 +3122,11 @@
 
       /* ==================== Tabs ==================== */
       const Tabs = ({ tab, setTab }) => {
+        // Single-page demo mode: everything lives on Research (Dorothy feedback Jun 2026).
         const tabs = [
           { id: 'profile',   label: 'Profile',         icon: FileText },
           { id: 'research',  label: 'Research',        icon: Brain },
-          { id: 'trials',    label: 'Trials',          icon: Beaker },
-          { id: 'repurpose', label: 'Repurposing',     icon: Sparkles },
-          { id: 'chart',     label: 'Compare',         icon: TrendingUp },
-          { id: 'refs',      label: 'References',      icon: Book }
+          { id: 'refs',      label: 'Export & Links',  icon: Book }
         ];
         return (
           <nav style={{
@@ -3243,7 +3312,7 @@
             return;
           }
           setTab && setTab('research');
-          setTimeout(() => runResearch && runResearch('research'), 50);
+          setTimeout(() => runResearch && runResearch(), 50);
         };
         const fillFromDescription = async () => {
           const msg = describeText.trim();
@@ -3965,10 +4034,11 @@
          <head>; we memoise the parse per-text so re-renders are cheap.
          Links get target=_blank and the mrt-markdown class carries all
          the typography styles. */
-      const Markdown = ({ text }) => {
+      const Markdown = ({ text, allowedUrls }) => {
         const html = useMemo(() => {
           if (!text) return '';
-          const linked = linkifyMedicalIds(text);
+          let linked = linkifyMedicalIds(text);
+          linked = sanitizeMarkdownLinks(linked, allowedUrls);
           if (typeof window === 'undefined' || !window.marked) {
             return String(linked)
               .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -3981,8 +4051,10 @@
             const out = origLink(href, title, label);
             return out.replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
           };
+          // Models sometimes wrap NOT-approved flags in ~~strikethrough~~ — show plain text.
+          renderer.del = (text) => text;
           return window.marked.parse(String(linked), { renderer });
-        }, [text]);
+        }, [text, allowedUrls]);
         return <div className="mrt-markdown" dangerouslySetInnerHTML={{ __html: html }} />;
       };
 
@@ -5669,7 +5741,8 @@
       };
 
       /* ==================== Research Tab ==================== */
-      const ResearchTab = ({ patient, busy, runResearch, researchText, treatments,
+      const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treatments,
+                              candidates, repurposeText, trialsData, drugScreen,
                               validation, validationMismatch, conditionResolution,
                               evidenceSummary, dossier, progress, coverageAudit,
                               chatHistory, userQuery, setUserQuery, sendChat, onAudit, runtimeConfig,
@@ -5699,6 +5772,8 @@
           `How should I interpret a ~5–10% FVC decline over 12 months — is it time to change therapy?`
         ];
         const quickPrompts = isIpf ? ipfQuickPrompts : baseQuickPrompts;
+        const { mechanistic: repurposeMechanistic, withEvidence: repurposeWithEvidence } =
+          partitionCandidates(candidates);
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AdSlot runtimeConfig={runtimeConfig} slotKey="researchTop" />
@@ -5713,21 +5788,23 @@
                   </p>
                 </div>
                 <button style={btn('primary', !!busy)} disabled={!!busy}
-                  onClick={() => runResearch('research')}>
-                  {busy === 'research' ? <><Loader size={16} className="spin" /> Searching…</>
-                    : <><Search size={16} /> Run Detailed Report</>}
+                  onClick={() => runResearch()}>
+                  {busy ? <><Loader size={16} className="spin" /> Running full report…</>
+                    : <><Search size={16} /> Run Full Report</>}
                 </button>
               </div>
               <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
-                You get a clear report with: the usual treatments doctors give, the best experts,
-                a ranked list of treatments (with how well each works and how safe it is, scored 1 to 100),
-                a check for drug interactions with the medicines you take now, things you can do besides
-                medicine, options for stem cell and gene therapy, and notes on cost and insurance.
+                One report with approved treatments, clinical trials (with plain-English explanations),
+                unexplored drug ideas, combinations, lifestyle notes, and safety — exportable as a single PDF.
               </p>
               {treatments.length > 0 && (
                 <p style={{ color: theme.green, fontSize: '0.85rem' }}>
-                  ✓ Found {treatments.length} treatment card{treatments.length === 1 ? '' : 's'}.
-                  See the Compare tab.
+                  ✓ Found {treatments.length} approved-treatment card{treatments.length === 1 ? '' : 's'} in your report.
+                </p>
+              )}
+              {candidates.length > 0 && (
+                <p style={{ color: theme.green, fontSize: '0.85rem' }}>
+                  ✓ Found {candidates.length} unexplored drug idea{candidates.length === 1 ? '' : 's'} (studied/failed drugs excluded).
                 </p>
               )}
             </div>
@@ -5874,6 +5951,41 @@
                 )}
                 <Markdown text={renderedResearchText} />
                 <SourceLinks text={renderedResearchText} label="All sources & links in this report" />
+              </div>
+            )}
+
+            {trialsData?.studies?.length > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
+                  Live clinical trials ({trialsData.returned || trialsData.studies.length})
+                </h3>
+                <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  Studies with open enrollment from ClinicalTrials.gov (searches all years, not just 2025).
+                  <strong style={{ color: theme.text }}> Open-Label Extension (OLE)</strong> lets trial participants keep the study drug after the main trial ends.
+                  <strong style={{ color: theme.text }}> Expanded Access</strong> is compassionate use outside a trial when you do not qualify.
+                </p>
+                <TrialsTable data={trialsData} />
+              </div>
+            )}
+
+            {candidates.length > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
+                  Unexplored drug ideas ({candidates.length})
+                </h3>
+                <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  Drugs and supplements not yet studied for {cond} — biology-based ideas only.
+                  Drugs already tried and failed (e.g. metformin for IPF) are excluded.
+                  Check links before asking your doctor.
+                </p>
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  {repurposeMechanistic.slice(0, 15).map((c, i) => (
+                    <CandidateCard key={`rm-${i}`} c={c} rank={i + 1} highlightMechanistic={true} audience={audience} />
+                  ))}
+                  {repurposeWithEvidence.slice(0, Math.max(0, 15 - repurposeMechanistic.length)).map((c, i) => (
+                    <CandidateCard key={`re-${i}`} c={c} rank={repurposeMechanistic.length + i + 1} audience={audience} />
+                  ))}
+                </div>
               </div>
             )}
 
@@ -6078,10 +6190,18 @@
 
       /* ==================== Clinical Trials Tab ==================== */
       const TrialsTab = ({ patient, busy, trialsData, trialBlocks, trialsText, validation,
-                           runTrialsFetch, runTrialsAnalysis, onAudit, runtimeConfig, runMeta }) => {
+                           runTrialsFetch, runTrialsAnalysis, onAudit, runtimeConfig, runMeta, evidencePack }) => {
         const [filters, setFilters] = useState({ recruitingOnly: true, treatmentOnly: true, excludePlacebo: false });
         const [translatedText, setTranslatedText] = useState('');
         const renderedTrialsText = translatedText || trialsText;
+        const trialAllowedUrls = useMemo(
+          () => buildAllowedUrlSet(trialsData, evidencePack),
+          [trialsData, evidencePack]
+        );
+        const eaPrograms = useMemo(
+          () => (trialsData?.studies || []).filter((s) => s.isExpandedAccessStudy === true),
+          [trialsData]
+        );
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AdSlot runtimeConfig={runtimeConfig} slotKey="trialsTop" />
@@ -6140,6 +6260,44 @@
 
             <Glossary />
 
+            {trialsData && (
+              <div style={{
+                ...panelStyle,
+                borderLeft: `4px solid ${eaPrograms.length ? theme.green : theme.yellow}`
+              }}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1rem' }}>
+                  Expanded Access / Compassionate Use
+                </h3>
+                <p style={{ margin: '0 0 0.65rem', fontSize: '0.84rem', color: theme.textDim, lineHeight: 1.55 }}>
+                  These are <strong style={{ color: theme.text }}>special CT.gov programs</strong> to get a not-yet-approved drug
+                  <em> outside</em> a normal trial. They are <strong>not</strong> the same as investigational drugs in phase 2/3 trials
+                  or FDA-approved treatments listed below for context.
+                </p>
+                {eaPrograms.length > 0 ? (
+                  <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.86rem', lineHeight: 1.55 }}>
+                    {eaPrograms.map((s) => (
+                      <li key={s.nctId} style={{ marginBottom: '0.45rem' }}>
+                        <a href={s.url} target="_blank" rel="noopener noreferrer" style={{ color: theme.accent, fontWeight: 600 }}>
+                          {s.nctId} ↗
+                        </a>
+                        {' — '}{s.briefTitle}
+                        {s.sponsor ? <span style={{ color: theme.textDim }}> ({s.sponsor})</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p style={{
+                    margin: 0, padding: '0.65rem 0.75rem', borderRadius: 8,
+                    background: `${theme.yellow}12`, border: `1px solid ${theme.yellow}44`,
+                    fontSize: '0.86rem', color: theme.text, lineHeight: 1.5
+                  }}>
+                    <strong>No Expanded Access programs</strong> were found on ClinicalTrials.gov for this search.
+                    Drugs shown elsewhere on this page (approved treatments or trials in development) are <em>not</em> expanded access.
+                  </p>
+                )}
+              </div>
+            )}
+
             {trialsData && <ClinicalTrialsSnapshot patient={patient} data={trialsData} />}
 
             {trialsData && <TrialsTable data={trialsData} />}
@@ -6177,7 +6335,7 @@
                     You're seeing the translated version. The original English does not change.
                   </div>
                 )}
-                <Markdown text={renderedTrialsText} />
+                <Markdown text={renderedTrialsText} allowedUrls={trialAllowedUrls} />
               </div>
             )}
           </div>
@@ -6237,7 +6395,9 @@
             <div style={{ display: 'grid', gap: '0.85rem' }}>
               {kb?.approvedDrugs?.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Approved treatments (for context — not from trials)</div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>
+                    FDA-approved treatments (reference library — not trials, not expanded access)
+                  </div>
                   <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1rem', color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.55 }}>
                     {kb.approvedDrugs.map((d, i) => (
                       <li key={i}><strong style={{ color: theme.text }}>{d.name}</strong>{d.status ? ` — ${d.status}` : ''}</li>
@@ -6247,7 +6407,9 @@
               )}
               {kb?.pipelineHighlights?.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>Drugs in trials (from saved research)</div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 700, color: theme.text }}>
+                    Drugs in development (reference library — look for these in the trial table, not under Expanded Access)
+                  </div>
                   <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1rem', color: theme.textDim, fontSize: '0.82rem', lineHeight: 1.55 }}>
                     {kb.pipelineHighlights.map((d, i) => (
                       <li key={i}><strong style={{ color: theme.text }}>{d.name}</strong>{d.status ? ` — ${d.status}` : ''}</li>
@@ -6327,8 +6489,8 @@
           why: 'Everyone gets the real drug — not a dummy pill.' });
         if (s.designations?.hasOpenLabelExtension) chunks.push({ label: 'Can keep drug after', value: '+15', color: theme.green,
           why: 'Open-Label Extension: you may keep the drug after the main study ends.' });
-        if (s.designations?.hasExpandedAccess) chunks.push({ label: 'Outside trial access', value: '+20', color: theme.green,
-          why: 'Expanded Access: you may get the drug even if you cannot join the trial.' });
+        if (s.isExpandedAccessStudy) chunks.push({ label: 'Expanded Access program', value: '+20', color: theme.green,
+          why: 'This is a CT.gov Expanded Access / compassionate-use program — you may get the drug outside a normal trial.' });
         if ((s.topCenterScore || 0) > 0) chunks.push({ label: 'Top hospital site', value: `+${s.topCenterScore}`, color: theme.accent,
           why: 'At least one site is a leading center for this disease.' });
         const westernHit = (s.countries || []).some(c => WESTERN.has(c));
@@ -6415,8 +6577,8 @@
         const rows = [...(data.studies || [])].sort((a, b) => {
           if (sortMode === 'efficacy') return efficacyProxyScore(b) - efficacyProxyScore(a);
           if (sortMode === 'access') {
-            const aScore = (a.designations?.hasExpandedAccess ? 3 : 0) + (a.designations?.hasOpenLabelExtension ? 2 : 0) + (a.designations?.hasPostTrialAccess ? 1 : 0) + (a.acceptingNewPatients ? 2 : 0);
-            const bScore = (b.designations?.hasExpandedAccess ? 3 : 0) + (b.designations?.hasOpenLabelExtension ? 2 : 0) + (b.designations?.hasPostTrialAccess ? 1 : 0) + (b.acceptingNewPatients ? 2 : 0);
+            const aScore = (a.isExpandedAccessStudy ? 3 : 0) + (a.designations?.hasOpenLabelExtension ? 2 : 0) + (a.designations?.hasPostTrialAccess ? 1 : 0) + (a.acceptingNewPatients ? 2 : 0);
+            const bScore = (b.isExpandedAccessStudy ? 3 : 0) + (b.designations?.hasOpenLabelExtension ? 2 : 0) + (b.designations?.hasPostTrialAccess ? 1 : 0) + (b.acceptingNewPatients ? 2 : 0);
             return bScore - aScore;
           }
           return (b.promiseScore || 0) - (a.promiseScore || 0);
@@ -6500,10 +6662,10 @@
                         <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                             {s.designations?.hasOpenLabelExtension && <span title="Open-Label Extension: if the drug works, you can keep taking it after the study ends." style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.accent}55`, color: theme.accent }}>Can keep drug after</span>}
-                            {s.designations?.hasExpandedAccess && <span title="A way to get a not-yet-approved drug outside of the study, usually for a serious illness." style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Can get drug outside trial</span>}
+                            {s.isExpandedAccessStudy && <span title="CT.gov Expanded Access program — get the drug outside a normal trial." style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.green}55`, color: theme.green }}>Expanded Access</span>}
                             {s.designations?.hasPostTrialAccess && <span title="The company keeps giving you the drug after the study ends, even before the FDA approves it." style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.yellow}55`, color: theme.yellow }}>Drug after the trial</span>}
                             {s.designations?.hasPayToAccess && <span title="You may have to pay to get the drug." style={{ padding: '0.12rem 0.35rem', borderRadius: 999, border: `1px solid ${theme.red}55`, color: theme.red }}>You may have to pay</span>}
-                            {!s.designations?.hasOpenLabelExtension && !s.designations?.hasExpandedAccess && !s.designations?.hasPostTrialAccess && !s.designations?.hasPayToAccess && <span>—</span>}
+                            {!s.designations?.hasOpenLabelExtension && !s.isExpandedAccessStudy && !s.designations?.hasPostTrialAccess && !s.designations?.hasPayToAccess && <span>—</span>}
                           </div>
                         </td>
                         <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>{(s.countries || []).join(', ') || '—'}</td>

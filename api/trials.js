@@ -123,18 +123,21 @@ const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
     i.type === 'OTHER' && /placebo/i.test(i.name || '')
   ) || /placebo/i.test(masking || '');
 
-  // Expanded Access detection is layered:
-  //   - studyType == EXPANDED_ACCESS (definitive)
-  //   - identificationModule.expandedAccessInfo.hasExpandedAccess (the related-
-  //     study flag on a parent interventional trial)
-  //   - text hints in summary/description (compassionate use, IND-EA, etc.)
+  // Expanded Access — ONLY definitive CT.gov signals. Text hints like
+  // "compassionate use" in a regular trial description caused false
+  // positives (trial mentions EA in passing ≠ an EA program record).
   const hasExpandedAccess =
     isExpandedAccessStudyType ||
-    identification.expandedAccessInfo?.hasExpandedAccess === true ||
-    containsAny(desc.detailedDescription, EXPANDED_ACCESS_HINTS) ||
-    containsAny(desc.briefSummary, EXPANDED_ACCESS_HINTS) ||
-    containsAny(briefTitle, EXPANDED_ACCESS_HINTS) ||
-    containsAny(officialTitle, EXPANDED_ACCESS_HINTS);
+    identification.expandedAccessInfo?.hasExpandedAccess === true;
+
+  // Softer signal: trial text mentions EA/compassionate use (for notes only).
+  const mentionsExpandedAccessInText =
+    !hasExpandedAccess && (
+      containsAny(desc.detailedDescription, EXPANDED_ACCESS_HINTS) ||
+      containsAny(desc.briefSummary, EXPANDED_ACCESS_HINTS) ||
+      containsAny(briefTitle, EXPANDED_ACCESS_HINTS) ||
+      containsAny(officialTitle, EXPANDED_ACCESS_HINTS)
+    );
 
   const hasPTA =
     containsAny(desc.detailedDescription, PTA_HINTS) ||
@@ -246,6 +249,7 @@ const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
     // Top-line boolean flags that frontend can badge without drilling into
     // designations{}. Redundant but useful.
     isExpandedAccess: hasExpandedAccess,
+    mentionsExpandedAccessInText,
     isOpenLabelExtension: hasOLE,
     isPayToAccess: hasPayToAccess,
     hasTopCenter,

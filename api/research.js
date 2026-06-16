@@ -607,8 +607,8 @@ const buildTrialsBlock = (trials) => {
   // each pathway while leaving Claude enough output budget to finish
   // sections 5-8.
   const recruiting = studies.filter((s) => s.acceptingNewPatients && !s.isExpandedAccessStudy && !s.designations?.hasOpenLabelExtension).slice(0, 6);
-  const ea = studies.filter((s) => s.designations?.hasExpandedAccess).slice(0, 3);
-  const ole = studies.filter((s) => s.designations?.hasOpenLabelExtension).slice(0, 3);
+  const ea = studies.filter((s) => s.isExpandedAccessStudy === true).slice(0, 6);
+  const ole = studies.filter((s) => s.designations?.hasOpenLabelExtension && !s.isExpandedAccessStudy).slice(0, 3);
   const topCenter = studies.filter((s) => s.hasTopCenter).slice(0, 3);
 
   const chunks = [];
@@ -621,9 +621,9 @@ MeSH terms used: ${(trials.dossier?.meshTerms || []).join(', ') || '(none)'}`);
     chunks.push(`\nRECRUITING TRIALS (top ${recruiting.length} by promise score):\n${recruiting.map(fmt).join('\n\n')}`);
   }
   if (ea.length) {
-    chunks.push(`\nEXPANDED ACCESS / COMPASSIONATE USE (${ea.length} record(s) — patients who don't qualify for a trial may still be able to get the drug this way):\n${ea.map(fmt).join('\n\n')}`);
+    chunks.push(`\nEXPANDED ACCESS / COMPASSIONATE USE (${ea.length} CT.gov record(s) with studyType=EXPANDED_ACCESS — patients who don't qualify for a trial may still get the drug this way):\n${ea.map(fmt).join('\n\n')}`);
   } else {
-    chunks.push(`\nEXPANDED ACCESS / COMPASSIONATE USE: none surfaced by CT.gov studyType=EXPANDED_ACCESS query. DO NOT invent programs. If you know of a well-publicised compassionate use program that isn't on CT.gov (e.g. a company-run charitable access pathway), name it with a direct-to-sponsor URL and explicitly flag it as "not listed on CT.gov — verify with the sponsor."`);
+    chunks.push(`\nEXPANDED ACCESS / COMPASSIONATE USE: **zero** CT.gov records with studyType=EXPANDED_ACCESS for this search. You MUST write exactly one sentence: "No Expanded Access / compassionate-use programs were found on ClinicalTrials.gov for this condition in this search." Do NOT list investigational drugs, pipeline drugs, or standard-of-care drugs in this section — they are NOT expanded access programs. Do NOT invent sponsor programs or URLs.`);
   }
   if (ole.length) {
     chunks.push(`\nOPEN-LABEL EXTENSION STUDIES (${ole.length} record(s) — for patients already in a prior trial):\n${ole.map(fmt).join('\n\n')}`);
@@ -674,8 +674,10 @@ Every pipeline drug below MUST appear by name (or listed alias) in your output. 
 PIPELINE DRUGS:
 ${drugLines || '- (none)'}
 
-EXCLUDED AGENTS (mention in Section 8 — Safety Considerations Reported in Literature — with the reason):
+EXCLUDED AGENTS (mention ONLY in Section 8 — Safety Considerations — with the reason. NEVER output these as repurposing CANDIDATE blocks or as "drug ideas"):
 ${excludedLines || '- (none)'}
+
+REPURPOSING RULE: Drugs listed under EXCLUDED AGENTS have already been studied for this condition and failed or harmed — do NOT include them in drug-repurposing output at all.
 
 === END REQUIRED MENTIONS ===
 `;
@@ -698,6 +700,20 @@ const scanForMissedPipelineDrugs = (claudeText, pipelineDrugs) => {
     if (!found) missed.push(drug);
   }
   return missed;
+};
+
+// Remove CANDIDATE blocks for KB excluded / already-studied drugs (e.g. metformin in IPF).
+const filterExcludedRepurposeCandidates = (text, evidence) => {
+  const excluded = Array.isArray(evidence?.excludedAgents) ? evidence.excludedAgents : [];
+  if (!text || !excluded.length) return text;
+  const names = excluded.flatMap((x) => [x.name, ...(x.aliases || [])]).filter(Boolean);
+  const blocks = String(text).split(/(?=CANDIDATE:)/i);
+  if (blocks.length <= 1) return text;
+  return blocks.filter((block) => {
+    if (!/^CANDIDATE:/i.test(block.trim())) return true;
+    const lower = block.toLowerCase();
+    return !names.some((n) => lower.includes(String(n).toLowerCase()));
+  }).join('');
 };
 
 // Build a deterministic "Agents Evaluated" transparency block that gets
@@ -1027,6 +1043,9 @@ Your output MUST include the following 3 sections IN THIS ORDER, and nothing els
 - Typical trajectory if untreated.
 - Primary medical specialty (from dossier) + one or two named top experts.
 - Disease-dossier uncertainty score if > 0.5 (be transparent about AI confidence).
+- **If patient geneticVariant / gene is provided:** name the gene, inheritance pattern if known, and whether approved gene therapies (e.g. Luxturna for RPE65, CRISPR trials) apply ONLY to that mutation — never imply one drug covers all genetic forms of the disease.
+- **Lifestyle & environment (from dossier lifestyleCategories + KB lifestyleRecommendations):** 3-6 bullets framed as "Research suggests…" / "Studies report…" (e.g. IPF → GERD management, feather pillows/bird exposure, pulm rehab; RP → UV protection). Every bullet needs a clickable link from the evidence pack when possible.
+- **Key safety flags (top 3 redFlags from dossier/KB):** literature-framed cautions with links — NOT patient directives.
 
 ## 2. Top Centers & Experts Worldwide
 **Use the disease dossier's topCenters + keyInvestigators as your starting list.** Correct/extend from grounded evidence. Present as a markdown table:
@@ -1084,7 +1103,14 @@ LENGTH BUDGET (HARD RULE — this call has ~2,500 output tokens across 5 section
 Your output MUST include the following 5 sections IN THIS ORDER, and nothing else.
 
 ## 4. Clinical Trials & Access Programs
-**This single section MUST cover ALL FOUR access pathways.** Pull directly from the LIVE CLINICAL TRIALS PULL block below.
+
+**What these terms mean (plain English):**
+- **Recruiting trial:** A research study that is actively signing up new patients right now. We search ClinicalTrials.gov across all years — not just 2025 — any trial with open enrollment today can appear.
+- **Open-Label Extension (OLE):** After a clinical trial ends, the drug company sometimes lets participants keep receiving the study drug (often for free) while doctors track long-term safety. Ask your trial doctor: "Is there an open-label extension for this study?"
+- **Expanded Access / Compassionate Use:** A pathway to receive an investigational drug outside a formal trial when you do not qualify for a trial or no trial is open near you. Requires physician and sponsor approval; may not be free.
+- **Pay-to-Access:** Some sponsors offer continued access after a trial ends for a fee before the drug is on the market — verify pricing with the sponsor.
+
+**This single section MUST cover ALL FOUR access pathways.** Pull directly from the LIVE CLINICAL TRIALS PULL block below. Do NOT list FDA-approved standard-of-care drugs (e.g. pirfenidone, nintedanib, nerandomilast for IPF) in this section — those belong in Section 3 Approved Treatments only.
 
 **A. Recruiting trials (top 5):** Markdown table —
 | NCT ID | Phase | Title | Top Center? | Accepting? | URL |
@@ -1092,13 +1118,14 @@ Your output MUST include the following 5 sections IN THIS ORDER, and nothing els
 
 **B. Open-Label Extension (OLE) studies:** For each OLE trial flagged in the pull, one line: NCT, parent trial, sponsor, closest open site. If none surfaced, say so AND tell the user: *"Patients in any Phase 2/3 should ask their PI whether an OLE is planned — most multi-year programs have one even before it lists on CT.gov."*
 
-**C. Expanded Access / Compassionate Use:** For each EA record from the trials pull, one bullet: program name + NCT (or sponsor URL) · eligibility · how to apply · cost to patient. If none surfaced on CT.gov, check the dossier's landmarkTrials + your grounded knowledge for **industry-sponsored EAPs** (e.g. Ocugen's OCU400 for RP, lecanemab EAP for early AD). Name them with the sponsor-side URL and flag *"not listed on CT.gov — verify with sponsor."*
+**C. Expanded Access / Compassionate Use:** For each EA record from the trials pull (studyType=EXPANDED_ACCESS only), one bullet: program name + NCT · eligibility · how to apply · cost to patient. **If the pull shows zero EA records, write ONE sentence only:** "No Expanded Access / compassionate-use programs were found on ClinicalTrials.gov for this condition." Do NOT list pipeline drugs, investigational drugs, or FDA-approved treatments here — they are not expanded access. Do NOT invent sponsor programs or URLs.
 
 **D. Pay-to-Access / Charitable:** Any paid post-trial access programs the patient should know about (e.g. the ~$40k tier some sponsors charge between trial completion and market launch). If you don't know of any, say so — do NOT invent programs.
 
 ## 5. Drug Repurposing + Pipeline Watch
-- **Repurposing teaser (2-3 candidates):** existing drugs/supplements that might help, each in ONE plain line: drug name · what it's normally for · why it might connect to this condition. For layperson audience: no jargon without a parenthetical definition. Point user to the dedicated Drug Repurposing tab for the full analysis. Do NOT use the heading "unexplored drug categories" — use "Drugs not yet studied for this condition" if needed.
-- **Pipeline watch (2-3 early-phase programs):** experimental drugs in early trials, with NCT IDs and rough timeline. Layperson: explain each in plain English ("still being tested in people").
+- **Unexplored drug ideas (5-8 candidates):** ONLY drugs/supplements with MECHANISTIC_ONLY or PRECLINICAL evidence for THIS condition — genuinely not yet studied in people for this disease. Skip every drug in EXCLUDED AGENTS. Each line MUST include a clickable markdown link [title](url).
+- **Combination ideas (5-8 COMBO blocks required):** Pairings where Drug A + Drug B (or + standard-of-care) might work better together than alone — even when neither drug alone is expected to help. Use COMBO: format from repurposing spec. Each combo MUST cite pathway logic AND include at least one link.
+- **Pipeline watch (ALL investigational + approved pipeline drugs from REQUIRED MENTIONS):** List EVERY pipeline drug not already in Section 3 — including cell therapy, gene therapy, CRISPR trials, CAR-T if relevant. One line each: drug/program · phase/status · [NCT or sponsor link]. Gene-specific: note which mutation each therapy targets when the disease has many genetic subtypes (e.g. LCA/RP). Layperson: plain English. **Every pipeline item MUST have a clickable link — no bare drug names.**
 
 ## 6. Cell, Gene & Advanced Therapies
 *If not applicable: one line "**N/A** — no active cell/gene therapy program for this condition."*
@@ -1152,13 +1179,10 @@ This is the EveryCure / drug-repurposing methodology. Think outside the box. Rea
 
 STUDIED-AGENT RULE (critical — read before assigning evidence strength):
 Before you label any candidate MECHANISTIC_ONLY or PRECLINICAL, search the GROUNDED EVIDENCE PACK for papers mentioning BOTH the candidate drug name AND this condition.
-- If human studies exist for this drug + condition (even negative/null results), you MUST use CASE_REPORT, OBSERVATIONAL, SMALL_RCT, or LARGE_RCT — NOT MECHANISTIC_ONLY.
-- Summarize what those studies found honestly, including "no benefit" or "possible harm."
-- Do NOT put a drug in the "never studied in people for this condition" bucket when the evidence pack contains human data for this condition.
-- Check EXCLUDED AGENTS in the REQUIRED MENTIONS block — if a drug is listed there, you may still mention it but must lead with the negative literature and cite links.
-- NEVER CONTRADICT YOURSELF: if any field of a candidate states or implies the drug HAS been studied in this condition (e.g. "post-hoc analysis", "trials show", "no benefit in studies", "observational data"), then its EVIDENCE_STRENGTH must NOT be MECHANISTIC_ONLY and it must NOT appear under any "not yet studied / never researched" heading. The "not yet studied" group is reserved for drugs with ZERO human OR animal research for this condition.
-- WORKED EXAMPLE — metformin in IPF: metformin HAS been studied in IPF (post-hoc analyses of pirfenidone trials and observational cohorts; results show no clear benefit and possible harm). So metformin is "studied, evidence is negative" — it is NOT an unexplored/never-researched drug. Label it OBSERVATIONAL (or higher) and state the negative findings plainly.
-- NEGATIVE-EVIDENCE WHY LINE: when a drug's human evidence is negative / no-benefit / possible-harm, its WHY_FOR_THIS_CONDITION must NOT be a hopeful "this might help" sentence. It must say the honest finding (e.g. "Tried for this condition, but the research so far shows no clear benefit and possible harm — listed so you and your doctor know it was already studied"). A positive WHY line on a negative-evidence drug is a CONTRADICTION and a failure.
+- If human studies exist for this drug + condition (even negative/null results), you MUST NOT output a CANDIDATE block for that drug at all — it belongs in the research report's Safety section only, NOT in repurposing.
+- Check EXCLUDED AGENTS in the REQUIRED MENTIONS block — if a drug is listed there, skip it entirely. Do not mention metformin, NAC-as-failed, ziritaxestat, etc. as repurposing ideas when the KB marks them excluded.
+- NEVER CONTRADICT YOURSELF: the repurposing list is for drugs NOT YET STUDIED (or only lab-only) for this condition — not for rehashing failed trials.
+- WORKED EXAMPLE — metformin in IPF: metformin was studied in people and showed no benefit — therefore metformin must NOT appear anywhere in repurposing output.
 
 ## Mechanistic Hypotheses (genuinely no human data for this condition)
 Produce 5-8 candidates where EVIDENCE_STRENGTH is MECHANISTIC_ONLY or PRECLINICAL ONLY when the evidence pack truly contains no human studies for that drug + this condition.
@@ -1212,10 +1236,9 @@ ${SHARED_GUARDRAILS}`;
 // metformin in IPF) so a studied-but-negative drug can never be mislabeled as
 // "never researched".
 const REPURPOSE_LANES = [
-  'LANE A — anti-inflammatory & immune-modulating drugs already approved for OTHER inflammatory or autoimmune conditions that could plausibly slow this condition. These are typically mechanistic/preclinical for THIS condition.',
-  'LANE B — metabolic, antifibrotic, hormonal, and cardiovascular drugs (e.g. drugs that affect scarring/fibrosis pathways, blood-pressure or heart drugs, metabolic drugs) that could be repurposed for this condition. Typically mechanistic/preclinical for THIS condition.',
-  'LANE C — widely-available over-the-counter supplements, vitamins, and antioxidants with a plausible biological mechanism for this condition. Typically mechanistic/preclinical for THIS condition.',
-  'LANE D — drugs that HAVE already been tested in PEOPLE for this exact condition (observational studies, post-hoc analyses of other trials, or dedicated trials). Report each one HONESTLY, including negative / no-benefit / possible-harm results. You MUST include here every agent listed under EXCLUDED AGENTS or negative-evidence in the grounding, lead with the negative finding, and give EVIDENCE_STRENGTH of OBSERVATIONAL or higher (NEVER MECHANISTIC_ONLY) with clickable links to the studies. A drug in this lane must NEVER be described as "not yet studied".'
+  'LANE A — anti-inflammatory & immune-modulating drugs already approved for OTHER inflammatory or autoimmune conditions that could plausibly slow this condition. These must be MECHANISTIC_ONLY or PRECLINICAL for THIS condition — zero human trials for this disease. Skip any drug in EXCLUDED AGENTS.',
+  'LANE B — metabolic, antifibrotic, hormonal, and cardiovascular drugs approved for other diseases that could be repurposed via pathway overlap. MECHANISTIC_ONLY or PRECLINICAL for THIS condition only. Skip EXCLUDED AGENTS.',
+  'LANE C — over-the-counter supplements, vitamins, and antioxidants (e.g. vitamin D, omega-3, NAC only if NOT in EXCLUDED AGENTS for this condition) with plausible biology and NO published human trials for this exact condition.'
 ];
 
 // Batched front prompt: one lane, a handful of candidates, finishes fast.
@@ -1256,28 +1279,47 @@ ${REPURPOSE_COMBO_AND_SUMMARY}
 
 ${SHARED_GUARDRAILS}`;
 
-const TRIALS_PROMPT = (patient, audience, trialsData) => `You are a clinical trials analyst. You have been given a live pull of recruiting (or nearly-recruiting) trials from ClinicalTrials.gov for this patient's condition. Produce a narrative analysis that:
+const TRIALS_PROMPT = (patient, audience, trialsPayload) => {
+  const studies = Array.isArray(trialsPayload?.studies) ? trialsPayload.studies : [];
+  const eaCount = studies.filter((s) => s.isExpandedAccessStudy === true).length;
+  const trialsBlock = buildTrialsBlock(trialsPayload);
+  const allowedNcts = studies.map((s) => s.nctId).filter(Boolean);
+
+  return `You are a clinical trials analyst. You have a live ClinicalTrials.gov pull for this patient's condition. Produce a patient-friendly analysis.
 
 ${audienceLine(audience)}
 
 PATIENT PROFILE:
 ${buildPatientContext(patient)}
 
-LIVE TRIAL DATA (JSON):
-${JSON.stringify(trialsData, null, 2).slice(0, 120000)}
+${trialsBlock || 'LIVE CLINICAL TRIALS PULL: (empty — say no trials were returned and stop.)'}
 
-Your job:
-1. Rank the most promising 5-10 trials for THIS patient based on eligibility, phase, placebo exposure, oversight (IRB, DSMB, FDA-regulated), country, and fit with their comorbidities.
-2. For each, flag: accepting new patients (yes/no), placebo vs all-get-drug, fast-track / breakthrough / orphan designations, Post-Trial Access / Expanded Access / Compassionate Use / Open-Label Extension availability, location, contact info, and the direct clinicaltrials.gov URL.
-3. Explicitly note any trial that is NOT a treatment study (observational, biomarker, registry) — the patient wants treatment only.
-4. For each recommended trial, name the most likely interactions/contraindications vs this patient's current medications.
-5. End with a plain-language "What this means for you" paragraph.
+ABSOLUTE RULES (violations are failures):
+- CITE ONLY trials/NCTs/URLs that appear in the LIVE CLINICAL TRIALS PULL above. Never invent NCT IDs, sponsor URLs, or program names.
+- Expanded Access / compassionate use = ONLY records with studyType EXPANDED_ACCESS in the pull (${eaCount} found). If ${eaCount} === 0, write ONE sentence stating none were found — do NOT list other drugs (pipeline, investigational, or approved) as if they were expanded access.
+- Investigational or pipeline drugs belong in a separate "Drugs in development" note ONLY if they appear as recruiting interventional trials in the pull — never confuse them with expanded access.
+- Every URL must be https://clinicaltrials.gov/study/NCT######## from this pull: ${allowedNcts.slice(0, 20).join(', ') || '(none)'}.
+- Do NOT use strikethrough, ~~text~~, or "NOT approved" flags on drug names.
 
-Use this structured block for each ranked trial so the UI can parse it:
+STRUCTURE (use these exact headings):
+## Recruiting trials for you
+Rank the most promising 5-8 interventional trials. For each, use the TRIAL block format below.
 
+## Expanded Access / Compassionate Use
+${eaCount > 0
+    ? `List ONLY the ${eaCount} Expanded Access record(s) from the pull — one bullet each with NCT + link.`
+    : 'Write exactly: "No Expanded Access / compassionate-use programs were found on ClinicalTrials.gov for this condition in this search." Nothing else in this section.'}
+
+## Open-label extensions & keeping the drug after a trial
+Only trials flagged OPEN-LABEL-EXTENSION in the pull. If none, say so in one sentence.
+
+## What this means for you
+2-4 plain-language sentences. No medical advice.
+
+TRIAL block format (UI parses this — one block per trial):
 TRIAL: <brief title>
-NCT: <NCT ID>
-URL: <https://clinicaltrials.gov/study/NCTxxxxxxxx>
+NCT: <NCT ID from pull only>
+URL: <https://clinicaltrials.gov/study/NCT######## from pull only>
 PHASE: <phase(s)>
 STATUS: <recruiting status>
 ACCEPTING: <yes / no>
@@ -1285,14 +1327,15 @@ PLACEBO: <yes / no / partial>
 TREATMENT_ONLY: <yes / no>
 COUNTRY: <country list>
 OVERSIGHT: <IRB yes/no, DSMB yes/no, FDA-regulated yes/no>
-DESIGNATIONS: <fast-track / breakthrough / orphan / expanded-access / PTA / OLE flags>
-FIT_FOR_PATIENT: <1-100>% — <why>
-HARM_RISK: <1-100>% — <higher = safer>
-INTERACTIONS: <named interactions with this patient's meds>
-LOCATION_CONTACT: <closest site + contact info from data>
+DESIGNATIONS: <fast-track / breakthrough / orphan / expanded-access / PTA / OLE flags — only if in pull>
+FIT_FOR_PATIENT: <1-100>% — <why in plain English>
+HARM_RISK: <1-100>% — <higher = safer; plain English>
+INTERACTIONS: <named interactions with this patient's meds, or "None identified">
+LOCATION_CONTACT: <closest site + contact from pull data>
 SUMMARY: <2-3 sentence plain-language summary>
 
 ${SHARED_GUARDRAILS}`;
+};
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -1821,15 +1864,19 @@ export default async function handler(req, res) {
       evidence = evidenceResult;
       trials = trialsResult;
 
-      // Start building a persistent brain entry when no static KB exists yet.
+      // Only start building a saved reference library for conditions we do
+      // NOT already have a hand-curated KB for (e.g. IPF is static — no build).
       if (needsEvidence && dossier?.canonical && isDynamicKbSpendEnabled()) {
         loadKb(gatherCondition, {
           fallbackCanonical: dossier.canonical,
           fallbackSynonyms: dossier.synonyms || [],
-          ensureBuild: true,
+          ensureBuild: false,
           dossier
+        }).then((kbHit) => {
+          if (!kbHit.matched || kbHit.meta?.source === 'dynamic-brain') {
+            ensureDynamicKb(dossier.canonical, dossier).catch(() => {});
+          }
         }).catch(() => {});
-        ensureDynamicKb(dossier.canonical, dossier).catch(() => {});
       }
 
       // SAFETY NET: if the live evidence fetch timed out or errored (withDeadline
@@ -2079,6 +2126,19 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
       .filter((c) => c?.type === 'text')
       .map((c) => c.text)
       .join('\n\n');
+
+    if (mode === 'repurpose' && evidence?.excludedAgents?.length) {
+      const filtered = filterExcludedRepurposeCandidates(claudeText, evidence);
+      if (filtered !== claudeText) {
+        console.warn('[research] stripped excluded-agent candidates from repurpose output');
+        claudeText = filtered;
+        if (data.content?.length) {
+          data.content = data.content.map((c, i) =>
+            i === 0 && c?.type === 'text' ? { ...c, text: filtered } : c
+          );
+        }
+      }
+    }
 
     // === Post-synthesis coverage audit ===
     // Scan the output for every pipelineDrug in the evidence pack's
