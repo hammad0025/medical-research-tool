@@ -19,9 +19,11 @@ import {
   buildGatherFingerprint,
   buildGatherFingerprintFromPatient,
   fingerprintsMatch,
-  gatherFingerprintAccepted
+  gatherFingerprintAccepted,
+  poolBoundSynthValid
 } from '../lib/gather-fingerprint.js';
 import { checkProfileCoherence, checkDossierProfileCoherence } from '../lib/profile-coherence.js';
+import { resolveCondition } from '../lib/condition-resolver.js';
 import { getInfraStatus } from '../lib/infra-status.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
@@ -235,6 +237,41 @@ if (/gatherFingerprintAccepted/.test(researchSrc)) {
   pass('synth accepts pool-bound gatherFingerprint via dossier.poolsFingerprint');
 } else {
   fail('synth only compares live profile fingerprint — false GATHER_STALE on canonicalize drift');
+}
+
+if (/poolBoundSynthValid/.test(researchSrc) && /hasProvidedPools/.test(researchSrc)) {
+  pass('synth pool-bound path trusts dossier.poolsFingerprint only — skips live profile re-resolve');
+} else {
+  fail('synth still requires live profile fingerprint when client provides gathered pools');
+}
+
+const ipfPatient = { condition: 'IPF', gender: 'Male', stage: 'GAP Stage II', age: '68' };
+const ipfResolution = await resolveCondition('IPF');
+const ipfGatherFp = buildGatherFingerprintFromPatient(ipfPatient, ipfResolution);
+const ipfDriftServerFp = buildGatherFingerprintFromPatient(
+  { ...ipfPatient, condition: 'Idiopathic Pulmonary Fibrosis' },
+  null
+);
+if (
+  poolBoundSynthValid(ipfGatherFp, ipfGatherFp) &&
+  ipfGatherFp !== ipfDriftServerFp &&
+  !gatherFingerprintAccepted(ipfGatherFp, ipfDriftServerFp, null)
+) {
+  pass(`IPF gather→synth: pool stamp ${ipfGatherFp} survives live re-resolve drift`);
+} else {
+  fail('IPF pool-bound gather→synth fingerprint regression failed');
+}
+
+if (/poolsFingerprint:\s*runGatherFingerprint/.test(indexSrc)) {
+  pass('client stamps poolsFingerprint on dossier before synthesize');
+} else {
+  fail('client may send dossier without poolsFingerprint — false GATHER_STALE on synth');
+}
+
+if (/busyRef\.current/.test(indexSrc)) {
+  pass('profile identity clear skipped during active research run');
+} else {
+  fail('clearRunState can fire mid-run when canonical profile applies');
 }
 
 if (/pendingPatientCanonical/.test(indexSrc) && !/setPatient\(runPatient\)/.test(indexSrc)) {

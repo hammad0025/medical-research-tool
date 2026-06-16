@@ -70,7 +70,8 @@ import {
 } from '../lib/patient-intake.js';
 import {
   buildGatherFingerprintFromPatient,
-  gatherFingerprintAccepted
+  gatherFingerprintAccepted,
+  poolBoundSynthValid
 } from '../lib/gather-fingerprint.js';
 import {
   checkProfileCoherence,
@@ -471,7 +472,9 @@ const trimSynthPools = (pools = {}) => {
       }
     : null;
   return {
-    dossier,
+    dossier: dossier
+      ? { ...dossier, poolsFingerprint: dossier.poolsFingerprint || null }
+      : null,
     evidence: slimEvidence,
     trials: trials
       ? {
@@ -1986,6 +1989,7 @@ export default async function handler(req, res) {
       trials = slim.trials || null;
 
       if (mode === 'research' || mode === 'repurpose') {
+        const hasProvidedPools = !!(providedDossier || providedEvidence || providedTrials);
         const poolFingerprint = dossier?.poolsFingerprint || null;
         if (!clientGatherFingerprint) {
           return res.status(409).json({
@@ -1993,18 +1997,31 @@ export default async function handler(req, res) {
             code: 'GATHER_STALE'
           });
         }
-        if (!gatherFingerprintAccepted(clientGatherFingerprint, serverGatherFingerprint, poolFingerprint)) {
+        // Pool-bound same-session synth: trust only the gather stamp on the
+        // dossier — do NOT re-compare live profile re-resolve (canonicalize
+        // drift, inference on/off, slug vs display name all caused false 409s).
+        if (hasProvidedPools && poolFingerprint) {
+          if (!poolBoundSynthValid(clientGatherFingerprint, poolFingerprint)) {
+            return res.status(409).json({
+              error: 'Profile changed — re-gathering.',
+              code: 'GATHER_STALE'
+            });
+          }
+        } else if (!gatherFingerprintAccepted(
+          clientGatherFingerprint, serverGatherFingerprint, poolFingerprint
+        )) {
           return res.status(409).json({
             error: 'Profile changed — re-gathering.',
             code: 'GATHER_STALE'
           });
-        }
-        const poolCheck = checkDossierProfileCoherence(patient, dossier, evidence);
-        if (!poolCheck.ok) {
-          return res.status(409).json({
-            error: poolCheck.message || 'Profile changed — re-gathering.',
-            code: poolCheck.code || 'GATHER_STALE'
-          });
+        } else {
+          const poolCheck = checkDossierProfileCoherence(patient, dossier, evidence);
+          if (!poolCheck.ok) {
+            return res.status(409).json({
+              error: poolCheck.message || 'Profile changed — re-gathering.',
+              code: poolCheck.code || 'GATHER_STALE'
+            });
+          }
         }
       }
 
