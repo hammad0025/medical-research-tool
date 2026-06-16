@@ -373,6 +373,17 @@ const scoreTrialRelevance = (study, matcher) => {
       reason: `Only a loose connection to ${matcher.displayName} — confirm with the study team before assuming you qualify.`
     };
   }
+  const ivText = (study.interventions || []).map((i) => i.name).join(' ');
+  const cellGene = /\b(car[- ]?t|chimeric antigen|cell therapy|gene therapy|stem cell|gene[- ]edit)/i.test(
+    `${study.briefTitle || ''} ${ivText}`
+  );
+  if (cellGene) {
+    return {
+      score: Math.max(score, 10),
+      label: 'cell / gene therapy',
+      reason: `Cell or gene therapy trial — may apply only to certain patients; confirm eligibility with the study team.`
+    };
+  }
   return {
     score,
     label: 'unlikely match',
@@ -651,11 +662,25 @@ export default async function handler(req, res) {
       if (westernHit) score += 10;
       if (chinaHit) score -= 15;
       if (s.oversight?.oversightHasDMC) score += 4;
+      const ivBlob = (s.interventions || []).map((i) => i.name).join(' ');
+      if (/\b(car[- ]?t|chimeric antigen|cell therapy|gene therapy|stem cell|gene[- ]edit)/i.test(
+        `${s.briefTitle || ''} ${ivBlob}`
+      ) && (s.relevanceScore || 0) > -100) {
+        score += 10;
+      }
       s.promiseScore = score;
     });
 
-    // Drop clear wrong-disease trials; keep weak/unlikely at the bottom.
-    const filtered = studies.filter((s) => (s.relevanceScore || 0) > -50);
+    // Drop clear wrong-disease trials; keep weak cell/gene therapy trials when not hard-mismatched.
+    const filtered = studies.filter((s) => {
+      if ((s.relevanceScore || 0) <= -100) return false;
+      const ivBlob = (s.interventions || []).map((i) => i.name).join(' ');
+      const cellGene = /\b(car[- ]?t|chimeric antigen|cell therapy|gene therapy|stem cell|gene[- ]edit)/i.test(
+        `${s.briefTitle || ''} ${ivBlob}`
+      );
+      if (cellGene && (s.relevanceScore || 0) > -80) return true;
+      return (s.relevanceScore || 0) > -50;
+    });
     const droppedWrong = studies.length - filtered.length;
     studies = filtered;
 

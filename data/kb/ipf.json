@@ -991,6 +991,7 @@
     },
     {
       "name": "Metformin as an IPF antifibrotic",
+      "aliases": ["metformin", "Glucophage"],
       "reason": "Metformin HAS been researched for IPF — it is NOT an unstudied drug. Lab studies in mice and in human IPF cells (Rangarajan, Nature Medicine 2018) showed metformin can reverse lung scarring, which created excitement. BUT the human data do not back this up: a post-hoc analysis of 624 patients across three phase 3 pirfenidone trials (Spagnolo, Respiration 2018) found metformin had no effect on lung-function decline, walking distance, hospitalization, or survival, and slightly more metformin users had a >=5% drop in FVC. A dedicated phase 3 trial is ongoing. Bottom line: studied in people, but not shown to help — not an established IPF treatment outside a trial. Never describe metformin as 'not researched' or 'never studied' for IPF.",
       "evidenceRef": "ipf-metformin-spagnolo-2018"
     }

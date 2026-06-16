@@ -245,6 +245,36 @@ if (/buildPipelineWatchBlock/.test(researchSrc)) {
   fail('Missing buildPipelineWatchBlock — approved drugs bleed into Pipeline Watch');
 }
 
+if (/replaceClaimWithCorrection|stripApprovedTreatmentsSection/.test(polishSrc)) {
+  pass('Validation applies corrections + strips duplicate approved-treatment section');
+} else {
+  fail('report-polish missing validation rewrite helpers');
+}
+
+if (/cellGene && \(s\.relevanceScore/.test(readFileSync(new URL('../api/trials.js', import.meta.url), 'utf8'))) {
+  pass('Trials filter keeps relevant cell/gene therapy trials');
+} else {
+  fail('Trials missing cell/gene therapy relevance boost');
+}
+
+if (/TreatmentCard|stripApprovedTreatmentsSection/.test(indexSrc)) {
+  pass('UI consolidates approved treatments into linked cards');
+} else {
+  fail('Research tab missing TreatmentCard consolidation');
+}
+
+if (/parseCombos|ComboCard/.test(indexSrc)) {
+  pass('UI parses and renders COMBO blocks with links');
+} else {
+  fail('Missing combo card UI');
+}
+
+if (!/CostMeter meta=\{runMeta\}/.test(indexSrc)) {
+  pass('Research run cost meter removed from UI');
+} else {
+  fail('CostMeter still rendered in UI');
+}
+
 if (/Pipeline Watch \(Investigational Programs Only\)/.test(researchSrc)) {
   pass('Section 5 is Pipeline Watch only — repurposing cards are not duplicated in report body');
 } else {

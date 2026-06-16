@@ -1072,8 +1072,9 @@ READER-FACING LANGUAGE (critical — demo / lawyer audience):
 
 LANGUAGE TONE (critical — legal/educational framing):
 - This tool is educational decision-support, NOT medical advice or a prescription service.
+- NEVER give personal opinion: ban "I think", "I believe", "in my opinion", "I recommend", "you should", "best choice for you".
 - NEVER use imperative directives to patients: "do not take", "avoid", "stop", "DO NOT DO THIS", "you must not".
-- Instead use literature-framed language: "Literature reports…", "Physicians often caution against…", "Evidence suggests caution regarding…", "Discuss with your physician before considering…", "Guidelines generally do not recommend…".
+- Instead use literature-framed language: "Research suggests…", "Studies report…", "Literature reports…", "Physicians often caution against…", "Evidence suggests caution regarding…", "Discuss with your physician before considering…", "Guidelines generally do not recommend…".
 - Safety information must be preserved and cited — reframe it, do not delete it.
 
 PATIENT-SPECIFIC SAFETY (critical):
@@ -1126,7 +1127,7 @@ const RESEARCH_PROMPT_FRONT_STATIC = `You are a comprehensive medical research a
 LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens across 3 sections):
 - Target ~800 output tokens (~600 words) per section on average.
 - Dense bullets / tables. No paragraphs longer than 2 lines. No filler.
-- YOU MUST FINISH ALL 3 SECTIONS. If section 3 is running long, cut to 3 treatments (not 5).
+- YOU MUST FINISH ALL 3 SECTIONS. If running long, shorten sections 1–2 — NEVER drop an FDA-approved drug from Section 3 to save space.
 
 Your output MUST include the following 3 sections IN THIS ORDER, and nothing else. Do NOT add sections 4-8 — a separate call handles those.
 
@@ -1148,7 +1149,7 @@ Use the intake context and evidence below as your starting list; add or correct 
 Then list 3–5 individual **named experts** with affiliations. Peer-recognised only — no clinic self-advertising.
 
 ## 3. Approved Treatments (Backed by Research)
-Include the most important treatments (up to 5). Quality over quantity — see the FDA-STATUS HONESTY RULE; do NOT pad this list to hit a number.
+Include **every** drug the KB / REQUIRED MENTIONS marks as **approved** for this condition (e.g. IPF: nerandomilast/Jascayd, pirfenidone/Esbriet, AND nintedanib/Ofev — all three cards, not just the newest). One card per approved drug. Quality over quantity for off-label extras — see FDA-STATUS HONESTY RULE; do NOT pad with supplements.
 
 DRUG-APPROVAL RECENCY RULE (critical — your training data may be out of date):
 - The curated knowledge base and evidence pack below are kept CURRENT and may be NEWER than your training cutoff. If a drug is marked "approved" in the REQUIRED MENTIONS list or the grounded evidence/FDA-label items, treat it as APPROVED and put it in this section — even if your own training data says it is investigational, "in trials", or "not yet approved". Never override the KB's approval status with older internal knowledge.
@@ -1196,7 +1197,7 @@ Your output MUST include the following 5 sections IN THIS ORDER, and nothing els
 
 ## 4. Clinical Trials & Access Programs
 
-**What these terms mean (one line each — no essay):** Recruiting = signing up now · OLE = keep study drug after trial · Expanded Access = drug outside a trial · Pay-to-Access = paid continuation before approval.
+**What these terms mean (one line each — 7th-grade plain English):** Recruiting = the study is signing people up now · **Open-Label Extension (OLE)** = if you finish the main trial, you can often keep taking the real study drug afterward (everyone gets the drug, not a placebo) · Expanded Access = a way to get a not-yet-approved drug outside a normal trial when you are very sick · Pay-to-Access = you pay to keep the drug before FDA approval.
 
 **This single section MUST cover ALL FOUR access pathways.** Pull directly from the LIVE CLINICAL TRIALS PULL block below. Do NOT list FDA-approved standard-of-care drugs here — Section 3 owns those.
 
@@ -1204,7 +1205,7 @@ Your output MUST include the following 5 sections IN THIS ORDER, and nothing els
 | NCT ID | Phase | Title | Top Center? | Accepting? | URL |
 |---|---|---|---|---|---|
 
-**B. Open-Label Extension (OLE):** Up to 3 lines — NCT, sponsor, status. If none: one sentence + suggest asking trial PI about OLE.
+**B. Open-Label Extension (OLE):** Up to 3 lines — NCT, sponsor, status. Plain English first: "After the main trial ends, participants may keep the study drug." If none: one sentence + suggest asking trial PI about OLE.
 
 **C. Expanded Access:** One bullet per EA record, or ONE sentence if zero.
 
@@ -1305,20 +1306,25 @@ Then continue with additional candidates that may have observational or trial da
 QUOTA (mandatory): At least 30% of your candidates MUST have EVIDENCE_STRENGTH of MECHANISTIC_ONLY or PRECLINICAL — but ONLY when the evidence pack lacks human data for that drug + condition.`;
 
 const REPURPOSE_COMBO_AND_SUMMARY = `## Combination Candidates
-Produce **3-4** combination candidates (quality over quantity). Prefer novel biology pairings — NOT guideline first-line pairs from Section 3.
+Produce **3-4** combination candidates (quality over quantity). Prefer novel biology pairings where **each drug alone may not help much** but together might — NOT guideline first-line pairs from Section 3.
+
+Include at least:
+- **One 3-drug combo** (Agent A + Agent B + Agent C) when three weak-alone agents have complementary pathways.
+- **One OTC/supplement + prescription combo** (e.g. antioxidant supplement + antifibrotic) when the evidence pack supports both — label INTERACTION_RISK honestly.
 
 For EACH combo output this exact block:
 
 COMBO: <Agent A + Agent B [+ Agent C]>
-RATIONALE: <one or two sentences on why the mechanisms are complementary or synergistic for THIS condition — pathway diagram in words>
+RATIONALE: <one or two sentences on why the mechanisms are complementary or synergistic for THIS condition — pathway diagram in words. Say plainly if each part alone failed or is weak alone.>
 EVIDENCE_TIER: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
 SUPPORTING_EVIDENCE: <verbatim quotes + clickable markdown links [title](url) from the evidence pack, or "Mechanistic hypothesis only — no human combo data yet" if there is no supporting literature.>
 INTERACTION_RISK: <severity LOW | MODERATE | HIGH plus the specific pharmacokinetic / pharmacodynamic interaction; reference FDA label drug-interaction text when available>
 PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's current medications + comorbidities; if none, write "None identified">
 CONFIDENCE: <1-100>% — <overall confidence that this combo is worth physician discussion>
 HOW_TO_DISCUSS_WITH_DOCTOR: <practical script — "I read about combining X and Y for [condition] because [pathway]; can we discuss whether monitoring [labs/AEs] would let us trial it?">
+REFERENCES: <REQUIRED — 1-2 clickable markdown links [short title](url) from the evidence pack>
 
-Combinations are HYPOTHESIS-GENERATION ONLY. When interaction risk may dominate benefit, report honestly — confidence < 25% and INTERACTION_RISK: HIGH.
+Combinations are HYPOTHESIS-GENERATION ONLY. When interaction risk may dominate benefit, report honestly — confidence < 25% and INTERACTION_RISK: HIGH. Skip combos that repeat EXCLUDED AGENTS or failed monotherapies unless the combo rationale explicitly addresses why together might differ.
 
 ## Reasoning Summary
 Two sentences: (1) best single-agent idea and why; (2) best combo idea and why. No recap of the full list.
@@ -1817,12 +1823,12 @@ export default async function handler(req, res) {
       };
       const trials = req.body?.trials || null;
       let polished = finalizeReportText(analysisText, { evidence, trials });
-      let validation = null;
+      let validation = req.body?.validation || null;
       const hasAnyValidatorKey =
         !!process.env.PERPLEXITY_API_KEY ||
         !!process.env.OPENAI_API_KEY ||
         !!process.env.XAI_API_KEY;
-      const wantValidation = req.body?.validate !== false;
+      const wantValidation = req.body?.validate !== false && !validation;
       const wantSilentFix = req.body?.silentFix !== false;
       const validateTimeoutMs = Number(process.env.MRT_VALIDATE_TIMEOUT_MS || 90_000);
       if (wantValidation && analysisText && hasAnyValidatorKey && isSpendEnabled()) {
@@ -1853,6 +1859,13 @@ export default async function handler(req, res) {
         } catch (err) {
           console.warn('[research] polish-report validate skipped:', err.message);
         }
+      } else if (validation && wantSilentFix) {
+        polished = applyValidationFixes(
+          polished,
+          validation,
+          evidence,
+          collectAllowedUrls(evidence, trials)
+        );
       }
       return res.status(200).json({
         content: [{ type: 'text', text: polished }],

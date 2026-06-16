@@ -783,6 +783,31 @@
         return { mechanistic, withEvidence };
       };
 
+      const COMBO_KEYS = [
+        'COMBO:', 'RATIONALE:', 'EVIDENCE_TIER:', 'SUPPORTING_EVIDENCE:', 'INTERACTION_RISK:',
+        'PATIENT_SPECIFIC_RISKS:', 'CONFIDENCE:', 'HOW_TO_DISCUSS_WITH_DOCTOR:', 'REFERENCES:'
+      ];
+      const parseCombos = (text) => {
+        const out = [];
+        const lines = text.split('\n');
+        let cur = null;
+        lines.forEach((line, i) => {
+          const t = line.trim();
+          const key = COMBO_KEYS.find(k => t.startsWith(k));
+          if (!key) return;
+          if (key === 'COMBO:') { if (cur) out.push(cur); cur = {}; }
+          if (!cur) return;
+          const field = key.replace(':', '').toLowerCase();
+          cur[field] = collectBlock(text, i, COMBO_KEYS);
+          if (field === 'confidence') {
+            const num = cur[field].match(/(\d{1,3})\s*%/);
+            cur.confidence_pct = num ? parseInt(num[1]) : null;
+          }
+        });
+        if (cur) out.push(cur);
+        return out;
+      };
+
       const TRIAL_KEYS = [
         'TRIAL:', 'NCT:', 'URL:', 'PHASE:', 'STATUS:', 'ACCEPTING:', 'PLACEBO:',
         'TREATMENT_ONLY:', 'COUNTRY:', 'OVERSIGHT:', 'DESIGNATIONS:',
@@ -909,18 +934,35 @@
       const polishReportForDisplay = (text) => {
         if (!text) return text;
         let s = String(text);
+        s = s.replace(/~~([^~]+)~~/g, '$1');
         s = s.replace(/^[^\n]*\bNo grounded evidence[^\n]*$/gim, '');
         s = s.replace(/^[^\n]*\bno grounded prevalence[^\n]*$/gim, '');
+        s = s.replace(/^[^\n]*\bno grounded prevalence number in pack[^\n]*$/gim, '');
         s = s.replace(/\bNo grounded evidence in pack\b/gi, '');
+        s = s.replace(/\bno grounded prevalence number in pack\b/gi, '');
         s = s.replace(/\bconfirmed against grounded evidence\b/gi, '');
+        s = s.replace(/\bdossier[- ]sourced\b/gi, '');
         s = s.replace(/\bdossier source\b/gi, '');
         s = s.replace(/\bGROUNDED EVIDENCE PACK\b/gi, '');
         s = s.replace(/\bgrounded evidence pack\b/gi, '');
         s = s.replace(/\bDisease-dossier uncertainty[^.\n]*/gi, '');
         s = s.replace(/\buncertainty score[^.\n]*/gi, '');
+        s = s.replace(/\s*\(dossier-sourced[^)]*\)/gi, '');
+        s = s.replace(/\s*\(confirmed against grounded evidence[^)]*\)/gi, '');
         s = s.replace(/\s*\[(FULL-TEXT|ABSTRACT-ONLY|METADATA-ONLY|CURATED KB|PREPRINT[^\]]*)\]\s*/gi, ' ');
         s = s.replace(/\n{3,}/g, '\n\n').trim();
         return s;
+      };
+
+      const stripApprovedTreatmentsSection = (text) => {
+        if (!text) return text;
+        const s = String(text);
+        const start = s.search(/^##\s*3\.\s*Approved Treatments/im);
+        if (start < 0) return s;
+        const rest = s.slice(start);
+        const end = rest.search(/^##\s*4\./im);
+        if (end < 0) return s.slice(0, start).trim();
+        return (s.slice(0, start) + s.slice(start + end)).replace(/\n{3,}/g, '\n\n').trim();
       };
 
       const extractLinksFromText = (text) => {
@@ -1702,6 +1744,7 @@
           });
         }, [repurposeText, evidenceSummary, repurposeForCondition, patient.condition]);
         const trialBlocks = useMemo(() => parseTrialBlocks(trialsText), [trialsText]);
+        const combos = useMemo(() => parseCombos(repurposeText), [repurposeText]);
         const references = useMemo(() => {
           const all = [
             ...parseReferences(researchText),
@@ -1709,9 +1752,20 @@
             ...parseReferences(trialsText)
           ];
           const map = new Map();
-          all.forEach(r => { if (!map.has(r.url)) map.set(r.url, r); });
+          const add = (url, quote = '') => {
+            const u = String(url || '').trim();
+            if (!u || map.has(u)) return;
+            map.set(u, { url: u, quote: quote || u });
+          };
+          all.forEach(r => add(r.url, r.quote));
+          for (const p of evidencePack || []) {
+            const u = p.pmcUrl || p.pubmedUrl || p.doiUrl || p.oaUrl || p.landingUrl || p.europePmcUrl || p.url;
+            if (u) add(u, p.title || u);
+            else if (p.pmid) add(`https://pubmed.ncbi.nlm.nih.gov/${String(p.pmid).replace(/\D/g, '')}/`, p.title || `PMID ${p.pmid}`);
+            else if (p.doi) add(`https://doi.org/${String(p.doi).replace(/^https?:\/\/doi\.org\//i, '')}`, p.title || p.doi);
+          }
           return [...map.values()];
-        }, [researchText, repurposeText, trialsText]);
+        }, [researchText, repurposeText, trialsText, evidencePack]);
 
         /* -------- Actions -------- */
         const runResearch = async (mode, extra = {}) => {
@@ -2311,7 +2365,7 @@
           runResearch('trials', { trialsData });
         };
 
-        // Re-run cross-AI audit on demand (also runs automatically after every report).
+        // Re-run second-AI check on demand (also runs automatically after every report).
         const auditAnalysis = async (mode, opts = {}) => {
           // opts.text / opts.pack let the auto-verify path pass the FRESH
           // analysis + evidence right after a run (React state is still
@@ -2323,7 +2377,7 @@
             mode === 'trials'    ? trialsText : '');
           const sourcePack = opts.pack || evidencePack;
           if (!analysisText) {
-            if (!opts.silent) alert('Run the analysis first, then audit it.');
+            if (!opts.silent) alert('Run the analysis first, then run a second AI check.');
             return null;
           }
           setValidations((v) => ({ ...v, [mode]: { _auditing: true } }));
@@ -2373,6 +2427,40 @@
               const err = { error: data.error || `HTTP ${r.status}`, hint: data.hint };
               setValidations((v) => ({ ...v, [mode]: err }));
               return err;
+            }
+            let fixedText = analysisText;
+            if (data.primary && opts.applyFixes !== false) {
+              try {
+                const fixRes = await fetch('/api/research', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    mode: 'polish-report',
+                    analysisText,
+                    validation: data,
+                    validate: false,
+                    silentFix: true,
+                    excludedAgents: evidenceSummary?.excludedAgents || [],
+                    evidencePack: (sourcePack || []).slice(0, 25).map((a) => ({
+                      title: a.title, url: a.url || a.pubmedUrl || a.doiUrl, pmid: a.pmid, doi: a.doi
+                    })),
+                    pipelineDrugs: evidenceSummary?.pipelineDrugs || [],
+                    trials: trialsData || null,
+                    patient,
+                    audience,
+                    condition: patient.condition || ''
+                  })
+                });
+                const fixRaw = await fixRes.text();
+                const fixData = JSON.parse(fixRaw);
+                const polished = (fixData.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+                if (polished) {
+                  fixedText = polished;
+                  if (mode === 'research') setResearchText(fixedText);
+                  if (mode === 'repurpose') setRepurposeText(fixedText);
+                  if (mode === 'trials') setTrialsText(fixedText);
+                }
+              } catch (_) {}
             }
             setValidations((v) => ({ ...v, [mode]: data }));
             if (data.validationMismatch) {
@@ -2554,7 +2642,7 @@
               {tab === 'research' && <ResearchTab
                 patient={patient} audience={audience} busy={busy} runResearch={runFullAnalysis}
                 researchText={researchText} treatments={treatments}
-                candidates={candidates} repurposeText={repurposeText}
+                candidates={candidates} combos={combos} repurposeText={repurposeText}
                 trialsData={trialsData} drugScreen={repurposeDrugScreen}
                 validation={validations.research}
                 validationMismatch={validationMismatch.research}
@@ -5932,7 +6020,7 @@
 
       /* ==================== Research Tab ==================== */
       const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treatments,
-                              candidates, repurposeText, trialsData, drugScreen,
+                              candidates, combos, repurposeText, trialsData, drugScreen,
                               validation, validationMismatch, conditionResolution,
                               evidenceSummary, evidencePack, dossier, progress, coverageAudit,
                               chatHistory, userQuery, setUserQuery, sendChat, onAudit, runtimeConfig,
@@ -5945,7 +6033,11 @@
         const reportAllowedUrls = useMemo(() => {
           return buildAllowedUrlSet(trialsData, evidenceSummary || { topRanked: evidencePack });
         }, [evidenceSummary, evidencePack, trialsData]);
-        const renderedResearchText = polishReportForDisplay(translatedText || researchText);
+        const renderedResearchText = polishReportForDisplay(
+          treatments.length > 0
+            ? stripApprovedTreatmentsSection(translatedText || researchText)
+            : (translatedText || researchText)
+        );
         const profileCoherenceIssue = useMemo(() => checkProfileCoherence(patient), [patient]);
         const baseQuickPrompts = [
           `Why did you rank the top treatment #1 over the others? Walk me through the tradeoff.`,
@@ -6032,6 +6124,22 @@
             />
 
             <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!researchText} />
+
+            {treatments.length > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
+                  FDA-approved & research-backed treatments ({treatments.length})
+                </h3>
+                <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  Every approved option for this condition in one place — with source links on each card.
+                </p>
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  {treatments.map((t, i) => (
+                    <TreatmentCard key={`tx-${i}`} t={t} rank={i + 1} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {researchText && (
               <div id="mrt-research-export-target" style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
@@ -6131,6 +6239,22 @@
                     Show {hiddenDrugCount} more idea{hiddenDrugCount === 1 ? '' : 's'}
                   </button>
                 )}
+              </div>
+            )}
+
+            {combos.length > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
+                  Combination ideas ({combos.length})
+                </h3>
+                <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  Drugs that might work better together than alone — including OTC + prescription pairs when the literature supports it. Hypothesis only; discuss with your doctor.
+                </p>
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  {combos.map((c, i) => (
+                    <ComboCard key={`combo-${i}`} c={c} rank={i + 1} />
+                  ))}
+                </div>
               </div>
             )}
 
@@ -6307,8 +6431,6 @@
             {trialBlocks.length > 0 && <RankedTrialsForPatient blocks={trialBlocks} />}
 
             <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!trialsText} />
-
-            <CostMeter meta={runMeta} label="Trials analysis cost" />
 
             {trialsText && (
               <div id="mrt-trials-export-target" style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
@@ -6807,10 +6929,103 @@
       );
 
       // Individual repurposing-candidate card. One per drug/supplement.
+      const TreatmentCard = ({ t, rank }) => {
+        const refText = linkifyMedicalIds(t.references || '');
+        const cardLinks = useMemo(() => extractLinksFromText(refText), [refText]);
+        const fda = String(t.fda_status || '').toLowerCase();
+        const notApproved = fda && !fda.startsWith('approved');
+        return (
+          <div style={{
+            padding: '1rem 1.1rem', background: theme.panel, borderRadius: 12,
+            border: `1px solid ${notApproved ? theme.yellow + '88' : theme.border}`,
+            position: 'relative', overflow: 'hidden'
+          }}>
+            <div style={{
+              position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+              background: `linear-gradient(90deg, ${theme.green}, ${theme.accent})`
+            }} />
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.9rem' }}>
+              <RankBadge rank={rank} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: '1.15rem', color: theme.text }}>
+                  {t.treatment || '(unnamed treatment)'}
+                </div>
+                {t.fda_status && (
+                  <div style={{ fontSize: '0.78rem', color: notApproved ? theme.yellow : theme.green, marginTop: 4, fontWeight: 600 }}>
+                    {t.fda_status}
+                  </div>
+                )}
+                {t.provider && (
+                  <div style={{ fontSize: '0.82rem', color: theme.textDim, marginTop: 4 }}>{t.provider}</div>
+                )}
+                {cardLinks.length > 0 ? (
+                  <div style={{ marginTop: '0.55rem' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: theme.accent, textTransform: 'uppercase', marginBottom: 4 }}>
+                      Sources ↗
+                    </div>
+                    {cardLinks.slice(0, 4).map((l, i) => (
+                      <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'block', fontSize: '0.84rem', color: theme.accent, marginBottom: 4 }}>
+                        {l.label} ↗
+                      </a>
+                    ))}
+                  </div>
+                ) : refText ? (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.84rem' }}><Markdown text={refText} /></div>
+                ) : null}
+              </div>
+            </div>
+            <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
+              <MeterBar label="How well it works" value={t.efficacy_pct} icon={<TrendingUp size={11} />} note={t.efficacy_note} />
+              <MeterBar label="Safety" value={t.safety_pct} icon={<Shield size={11} />} note={t.safety_note} />
+            </div>
+            {t.risks && (
+              <div style={{ marginTop: '0.6rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.5 }}>
+                <strong style={{ color: theme.text }}>Risks: </strong>{t.risks}
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const ComboCard = ({ c, rank }) => {
+        const linkText = linkifyMedicalIds([c.references, c.supporting_evidence].filter(Boolean).join('\n'));
+        const cardLinks = useMemo(() => extractLinksFromText(linkText), [linkText]);
+        return (
+          <div style={{
+            padding: '1rem', background: theme.panel, borderRadius: 12,
+            border: `1px dashed ${theme.accent}66`
+          }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <RankBadge rank={rank} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: '1.05rem', color: theme.text }}>{c.combo || 'Combination'}</div>
+                {c.rationale && <div style={{ marginTop: 6, fontSize: '0.88rem', lineHeight: 1.55 }}>{c.rationale}</div>}
+                {c.interaction_risk && (
+                  <div style={{ marginTop: 6, fontSize: '0.82rem', color: theme.yellow }}>
+                    Interaction risk: {c.interaction_risk}
+                  </div>
+                )}
+                {cardLinks.length > 0 && (
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {cardLinks.slice(0, 3).map((l, i) => (
+                      <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '0.82rem', color: theme.accent }}>{l.label} ↗</a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
       const CandidateCard = ({ c, rank, highlightMechanistic, audience = 'layperson' }) => {
         const mechanistic = highlightMechanistic || isMechanisticEvidence(c.evidence_strength);
         const lay = audience !== 'medical';
-        const allLinkText = [c.references, c.supporting_evidence, c.repurpose_rationale].filter(Boolean).join('\n');
+        const allLinkText = linkifyMedicalIds(
+          [c.references, c.supporting_evidence, c.repurpose_rationale].filter(Boolean).join('\n')
+        );
         const cardLinks = useMemo(() => extractLinksFromText(allLinkText), [allLinkText]);
         const whyPlain = c.why_for_this_condition || c.repurpose_rationale;
         return (
@@ -7060,7 +7275,7 @@
         );
       };
 
-      const RepurposeTab = ({ patient, audience, busy, runResearch, repurposeText, candidates, validation, validationMismatch, progress, onAudit, runtimeConfig, runMeta, drugScreen, setTab, onDismissMismatch, onRetrySynth, canRetrySynth }) => {
+      const RepurposeTab = ({ patient, audience, busy, runResearch, repurposeText, candidates, combos = [], validation, validationMismatch, progress, onAudit, runtimeConfig, runMeta, drugScreen, setTab, onDismissMismatch, onRetrySynth, canRetrySynth }) => {
         const [showRaw, setShowRaw] = useState(false);
         const [translatedText, setTranslatedText] = useState('');
         const renderedRepurposeText = translatedText || repurposeText;
@@ -7233,7 +7448,21 @@
               </div>
             )}
 
-            <CostMeter meta={runMeta} label="Repurpose run cost" />
+            {combos.length > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
+                  Combination ideas ({combos.length})
+                </h3>
+                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  Pairs or triplets where drugs might work better together — including OTC + prescription when supported. For discussion with your doctor only.
+                </p>
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  {combos.map((c, i) => (
+                    <ComboCard key={`rp-combo-${i}`} c={c} rank={i + 1} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {repurposeText && (
               <div style={panelStyle}>
@@ -7504,7 +7733,9 @@
                 </h3>
                 <div style={{ display: 'grid', gap: '0.5rem' }}>
                   {evidencePack.slice(0, 40).map((p, i) => {
-                    const url = p.pmcUrl || p.pubmedUrl || p.doiUrl || p.oaUrl || p.landingUrl || p.europePmcUrl;
+                    const url = p.pmcUrl || p.pubmedUrl || p.doiUrl || p.oaUrl || p.landingUrl || p.europePmcUrl || p.url
+                      || (p.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${String(p.pmid).replace(/\D/g, '')}/` : null)
+                      || (p.doi ? `https://doi.org/${String(p.doi).replace(/^https?:\/\/doi\.org\//i, '')}` : null);
                     const excerpt = (p.fullText || p.abstract || '').slice(0, 260);
                     return (
                       <div key={i} style={{
