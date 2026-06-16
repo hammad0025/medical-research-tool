@@ -27,7 +27,8 @@ import validateHandler from '../lib/validate.js';
 import perplexitySearchHandler from '../lib/perplexity-search.js';
 import trialsHandler from './trials.js';
 import { getDossier } from '../lib/disease-dossier.js';
-import { loadKb } from '../lib/kb.js';
+import { loadKb, matchKb } from '../lib/kb.js';
+import { ensureDynamicKb } from '../lib/kb-bootstrap.js';
 import {
   consumeResearchCredit,
   limits as usageLimits,
@@ -43,16 +44,66 @@ import { getInfraStatus } from '../lib/infra-status.js';
 import { registryStats as diseaseRegistryStats } from '../lib/disease-registry.js';
 import { registryStats as drugRegistryStats, selectRepurposeDrugs, buildRepurposeDrugLibraryBlock } from '../lib/drug-registry.js';
 import { resolveCondition, detectValidationMismatch } from '../lib/condition-resolver.js';
+import { listConditionSubtypes } from '../lib/condition-subtypes.js';
+import { conditionInferenceConfig } from '../lib/condition-intake-flags.js';
+import {
+  isResearchPipelineEnabled,
+  isSpendEnabled,
+  isPaidUserMode,
+  isPerplexitySpendEnabled,
+  isDynamicKbSpendEnabled,
+  spendControlsConfig,
+  spendDisabledMessage
+} from '../lib/spend-controls.js';
 import {
   parsePatientMessage,
   mergePatientFromMessage,
   extractConditionFromMessage
 } from '../lib/patient-intake.js';
 
-// Primary synthesis model. User requested "Opus instead of Sonnet" support:
-// set ANTHROPIC_RESEARCH_MODEL in env to any Anthropic model your account has
-// access to (e.g. an Opus model). Defaults to Sonnet for speed/cost balance.
-const DEFAULT_MODEL = process.env.ANTHROPIC_RESEARCH_MODEL || 'claude-sonnet-4-20250514';
+import {
+  DEFAULT_RESEARCH_MODEL,
+  DEFAULT_DOSSIER_MODEL,
+  isModelNotFoundError,
+  nextFallbackModel
+} from '../lib/anthropic-models.js';
+
+const DEFAULT_MODEL = DEFAULT_RESEARCH_MODEL;
+
+const callAnthropicMessages = async ({ model, maxTokens, system, messages, apiKey }) => {
+  let activeModel = model;
+  let lastError = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: activeModel,
+        max_tokens: maxTokens,
+        system,
+        messages
+      })
+    });
+    if (response.ok) {
+      return { ok: true, model: activeModel, data: await response.json() };
+    }
+    const errorData = await response.json().catch(() => ({}));
+    lastError = { response, errorData, model: activeModel };
+    const fallback = isModelNotFoundError(response.status, errorData)
+      ? nextFallbackModel(activeModel)
+      : null;
+    if (!fallback) break;
+    console.warn(
+      `[research] model ${activeModel} unavailable (${errorData?.error?.message || response.status}) — retrying with ${fallback}`
+    );
+    activeModel = fallback;
+  }
+  return { ok: false, ...lastError };
+};
 
 // Serverless timeout safety: Opus is typically slower token/sec than Sonnet,
 // so we cap max_tokens lower by default to reduce timeout risk. You can still
@@ -151,13 +202,25 @@ const toGroundedItem = (a, { isCuratedKB = false, kbCategory = null } = {}) => (
 // real evidence.js response (groundedForPrompt + pipelineDrugs + excludedAgents
 // + canonicalFacts), so the synthesis prompt, required-mentions, and coverage
 // audit all keep working even when every external API is down.
-const buildKbFallbackEvidence = async (condition, dossier = null) => {
+const buildKbFallbackEvidence = async (condition, dossier = null, { kbSlug } = {}) => {
   try {
     if (!condition) return null;
-    const kb = await loadKb(condition, {
-      fallbackCanonical: dossier?.canonical,
-      fallbackSynonyms: dossier?.synonyms || []
-    });
+    let kb = null;
+    if (kbSlug) {
+      const slugHit = await matchKb(kbSlug);
+      if (slugHit?.kb) {
+        kb = await loadKb(slugHit.kb.condition, {
+          fallbackCanonical: dossier?.canonical || condition,
+          fallbackSynonyms: dossier?.synonyms || []
+        });
+      }
+    }
+    if (!kb?.matched) {
+      kb = await loadKb(condition, {
+        fallbackCanonical: dossier?.canonical,
+        fallbackSynonyms: dossier?.synonyms || []
+      });
+    }
     if (!kb || !kb.matched) return null;
     const canonical = kb.meta?.canonical || condition;
     const kbGrounded = (kb.items || []).map((it) =>
@@ -168,7 +231,7 @@ const buildKbFallbackEvidence = async (condition, dossier = null) => {
     // hits (new approvals, negative trials). Without this, KB-only fallback
     // was static saved sources only — no freshness layer at all.
     let webGrounded = [];
-    if (process.env.PERPLEXITY_API_KEY) {
+    if (process.env.PERPLEXITY_API_KEY && isPerplexitySpendEnabled()) {
       const drugNames = (kb.meta?.pipelineDrugs || []).map((d) => d.name).filter(Boolean).slice(0, 3);
       const seeds = (kb.meta?.literatureSearchSeeds || [])
         .map((s) => (typeof s === 'string' ? s : s?.term)).filter(Boolean).slice(0, 2);
@@ -224,6 +287,120 @@ const buildKbFallbackEvidence = async (condition, dossier = null) => {
 // cite. A null result OR an empty groundedForPrompt both mean "ungrounded".
 const evidenceIsUsable = (ev) =>
   !!ev && Array.isArray(ev.groundedForPrompt) && ev.groundedForPrompt.length > 0;
+
+// When there is no curated KB, still ground synthesis from the dossier agent
+// (registry or LLM) plus a Perplexity scout. Without this, conditions like
+// borderline personality disorder hit gather OK then synth with zero papers —
+// the #1 "not in the brain yet" failure mode.
+const buildDossierFallbackEvidence = async (condition, dossier = null) => {
+  try {
+    if (!condition) return null;
+    const d = dossier?.canonical ? dossier : await getDossier(condition);
+    const canonical = d?.canonical || condition;
+    const grounded = [];
+    let webCount = 0;
+
+    if (process.env.PERPLEXITY_API_KEY && isPerplexitySpendEnabled()) {
+      const seeds = [
+        ...(d?.landmarkTrials || []).map((t) => t.acronym || t.name).filter(Boolean),
+        ...(d?.synonyms || []).slice(0, 2)
+      ];
+      try {
+        const webRes = await invokePerplexitySearch({
+          condition: canonical,
+          drugs: seeds.slice(0, 6)
+        });
+        const webGrounded = (webRes?.articles || []).map((a) =>
+          toGroundedItem({ ...a, source: 'PerplexityWeb', isWebSearch: true })
+        );
+        grounded.push(...webGrounded);
+        webCount = webGrounded.length;
+      } catch (e) {
+        console.warn('[research] dossier fallback Perplexity scout failed:', e?.message || e);
+      }
+    }
+
+    for (const trial of (d?.landmarkTrials || []).slice(0, 4)) {
+      const label = [trial.acronym, trial.name].filter(Boolean).join(' — ') || trial.topic;
+      if (!label) continue;
+      grounded.push(toGroundedItem({
+        title: `${label} (${canonical})`,
+        journal: 'Landmark trial / study',
+        source: 'DossierIntake',
+        summary: trial.topic || `Landmark study context for ${canonical}.`,
+        accessLevel: 'dossier'
+      }));
+    }
+    for (const rf of (d?.redFlags || []).slice(0, 3)) {
+      grounded.push(toGroundedItem({
+        title: `Clinical caution — ${canonical}`,
+        journal: 'Dossier intake',
+        source: 'DossierIntake',
+        summary: rf,
+        accessLevel: 'dossier'
+      }));
+    }
+    if (!grounded.length) {
+      grounded.push(toGroundedItem({
+        title: `${canonical} — disease overview`,
+        journal: d?.source === 'disease-registry' ? 'Disease registry' : 'Clinical intake',
+        source: 'DossierIntake',
+        summary: [
+          `Condition: ${canonical}.`,
+          d?.subspecialty ? `Specialty: ${d.subspecialty}.` : '',
+          (d?.synonyms || []).length ? `Also known as: ${d.synonyms.slice(0, 5).join(', ')}.` : ''
+        ].filter(Boolean).join(' '),
+        accessLevel: 'dossier'
+      }));
+    }
+
+    return {
+      totalUnique: grounded.length,
+      totalFetched: grounded.length,
+      uniqueJournals: new Set(grounded.map((g) => g.journal).filter(Boolean)).size || grounded.length,
+      perSourceCounts: { DossierIntake: grounded.length - webCount, PerplexityWeb: webCount },
+      groundedForPrompt: grounded,
+      topRanked: grounded.slice(0, 50),
+      pipelineDrugs: [],
+      excludedAgents: [],
+      canonicalFacts: [],
+      fdaLabels: [],
+      fdaManufacturers: [],
+      promptPackBreakdown: {
+        total: grounded.length,
+        dossierIntake: grounded.length - webCount,
+        perplexityWeb: webCount,
+        live: webCount
+      },
+      knowledgeBase: {
+        matched: false,
+        canonical,
+        source: d?.source || 'dossier-llm',
+        degraded: true,
+        perplexityScout: webCount > 0,
+        note: 'No curated KB yet — grounding from dossier + live web scout'
+      }
+    };
+  } catch (e) {
+    console.warn('[research] buildDossierFallbackEvidence failed:', e?.message || e);
+    return null;
+  }
+};
+
+const ensureGroundedEvidence = async (condition, dossier, evidence, hints = {}) => {
+  if (evidenceIsUsable(evidence)) return evidence;
+  const kbFallback = await buildKbFallbackEvidence(condition, dossier, hints);
+  if (evidenceIsUsable(kbFallback)) {
+    console.warn(`[research] KB fallback (${kbFallback.groundedForPrompt.length} curated refs)`);
+    return kbFallback;
+  }
+  const dossierFallback = await buildDossierFallbackEvidence(condition, dossier);
+  if (evidenceIsUsable(dossierFallback)) {
+    console.warn(`[research] dossier fallback (${dossierFallback.groundedForPrompt.length} refs, no static KB)`);
+    return dossierFallback;
+  }
+  return evidence;
+};
 
 // Gather returns pools to the browser, which POSTs them back for synthesize.
 // Trials + evidence can exceed 1MB and break slow clients; trim to what the
@@ -1251,7 +1428,9 @@ export default async function handler(req, res) {
         },
         infra: getInfraStatus(),
         diseaseRegistry: await diseaseRegistryStats(),
-        drugRegistry: await drugRegistryStats()
+        drugRegistry: await drugRegistryStats(),
+        conditionInference: conditionInferenceConfig(),
+        spendControls: spendControlsConfig()
       });
     }
 
@@ -1260,6 +1439,30 @@ export default async function handler(req, res) {
       if (!condition) return res.status(400).json({ error: 'condition is required' });
       const resolution = await resolveCondition(condition);
       return res.status(200).json(resolution);
+    }
+
+    if (mode === 'condition-subtypes') {
+      const query = String(req.body?.query || req.body?.condition || req.query?.query || '').trim();
+      if (!query) return res.status(400).json({ error: 'query is required' });
+      const listing = await listConditionSubtypes(query);
+      return res.status(200).json(listing);
+    }
+
+    // Spend kill — blocks paid API before any Anthropic/Perplexity calls.
+    const pipelineMode = mode === 'research' || mode === 'repurpose' || mode === 'trials';
+    if (pipelineMode && !isResearchPipelineEnabled()) {
+      return res.status(503).json({
+        error: spendDisabledMessage(),
+        code: 'RESEARCH_SPEND_DISABLED',
+        spendControls: spendControlsConfig()
+      });
+    }
+    if (isPaidUserMode(mode) && !pipelineMode && !isSpendEnabled()) {
+      return res.status(503).json({
+        error: spendDisabledMessage(),
+        code: 'SPEND_DISABLED',
+        spendControls: spendControlsConfig()
+      });
     }
 
     if (mode === 'parse-patient-message') {
@@ -1401,7 +1604,7 @@ export default async function handler(req, res) {
     if (mode === 'benchmark-models') {
       const apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'ANTHROPIC_API_KEY missing' });
-      const SONNET_MODEL = process.env.ANTHROPIC_BENCHMARK_SONNET_MODEL || 'claude-sonnet-4-20250514';
+      const SONNET_MODEL = process.env.ANTHROPIC_BENCHMARK_SONNET_MODEL || DEFAULT_RESEARCH_MODEL;
       const OPUS_MODEL = process.env.ANTHROPIC_BENCHMARK_OPUS_MODEL || process.env.ANTHROPIC_RESEARCH_MODEL || 'claude-opus-4-20250514';
       const MAX_BENCH_TOKENS = Number(process.env.ANTHROPIC_BENCHMARK_MAX_TOKENS || 700);
       const BENCH_PROMPT = 'Write 6 concise bullets on idiopathic pulmonary fibrosis: standard of care, one pipeline agent, one safety monitoring point, one trial-access note. Under 350 words.';
@@ -1506,6 +1709,18 @@ export default async function handler(req, res) {
       (patient.condition || '').trim() ||
       extractConditionFromMessage(latestUserMsg);
 
+    let gatherCondition = effectiveCondition;
+    let conditionResolutionHint = null;
+    if (effectiveCondition) {
+      conditionResolutionHint = await resolveCondition(effectiveCondition);
+      if (phase !== 'synthesize' && conditionResolutionHint?.ok && conditionResolutionHint.resolved) {
+        gatherCondition = conditionResolutionHint.resolved;
+      }
+    }
+    const groundingHints = {
+      kbSlug: conditionResolutionHint?.kbSlug || conditionResolutionHint?.kbMatch?.slug || null
+    };
+
     // Research pipeline — three phases:
     //   (1) Disease-intake agent (Haiku, 24h cache) — builds structured
     //       dossier for ANY condition, including aliases like "RP" or
@@ -1534,11 +1749,7 @@ export default async function handler(req, res) {
       // pipeline drugs, and real citable papers. Prevents the "3 candidates / no
       // links / metformin mislabeled" failure even when gather degraded.
       if ((mode === 'research' || mode === 'repurpose') && !evidenceIsUsable(evidence)) {
-        const fallback = await buildKbFallbackEvidence(effectiveCondition, dossier);
-        if (evidenceIsUsable(fallback)) {
-          console.warn(`[research.synth] provided evidence unusable — using KB-only fallback (${fallback.groundedForPrompt.length} curated refs)`);
-          evidence = fallback;
-        }
+        evidence = await ensureGroundedEvidence(effectiveCondition, dossier, evidence, groundingHints);
       }
     } else {
       // Hard deadline for the entire gather phase. On Vercel Pro functions
@@ -1568,12 +1779,12 @@ export default async function handler(req, res) {
       const drugs = (patient.medications || '')
         .split(/[,;\n]/).map((s) => s.trim().split(/\s+/)[0]).filter(Boolean).slice(0, 6);
       const needsEvidence = (mode === 'research' || mode === 'repurpose');
-      const dossierP = effectiveCondition
-        ? withDeadline(getDossier(effectiveCondition), 'dossier')
+      const dossierP = gatherCondition
+        ? withDeadline(getDossier(gatherCondition), 'dossier')
         : Promise.resolve(null);
       const evidenceP = needsEvidence
         ? withDeadline(invokeEvidence({
-            condition: effectiveCondition,
+            condition: gatherCondition,
             mode,
             // Trimmed fan-out: 2 treatment cross-products instead of 4.
             // The dossier's synonyms + KB cover the specificity loss.
@@ -1589,7 +1800,7 @@ export default async function handler(req, res) {
         : Promise.resolve(null);
       const trialsP = needsEvidence
         ? withDeadline(invokeTrials({
-            condition: effectiveCondition,
+            condition: gatherCondition,
             recruitingOnly: false,
             treatmentOnly: true,
             pageSize: 30
@@ -1603,17 +1814,22 @@ export default async function handler(req, res) {
       evidence = evidenceResult;
       trials = trialsResult;
 
+      // Start building a persistent brain entry when no static KB exists yet.
+      if (needsEvidence && dossier?.canonical && isDynamicKbSpendEnabled()) {
+        loadKb(gatherCondition, {
+          fallbackCanonical: dossier.canonical,
+          fallbackSynonyms: dossier.synonyms || [],
+          ensureBuild: true,
+          dossier
+        }).catch(() => {});
+        ensureDynamicKb(dossier.canonical, dossier).catch(() => {});
+      }
+
       // SAFETY NET: if the live evidence fetch timed out or errored (withDeadline
-      // → null) OR came back with zero grounded papers, fall back to the curated
-      // KB so the synthesis is never ungrounded. Without this, a slow PubMed day
-      // silently degrades the report to ~3 candidates, no links, and a mislabeled
-      // metformin. The KB load is local and instant.
+      // → null) OR came back with zero grounded papers, fall back to curated KB
+      // or dossier+Perplexity so synthesis never runs fully ungrounded.
       if (needsEvidence && !evidenceIsUsable(evidence)) {
-        const fallback = await buildKbFallbackEvidence(effectiveCondition, dossier);
-        if (evidenceIsUsable(fallback)) {
-          console.warn(`[research.gather] live evidence unusable — using KB-only fallback (${fallback.groundedForPrompt.length} curated refs)`);
-          evidence = fallback;
-        }
+        evidence = await ensureGroundedEvidence(gatherCondition, dossier, evidence, groundingHints);
       }
     }
 
@@ -1623,9 +1839,7 @@ export default async function handler(req, res) {
     // sub-60s serverless invocations.
     if (phase === 'gather') {
       const trimmed = trimGatherPools({ dossier, evidence, trials });
-      const conditionResolution = effectiveCondition
-        ? await resolveCondition(effectiveCondition)
-        : null;
+      const conditionResolution = conditionResolutionHint;
       return res.status(200).json({
         phase: 'gather',
         model,
@@ -1822,40 +2036,36 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
       { role: 'user', content: synthUserQuery }
     ];
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens,
-        // Prefer the cache-enabled `systemBlocks` array when the mode
-        // supports it (research + repurpose); fall back to a plain
-        // string for chat + trials modes where the prompt is too
-        // dynamic to benefit from caching.
-        system: systemBlocks || systemPrompt,
-        messages
-      })
+    const anthropic = await callAnthropicMessages({
+      model,
+      maxTokens,
+      system: systemBlocks || systemPrompt,
+      messages,
+      apiKey
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+    if (!anthropic.ok) {
+      const { response, errorData } = anthropic;
       console.error('Anthropic API error:', errorData);
       const msg =
-        errorData.error?.message ||
-        errorData.error?.type ||
-        (typeof errorData.error === 'string' ? errorData.error : null) ||
-        `Claude API failed (HTTP ${response.status})`;
-      return res.status(response.status >= 500 ? 502 : response.status).json({
-        error: msg,
-        details: errorData
+        errorData?.error?.message ||
+        errorData?.error?.type ||
+        (typeof errorData?.error === 'string' ? errorData.error : null) ||
+        `Claude API failed (HTTP ${response?.status})`;
+      const hint = isModelNotFoundError(response?.status, errorData)
+        ? ` Set ANTHROPIC_RESEARCH_MODEL in Vercel to a model your key supports (e.g. claude-sonnet-4-6).`
+        : '';
+      return res.status(response?.status >= 500 ? 502 : (response?.status || 502)).json({
+        error: `${msg}${hint}`,
+        details: errorData,
+        modelAttempted: anthropic.model
       });
     }
 
-    const data = await response.json();
+    if (anthropic.model !== model) {
+      console.warn(`[research] synthesis used fallback model ${anthropic.model} (requested ${model})`);
+    }
+    const data = anthropic.data;
 
     // Extract Claude's text so we can feed it to the cross-validator.
     let claudeText = (data.content || [])
@@ -1968,22 +2178,15 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
           : `${systemPrompt}\n\n${repromptDirective}`;
 
         try {
-          const reprompt = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-              model,
-              max_tokens: maxTokens,
-              system: repromptSystem,
-              messages
-            })
+          const reprompt = await callAnthropicMessages({
+            model,
+            maxTokens,
+            system: repromptSystem,
+            messages,
+            apiKey
           });
           if (reprompt.ok) {
-            const repromptData = await reprompt.json();
+            const repromptData = reprompt.data;
             const rewritten = (repromptData.content || [])
               .filter((c) => c?.type === 'text')
               .map((c) => c.text)
@@ -2066,7 +2269,7 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
       !!process.env.PERPLEXITY_API_KEY ||
       !!process.env.OPENAI_API_KEY ||
       !!process.env.XAI_API_KEY;
-    if (wantValidation && mode !== 'chat' && claudeText && hasAnyValidatorKey) {
+    if (wantValidation && mode !== 'chat' && claudeText && hasAnyValidatorKey && isSpendEnabled()) {
       try {
         validation = await invokeValidate({
           analysisText: claudeText,
@@ -2083,7 +2286,8 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
 
     return res.status(200).json({
       ...data,
-      model,
+      model: anthropic.model,
+      modelRequested: model !== anthropic.model ? model : undefined,
       maxTokens,
       dossier: dossier
         ? {

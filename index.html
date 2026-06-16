@@ -317,7 +317,13 @@
 
       const formatApiError = (data, res) => {
         if (!data) return `Request failed (HTTP ${res?.status || '?'})`;
-        if (typeof data.error === 'string') return data.error;
+        if (typeof data.error === 'string') {
+          const base = data.error;
+          if (data.modelAttempted && /model|not_found/i.test(base)) {
+            return `${base} (tried ${data.modelAttempted})`;
+          }
+          return base;
+        }
         if (data.error?.message) return data.error.message;
         if (data.message) return data.message;
         return `Request failed (HTTP ${res?.status || '?'})`;
@@ -1541,6 +1547,13 @@
 
         /* -------- Actions -------- */
         const runResearch = async (mode, extra = {}) => {
+          if (
+            (mode === 'research' || mode === 'repurpose' || mode === 'trials') &&
+            runtimeConfig?.spendControls?.researchPipeline === false
+          ) {
+            alert('Research is paused to stop API spending. Set MRT_RESEARCH_ENABLED=1 in Vercel and redeploy.');
+            return;
+          }
           // Research / Repurpose / Trials still require a condition (they
           // do a full 16-section analysis that's meaningless without one).
           // Chat mode is allowed to start cold — the backend will detect
@@ -1551,14 +1564,22 @@
             return;
           }
 
-          // Silently canonicalize condition when we can infer a better name.
+          // Silently canonicalize condition when inference is enabled.
           let runPatient = patient;
-          if (mode === 'research' || mode === 'repurpose') {
+          if (
+            (mode === 'research' || mode === 'repurpose') &&
+            runtimeConfig?.conditionInference?.enabled !== false
+          ) {
             const typed = patient.condition.trim();
             try {
               const resolution = await callResearchMode('resolve-condition', { condition: typed });
               setConditionResolution(resolution);
-              if (resolution?.resolved && resolution.resolved !== typed && resolution.matchScore >= 40) {
+              if (
+                !resolution?.inferenceDisabled &&
+                resolution?.resolved &&
+                resolution.resolved !== typed &&
+                resolution.matchScore >= 40
+              ) {
                 runPatient = { ...patient, condition: resolution.resolved };
                 setPatient(runPatient);
               }
@@ -3170,12 +3191,48 @@
         const [describeText, setDescribeText] = useState('');
         const [describeBusy, setDescribeBusy] = useState(false);
         const [describeNote, setDescribeNote] = useState('');
+        const [subtypeListing, setSubtypeListing] = useState(null);
+        const subtypeDebounce = React.useRef(null);
+
+        React.useEffect(() => {
+          const q = (patient.condition || '').trim();
+          clearTimeout(subtypeDebounce.current);
+          if (runtimeConfig?.conditionInference?.subtypePicker === false || q.length < 2) {
+            setSubtypeListing(null);
+            return;
+          }
+          subtypeDebounce.current = setTimeout(async () => {
+            try {
+              const data = await callResearchMode('condition-subtypes', { query: q });
+              setSubtypeListing(data?.matched ? data : null);
+            } catch {
+              setSubtypeListing(null);
+            }
+          }, 220);
+          return () => clearTimeout(subtypeDebounce.current);
+        }, [patient.condition, runtimeConfig?.conditionInference?.subtypePicker]);
+
+        const pickConditionSubtype = (item) => {
+          if (!item?.resolved) return;
+          setPatient((p) => ({
+            ...p,
+            condition: item.resolved,
+            geneticVariant: item.gene && !String(p.geneticVariant || '').trim()
+              ? item.gene
+              : p.geneticVariant
+          }));
+          setSubtypeListing(null);
+        };
         const loadSample = (key) => {
           const s = SAMPLE_PATIENTS[key];
           if (!s) return;
           setPatient((_p) => ({ ...s.data }));
         };
         const startResearch = () => {
+          if (runtimeConfig?.spendControls?.researchPipeline === false) {
+            alert('Research is paused to stop API spending. Set MRT_RESEARCH_ENABLED=1 (or MRT_SPEND_ENABLED=1) in Vercel and redeploy.');
+            return;
+          }
           if (!patient.condition?.trim()) {
             alert('Please enter a primary condition first — or describe the situation in the box below.');
             return;
@@ -3228,7 +3285,8 @@
         // context stays as textarea so clinicians can paste from notes.
         const fields = [
           { k: 'condition',  l: 'Main condition you want to research',   ta: false,
-            ph: 'e.g. Idiopathic Pulmonary Fibrosis, Glioblastoma, ALS…', enterSubmits: true },
+            ph: 'e.g. Retinitis Pigmentosa — then pick a subtype below if you know it', enterSubmits: true,
+            subtypePicker: true },
           { k: 'stage',      l: 'Stage of the disease (if you know it)',     ta: false, ph: 'e.g. GAP Stage II, metastatic' },
           { k: 'age',        l: 'Age',                              ta: false, ph: 'e.g. 65', type: 'number' },
           { k: 'gender',     l: 'Sex / Gender',                     ta: false, type: 'select',
@@ -3273,6 +3331,16 @@
               You only need a <strong>main condition</strong>. Or describe the situation in plain English below —
               like telling a doctor about your mom — and we fill in the form for you.
             </p>
+            {runtimeConfig?.spendControls?.researchPipeline === false && (
+              <div style={{
+                marginBottom: '1rem', padding: '0.75rem 0.9rem', borderRadius: 8,
+                border: `1px solid ${theme.amber || '#f59e0b'}66`,
+                background: `${theme.amber || '#f59e0b'}14`, color: theme.text, fontSize: '0.85rem', lineHeight: 1.5
+              }}>
+                <strong>Research paused.</strong> Paid API calls are off (spend kill switch in Vercel).
+                Browsing the site is fine; Search / Run research will not charge anything until you re-enable it.
+              </div>
+            )}
 
             <div style={{
               marginBottom: '1rem', padding: '0.9rem 1rem', borderRadius: 8,
@@ -3470,6 +3538,55 @@
                         </option>
                       ))}
                     </select>
+                  ) : f.subtypePicker ? (
+                    <div style={{ position: 'relative' }}>
+                      <input type="text" value={patient[f.k] || ''} placeholder={f.ph || ''}
+                        onChange={e => set(f.k, e.target.value)}
+                        onKeyDown={e => { if (f.enterSubmits && e.key === 'Enter' && !busy) { e.preventDefault(); startResearch(); } }}
+                        style={inputStyle} />
+                      {subtypeListing && (
+                        <div style={{
+                          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 30,
+                          maxHeight: 280, overflowY: 'auto', borderRadius: 8,
+                          border: `1px solid ${theme.accent}55`, background: theme.panelSolid,
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.35)'
+                        }}>
+                          <div style={{
+                            padding: '0.45rem 0.65rem', fontSize: '0.72rem', color: theme.textDim,
+                            borderBottom: `1px solid ${theme.border}`, lineHeight: 1.45
+                          }}>
+                            Optional — pick your gene/subtype if you know it
+                            ({subtypeListing.total} known forms of {subtypeListing.parent}).
+                            Skip this if you are not sure; we still run the report.
+                          </div>
+                          {subtypeListing.general && (
+                            <button type="button" onClick={() => pickConditionSubtype(subtypeListing.general)}
+                              style={{
+                                display: 'block', width: '100%', textAlign: 'left', padding: '0.55rem 0.65rem',
+                                background: 'transparent', border: 'none', borderBottom: `1px solid ${theme.border}44`,
+                                color: theme.text, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.84rem'
+                              }}>
+                              {subtypeListing.general.label}
+                            </button>
+                          )}
+                          {subtypeListing.subtypes.map((s) => (
+                            <button key={s.id} type="button" onClick={() => pickConditionSubtype(s)}
+                              style={{
+                                display: 'block', width: '100%', textAlign: 'left', padding: '0.5rem 0.65rem',
+                                background: 'transparent', border: 'none', borderBottom: `1px solid ${theme.border}22`,
+                                color: theme.text, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.82rem'
+                              }}>
+                              <span style={{ fontWeight: 600 }}>{s.label}</span>
+                              {s.gene && (
+                                <span style={{ marginLeft: '0.35rem', fontSize: '0.72rem', color: theme.accent }}>
+                                  {s.gene}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <input type={f.type || 'text'} value={patient[f.k] || ''} placeholder={f.ph || ''}
                       onChange={e => set(f.k, e.target.value)}
