@@ -18,7 +18,8 @@ import {
 import {
   buildGatherFingerprint,
   buildGatherFingerprintFromPatient,
-  fingerprintsMatch
+  fingerprintsMatch,
+  gatherFingerprintAccepted
 } from '../lib/gather-fingerprint.js';
 import { checkProfileCoherence, checkDossierProfileCoherence } from '../lib/profile-coherence.js';
 import { getInfraStatus } from '../lib/infra-status.js';
@@ -217,6 +218,35 @@ if (!stalePool.ok && stalePool.code === 'GATHER_STALE') {
   pass('dossier/profile coherence rejects male breast dossier for Female patient');
 } else {
   fail('dossier canonical mismatch not detected on synthesize path');
+}
+
+const poolGatherFp = 'ipf|male|gap stage ii|68';
+const liveServerFp = 'idiopathic pulmonary fibrosis|male|gap stage ii|68';
+if (
+  gatherFingerprintAccepted(poolGatherFp, liveServerFp, poolGatherFp) &&
+  !fingerprintsMatch(poolGatherFp, liveServerFp)
+) {
+  pass('synth accepts gather fingerprint via dossier poolsFingerprint when live profile re-resolve drifts');
+} else {
+  fail('synth rejects valid pools when server profile fingerprint drifts within same run');
+}
+
+if (/gatherFingerprintAccepted/.test(researchSrc)) {
+  pass('synth accepts pool-bound gatherFingerprint via dossier.poolsFingerprint');
+} else {
+  fail('synth only compares live profile fingerprint — false GATHER_STALE on canonicalize drift');
+}
+
+if (/pendingPatientCanonical/.test(indexSrc) && !/setPatient\(runPatient\)/.test(indexSrc)) {
+  pass('canonical profile update deferred until run completes');
+} else {
+  fail('setPatient mid-run can clear lastGathered and drift gather vs synth fingerprints');
+}
+
+if (!/autoFocus/.test(indexSrc.match(/Ask a follow-up question[\s\S]{0,1200}/)?.[0] || '')) {
+  pass('follow-up chat input no longer autoFocus-scrolls Research tab to bottom');
+} else {
+  fail('Research tab follow-up chat autoFocus still scrolls page to bottom on tab switch');
 }
 
 if (/Note on patient profile/.test(researchSrc) && /NEVER write "Note on patient profile"/.test(researchSrc)) {

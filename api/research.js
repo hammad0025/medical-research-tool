@@ -70,7 +70,7 @@ import {
 } from '../lib/patient-intake.js';
 import {
   buildGatherFingerprintFromPatient,
-  fingerprintsMatch
+  gatherFingerprintAccepted
 } from '../lib/gather-fingerprint.js';
 import {
   checkProfileCoherence,
@@ -1986,13 +1986,14 @@ export default async function handler(req, res) {
       trials = slim.trials || null;
 
       if (mode === 'research' || mode === 'repurpose') {
+        const poolFingerprint = dossier?.poolsFingerprint || null;
         if (!clientGatherFingerprint) {
           return res.status(409).json({
             error: 'Profile changed — re-gathering.',
             code: 'GATHER_STALE'
           });
         }
-        if (!fingerprintsMatch(clientGatherFingerprint, serverGatherFingerprint)) {
+        if (!gatherFingerprintAccepted(clientGatherFingerprint, serverGatherFingerprint, poolFingerprint)) {
           return res.status(409).json({
             error: 'Profile changed — re-gathering.',
             code: 'GATHER_STALE'

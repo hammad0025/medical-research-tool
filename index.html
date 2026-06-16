@@ -1787,8 +1787,11 @@
           }
 
           // Silently canonicalize condition when inference is enabled.
+          // Defer setPatient until the run finishes — updating profile identity
+          // mid-run clears lastGathered and can drift gather vs synth fingerprints.
           let runPatient = patient;
           let runResolution = conditionResolution;
+          let pendingPatientCanonical = extra._pendingPatientCanonical || null;
           if (
             (mode === 'research' || mode === 'repurpose') &&
             runtimeConfig?.conditionInference?.enabled !== false
@@ -1805,7 +1808,7 @@
                 resolution.matchScore >= 40
               ) {
                 runPatient = { ...patient, condition: resolution.resolved };
-                setPatient(runPatient);
+                pendingPatientCanonical = runPatient;
               }
             } catch (_) { /* proceed with typed condition */ }
           }
@@ -1837,6 +1840,9 @@
           // just use the inline spinner.
           const deepMode = (mode === 'research' || mode === 'repurpose');
           if (deepMode) {
+            requestAnimationFrame(() => {
+              window.scrollTo({ top: 0, behavior: 'instant' });
+            });
             setProgress({
               active: true,
               mode,
@@ -2054,30 +2060,31 @@
               const gathered = gatheredPools || await callResearch({
                 mode, patient: runPatient, audience, phase: 'gather', ...extra
               });
+              const runGatherFingerprint =
+                gathered.gatherFingerprint ||
+                gathered.dossier?.poolsFingerprint ||
+                gatheredPools?.gatherFingerprint ||
+                lastGathered?.gatherFingerprint ||
+                runFingerprint;
               if (!gatheredPools) {
                 setLastGathered({
                   mode,
                   condition: runCondition,
-                  gatherFingerprint: gathered.gatherFingerprint || runFingerprint,
+                  gatherFingerprint: runGatherFingerprint,
                   dossier: gathered.dossier,
                   evidence: gathered.evidence,
                   trials: gathered.trials,
                   at: Date.now()
                 });
               }
-              const activeGatherFingerprint =
-                gathered.gatherFingerprint ||
-                gatheredPools?.gatherFingerprint ||
-                lastGathered?.gatherFingerprint ||
-                runFingerprint;
               const synthBase = {
                 mode, patient: runPatient, audience,
                 phase: 'synthesize',
                 providedDossier: gathered.dossier,
                 providedEvidence: gathered.evidence,
                 providedTrials: gathered.trials,
-                gatherFingerprint: activeGatherFingerprint,
-                ...extra
+                ...extra,
+                gatherFingerprint: runGatherFingerprint
               };
               // Expose the pools in the UI as soon as phase 1 finishes so
               // the user sees dossier / trials / evidence panels populate
@@ -2293,6 +2300,7 @@
             if (mode === 'repurpose' && data.repurposeDrugScreen) {
               setRepurposeDrugScreen(data.repurposeDrugScreen);
             }
+            if (pendingPatientCanonical) setPatient(pendingPatientCanonical);
             if (mode === 'research' && extra.chainRepurpose) {
               await runResearch('repurpose', { skipGather: true, reuseGather: true });
             }
@@ -2302,8 +2310,14 @@
           } catch (e) {
             if (e.code === 'GATHER_STALE' && !extra._gatherRetried) {
               setLastGathered(null);
-              return runResearch(mode, { ...extra, _gatherRetried: true, skipGather: false });
+              return runResearch(mode, {
+                ...extra,
+                _gatherRetried: true,
+                skipGather: false,
+                _pendingPatientCanonical: pendingPatientCanonical || extra._pendingPatientCanonical || null
+              });
             }
+            if (pendingPatientCanonical) setPatient(pendingPatientCanonical);
             if (deepMode) {
               setProgress(p => p ? ({
                 ...p, active: false, error: e.message,
@@ -3591,6 +3605,7 @@
             return;
           }
           setTab && setTab('research');
+          requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }));
           setTimeout(() => runResearch && runResearch(), 50);
         };
         const fillFromDescription = async () => {
@@ -5212,7 +5227,7 @@
         };
 
         return (
-          <div style={{
+          <div id="mrt-research-progress" style={{
             ...panelStyle,
             background: `linear-gradient(180deg, ${theme.accentSoft} 0%, ${panelStyle.background} 65%)`,
             borderLeft: `3px solid ${isError ? theme.red : isDone ? theme.green : theme.accent}`
@@ -6300,7 +6315,7 @@
                 <input value={userQuery} onChange={e => setUserQuery(e.target.value)}
                   placeholder={patient.condition ? `Ask about ${patient.condition}… or type a new disease to switch.` : "Type a disease to research (e.g. 'RP', 'LADA', 'Retinitis Pigmentosa') or ask a question."}
                   onKeyDown={e => { if (e.key === 'Enter' && !busy && userQuery.trim()) { e.preventDefault(); sendChat(); } }}
-                  style={{ ...inputStyle, flex: 1 }} autoFocus />
+                  style={{ ...inputStyle, flex: 1 }} />
                 <button style={btn('primary', !!busy || !userQuery.trim())}
                   disabled={!!busy || !userQuery.trim()} onClick={sendChat}>
                   {busy === 'chat' ? <Loader size={16} className="spin" /> : <Search size={16} />} Send
