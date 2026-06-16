@@ -838,21 +838,40 @@
       };
 
       // URLs the AI is allowed to cite — built from live trials pull + evidence pack.
-      const buildAllowedUrlSet = (trialsData, evidencePack) => {
+      const buildAllowedUrlSet = (trialsData, evidenceOrPack) => {
         const urls = new Set();
         const add = (u) => {
           if (!u || typeof u !== 'string') return;
           urls.add(u.replace(/\/$/, ''));
         };
+        const addArticle = (a) => {
+          if (!a) return;
+          [a.url, a.pmcUrl, a.pubmedUrl, a.doiUrl, a.oaUrl, a.landingUrl, a.europePmcUrl].forEach(add);
+          if (a.pmid) add(`https://pubmed.ncbi.nlm.nih.gov/${String(a.pmid).replace(/\D/g, '')}/`);
+          if (a.doi) add(`https://doi.org/${String(a.doi).replace(/^https?:\/\/doi\.org\//i, '')}`);
+        };
         (trialsData?.studies || []).forEach((s) => {
           add(s.url);
           if (s.nctId) add(`https://clinicaltrials.gov/study/${String(s.nctId).toUpperCase()}`);
         });
-        (evidencePack || []).forEach((a) => {
-          [a.url, a.pmcUrl, a.pubmedUrl, a.doiUrl, a.oaUrl, a.landingUrl, a.europePmcUrl].forEach(add);
-          if (a.pmid) add(`https://pubmed.ncbi.nlm.nih.gov/${a.pmid}/`);
-          if (a.doi) add(`https://doi.org/${String(a.doi).replace(/^https?:\/\/doi\.org\//i, '')}`);
-        });
+        const lists = [];
+        if (Array.isArray(evidenceOrPack)) {
+          lists.push(evidenceOrPack);
+        } else if (evidenceOrPack) {
+          lists.push(
+            evidenceOrPack.groundedForPrompt,
+            evidenceOrPack.topRanked,
+            evidenceOrPack.evidencePack
+          );
+          for (const d of evidenceOrPack.pipelineDrugs || []) {
+            if (d.pmid) addArticle({ pmid: d.pmid });
+            if (d.nct) add(`https://clinicaltrials.gov/study/${String(d.nct).toUpperCase()}`);
+            add(d.url);
+          }
+        }
+        for (const list of lists) {
+          for (const a of list || []) addArticle(a);
+        }
         return urls;
       };
 
@@ -979,6 +998,38 @@
       /* ==================== Storage ==================== */
       const loadLS = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
       const saveLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+      // Keep in sync with lib/gather-fingerprint.js + lib/profile-coherence.js
+      const normProfileKey = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const buildGatherFingerprint = (p, resolution) => {
+        const parts = [
+          normProfileKey(resolution?.resolvedSlug || resolution?.kbSlug || resolution?.resolved || p?.condition),
+          normProfileKey(p?.gender),
+          normProfileKey(p?.stage),
+          normProfileKey(String(p?.age || ''))
+        ].filter(Boolean);
+        return parts.join('|') || 'unknown';
+      };
+      const checkProfileCoherence = (p) => {
+        const condition = String(p?.condition || '').trim();
+        const gender = normProfileKey(p?.gender);
+        if (!condition || !gender) return { ok: true };
+        if (/\bmale[\s-]*breast\b/i.test(condition) && gender === 'female') {
+          return {
+            ok: false,
+            message: 'Condition says male breast cancer but profile gender is Female. Update the condition or gender, then run again.'
+          };
+        }
+        if (/\bfemale[\s-]*breast\b/i.test(condition) && gender === 'male') {
+          return {
+            ok: false,
+            message: 'Condition says female breast cancer but profile gender is Male. Update the condition or gender, then run again.'
+          };
+        }
+        return { ok: true };
+      };
+      const buildProfileIdentityKey = (p) =>
+        [normProfileKey(p?.condition), normProfileKey(p?.gender), normProfileKey(p?.stage), normProfileKey(String(p?.age || ''))].join('|');
 
       // Dorothy language set. We keep English as default and run translation
       // on-demand so we don't add cost/latency to every base research call.
@@ -1524,6 +1575,38 @@
         const [conditionResolution, setConditionResolution] = useState(null);
         const [validationMismatch, setValidationMismatch] = useState({ research: null, repurpose: null });
         const [lastGathered, setLastGathered] = useState(null);
+        const [repurposeForCondition, setRepurposeForCondition] = useState(null);
+
+        const clearRunStateForProfileChange = () => {
+          setLastGathered(null);
+          setResearchText('');
+          setRepurposeText('');
+          setRepurposeForCondition(null);
+          setTrialsData(null);
+          setEvidencePack([]);
+          setEvidenceSummary(null);
+          setDossier(null);
+          setRepurposeDrugScreen(null);
+          setCoverageAudit(null);
+        };
+
+        const lastProfileKeyRef = useRef(buildProfileIdentityKey(patient));
+        useEffect(() => {
+          const key = buildProfileIdentityKey(patient);
+          if (lastProfileKeyRef.current && lastProfileKeyRef.current !== key) {
+            clearRunStateForProfileChange();
+          }
+          lastProfileKeyRef.current = key;
+        }, [patient.condition, patient.gender, patient.stage, patient.age]);
+
+        useEffect(() => {
+          const cond = (patient.condition || '').trim().toLowerCase();
+          if (!cond) return;
+          if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) {
+            setRepurposeText('');
+            setRepurposeForCondition(null);
+          }
+        }, [patient.condition, repurposeForCondition]);
 
         // Deep-research progress state. When runResearch('research'|'repurpose')
         // is in flight, `progress.active === true` and `progress.steps` tracks
@@ -1605,6 +1688,8 @@
         /* -------- Derived / parsed data -------- */
         const treatments = useMemo(() => parseTreatments(researchText), [researchText]);
         const candidates = useMemo(() => {
+          const cond = (patient.condition || '').trim().toLowerCase();
+          if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) return [];
           const parsed = parseCandidates(repurposeText);
           const excluded = evidenceSummary?.excludedAgents || [];
           if (!excluded.length) return parsed;
@@ -1615,7 +1700,7 @@
             const name = String(c.candidate || '').toLowerCase();
             return !blockNames.some((ex) => name.includes(ex) || ex.includes(name.replace(/[^a-z0-9]/g, '')));
           });
-        }, [repurposeText, evidenceSummary]);
+        }, [repurposeText, evidenceSummary, repurposeForCondition, patient.condition]);
         const trialBlocks = useMemo(() => parseTrialBlocks(trialsText), [trialsText]);
         const references = useMemo(() => {
           const all = [
@@ -1649,6 +1734,7 @@
 
           // Silently canonicalize condition when inference is enabled.
           let runPatient = patient;
+          let runResolution = conditionResolution;
           if (
             (mode === 'research' || mode === 'repurpose') &&
             runtimeConfig?.conditionInference?.enabled !== false
@@ -1656,6 +1742,7 @@
             const typed = patient.condition.trim();
             try {
               const resolution = await callResearchMode('resolve-condition', { condition: typed });
+              runResolution = resolution;
               setConditionResolution(resolution);
               if (
                 !resolution?.inferenceDisabled &&
@@ -1669,9 +1756,24 @@
             } catch (_) { /* proceed with typed condition */ }
           }
 
-          // Retry path: gather already succeeded — only re-run synthesis.
-          const skipGather = extra.skipGather && lastGathered?.mode === mode;
+          if (mode === 'research' || mode === 'repurpose') {
+            const coherence = checkProfileCoherence(runPatient);
+            if (!coherence.ok) {
+              alert(coherence.message);
+              return;
+            }
+          }
+
+          const runCondition = runPatient.condition.trim();
+          const runFingerprint = buildGatherFingerprint(runPatient, runResolution);
+          const skipGather = extra.skipGather && lastGathered &&
+            lastGathered.gatherFingerprint === runFingerprint && (
+              lastGathered.mode === mode || extra.reuseGather === true
+            );
           const gatheredPools = skipGather ? lastGathered : null;
+          if (extra.skipGather && lastGathered && lastGathered.gatherFingerprint !== runFingerprint) {
+            setLastGathered(null);
+          }
 
           setValidationMismatch((v) => ({ ...v, [mode]: null }));
           setBusy(mode);
@@ -1701,7 +1803,63 @@
               ]
             });
           }
-          const callResearch = async (payload, retriesLeft = 2) => {
+          // Match server trimSynthPools so synthesize POST bodies stay small on mobile.
+          const slimPoolsForSynth = (pools) => {
+            if (!pools) return pools;
+            const { dossier, evidence, trials } = pools;
+            const slimEvidence = evidence ? {
+              condition: evidence.condition,
+              dossier: evidence.dossier,
+              pipelineDrugs: evidence.pipelineDrugs || [],
+              excludedAgents: evidence.excludedAgents || [],
+              totalUnique: evidence.totalUnique,
+              totalFetched: evidence.totalFetched,
+              perSourceCounts: evidence.perSourceCounts,
+              accessBreakdown: evidence.accessBreakdown,
+              promptPackBreakdown: evidence.promptPackBreakdown,
+              qualityBreakdown: evidence.qualityBreakdown,
+              knowledgeBase: evidence.knowledgeBase,
+              fdaLabels: (evidence.fdaLabels || []).slice(0, 4),
+              fdaManufacturers: (evidence.fdaManufacturers || []).slice(0, 3),
+              groundedForPrompt: (evidence.groundedForPrompt || []).slice(0, 25).map((a) => ({
+                ...a,
+                text: (a.text || '').slice(0, 1800)
+              })),
+              topRanked: (evidence.topRanked || []).slice(0, 15).map((a) => ({
+                id: a.id, title: a.title, journal: a.journal, year: a.year,
+                url: a.url || a.pmcUrl || a.pubmedUrl || a.doiUrl,
+                accessLevel: a.accessLevel,
+                abstract: (a.abstract || '').slice(0, 800)
+              }))
+            } : null;
+            return {
+              dossier,
+              evidence: slimEvidence,
+              trials: trials ? {
+                total: trials.total,
+                returned: trials.returned,
+                breakdown: trials.breakdown,
+                subQueries: trials.subQueries,
+                query: trials.query,
+                studies: (trials.studies || []).slice(0, 20)
+              } : null
+            };
+          };
+
+          const callResearch = async (payload, retriesLeft = 3) => {
+            if (payload.phase === 'synthesize' && (payload.providedEvidence || payload.providedTrials)) {
+              const slim = slimPoolsForSynth({
+                dossier: payload.providedDossier,
+                evidence: payload.providedEvidence,
+                trials: payload.providedTrials
+              });
+              payload = {
+                ...payload,
+                providedDossier: slim.dossier,
+                providedEvidence: slim.evidence,
+                providedTrials: slim.trials
+              };
+            }
             let res, raw;
             try {
               res = await fetch('/api/research', {
@@ -1756,6 +1914,11 @@
               return callResearch(payload, retriesLeft - 1);
             }
             if (!res.ok) {
+              if (res.status === 409 && data?.code === 'GATHER_STALE') {
+                const err = new Error(data.error || 'Profile changed — re-gathering.');
+                err.code = 'GATHER_STALE';
+                throw err;
+              }
               if (data?.upgradeRequired) {
                 const p = data?.pricing || {};
                 throw new Error(
@@ -1770,26 +1933,43 @@
             }
             return data;
           };
-          const packForPolish = (ev) => (ev?.topRanked || ev?.groundedForPrompt || []).slice(0, 25).map((a) => ({
-            id: a.doi || a.pmid || a.id,
-            title: a.title,
-            journal: a.journal,
-            url: a.pmcUrl || a.pubmedUrl || a.doiUrl || a.oaUrl || a.landingUrl || a.europePmcUrl || a.url,
-            pmcUrl: a.pmcUrl,
-            pubmedUrl: a.pubmedUrl,
-            doiUrl: a.doiUrl,
-            accessLevel: a.accessLevel,
-            text: (a.fullText || a.abstract || '').slice(0, 2000)
-          }));
+          const packForPolish = (ev) => {
+            const merged = [];
+            const seen = new Set();
+            for (const list of [ev?.groundedForPrompt, ev?.topRanked]) {
+              for (const a of list || []) {
+                const key = String(a.pmid || a.doi || a.id || a.title || '').toLowerCase();
+                if (key && seen.has(key)) continue;
+                if (key) seen.add(key);
+                merged.push(a);
+              }
+            }
+            return merged.slice(0, 25).map((a) => ({
+              id: a.doi || a.pmid || a.id,
+              title: a.title,
+              journal: a.journal,
+              pmid: a.pmid,
+              doi: a.doi,
+              url: a.pmcUrl || a.pubmedUrl || a.doiUrl || a.oaUrl || a.landingUrl || a.europePmcUrl || a.url,
+              pmcUrl: a.pmcUrl,
+              pubmedUrl: a.pubmedUrl,
+              doiUrl: a.doiUrl,
+              accessLevel: a.accessLevel,
+              text: (a.fullText || a.abstract || a.text || '').slice(0, 2000)
+            }));
+          };
           const polishMergedReport = async (text, reportData) => {
-            if (!text) return '';
+            if (!text) return { text: '', validation: null, validationMismatch: null };
             let out = polishReportForDisplay(text);
+            let validation = null;
+            let validationMismatch = null;
             try {
               const d = await callResearch({
                 mode: 'polish-report',
                 analysisText: out,
                 excludedAgents: reportData?.evidence?.excludedAgents || [],
                 evidencePack: packForPolish(reportData?.evidence),
+                pipelineDrugs: reportData?.evidence?.pipelineDrugs || [],
                 trials: reportData?.trials || null,
                 patient: runPatient,
                 audience,
@@ -1798,8 +1978,17 @@
               });
               const polished = (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
               if (polished) out = polished;
+              validation = d.validation || null;
+              validationMismatch = d.validationMismatch || null;
             } catch (_) {}
-            return out;
+            return { text: out, validation, validationMismatch };
+          };
+          const countCandidateBlocks = (text) =>
+            (String(text || '').match(/^CANDIDATE:/gm) || []).length;
+          const laneNeedsRetry = (result, text) => {
+            if (!result) return true;
+            const stop = result.stop_reason || result.stopReason || '';
+            return stop === 'max_tokens' || countCandidateBlocks(text) < 3;
           };
           try {
             // Two-phase for research + repurpose (fan-out is too heavy to
@@ -1814,12 +2003,28 @@
               if (!gatheredPools) {
                 setLastGathered({
                   mode,
+                  condition: runCondition,
+                  gatherFingerprint: gathered.gatherFingerprint || runFingerprint,
                   dossier: gathered.dossier,
                   evidence: gathered.evidence,
                   trials: gathered.trials,
                   at: Date.now()
                 });
               }
+              const activeGatherFingerprint =
+                gathered.gatherFingerprint ||
+                gatheredPools?.gatherFingerprint ||
+                lastGathered?.gatherFingerprint ||
+                runFingerprint;
+              const synthBase = {
+                mode, patient: runPatient, audience,
+                phase: 'synthesize',
+                providedDossier: gathered.dossier,
+                providedEvidence: gathered.evidence,
+                providedTrials: gathered.trials,
+                gatherFingerprint: activeGatherFingerprint,
+                ...extra
+              };
               // Expose the pools in the UI as soon as phase 1 finishes so
               // the user sees dossier / trials / evidence panels populate
               // before Claude's full narrative arrives.
@@ -1864,38 +2069,19 @@
                   : mode === 'repurpose' ? 'Looking at several groups of drug ideas at once' : undefined
               });
               if (mode === 'research') {
-                // FRONT half: sections 1-4 (snapshot, centers,
-                // treatments, trials & access programs).
                 const front = await callResearch({
-                  mode, patient: runPatient, audience,
-                  phase: 'synthesize',
-                  half: 'front',
-                  providedDossier: gathered.dossier,
-                  providedEvidence: gathered.evidence,
-                  providedTrials: gathered.trials,
-                  ...extra
+                  ...synthBase,
+                  half: 'front'
                 });
                 updateStep('synth', { status: 'running', detail: 'Part 2 of 2: trials, ways to get the drug, your plan, safety notes' });
-                // BACK half: sections 5-8 (repurposing/pipeline,
-                // cell/gene, patient plan, red flags).
-                //
-                // We pass `priorText` (the front-half output) so the
-                // server-side transparency block can correctly mark
-                // approved drugs as "discussed" — they appear in the
-                // front half's section 3, not the back half.
                 const frontTextForPrior = (front.content || [])
                   .filter(b => b.type === 'text')
                   .map(b => b.text)
                   .join('\n');
                 const back = await callResearch({
-                  mode, patient: runPatient, audience,
-                  phase: 'synthesize',
+                  ...synthBase,
                   half: 'back',
-                  providedDossier: gathered.dossier,
-                  providedEvidence: gathered.evidence,
-                  providedTrials: gathered.trials,
-                  priorText: frontTextForPrior,
-                  ...extra
+                  priorText: frontTextForPrior
                 });
                 // Stitch the two halves back into a single `data` blob
                 // so the rest of the pipeline (text extraction, validation
@@ -1918,49 +2104,53 @@
                   validationMismatch: back.validationMismatch || front.validationMismatch || null
                 };
               } else if (mode === 'repurpose') {
-                // Candidate generation is split into several SMALL "lane"
-                // batches that run CONCURRENTLY, plus the combinations (back)
-                // call. One big 15-candidate call took ~200s+ — close enough
-                // to the function/connection limit that it often got cut off,
-                // returning a truncated 3-candidate, no-links result. Each
-                // small batch finishes in ~50s; running them at the same time
-                // keeps total time low AND means a single batch hiccup only
-                // costs a few candidates instead of the whole report.
-                const synthArgs = {
-                  mode, patient: runPatient, audience,
-                  phase: 'synthesize',
-                  providedDossier: gathered.dossier,
-                  providedEvidence: gathered.evidence,
-                  providedTrials: gathered.trials,
-                  ...extra
-                };
-                // 3 lanes x 5 candidates = 15 unexplored drug ideas (no studied/failed lane).
                 const LANE_COUNT = 3;
-                const PER_LANE = 5;
-                const batchCalls = [];
-                for (let lane = 0; lane < LANE_COUNT; lane++) {
-                  batchCalls.push(callResearch({
-                    ...synthArgs, half: 'front', batchLane: lane, batchSize: PER_LANE
-                  }));
+                const PER_LANE = 4;
+                const TARGET_TOTAL = 12;
+                const runLane = (lane) => callResearch({
+                  ...synthBase, half: 'front', batchLane: lane, batchSize: PER_LANE
+                });
+                const textOf = (r) => (r?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+
+                let laneResults = await Promise.allSettled(
+                  Array.from({ length: LANE_COUNT }, (_, lane) => runLane(lane))
+                );
+
+                // Retry any lane that failed or returned a truncated batch (<4
+                // candidates or max_tokens). Silent partial failure was how
+                // Dorothy kept seeing "only 3 drugs."
+                const retryLanes = [];
+                for (let i = 0; i < LANE_COUNT; i++) {
+                  const s = laneResults[i];
+                  if (s.status === 'rejected') { retryLanes.push(i); continue; }
+                  const txt = textOf(s.value);
+                  if (laneNeedsRetry(s.value, txt)) retryLanes.push(i);
                 }
-                // The combinations/summary section runs alongside the lanes.
-                const backCall = callResearch({ ...synthArgs, half: 'back' });
-                const settled = await Promise.allSettled([...batchCalls, backCall]);
-                const backSettled = settled[settled.length - 1];
-                const frontSettled = settled.slice(0, LANE_COUNT);
-                const okFronts = frontSettled
+                if (retryLanes.length) {
+                  updateStep('synth', {
+                    status: 'running',
+                    detail: `Retrying ${retryLanes.length} incomplete drug batch${retryLanes.length === 1 ? '' : 'es'}…`
+                  });
+                  const retried = await Promise.allSettled(retryLanes.map((lane) => runLane(lane)));
+                  retried.forEach((s, j) => {
+                    const lane = retryLanes[j];
+                    if (s.status === 'fulfilled' && s.value) laneResults[lane] = s;
+                  });
+                }
+
+                const back = await callResearch({ ...synthBase, half: 'back' }).catch(() => null);
+
+                const okFronts = laneResults
                   .filter(s => s.status === 'fulfilled' && s.value)
                   .map(s => s.value);
-                // If EVERY candidate batch failed, surface the error instead of
-                // silently showing an empty list.
                 if (!okFronts.length) {
-                  const firstErr = frontSettled.find(s => s.status === 'rejected');
+                  const firstErr = laneResults.find(s => s.status === 'rejected');
                   throw new Error(firstErr?.reason?.message || 'Drug idea generation failed — please run it again.');
                 }
-                const back = backSettled.status === 'fulfilled' ? backSettled.value : null;
-                const textOf = (r) => (r?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+
                 const frontText = okFronts.map(textOf).join('\n\n');
                 const backText = back ? textOf(back) : '';
+                const totalCandidates = countCandidateBlocks(frontText);
                 const sumTok = (key) =>
                   okFronts.reduce((n, r) => n + (r.usage?.[key] || 0), 0) + (back?.usage?.[key] || 0);
                 data = {
@@ -1971,7 +2161,13 @@
                   evidence: back?.evidence || okFronts[0]?.evidence,
                   trials: back?.trials || okFronts[0]?.trials,
                   validation: back?.validation || okFronts[0]?.validation || null,
-                  validationMismatch: back?.validationMismatch || okFronts[0]?.validationMismatch || null
+                  validationMismatch: back?.validationMismatch || okFronts[0]?.validationMismatch || null,
+                  repurposeQuality: {
+                    totalCandidates,
+                    target: TARGET_TOTAL,
+                    lanesRetried: retryLanes.length,
+                    ok: totalCandidates >= 12
+                  }
                 };
               } else {
                 data = await callResearch({ mode, patient, audience, phase: 'synthesize', ...extra });
@@ -1985,21 +2181,34 @@
             }
             let text = (data.content || [])
               .filter(b => b.type === 'text').map(b => b.text).join('\n');
-            if (mode === 'research' || mode === 'repurpose') {
-              text = await polishMergedReport(text, data);
+            if (mode === 'research' || mode === 'repurpose' || mode === 'trials') {
+              setValidations((v) => ({ ...v, [mode]: { _auditing: true } }));
+              updateStep('synth', {
+                status: 'running',
+                detail: 'Cross-checking with a second AI (Perplexity)…'
+              });
+              const polished = await polishMergedReport(text, data);
+              text = polished.text;
+              if (polished.validation) data.validation = polished.validation;
+              if (polished.validationMismatch) data.validationMismatch = polished.validationMismatch;
             }
             updateStep('synth', {
               status: 'done',
               detail: 'Your report is ready'
             });
             if (mode === 'research') setResearchText(text);
-            if (mode === 'repurpose') setRepurposeText(text);
+            if (mode === 'repurpose') {
+              setRepurposeText(text);
+              setRepurposeForCondition(runPatient.condition.trim());
+            }
             if (mode === 'trials') setTrialsText(text);
             if (mode === 'chat') {
               setChatHistory(h => [...h, { role: 'assistant', content: text }]);
             }
             if (mode !== 'chat' && data.validation) {
               setValidations((v) => ({ ...v, [mode]: data.validation }));
+            } else if (mode === 'research' || mode === 'repurpose' || mode === 'trials') {
+              setValidations((v) => ({ ...v, [mode]: null }));
             }
             if (mode !== 'chat' && data.validationMismatch) {
               setValidationMismatch((v) => ({ ...v, [mode]: data.validationMismatch }));
@@ -2011,7 +2220,9 @@
                   inputTokens: data.usage.input_tokens || 0,
                   outputTokens: data.usage.output_tokens || 0,
                   model: data.model || '',
-                  at: Date.now()
+                  at: Date.now(),
+                  repurposeQuality: data.repurposeQuality || null,
+                  supplementQueries: data.evidence?.supplementGatherQueries?.length || 0
                 }
               }));
             }
@@ -2029,12 +2240,16 @@
               setRepurposeDrugScreen(data.repurposeDrugScreen);
             }
             if (mode === 'research' && extra.chainRepurpose) {
-              await runResearch('repurpose', { skipGather: true });
+              await runResearch('repurpose', { skipGather: true, reuseGather: true });
             }
             try {
               setUsageInfo(await callResearchMode('usage'));
             } catch (_) {}
           } catch (e) {
+            if (e.code === 'GATHER_STALE' && !extra._gatherRetried) {
+              setLastGathered(null);
+              return runResearch(mode, { ...extra, _gatherRetried: true, skipGather: false });
+            }
             if (deepMode) {
               setProgress(p => p ? ({
                 ...p, active: false, error: e.message,
@@ -2096,12 +2311,7 @@
           runResearch('trials', { trialsData });
         };
 
-        // On-demand cross-AI audit. Fires only when the user clicks the
-        // "Audit this analysis" button in one of the tabs (research /
-        // repurpose / trials). Keeps the validator out of the default
-        // run path — Perplexity/OpenAI cost is only incurred when a user
-        // actually wants the independent second opinion. See cost-cuts
-        // 2026-04-23 in api/research.js and api/validate.js.
+        // Re-run cross-AI audit on demand (also runs automatically after every report).
         const auditAnalysis = async (mode, opts = {}) => {
           // opts.text / opts.pack let the auto-verify path pass the FRESH
           // analysis + evidence right after a run (React state is still
@@ -2353,12 +2563,20 @@
                 evidencePack={evidencePack}
                 dossier={dossier} progress={progress} coverageAudit={coverageAudit}
                 onRetrySynth={() => runResearch('research', { skipGather: true })}
-                canRetrySynth={!!lastGathered?.mode && lastGathered.mode === 'research'}
+                canRetrySynth={
+                  !!lastGathered?.mode &&
+                  lastGathered.mode === 'research' &&
+                  lastGathered.gatherFingerprint === buildGatherFingerprint(patient, conditionResolution)
+                }
                 chatHistory={chatHistory} userQuery={userQuery}
                 setUserQuery={setUserQuery} sendChat={sendChat}
                 onAudit={() => auditAnalysis('research')}
                 runtimeConfig={runtimeConfig}
-                runMeta={lastRunMeta.research}
+                runMeta={{
+                  ...lastRunMeta.research,
+                  repurposeQuality: lastRunMeta.repurpose?.repurposeQuality || null,
+                  supplementQueries: lastRunMeta.repurpose?.supplementQueries || 0
+                }}
                 setTab={setTab}
                 onDismissMismatch={() => setValidationMismatch((v) => ({ ...v, research: null }))} />}
               {tab === 'refs' && <RefsTab references={references} evidencePack={evidencePack} evidenceSummary={evidenceSummary} />}
@@ -5417,27 +5635,20 @@
         return theme.textDim;
       };
 
-      const ValidatorPanel = () => null;
-
-      const _ValidatorPanelLegacy = ({ validation, onAudit, canAudit }) => {
-        // When no validation has been requested yet and the analysis is
-        // ready, offer the audit button. The validator is opt-in so we
-        // only burn Perplexity tokens when the user actually wants the
-        // independent second opinion.
+      const ValidatorPanel = ({ validation, onAudit, canAudit }) => {
+        // Auto-runs after every report; button below re-runs on demand.
         if (!validation) {
           if (!canAudit || !onAudit) return null;
           return (
             <div style={panelStyle}>
               <h3 style={{ marginTop: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Scales size={18} /> Double-check with a second AI (optional)
+                <Scales size={18} /> Second AI check
               </h3>
               <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: '0 0 0.9rem' }}>
-                Have a second, separate AI go over this report and the same research we found.
-                It will point out any claims that are not backed up, links that don't work, and
-                things it thinks are missing. This usually takes about 5 to 10 seconds.
+                Cross-validation runs automatically when your report finishes. Tap below to run it again.
               </p>
               <button onClick={onAudit} style={{ ...btn, background: theme.accent, color: '#fff', borderColor: theme.accent }}>
-                <Scales size={16} style={{ marginRight: 6 }} /> Check this report
+                <Scales size={16} style={{ marginRight: 6 }} /> Re-check this report
               </button>
             </div>
           );
@@ -5674,9 +5885,7 @@
       };
 
       /* ==================== Validation mismatch banner ==================== */
-      const ValidationMismatchBanner = () => null;
-
-      const _ValidationMismatchBannerLegacy = ({ mismatch, onFixProfile, onDismiss }) => {
+      const ValidationMismatchBanner = ({ mismatch, onFixProfile, onDismiss }) => {
         if (!mismatch) return null;
         const color = mismatch.severity === 'high' ? theme.red : theme.yellow;
         return (
@@ -5731,19 +5940,13 @@
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
         const [translatedText, setTranslatedText] = useState('');
+        const [showAllDrugIdeas, setShowAllDrugIdeas] = useState(false);
+        const DRUG_IDEAS_INITIAL = 8;
         const reportAllowedUrls = useMemo(() => {
-          const urls = new Set();
-          const add = (u) => { if (u && /^https?:\/\//i.test(String(u))) urls.add(String(u).trim()); };
-          (evidenceSummary?.topRanked || evidencePack || []).forEach((a) => {
-            add(a.url); add(a.pmcUrl); add(a.pubmedUrl); add(a.doiUrl); add(a.oaUrl); add(a.landingUrl); add(a.europePmcUrl);
-          });
-          (trialsData?.studies || []).forEach((s) => {
-            if (s.nctId) add(`https://clinicaltrials.gov/study/${s.nctId}`);
-            add(s.url);
-          });
-          return urls;
+          return buildAllowedUrlSet(trialsData, evidenceSummary || { topRanked: evidencePack });
         }, [evidenceSummary, evidencePack, trialsData]);
         const renderedResearchText = polishReportForDisplay(translatedText || researchText);
+        const profileCoherenceIssue = useMemo(() => checkProfileCoherence(patient), [patient]);
         const baseQuickPrompts = [
           `Why did you rank the top treatment #1 over the others? Walk me through the tradeoff.`,
           `Check every treatment you recommended against my current medications for interactions.`,
@@ -5767,6 +5970,9 @@
         const quickPrompts = isIpf ? ipfQuickPrompts : baseQuickPrompts;
         const { mechanistic: repurposeMechanistic, withEvidence: repurposeWithEvidence } =
           partitionCandidates(candidates);
+        const allDrugIdeas = [...repurposeMechanistic, ...repurposeWithEvidence];
+        const visibleDrugIdeas = showAllDrugIdeas ? allDrugIdeas : allDrugIdeas.slice(0, DRUG_IDEAS_INITIAL);
+        const hiddenDrugCount = Math.max(0, allDrugIdeas.length - DRUG_IDEAS_INITIAL);
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AdSlot runtimeConfig={runtimeConfig} slotKey="researchTop" />
@@ -5780,15 +5986,23 @@
                     A careful search of journals, trials, treatments, and experts (takes 1 to 2 minutes — not a quick answer)
                   </p>
                 </div>
-                <button style={btn('primary', !!busy)} disabled={!!busy}
+                <button style={btn('primary', !!busy || !profileCoherenceIssue.ok)} disabled={!!busy || !profileCoherenceIssue.ok}
                   onClick={() => runResearch()}>
                   {busy ? <><Loader size={16} className="spin" /> Running full report…</>
                     : <><Search size={16} /> Run Full Report</>}
                 </button>
               </div>
+              {!profileCoherenceIssue.ok && (
+                <div style={{
+                  marginTop: '0.75rem', padding: '0.65rem 0.85rem', borderRadius: 8,
+                  border: `1px solid ${theme.red}66`, background: `${theme.red}12`,
+                  color: theme.red, fontSize: '0.88rem', lineHeight: 1.5
+                }}>
+                  {profileCoherenceIssue.message}
+                </div>
+              )}
               <p style={{ color: theme.textDim, fontSize: '0.9rem' }}>
-                One report with approved treatments, clinical trials (with plain-English explanations),
-                unexplored drug ideas, combinations, lifestyle notes, and safety — exportable as a single PDF.
+                Targeted report: approved options, top trials, pipeline watch, and drug ideas to discuss with your doctor — one PDF.
               </p>
               {treatments.length > 0 && (
                 <p style={{ color: theme.green, fontSize: '0.85rem' }}>
@@ -5797,23 +6011,28 @@
               )}
               {candidates.length > 0 && (
                 <p style={{ color: theme.green, fontSize: '0.85rem' }}>
-                  ✓ Found {candidates.length} unexplored drug idea{candidates.length === 1 ? '' : 's'} (studied/failed drugs excluded).
+                  ✓ Found {candidates.length} drug & supplement idea{candidates.length === 1 ? '' : 's'} (includes OTC supplements with literature + logic-based prescription ideas; studied/failed drugs excluded).
+                </p>
+              )}
+              {runMeta?.repurposeQuality && !runMeta.repurposeQuality.ok && (
+                <p style={{ color: theme.yellow, fontSize: '0.85rem' }}>
+                  ⚠ Got {runMeta.repurposeQuality.totalCandidates} of {runMeta.repurposeQuality.target} drug ideas
+                  {runMeta.repurposeQuality.lanesRetried ? ` (${runMeta.repurposeQuality.lanesRetried} batches retried)` : ''}.
+                  Run again — your search is saved.
                 </p>
               )}
             </div>
 
             <DeepResearchProgress progress={progress} onRetrySynth={onRetrySynth} canRetrySynth={canRetrySynth} />
 
-            {/* Internal audit strip removed — red "drug check" / "behind the scenes"
-                flags read like the search failed. Audits still run server-side. */}
+            <ValidationMismatchBanner
+              mismatch={validationMismatch}
+              onFixProfile={() => setTab('profile')}
+              onDismiss={onDismissMismatch}
+            />
 
-            {/* The AI analysis is the primary output. Previously this
-                block was rendered dead last, below 5-6 meta panels, so
-                the user had to scroll past the dossier / KB / quality
-                / validator / grounded-evidence panels before seeing
-                what Claude actually wrote. Moved to the top of the
-                result stack so it's the first thing visible after
-                progress completes. */}
+            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!researchText} />
+
             {researchText && (
               <div id="mrt-research-export-target" style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.9rem', gap: '0.6rem', flexWrap: 'wrap' }}>
@@ -5897,21 +6116,21 @@
             {candidates.length > 0 && (
               <div style={panelStyle}>
                 <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
-                  Unexplored drug ideas ({candidates.length})
+                  Drug & supplement ideas ({candidates.length})
                 </h3>
                 <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  Drugs and supplements not yet studied for {cond} — biology-based ideas only.
-                  Drugs already tried and failed (e.g. metformin for IPF) are excluded.
-                  Check links before asking your doctor.
+                  Top ideas from repurposing analysis — conversation starters, not prescriptions.
                 </p>
                 <div style={{ display: 'grid', gap: '0.85rem' }}>
-                  {repurposeMechanistic.slice(0, 15).map((c, i) => (
-                    <CandidateCard key={`rm-${i}`} c={c} rank={i + 1} highlightMechanistic={true} audience={audience} />
-                  ))}
-                  {repurposeWithEvidence.slice(0, Math.max(0, 15 - repurposeMechanistic.length)).map((c, i) => (
-                    <CandidateCard key={`re-${i}`} c={c} rank={repurposeMechanistic.length + i + 1} audience={audience} />
+                  {visibleDrugIdeas.map((c, i) => (
+                    <CandidateCard key={`rd-${i}`} c={c} rank={i + 1} highlightMechanistic={isMechanisticEvidence(c.evidence_strength)} audience={audience} />
                   ))}
                 </div>
+                {hiddenDrugCount > 0 && !showAllDrugIdeas && (
+                  <button type="button" style={{ ...btn('ghost'), marginTop: '0.75rem' }} onClick={() => setShowAllDrugIdeas(true)}>
+                    Show {hiddenDrugCount} more idea{hiddenDrugCount === 1 ? '' : 's'}
+                  </button>
+                )}
               </div>
             )}
 
@@ -6745,7 +6964,7 @@
                 title="Risks for this patient specifically"
                 icon={<AlertTriangle size={13} />}
                 color={theme.yellow}
-                defaultOpen={true}
+                defaultOpen={(c.safety_pct != null && c.safety_pct < 70) || /high|moderate|interaction|sedat|fall/i.test(String(c.patient_specific_risks))}
               >
                 {c.patient_specific_risks}
               </Disclosure>
@@ -6859,6 +7078,18 @@
           <div id="mrt-repurpose-export-target" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AdSlot runtimeConfig={runtimeConfig} slotKey="repurposeTop" />
             <RepurposeHero patient={patient} busy={busy} runResearch={runResearch} />
+
+            {hasRun && runMeta?.repurposeQuality && !runMeta.repurposeQuality.ok && (
+              <div style={{
+                ...panelStyle, padding: '0.75rem 1rem',
+                borderLeft: `3px solid ${theme.yellow}`,
+                background: `${theme.yellow}12`, fontSize: '0.86rem', color: theme.text, lineHeight: 1.5
+              }}>
+                <strong>Incomplete run.</strong> Got {runMeta.repurposeQuality.totalCandidates} of {runMeta.repurposeQuality.target} drug ideas
+                {runMeta.repurposeQuality.lanesRetried ? ` (${runMeta.repurposeQuality.lanesRetried} batch${runMeta.repurposeQuality.lanesRetried === 1 ? '' : 'es'} retried)` : ''}.
+                Tap <strong>Find drug ideas</strong> again — your search is saved and the retry is usually faster.
+              </div>
+            )}
 
             {audience !== 'medical' && hasRun && candidates.length > 0 && !candidates.some(c => c.what_it_does) && (
               <div style={{
@@ -6980,10 +7211,10 @@
               <div style={panelStyle}>
                 <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                   <Database size={18} />
-                  Drugs already backed by studies
+                  Drugs & OTC supplements already backed by studies
                 </h3>
                 <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  Drugs that already have some human evidence for this condition — from single patient reports up to large studies — sorted by how confident we are.
+                  Prescription drugs and over-the-counter supplements (goji, TUDCA, taurine, vitamins, etc.) that already have some human or animal evidence for this condition — from single patient reports up to small trials — sorted by how confident we are.
                 </p>
                 {withEvidence.length > 0 ? (
                   <div style={{ display: 'grid', gap: '0.85rem' }}>

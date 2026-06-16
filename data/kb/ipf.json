@@ -700,6 +700,14 @@
       ]
     },
     {
+      "claim": "For IPF, the FDA-approved disease-modifying treatments (standard medical care) are pirfenidone (Esbriet), nintedanib (Ofev), and nerandomilast (Jascayd). CAR-T, CAR cell therapy, and stem-cell / MSC clinic treatments are NOT FDA-approved for IPF, are NOT gold standard, and must never be described as standard of care. Early human stem-cell trials (e.g. AETHER phase 1) showed safety signals but no proven efficacy; offshore stem-cell clinics are warned against in the literature.",
+      "evidenceRefs": [
+        "ipf-stemcells-review-2020",
+        "ipf-fda-label-pirfenidone",
+        "ipf-fda-label-nintedanib"
+      ]
+    },
+    {
       "claim": "Metformin has been studied in people with IPF and did NOT improve outcomes (Spagnolo 2018, post-hoc analysis of 3 phase 3 trials), even though lab/mouse studies were promising (Rangarajan 2018). So metformin is studied-but-not-effective for IPF — it must never be described as 'not researched' or 'never studied.'",
       "evidenceRefs": [
         "ipf-metformin-spagnolo-2018",

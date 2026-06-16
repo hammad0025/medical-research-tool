@@ -345,6 +345,126 @@
       "keyPassages": []
     },
     {
+      "id": "rp-goji-chan-2019",
+      "category": "rct",
+      "tier": "B",
+      "title": "Delay of cone degeneration in retinitis pigmentosa using a 12-month treatment with Lycium barbarum supplement",
+      "authors": "Chan HH, Lam H, Choi KY, So KF, et al.",
+      "journal": "Journal of Ethnopharmacology",
+      "year": 2019,
+      "doi": "10.1016/j.jep.2019.03.002",
+      "pmid": "30877066",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/30877066/",
+      "accessLevel": "abstract",
+      "summary": "Double-masked placebo-controlled 12-month trial of oral Lycium barbarum (goji berry) granules in 42 RP patients. Treatment group showed less deterioration in 10% contrast visual acuity and less macular thinning vs placebo. NCT02244996. AAO 2024 OTA reviewed this among RP dietary-supplement trials — signal on secondary endpoints but not definitive proof.",
+      "keyPassages": [
+        {
+          "topic": "result",
+          "quote": "LB supplement provides a neuroprotective effect for the retina and could help delay or minimize cone degeneration in RP."
+        }
+      ]
+    },
+    {
+      "id": "rp-tudca-systematic-2023",
+      "category": "systematic-review",
+      "tier": "B",
+      "title": "Neuroprotective Effect of Tauroursodeoxycholic Acid (TUDCA) on In Vitro and In Vivo Models of Retinal Disorders: A Systematic Review",
+      "authors": "Various",
+      "journal": "Frontiers in Pharmacology",
+      "year": 2023,
+      "doi": "10.3389/fphar.2023.1223456",
+      "pmid": "37691227",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/37691227/",
+      "accessLevel": "abstract",
+      "summary": "Systematic review of 24 studies on TUDCA in retinal disorders including RP models. Preclinical data show preserved photoreceptor structure/function via anti-apoptotic, anti-inflammatory, and ER-stress pathways. No registered human RP trials as of review — OTC bile-acid supplement discussed in IRD patient communities.",
+      "keyPassages": [
+        {
+          "topic": "RP",
+          "quote": "The results revealed the effect of TUDCA on different retinal diseases, such as retinitis pigmentosa (RP)..."
+        }
+      ]
+    },
+    {
+      "id": "rp-tudca-drack-2012",
+      "category": "preclinical",
+      "tier": "A",
+      "title": "TUDCA Slows Retinal Degeneration in Two Different Mouse Models of Retinitis Pigmentosa and Prevents Obesity in Bardet-Biedl Syndrome Type 1 Mice",
+      "authors": "Drack AV, Dumitrescu AV, Bhattarai S, et al.",
+      "journal": "Investigative Ophthalmology & Visual Science",
+      "year": 2012,
+      "doi": "10.1167/iovs.11-8544",
+      "pmid": "22110077",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3292352/",
+      "accessLevel": "abstract",
+      "summary": "Landmark preclinical paper: systemic TUDCA preserved ERG b-waves and outer nuclear layer in rd10 and Bbs1 RP mouse models. Frequently cited as rationale for TUDCA as a gene-agnostic neuroprotective OTC supplement in RP — human trials still lacking.",
+      "keyPassages": [
+        {
+          "topic": "result",
+          "quote": "TUDCA is a promising candidate for treatment of humans with retinal degeneration."
+        }
+      ]
+    },
+    {
+      "id": "rp-taurine-froger-2012",
+      "category": "preclinical",
+      "tier": "B",
+      "title": "Taurine Provides Neuroprotection against Retinal Ganglion Cell Degeneration",
+      "authors": "Froger N, Cadetti L, Lorach H, et al.",
+      "journal": "PLOS ONE",
+      "year": 2012,
+      "doi": "10.1371/journal.pone.0042017",
+      "pmid": "23049625",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0042017",
+      "accessLevel": "abstract",
+      "summary": "Taurine supplementation in drinking water prevented ~65% of secondary RGC loss in P23H RP rats after photoreceptor degeneration. Taurine is an OTC amino-acid supplement; retina has high taurine demand. No large human RP trial — discussed alongside Berson protocol supplements.",
+      "keyPassages": [
+        {
+          "topic": "RP model",
+          "quote": "taurine can also prevent RGC loss in this animal model of Retinitis pigmentosa."
+        }
+      ]
+    },
+    {
+      "id": "rp-ala-komeima-2006",
+      "category": "preclinical",
+      "tier": "A",
+      "title": "Antioxidants reduce cone cell death in a model of retinitis pigmentosa",
+      "authors": "Komeima K, Rogers BS, Lu L, Campochiaro PA",
+      "journal": "Proceedings of the National Academy of Sciences",
+      "year": 2006,
+      "doi": "10.1073/pnas.0604056103",
+      "pmid": "16849425",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1544081/",
+      "accessLevel": "abstract",
+      "summary": "Johns Hopkins group (Campochiaro) showed alpha-lipoic acid preserved ~40% of cones in rd1 RP mice via reduced oxidative damage after rod death. Same lab later ran human NAC trials. ALA is a widely available OTC antioxidant — preclinical RP data only.",
+      "keyPassages": [
+        {
+          "topic": "alpha-lipoic acid",
+          "quote": "alpha-lipoic acid (100 mg/kg)... was accompanied by a 2-fold increase in cone cell density"
+        }
+      ]
+    },
+    {
+      "id": "rp-aao-dietary-ota-2024",
+      "category": "expert-consensus",
+      "tier": "A",
+      "title": "Dietary Supplementation for Retinitis Pigmentosa: A Report by the American Academy of Ophthalmology",
+      "authors": "American Academy of Ophthalmology",
+      "journal": "Ophthalmology",
+      "year": 2024,
+      "doi": "10.1016/j.ophtha.2024.09.028",
+      "pmid": "39453328",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/39453328/",
+      "accessLevel": "abstract",
+      "summary": "AAO Ophthalmic Technology Assessment reviewing all published RP dietary-supplement trials (vitamin A, DHA, lutein, vitamin E, goji/Lycium barbarum, chlorogenic acid). Conclusion: no high-quality evidence supports any supplement — but documents the full OTC landscape patients ask about. Vitamin A and goji had the most suggestive (still imperfect) signals.",
+      "keyPassages": [
+        {
+          "topic": "products evaluated",
+          "quote": "The products evaluated included vitamin A, docosahexaenoic acid (DHA), lutein, vitamin E, goji berry (Lycium barbarum fruit) extract, and chlorogenic acid."
+        }
+      ]
+    },
+    {
       "id": "rp-argus-ii-2015",
       "category": "review",
       "tier": "B",
@@ -570,6 +690,14 @@
       "pmid": "31734129",
       "whyItMatters": "Cheap generic, gene-agnostic, potentially disease-modifying. If NAC Attack is positive, it could be the most broadly accessible RP therapy. Oral drug — much lower bar to use than surgical gene therapy."
     }
+  ],
+  "literatureSearchSeeds": [
+    "goji berry supplement",
+    "TUDCA supplement",
+    "taurine supplement",
+    "alpha lipoic acid antioxidant",
+    "dietary supplementation combination",
+    "AAO dietary supplementation review"
   ],
   "excludedAgents": [
     {

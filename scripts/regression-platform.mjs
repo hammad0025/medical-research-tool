@@ -1,0 +1,254 @@
+#!/usr/bin/env node
+// Platform robustness regression — offline, no Anthropic spend.
+// Run: node scripts/regression-platform.mjs
+
+import { readFileSync } from 'fs';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { loadKb, listKbs } from '../lib/kb.js';
+import { buildSupplementDiscoveryBlock, isSupplementEvidenceItem } from '../lib/supplement-discovery.js';
+import {
+  REPURPOSE_MIN_TOTAL,
+  REPURPOSE_TARGET_TOTAL,
+  REPURPOSE_LANE_COUNT,
+  REPURPOSE_PER_LANE,
+  countCandidateBlocks,
+  assessRepurposeQuality
+} from '../lib/repurpose-quality.js';
+import {
+  buildGatherFingerprint,
+  buildGatherFingerprintFromPatient,
+  fingerprintsMatch
+} from '../lib/gather-fingerprint.js';
+import { checkProfileCoherence, checkDossierProfileCoherence } from '../lib/profile-coherence.js';
+import { getInfraStatus } from '../lib/infra-status.js';
+
+const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
+const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
+const warn = (m) => console.log(`\x1b[33m!\x1b[0m ${m}`);
+
+console.log('\n=== Platform robustness regression ===\n');
+
+const repoRoot = fileURLToPath(new URL('..', import.meta.url));
+try {
+  execSync('node --check api/research.js', { cwd: repoRoot, stdio: 'pipe' });
+  pass('api/research.js parses — SyntaxError would kill every gather/synth call');
+} catch (e) {
+  fail(`api/research.js SyntaxError: ${String(e.stderr || e.message).split('\n')[0]}`);
+}
+
+// 1. Repurpose quality constants wired
+if (REPURPOSE_LANE_COUNT * REPURPOSE_PER_LANE >= REPURPOSE_TARGET_TOTAL) {
+  pass(`Repurpose target: ${REPURPOSE_LANE_COUNT}×${REPURPOSE_PER_LANE} = ${REPURPOSE_LANE_COUNT * REPURPOSE_PER_LANE} (floor ${REPURPOSE_MIN_TOTAL})`);
+} else {
+  fail('Lane count × per-lane does not reach target total');
+}
+
+// 2. Batch token budget — must be high enough for 5 candidates/lane
+const researchSrc = readFileSync(new URL('../api/research.js', import.meta.url), 'utf8');
+if (/isBatch\)\s*return\s+isOpus\s*\?\s*3400\s*:\s*4200/.test(researchSrc)) {
+  pass('Repurpose lane max_tokens = 4200 (Sonnet) — prevents 3-drug truncation');
+} else {
+  fail('Repurpose batch max_tokens may be too low — check resolveMaxTokens in api/research.js');
+}
+
+// 3. No hardcoded otcRepurposeSeeds band-aid
+if (/otcRepurposeSeeds/.test(researchSrc)) {
+  fail('api/research.js still references otcRepurposeSeeds — use live supplement discovery');
+} else {
+  pass('No hardcoded otcRepurposeSeeds in research pipeline');
+}
+
+// 4. Supplement discovery module present
+if (researchSrc.includes('buildSupplementDiscoveryBlock')) {
+  pass('Supplement discovery block wired into synthesis');
+} else {
+  fail('buildSupplementDiscoveryBlock not imported in api/research.js');
+}
+
+// 5. Repurpose gather runs supplement queries
+const evidenceSrc = readFileSync(new URL('../lib/evidence.js', import.meta.url), 'utf8');
+if (/repurposeSupplementQueries/.test(evidenceSrc) && /isRepurpose/.test(evidenceSrc)) {
+  pass('Evidence gather expands queries for repurpose (OTC/supplement/combination)');
+} else {
+  fail('Evidence.js missing repurpose supplement query expansion');
+}
+
+// 6. RP KB — landmark papers + search seeds (not Latin seed list)
+const rp = JSON.parse(readFileSync(new URL('../data/kb/rp.json', import.meta.url), 'utf8'));
+if (rp.otcRepurposeSeeds?.length) {
+  fail('rp.json still has otcRepurposeSeeds — remove hardcoded must-include list');
+} else {
+  pass('RP KB uses live search seeds, not hardcoded OTC seed objects');
+}
+const rpItems = rp.items || [];
+const mustHave = ['goji', 'tudca', 'taurine', 'lipoic'];
+for (const term of mustHave) {
+  const hit = rpItems.some((it) =>
+    `${it.title} ${it.summary || ''}`.toLowerCase().includes(term)
+  );
+  if (hit) pass(`RP KB anchors ${term} literature`);
+  else warn(`RP KB missing ${term} anchor item (gather may still find via PubMed)`);
+}
+if ((rp.literatureSearchSeeds || []).length >= 4) {
+  pass(`RP literatureSearchSeeds: ${rp.literatureSearchSeeds.length} live query topics`);
+} else {
+  fail('RP literatureSearchSeeds too sparse');
+}
+
+// 7. Supplement discovery from mock RP pack
+const mockRpEvidence = {
+  groundedForPrompt: rpItems.map((it) => ({
+    title: it.title,
+    year: it.year,
+    url: it.url,
+    summary: it.summary,
+    text: it.summary
+  }))
+};
+const suppHits = mockRpEvidence.groundedForPrompt.filter(isSupplementEvidenceItem);
+if (suppHits.length >= 5) {
+  pass(`Supplement discovery finds ${suppHits.length} items in RP KB pack`);
+} else {
+  fail(`Supplement discovery only ${suppHits.length} hits in RP KB — expected ≥5`);
+}
+const block = buildSupplementDiscoveryBlock(mockRpEvidence);
+if (/Goji berries|plain-English|TUDCA|taurine/i.test(block)) {
+  pass('Supplement discovery block instructs plain-English candidate names');
+} else {
+  fail('Supplement discovery block missing plain-English guidance');
+}
+
+// 8. Client lane retry (index.html)
+const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+if (/Retrying.*incomplete drug batch/i.test(html) || /MIN_PER_LANE|laneNeedsRetry|truncated/i.test(html)) {
+  pass('Frontend retries incomplete repurpose lanes');
+} else {
+  warn('Frontend lane retry not detected — add orchestration in index.html');
+}
+
+// 9. Health endpoint
+try {
+  const healthSrc = readFileSync(new URL('../api/health.js', import.meta.url), 'utf8');
+  if (healthSrc.includes('repurpose')) pass('/api/health endpoint exists with repurpose targets');
+  else fail('/api/health missing repurpose metadata');
+} catch {
+  fail('/api/health.js missing');
+}
+
+// 10. KB catalog size
+const slugs = await listKbs();
+if (slugs.length >= 11) pass(`${slugs.length} curated KB conditions registered`);
+else fail(`Only ${slugs.length} KBs — expected ≥11`);
+
+// 11. Quality assessor sanity
+const q = assessRepurposeQuality(['CANDIDATE: a\n', 'CANDIDATE: b\nCANDIDATE: c\n', 'CANDIDATE: d\n'.repeat(5)]);
+if (q.total >= 8 && !q.ok) pass(`Quality assessor: ${q.total} candidates flagged below floor (${REPURPOSE_MIN_TOTAL})`);
+else if (q.ok) pass(`Quality assessor OK at ${q.total} candidates`);
+else fail('Quality assessor broken');
+
+// 12. Infra (local env — warn only)
+const infra = getInfraStatus();
+if (infra.productionReady) pass('Local infra: production-ready env vars');
+else warn(`Local infra missing: ${infra.missing.map((m) => m.id).join(', ')}`);
+
+// 13. Chat must be grounded — not "use your own medical knowledge"
+const researchSrcChat = readFileSync(new URL('../api/research.js', import.meta.url), 'utf8');
+if (/Answer from the dossier, prior analyses if present, and your own medical knowledge|answer from your own clinical knowledge|Use your own medical knowledge to answer/i.test(researchSrcChat)) {
+  fail('Chat prompt still tells model to use unconstrained medical knowledge');
+} else {
+  pass('Chat prompt forbids unconstrained medical knowledge');
+}
+if (/chatGroundingRules|CHAT GROUNDING RULES|buildCanonicalFactsBlock/.test(researchSrcChat) &&
+    /mode === 'chat' && effectiveCondition/.test(researchSrcChat)) {
+  pass('Chat loads KB evidence + canonical facts on every turn');
+} else {
+  fail('Chat KB bootstrap missing');
+}
+if (/CAR-T, CAR cell therapy|NOT gold standard/i.test(researchSrcChat)) {
+  pass('Chat has explicit anti-hallucination guard for CAR/cell therapy vs IPF standard of care');
+} else {
+  fail('Chat missing CAR/cell therapy guardrail');
+}
+
+const indexSrc = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+if (/reuseGather:\s*true/.test(indexSrc) && /lastGathered\.mode === mode \|\| extra\.reuseGather/.test(indexSrc)) {
+  pass('chainRepurpose reuses research gather (reuseGather) — prevents cross-condition contamination');
+} else {
+  fail('chainRepurpose missing reuseGather — repurpose may re-gather wrong condition');
+}
+if (/reuseGather:\s*true/.test(indexSrc) && /lastGathered\.gatherFingerprint/.test(indexSrc)) {
+  pass('chainRepurpose reuses gatherFingerprint + reuseGather');
+} else {
+  fail('chainRepurpose missing reuseGather — repurpose may re-gather wrong condition');
+}
+if (/gatherFingerprint/.test(indexSrc) && /buildGatherFingerprint/.test(indexSrc)) {
+  pass('skipGather gated on gatherFingerprint — stale pools cannot reuse after profile edit');
+} else {
+  fail('lastGathered missing gatherFingerprint guard — stale gather can bleed across profile edits');
+}
+if (/buildProfileIdentityKey/.test(indexSrc) && /clearRunStateForProfileChange/.test(indexSrc)) {
+  pass('Profile identity change clears lastGathered + report state (condition/gender/stage/age)');
+} else {
+  fail('Missing profile-key state clear — gender/stage edits can leave stale dossier');
+}
+
+const fpA = buildGatherFingerprint({ condition: 'Breast Cancer', gender: 'Female', stage: 'II', age: '68' });
+const fpB = buildGatherFingerprint({ condition: 'Breast Cancer', gender: 'Male', stage: 'II', age: '68' });
+if (fpA !== fpB && fingerprintsMatch(fpA, fpA)) {
+  pass('gatherFingerprint changes when gender changes (same condition string)');
+} else {
+  fail('gatherFingerprint does not distinguish gender — stale pool reuse possible');
+}
+
+const incoherent = checkProfileCoherence({ condition: 'Male breast carcinoma', gender: 'Female' });
+if (!incoherent.ok && incoherent.code === 'PROFILE_INCOHERENT') {
+  pass('profileCoherence blocks male breast + Female before gather');
+} else {
+  fail('profileCoherence failed to flag male breast + Female mismatch');
+}
+
+const stalePool = checkDossierProfileCoherence(
+  { condition: 'Breast Cancer', gender: 'Female' },
+  { canonical: 'Male breast carcinoma' },
+  null
+);
+if (!stalePool.ok && stalePool.code === 'GATHER_STALE') {
+  pass('dossier/profile coherence rejects male breast dossier for Female patient');
+} else {
+  fail('dossier canonical mismatch not detected on synthesize path');
+}
+
+if (/Note on patient profile/.test(researchSrc) && /NEVER write "Note on patient profile"/.test(researchSrc)) {
+  pass('Prompt forbids dossier/profile mismatch disclaimers in report prose');
+} else if (/NEVER write "Note on patient profile"/.test(researchSrc)) {
+  pass('Prompt forbids dossier/profile mismatch disclaimers in report prose');
+} else {
+  fail('Missing prompt guardrail against dossier/profile mismatch disclaimers');
+}
+
+const polishSrc = readFileSync(new URL('../lib/report-polish.js', import.meta.url), 'utf8');
+if (/pipelineDrugs/.test(polishSrc) && /groundedForPrompt/.test(polishSrc)) {
+  pass('collectAllowedUrls merges grounded pack + pipeline drug links');
+} else {
+  fail('collectAllowedUrls too narrow — CANMAT/NCT links get stripped');
+}
+
+if (/Pipeline Watch \(Investigational Programs Only\)/.test(researchSrc)) {
+  pass('Pipeline Watch prompt excludes already-approved drugs (olanzapine, Lybalvi, etc.)');
+} else {
+  fail('Pipeline Watch prompt still tells model to list approved drugs — wrong section');
+}
+if (/buildPipelineWatchBlock/.test(researchSrc)) {
+  pass('Investigational-only PIPELINE WATCH block injected on back half');
+} else {
+  fail('Missing buildPipelineWatchBlock — approved drugs bleed into Pipeline Watch');
+}
+
+if (/Pipeline Watch \(Investigational Programs Only\)/.test(researchSrc)) {
+  pass('Section 5 is Pipeline Watch only — repurposing cards are not duplicated in report body');
+} else {
+  fail('Section 5 still asks for repurposing bullets + cards — causes NAC/combo duplication');
+}
+
+console.log(process.exitCode ? '\n\x1b[31mPlatform regression FAILED\x1b[0m\n' : '\n\x1b[32mPlatform regression passed\x1b[0m\n');

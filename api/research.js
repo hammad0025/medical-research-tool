@@ -49,6 +49,8 @@ import { asInternalReq } from '../lib/internal-call.js';
 import { getInfraStatus } from '../lib/infra-status.js';
 import { registryStats as diseaseRegistryStats } from '../lib/disease-registry.js';
 import { registryStats as drugRegistryStats, selectRepurposeDrugs, buildRepurposeDrugLibraryBlock } from '../lib/drug-registry.js';
+import { buildSupplementDiscoveryBlock } from '../lib/supplement-discovery.js';
+import { countCandidateBlocks, isLaneTruncated } from '../lib/repurpose-quality.js';
 import { resolveCondition, detectValidationMismatch } from '../lib/condition-resolver.js';
 import { listConditionSubtypes } from '../lib/condition-subtypes.js';
 import { conditionInferenceConfig } from '../lib/condition-intake-flags.js';
@@ -66,6 +68,14 @@ import {
   mergePatientFromMessage,
   extractConditionFromMessage
 } from '../lib/patient-intake.js';
+import {
+  buildGatherFingerprintFromPatient,
+  fingerprintsMatch
+} from '../lib/gather-fingerprint.js';
+import {
+  checkProfileCoherence,
+  checkDossierProfileCoherence
+} from '../lib/profile-coherence.js';
 
 import {
   DEFAULT_RESEARCH_MODEL,
@@ -124,15 +134,19 @@ const resolveMaxTokens = (model, mode, phase, half, isBatch) => {
   // allowed. These stay split across two calls for resilience + streaming UX.
   if (phase === 'synthesize' && mode === 'repurpose') {
     if (half === 'back') return isOpus ? 1800 : 2200;
-    // BATCHED front: ~4 candidates per call. Small budget so each call
-    // finishes in well under a minute (Claude runs at ~35 tok/s, so ~2800
-    // tokens ≈ 80s worst case) and several batches run concurrently. This
-    // is what prevents the slow single 200s+ call that gets truncated.
-    if (isBatch) return isOpus ? 2200 : 2800;
+    // BATCHED front: 5 candidates per lane. ~700 tok/candidate in plain-English
+    // mode; 2800 was truncating at ~4 and Dorothy saw "only 3 drugs". Lanes
+    // run in parallel so wall-clock stays ~90–120s even at ~4200 tok/lane.
+    if (isBatch) return isOpus ? 3400 : 4200;
     // Single-shot fallback (API back-compat): one big call for all 15.
     return isOpus ? 5200 : 7000;
   }
-  if (phase === 'synthesize' && mode === 'research') return isOpus ? 1600 : 2400;
+  // Research is split front/back; 2400 was hitting stop_reason=max_tokens on
+  // every RP/IPF run (sections cut off mid-sentence). Pro allows ~300s/invoke.
+  if (phase === 'synthesize' && mode === 'research') {
+    if (half === 'back') return isOpus ? 3600 : 5200;
+    return isOpus ? 3200 : 4800;
+  }
   if (isOpus) return 1400;
   if (m.includes('sonnet')) return 2000;
   return 2200; // haiku / unknown
@@ -151,6 +165,17 @@ const groundingPlan = (mode, phase, half) => {
   }
   if (mode === 'repurpose') return { limit: 12, excerpt: 2000 };
   return { limit: 6, excerpt: 2000 };
+};
+
+// Cross-validation runs automatically on every complete report (Vercel Pro
+// allows 300s). Pass validate:false to skip. Partial synth halves / repurpose
+// lanes skip — the client stitches the full text and polish-report validates.
+const shouldAutoValidate = (mode, phase, half, isRepurposeBatch, body = {}) => {
+  if (body.validate === false) return false;
+  if (mode === 'chat' || mode === 'polish-report') return false;
+  if (phase === 'gather') return false;
+  if (phase === 'synthesize' && (half || isRepurposeBatch)) return false;
+  return mode === 'research' || mode === 'repurpose' || mode === 'trials';
 };
 
 const invokeInProcess = async (handler, body) => {
@@ -461,8 +486,10 @@ const trimSynthPools = (pools = {}) => {
   };
 };
 
-const trimGatherPools = ({ dossier, evidence, trials }) => ({
-  dossier,
+const trimGatherPools = ({ dossier, evidence, trials, gatherFingerprint = null }) => ({
+  dossier: dossier
+    ? { ...dossier, poolsFingerprint: gatherFingerprint || dossier.poolsFingerprint || null }
+    : null,
   evidence: evidence
     ? {
         condition: evidence.condition,
@@ -675,7 +702,7 @@ const buildRequiredMentionsBlock = (evidence) => {
   const excludedLines = excludedAgents.map((x) => `- **${x.name}** — ${x.reason}`).join('\n');
 
   return `=== REQUIRED MENTIONS (anti-omission guardrail) ===
-Every pipeline drug below MUST appear by name (or listed alias) in your output. Approved agents belong in Section 3; investigational in Section 4 or 5; discontinued/failed in Section 8 (Safety Considerations Reported in Literature).
+Every pipeline drug below MUST appear by name (or listed alias) in your output. Approved agents belong in Section 3 ONLY — never in Pipeline Watch (Section 5). Investigational / not-yet-approved-for-this-condition agents belong in Section 4 or 5; discontinued/failed in Section 8.
 
 PIPELINE DRUGS:
 ${drugLines || '- (none)'}
@@ -688,6 +715,73 @@ REPURPOSING RULE: Drugs listed under EXCLUDED AGENTS have already been studied f
 === END REQUIRED MENTIONS ===
 `;
 };
+
+// Investigational-only list for Section 5 Pipeline Watch (back half).
+// Approved agents (olanzapine, cariprazine, Lybalvi, ECT, etc.) belong
+// in Section 3 — never in "Drugs Still Being Tested".
+const buildPipelineWatchBlock = (evidence) => {
+  const pipelineDrugs = Array.isArray(evidence?.pipelineDrugs) ? evidence.pipelineDrugs : [];
+  const approved = (d) => /^approved/i.test(String(d.approvalStatus || ''));
+  const investigational = pipelineDrugs.filter((d) => !approved(d));
+  if (!investigational.length) return '';
+
+  const lines = investigational.map((d) => {
+    const aliases = Array.isArray(d.aliases) && d.aliases.length ? ` (${d.aliases.join(' / ')})` : '';
+    const bits = [d.status, d.mechanism, d.nct ? `NCT ${d.nct}` : null, d.pmid ? `PMID ${d.pmid}` : null]
+      .filter(Boolean)
+      .join(' · ');
+    return `- **${d.name}**${aliases}: ${bits || d.whyItMatters || 'investigational'}`;
+  }).join('\n');
+
+  return `=== PIPELINE WATCH — INVESTIGATIONAL ONLY (Section 5 table) ===
+Put ONLY these agents in the "Pipeline Watch" table. Every drug already FDA-approved for this condition (including olanzapine, quetiapine, lithium, cariprazine/Vraylar, aripiprazole LAI, Lybalvi, lumateperone/Caplyta, lurasidone, etc.) belongs in Section 3 Approved Treatments — NEVER repeat them here. ECT is an approved procedure → Section 6, not Pipeline Watch.
+
+${lines}
+
+=== END PIPELINE WATCH ===`;
+};
+
+const buildCanonicalFactsBlock = (evidence) => {
+  const facts = Array.isArray(evidence?.canonicalFacts) ? evidence.canonicalFacts : [];
+  if (!facts.length) return '';
+  const lines = facts.map((f) => `- ${f.claim || String(f)}`).join('\n');
+  return `=== CANONICAL FACTS (curated ground truth — NEVER contradict these) ===
+${lines}
+=== END CANONICAL FACTS ===`;
+};
+
+// Chat must be grounded like research/repurpose — not a generic ChatGPT clone.
+const chatGroundingRules = (condition) => `
+=== CHAT GROUNDING RULES (violations embarrass clinicians — treat as hard failures) ===
+
+1. **CITE FROM THE EVIDENCE PACK + CANONICAL FACTS + REQUIRED MENTIONS + PRIOR ANALYSES ONLY.**
+   Do NOT answer from unconstrained "general medical knowledge" or training-data recall.
+   If the pack does not support a claim, say "I don't have a grounded source for that in this session" — do NOT invent.
+
+2. **NEVER call an investigational, failed, offshore, or non-FDA-approved therapy the "gold standard" or "standard of care" for this condition.**
+   Gold standard / first-line = ONLY drugs marked **approved** in REQUIRED MENTIONS or explicitly in canonical facts for THIS condition.
+   WORKED EXAMPLE — IPF: approved antifibrotics are pirfenidone (Esbriet), nintedanib (Ofev), and nerandomilast (Jascayd, FDA 2025).
+   CAR-T, CAR cell therapy, and stem-cell / MSC "regenerative" clinics are **NOT** approved for IPF, are **NOT** gold standard, and early trials showed no proven efficacy.
+   If the user asks about them, say they are investigational or warned-against — not standard treatment.
+
+3. **"Why wasn't [drug X] mentioned?"** — follow this protocol exactly:
+   (a) Search PRIOR ANALYSES for X by name and aliases.
+   (b) Search REQUIRED MENTIONS pipeline drugs for X.
+   (c) Search the GROUNDED EVIDENCE PACK for X.
+   Then answer honestly:
+   - If X is **approved** for this condition but missing from the prior report → "That was an omission in the earlier report. Here is what the literature shows: …" and give a proper summary with links from the pack.
+   - If X is **investigational / failed / discontinued** → state status clearly; do NOT upsell it as standard care.
+   - If X is **for a different disease** (e.g. CAR-T for lupus or lymphoma, not IPF) → say so plainly: "CAR-T is studied in [other conditions], not as standard IPF treatment."
+   - If X is **offshore stem-cell / clinic marketing** → cite safety warnings from the pack; not peer-reviewed standard care.
+
+4. **Do not conflate diseases.** Only discuss therapies approved or in trials **for the patient's condition (${condition})**. A therapy famous in another field is not automatically relevant.
+
+5. Every drug name, trial, and center must link per citation rules when making factual claims.
+
+6. Still ANSWER on the first turn — but answer **from the pack**, not from memory. Short honest "not in our sources for this condition" beats a confident wrong lecture.
+`;
+
+// Supplement candidates come from live gather via buildSupplementDiscoveryBlock(evidence).
 
 // Post-synthesis coverage audit. Scans the Claude output text for every
 // pipelineDrug name + its aliases. Returns the list of drugs whose name
@@ -933,12 +1027,11 @@ REPURPOSE LAYPERSON FORMAT (when AUDIENCE is non-medical — keep every field at
 - WHAT_IT_DOES is REQUIRED for every CANDIDATE — one sentence: what the drug is normally used for + what it does in the body in plain English.
 - WHY_FOR_THIS_CONDITION is REQUIRED — one plain sentence: "This might help [condition] because …" using everyday words only.
 - MECHANISM_TARGET must be a plain-English phrase (≤12 words), e.g. "Slows lung scarring signals" — NOT "TGF-β signalling" alone.
-- REPURPOSE_RATIONALE must be exactly 3 short bullets in plain text (use "•" bullets):
-  • What this drug normally does (plain English)
-  • What goes wrong in the patient's condition (plain English)
-  • Why those two might connect — the "aha" reason a doctor might discuss it
+- REPURPOSE_RATIONALE must be exactly 2 short bullets in plain text (use "•" bullets) — skip the third unless essential.
 - REFERENCES is REQUIRED — at least one clickable markdown link [short title](url) per candidate from the evidence pack. No candidate may ship without a link.
-- HOW_TO_DISCUSS_WITH_DOCTOR: write 2 questions the patient can literally read aloud at an appointment.`;
+- HOW_TO_DISCUSS_WITH_DOCTOR: **one** question the patient can read aloud — not a paragraph.
+- SUPPORTING_EVIDENCE: max 2 sentences or one short quote — no literature review.
+- Every field ≤25 words unless quoting a source.`;
 
 // Build the per-request dynamic header that is NEVER cached (it's different
 // on every call: audience, patient profile, condition-specific context).
@@ -975,6 +1068,7 @@ ACCESS-LEVEL HONESTY (critical — many high-impact medical journals are paywall
 READER-FACING LANGUAGE (critical — demo / lawyer audience):
 - NEVER expose internal terms to the reader: "grounded evidence", "evidence pack", "dossier", "dossier source", "confirmed against grounded evidence", "uncertainty score", or similar.
 - Centers, experts, and advocacy orgs should read like a normal medical report — no mention of where the list came from internally.
+- NEVER write "Note on patient profile", "the dossier flags X but the profile says Y", or reconcile sex/condition mismatches in the report. The pipeline guarantees profile and dossier align — treat PRIMARY CONDITION and dossier canonical as authoritative; do not invent mismatch disclaimers.
 
 LANGUAGE TONE (critical — legal/educational framing):
 - This tool is educational decision-support, NOT medical advice or a prescription service.
@@ -1006,6 +1100,7 @@ OUTPUT FORMATTING RULES (enforce strictly — the user has explicitly complained
 - NO paragraphs longer than 3 lines. Break them into bullets.
 - When comparing ≥3 items, USE A MARKDOWN TABLE, not prose.
 - No filler words ("Furthermore", "Additionally", "It is worth noting that", "In conclusion"). Every sentence either gives a fact, a number, a name, or an action the patient can take.
+- STRATEGIC BREVITY (critical): Lead with the decision-relevant fact. One sentence beats three. Cut repetition across sections — if a drug appears in Section 3, do not re-explain it in Section 5. Prefer tables and bullets over prose. When in doubt, shorter.
 - Every URL MUST be a real clickable markdown link: [PANTHER-IPF trial (NEJM 2012)](https://pubmed.ncbi.nlm.nih.gov/...) or [NCT01234567](https://clinicaltrials.gov/study/NCT01234567).
 - LINKS TO EVERYTHING (client's hard requirement): every named entity in prose, bullets, AND tables must carry an inline clickable link — drugs, trials, papers, guidelines, AND centers/hospitals, clinics, advocacy orgs, registries, FDA/NIH, and named experts. Follow the LINK SOURCE PRIORITY in the citation rules (pack URL first; ClinicalTrials.gov / DailyMed / PubMed canonical or search URLs; official site or a Google search for centers/orgs/experts). A search link is acceptable; dead text is not.
 - In markdown tables, the entity cell must contain the link itself, e.g. | [Pirfenidone](url) | … |.
@@ -1101,38 +1196,42 @@ Your output MUST include the following 5 sections IN THIS ORDER, and nothing els
 
 ## 4. Clinical Trials & Access Programs
 
-**What these terms mean (plain English):**
-- **Recruiting trial:** A research study that is actively signing up new patients right now. We search ClinicalTrials.gov across all years — not just 2025 — any trial with open enrollment today can appear.
-- **Open-Label Extension (OLE):** After a clinical trial ends, the drug company sometimes lets participants keep receiving the study drug (often for free) while doctors track long-term safety. Ask your trial doctor: "Is there an open-label extension for this study?"
-- **Expanded Access / Compassionate Use:** A pathway to receive an investigational drug outside a formal trial when you do not qualify for a trial or no trial is open near you. Requires physician and sponsor approval; may not be free.
-- **Pay-to-Access:** Some sponsors offer continued access after a trial ends for a fee before the drug is on the market — verify pricing with the sponsor.
+**What these terms mean (one line each — no essay):** Recruiting = signing up now · OLE = keep study drug after trial · Expanded Access = drug outside a trial · Pay-to-Access = paid continuation before approval.
 
-**This single section MUST cover ALL FOUR access pathways.** Pull directly from the LIVE CLINICAL TRIALS PULL block below. Do NOT list FDA-approved standard-of-care drugs (e.g. pirfenidone, nintedanib, nerandomilast for IPF) in this section — those belong in Section 3 Approved Treatments only.
+**This single section MUST cover ALL FOUR access pathways.** Pull directly from the LIVE CLINICAL TRIALS PULL block below. Do NOT list FDA-approved standard-of-care drugs here — Section 3 owns those.
 
-**A. Recruiting trials (top 5):** Markdown table —
+**A. Recruiting trials (top 3 only):** Markdown table —
 | NCT ID | Phase | Title | Top Center? | Accepting? | URL |
 |---|---|---|---|---|---|
 
-**B. Open-Label Extension (OLE) studies:** For each OLE trial flagged in the pull, one line: NCT, parent trial, sponsor, closest open site. If none surfaced, say so AND tell the user: *"Patients in any Phase 2/3 should ask their PI whether an OLE is planned — most multi-year programs have one even before it lists on CT.gov."*
+**B. Open-Label Extension (OLE):** Up to 3 lines — NCT, sponsor, status. If none: one sentence + suggest asking trial PI about OLE.
 
-**C. Expanded Access / Compassionate Use:** For each EA record from the trials pull (studyType=EXPANDED_ACCESS only), one bullet: program name + NCT · eligibility · how to apply · cost to patient. **If the pull shows zero EA records, write ONE sentence only:** "No Expanded Access / compassionate-use programs were found on ClinicalTrials.gov for this condition." Do NOT list pipeline drugs, investigational drugs, or FDA-approved treatments here — they are not expanded access. Do NOT invent sponsor programs or URLs.
+**C. Expanded Access:** One bullet per EA record, or ONE sentence if zero.
 
-**D. Pay-to-Access / Charitable:** Any paid post-trial access programs the patient should know about (e.g. the ~$40k tier some sponsors charge between trial completion and market launch). If you don't know of any, say so — do NOT invent programs.
+**D. Pay-to-Access:** One sentence if known; otherwise "None identified in this pull."
 
-## 5. Drug Repurposing + Pipeline Watch
-- **Unexplored drug ideas (5-8 candidates):** ONLY drugs/supplements with MECHANISTIC_ONLY or PRECLINICAL evidence for THIS condition — genuinely not yet studied in people for this disease. Skip every drug in EXCLUDED AGENTS. Each line MUST include a clickable markdown link [title](url).
-- **Combination ideas (5-8 COMBO blocks required):** Pairings where Drug A + Drug B (or + standard-of-care) might work better together than alone — even when neither drug alone is expected to help. Use COMBO: format from repurposing spec. Each combo MUST cite pathway logic AND include at least one link.
-- **Pipeline watch (ALL investigational + approved pipeline drugs from REQUIRED MENTIONS):** List EVERY pipeline drug not already in Section 3 — including cell therapy, gene therapy, CRISPR trials, CAR-T if relevant. One line each: drug/program · phase/status · [NCT or sponsor link]. Gene-specific: note which mutation each therapy targets when the disease has many genetic subtypes (e.g. LCA/RP). Layperson: plain English. **Every pipeline item MUST have a clickable link — no bare drug names.**
+## 5. Pipeline Watch (Investigational Programs Only)
+**Do NOT write drug-repurposing candidates or COMBO blocks here** — detailed drug cards appear below this report.
+
+Table only — **max 5 rows**, best match to this patient:
+| Drug / Program | Phase / Status | Plain-English Summary | Link |
+
+Rules:
+- **Investigational only** — phase 2/3 programs, pre-approval biologics, agents NOT FDA-approved for this condition (e.g. azetukalner, ketamine/psilocybin where bipolar trials exclude patients).
+- **NEVER list already-approved standard-of-care** (olanzapine, quetiapine, lithium, cariprazine/Vraylar, aripiprazole LAI, Lybalvi, lurasidone, lumateperone, etc.) — Section 3 owns those.
+- **NEVER list ECT here** — Section 6 owns neuromodulation (ECT, TMS).
+- Pediatric-only trials on an adult patient: note age exclusion in the Summary column.
+- Every Link cell MUST be a clickable markdown link [NCT01234567](https://clinicaltrials.gov/study/NCT01234567) — never bare "NCT…" text or label-only "DailyMed".
+- Use the PIPELINE WATCH block below when present.
+
 
 ## 6. Cell, Gene & Advanced Therapies
-*If not applicable: one line "**N/A** — no active cell/gene therapy program for this condition."*
-- **Stem cell:** reputable US / W. Europe labs only. Cell type · source lab · route · **FDA warning-letter status**. Exclude China / Vietnam / Mexico / India clinics by default.
-- **Gene therapy:** approved? in trial? theoretical? Name specific NCT IDs + sponsors. Distinguish "cure" vs "slow progression."
+*If not applicable: one line "**N/A** — no active cell/gene therapy program for this condition."* Max 3 bullets total (stem cell caution, gene therapy status, ECT/TMS pointer if relevant).
 
 ## 7. This Patient's Interaction & Access Plan
-Tailored to **this specific patient profile**:
-- **Drug-drug interactions:** walk the patient's current meds vs the Section-3 recommendations. List every clinically meaningful interaction.
-- **Non-drug / lifestyle:** practical bullets from the dossier's lifestyleCategories (e.g. IPF → GERD treatment, feather pillows, pulm rehab, vaccinations, O₂. RP → UV protection, vitamin A caveats, omega-3 caveats). FRAME EVERY bullet as "Research suggests…" or "Research shows…" or "Studies report…" — NEVER as a direct instruction. Do not write "treat acid reflux aggressively"; write "Research suggests managing acid reflux may matter because…". This must not read like medical advice.
+Tailored to **this specific patient profile** — strategic, not exhaustive:
+- **Drug-drug interactions:** table or bullets — only **clinically meaningful** interactions for this patient's current meds. Skip theoretical/low-risk pairs.
+- **Non-drug / lifestyle:** **max 4 bullets** — highest-impact only (sleep, activity, substance use, monitoring). Frame as "Research suggests…" — not directives.
 - **Patient advocacy:** 2-4 orgs / registries / foundations from the dossier's patientAdvocacy list, with homepage URLs.
 - **Insurance & cost:** what US commercial / Medicare typically covers. Rough out-of-pocket. Red-flag overseas clinics with undisclosed pricing.
 
@@ -1150,7 +1249,7 @@ ${SHARED_GUARDRAILS}`;
 
 const REPURPOSE_CANDIDATE_FORMAT = `Produce ranked CANDIDATE blocks using this exact format (the UI parses it):
 
-CANDIDATE: <name>
+CANDIDATE: <name — plain English the patient would say, e.g. "Goji berries" or "TUDCA"; Latin/scientific name only in parentheses if needed>
 CLASS: <drug class or supplement category — for layperson: use plain category, e.g. "immune-suppressing pill" not "mTOR inhibitor class">
 APPROVED_FOR: <current FDA-approved or common use — plain English for layperson>
 WHAT_IT_DOES: <REQUIRED — one sentence a non-doctor understands: what this drug/supplement is normally for and what it does in the body. No unexplained jargon.>
@@ -1175,11 +1274,19 @@ This is the EveryCure / drug-repurposing methodology. Think outside the box. Rea
 - supportive (not definitive) peer-reviewed evidence
 
 STUDIED-AGENT RULE (critical — read before assigning evidence strength):
-Before you label any candidate MECHANISTIC_ONLY or PRECLINICAL, search the GROUNDED EVIDENCE PACK for papers mentioning BOTH the candidate drug name AND this condition.
-- If human studies exist for this drug + condition (even negative/null results), you MUST NOT output a CANDIDATE block for that drug at all — it belongs in the research report's Safety section only, NOT in repurposing.
-- Check EXCLUDED AGENTS in the REQUIRED MENTIONS block — if a drug is listed there, skip it entirely. Do not mention metformin, NAC-as-failed, ziritaxestat, etc. as repurposing ideas when the KB marks them excluded.
-- NEVER CONTRADICT YOURSELF: the repurposing list is for drugs NOT YET STUDIED (or only lab-only) for this condition — not for rehashing failed trials.
-- WORKED EXAMPLE — metformin in IPF: metformin was studied in people and showed no benefit — therefore metformin must NOT appear anywhere in repurposing output.
+Before you label any candidate MECHANISTIC_ONLY or PRECLINICAL, search the GROUNDED EVIDENCE PACK and LIVE TRIALS for human studies of that agent + THIS condition.
+- If human studies exist for a **prescription drug** + condition (even negative/null results), you MUST NOT output a CANDIDATE block — it belongs in Safety / excluded agents, NOT repurposing.
+- If human pilot/RCT data exists for a **supplement/OTC** + this condition (e.g. NAC in bipolar), output exactly ONE candidate with honest EVIDENCE_STRENGTH (SMALL_RCT, OBSERVATIONAL, etc.) — NEVER also list it as "not yet studied" or MECHANISTIC_ONLY.
+- Check EXCLUDED AGENTS — skip entirely.
+- NO DUPLICATE CANDIDATE NAMES across batches (NAC must appear once, not twice under different spellings).
+
+CARD INTEGRITY (every CANDIDATE block):
+- REFERENCES must cite papers about THAT drug only — never paste an unrelated NCT or guideline link.
+- CONFIDENCE / PATIENT_SPECIFIC_RISKS / HOW_TO_DISCUSS must describe THIS candidate — never copy text from a different drug or combo.
+- WORKED EXAMPLE — metformin in IPF: studied in people with no benefit → must NOT appear in repurposing.
+
+OTC / SUPPLEMENT CARVE-OUT (Lane C and combination blocks):
+Over-the-counter supplements are DIFFERENT from prescription repurposing. Lane C MUST read the "OTC / SUPPLEMENT LITERATURE IN THIS PACK" block (if present) and output one CANDIDATE per supplement that has peer-reviewed support in the pack. Use plain-English names patients recognize (e.g. "Goji berries", "TUDCA", "Taurine", "Alpha-lipoic acid") — never Latin binomial alone as the CANDIDATE name. Label EVIDENCE_STRENGTH honestly from what the papers show. Do NOT invent supplements that are not in the evidence pack.
 
 ## Mechanistic Hypotheses (genuinely no human data for this condition)
 Produce 5-8 candidates where EVIDENCE_STRENGTH is MECHANISTIC_ONLY or PRECLINICAL ONLY when the evidence pack truly contains no human studies for that drug + this condition.
@@ -1198,7 +1305,9 @@ Then continue with additional candidates that may have observational or trial da
 QUOTA (mandatory): At least 30% of your candidates MUST have EVIDENCE_STRENGTH of MECHANISTIC_ONLY or PRECLINICAL — but ONLY when the evidence pack lacks human data for that drug + condition.`;
 
 const REPURPOSE_COMBO_AND_SUMMARY = `## Combination Candidates
-Produce 5-8 combination candidates (pairings or triples of agents from Part 1, or pairings with standard-of-care). For EACH combo output this exact block:
+Produce **3-4** combination candidates (quality over quantity). Prefer novel biology pairings — NOT guideline first-line pairs from Section 3.
+
+For EACH combo output this exact block:
 
 COMBO: <Agent A + Agent B [+ Agent C]>
 RATIONALE: <one or two sentences on why the mechanisms are complementary or synergistic for THIS condition — pathway diagram in words>
@@ -1212,16 +1321,16 @@ HOW_TO_DISCUSS_WITH_DOCTOR: <practical script — "I read about combining X and 
 Combinations are HYPOTHESIS-GENERATION ONLY. When interaction risk may dominate benefit, report honestly — confidence < 25% and INTERACTION_RISK: HIGH.
 
 ## Reasoning Summary
-Explain the top 3 single-agent candidates and the top 2 combination candidates in plain language.
+Two sentences: (1) best single-agent idea and why; (2) best combo idea and why. No recap of the full list.
 
 ## What This Is NOT
-Clearly say this is hypothesis-generation, not a prescription, and must be discussed with a physician before any change.`;
+One sentence: hypothesis-generation only — discuss with a physician before any change.`;
 
 const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
-Produce 15 candidates (mechanistic/preclinical candidates FIRST, at least 5, then published-support candidates). 15 is the benchmark; returning fewer than 13 is a FAILURE of this task.
-Keep EVERY field to ONE or TWO concise sentences. Every candidate MUST include WHY_FOR_THIS_CONDITION (a plain "this might help because…" sentence) and at least one clickable link in REFERENCES. FINISH the last candidate fully and never stop mid-block.
+Produce 12 candidates (mechanistic/preclinical FIRST, at least 4, then published-support). 12 is the target; returning fewer than 10 is a FAILURE.
+Keep EVERY field to ONE concise sentence (≤25 words). Every candidate MUST include WHY_FOR_THIS_CONDITION and at least one link in REFERENCES.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -1235,7 +1344,7 @@ ${SHARED_GUARDRAILS}`;
 const REPURPOSE_LANES = [
   'LANE A — anti-inflammatory & immune-modulating drugs already approved for OTHER inflammatory or autoimmune conditions that could plausibly slow this condition. These must be MECHANISTIC_ONLY or PRECLINICAL for THIS condition — zero human trials for this disease. Skip any drug in EXCLUDED AGENTS.',
   'LANE B — metabolic, antifibrotic, hormonal, and cardiovascular drugs approved for other diseases that could be repurposed via pathway overlap. MECHANISTIC_ONLY or PRECLINICAL for THIS condition only. Skip EXCLUDED AGENTS.',
-  'LANE C — over-the-counter supplements, vitamins, and antioxidants (e.g. vitamin D, omega-3, NAC only if NOT in EXCLUDED AGENTS for this condition) with plausible biology and NO published human trials for this exact condition.'
+  'LANE C — over-the-counter supplements, vitamins, and antioxidants. Read the OTC / SUPPLEMENT LITERATURE block in the evidence pack and output candidates FROM those live-retrieved papers. Plain-English CANDIDATE names only (e.g. "Goji berries", not "Lycium barbarum"). Skip EXCLUDED AGENTS.'
 ];
 
 // Batched front prompt: one lane, a handful of candidates, finishes fast.
@@ -1247,7 +1356,7 @@ const REPURPOSE_PROMPT_FRONT_BATCH_STATIC = `${REPURPOSE_PROMPT_INTRO}
 THIS IS ONE BATCH of a larger candidate list. Other batches (running at the same time) cover the other drug lanes, so produce ONLY candidates that fit the LANE named in the user message — do not stray into other lanes, or you will duplicate another batch.
 Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary, no preamble.
 Produce the EXACT number of candidates requested in the user message. Quality over padding, but do not stop short of the requested count.
-Keep EVERY field to ONE or TWO concise sentences. Every candidate MUST include WHY_FOR_THIS_CONDITION (a plain "this might help because…" sentence) and at least one clickable link in REFERENCES. FINISH the last candidate fully and never stop mid-block.
+Keep EVERY field to ONE concise sentence (≤25 words). Every candidate MUST include WHY_FOR_THIS_CONDITION and at least one link in REFERENCES. FINISH the last candidate fully.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -1268,7 +1377,7 @@ ${SHARED_GUARDRAILS}`;
 // Single-shot fallback (API backward compat). UI uses gather → synth front → synth back.
 const REPURPOSE_PROMPT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
-Produce a ranked list of 15-18 candidate repurposed drugs or supplements total (15 is the benchmark floor).
+Produce a ranked list of 12 candidate repurposed drugs or supplements total (10 minimum).
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -1402,7 +1511,8 @@ export default async function handler(req, res) {
       //   batchLane  → 0-based index into REPURPOSE_LANES (front half only)
       //   batchSize  → how many candidates this batch should produce
       batchLane = null,
-      batchSize = null
+      batchSize = null,
+      gatherFingerprint: clientGatherFingerprint = null
     } = req.body || {};
     const model = String(req.body?.model || DEFAULT_MODEL);
     const isRepurposeBatch =
@@ -1702,7 +1812,8 @@ export default async function handler(req, res) {
       const evidence = {
         excludedAgents: req.body?.excludedAgents || [],
         groundedForPrompt: req.body?.evidencePack || [],
-        topRanked: req.body?.evidencePack || []
+        topRanked: req.body?.evidencePack || [],
+        pipelineDrugs: req.body?.pipelineDrugs || []
       };
       const trials = req.body?.trials || null;
       let polished = finalizeReportText(analysisText, { evidence, trials });
@@ -1711,7 +1822,10 @@ export default async function handler(req, res) {
         !!process.env.PERPLEXITY_API_KEY ||
         !!process.env.OPENAI_API_KEY ||
         !!process.env.XAI_API_KEY;
-      if (req.body?.silentFix !== false && analysisText && hasAnyValidatorKey && isSpendEnabled()) {
+      const wantValidation = req.body?.validate !== false;
+      const wantSilentFix = req.body?.silentFix !== false;
+      const validateTimeoutMs = Number(process.env.MRT_VALIDATE_TIMEOUT_MS || 90_000);
+      if (wantValidation && analysisText && hasAnyValidatorKey && isSpendEnabled()) {
         try {
           const vResult = await Promise.race([
             invokeValidate({
@@ -1721,16 +1835,20 @@ export default async function handler(req, res) {
               condition: req.body.condition || req.body.patient?.condition || '',
               audience: req.body.audience || 'layperson'
             }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('validate timeout')), 22000))
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('validate timeout')), validateTimeoutMs)
+            )
           ]);
           if (vResult?.primary) {
             validation = vResult;
-            polished = applyValidationFixes(
-              polished,
-              vResult,
-              evidence,
-              collectAllowedUrls(evidence, trials)
-            );
+            if (wantSilentFix) {
+              polished = applyValidationFixes(
+                polished,
+                vResult,
+                evidence,
+                collectAllowedUrls(evidence, trials)
+              );
+            }
           }
         } catch (err) {
           console.warn('[research] polish-report validate skipped:', err.message);
@@ -1738,7 +1856,13 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({
         content: [{ type: 'text', text: polished }],
-        validation
+        validation,
+        validationMismatch: validation
+          ? detectValidationMismatch(
+              validation,
+              req.body?.condition || req.body?.patient?.condition || ''
+            )
+          : null
       });
     }
 
@@ -1813,6 +1937,18 @@ export default async function handler(req, res) {
       kbSlug: conditionResolutionHint?.kbSlug || conditionResolutionHint?.kbMatch?.slug || null
     };
 
+    const serverGatherFingerprint = buildGatherFingerprintFromPatient(patient, conditionResolutionHint);
+
+    if ((mode === 'research' || mode === 'repurpose') && (phase === 'gather' || phase === 'synthesize')) {
+      const profileCheck = checkProfileCoherence(patient);
+      if (!profileCheck.ok) {
+        return res.status(400).json({
+          error: profileCheck.message,
+          code: profileCheck.code
+        });
+      }
+    }
+
     // Research pipeline — three phases:
     //   (1) Disease-intake agent (Haiku, 24h cache) — builds structured
     //       dossier for ANY condition, including aliases like "RP" or
@@ -1835,7 +1971,30 @@ export default async function handler(req, res) {
       dossier = slim.dossier || null;
       evidence = slim.evidence || null;
       trials = slim.trials || null;
-      // Same safety net on the synth side: if the gather handed us empty/null
+
+      if (mode === 'research' || mode === 'repurpose') {
+        if (!clientGatherFingerprint) {
+          return res.status(409).json({
+            error: 'Profile changed — re-gathering.',
+            code: 'GATHER_STALE'
+          });
+        }
+        if (!fingerprintsMatch(clientGatherFingerprint, serverGatherFingerprint)) {
+          return res.status(409).json({
+            error: 'Profile changed — re-gathering.',
+            code: 'GATHER_STALE'
+          });
+        }
+        const poolCheck = checkDossierProfileCoherence(patient, dossier, evidence);
+        if (!poolCheck.ok) {
+          return res.status(409).json({
+            error: poolCheck.message || 'Profile changed — re-gathering.',
+            code: poolCheck.code || 'GATHER_STALE'
+          });
+        }
+      }
+
+      // Same safety net on the synth side:
       // evidence (slow PubMed, old client payload), rebuild grounding from the
       // curated KB so the candidate lanes still get the excludedAgents guardrail,
       // pipeline drugs, and real citable papers. Prevents the "3 candidates / no
@@ -1883,7 +2042,7 @@ export default async function handler(req, res) {
             treatments: ['treatment', 'systematic review'],
             drugs,
             manufacturers: [],
-            limitPerSource: mode === 'repurpose' ? 5 : 3,
+            limitPerSource: mode === 'repurpose' ? 6 : 3,
             includeFullText: true
             // NB: dossier intentionally NOT passed — evidence.js will
             // fetch it via getDossier() and hit the in-flight cache so
@@ -1929,17 +2088,48 @@ export default async function handler(req, res) {
       }
     }
 
+    // Chat ALWAYS loads curated KB + merges client evidence pack. The old
+    // prompt literally said "use your own medical knowledge" when the pack
+    // was empty — that caused CAR cell / stem-cell to be called "gold
+    // standard" for IPF on a live Dorothy call.
+    if (mode === 'chat' && effectiveCondition) {
+      const clientPack = Array.isArray(req.body?.evidencePack) ? req.body.evidencePack : [];
+      const clientGrounded = clientPack.map((a) =>
+        toGroundedItem({ ...a, text: a.text || a.abstract || a.summary || '' })
+      );
+      const clientEv = clientGrounded.length ? { groundedForPrompt: clientGrounded } : null;
+      const kbMerged = await ensureGroundedEvidence(effectiveCondition, dossier, clientEv, groundingHints);
+      if (kbMerged) {
+        const seen = new Set();
+        const merged = [];
+        for (const item of [...clientGrounded, ...(kbMerged.groundedForPrompt || [])]) {
+          const key = String(item.pmid || item.doi || item.title || '').toLowerCase();
+          if (key && seen.has(key)) continue;
+          if (key) seen.add(key);
+          merged.push(item);
+        }
+        evidence = {
+          ...kbMerged,
+          groundedForPrompt: merged.slice(0, 28),
+          topRanked: merged.slice(0, 28)
+        };
+      }
+    }
+
     // Phase='gather' short-circuits here. We hand the raw pools back to the
     // client, which will then call us again with phase='synthesize' and the
     // pools attached. This splits the >60s single-shot pipeline into two
     // sub-60s serverless invocations.
     if (phase === 'gather') {
-      const trimmed = trimGatherPools({ dossier, evidence, trials });
+      const trimmed = trimGatherPools({
+        dossier, evidence, trials, gatherFingerprint: serverGatherFingerprint
+      });
       const conditionResolution = conditionResolutionHint;
       return res.status(200).json({
         phase: 'gather',
         model,
         maxTokens,
+        gatherFingerprint: serverGatherFingerprint,
         conditionResolution,
         ...trimmed
       });
@@ -1951,6 +2141,13 @@ export default async function handler(req, res) {
     // Anti-omission guardrail: inject the KB's pipelineDrugs +
     // excludedAgents as REQUIRED MENTIONS. See buildRequiredMentionsBlock.
     const requiredMentionsBlock = evidence ? buildRequiredMentionsBlock(evidence) : '';
+    const pipelineWatchBlock =
+      mode === 'research' && half === 'back' && evidence
+        ? buildPipelineWatchBlock(evidence)
+        : '';
+    const supplementDiscoveryBlock = (mode === 'repurpose' && evidence)
+      ? buildSupplementDiscoveryBlock(evidence)
+      : '';
 
     let repurposeLibraryBlock = '';
     if (mode === 'repurpose' && dossier) {
@@ -1973,7 +2170,7 @@ export default async function handler(req, res) {
     // access), then repurpose drug library (open curated drug list),
     // then the REQUIRED MENTIONS list last so Claude sees the
     // anti-omission constraint immediately before starting to write.
-    const extraContext = [dossierBlock, groundingBlock, trialsBlock, repurposeLibraryBlock, requiredMentionsBlock]
+    const extraContext = [dossierBlock, groundingBlock, trialsBlock, repurposeLibraryBlock, requiredMentionsBlock, pipelineWatchBlock, supplementDiscoveryBlock]
       .filter(Boolean)
       .join('\n\n');
 
@@ -2005,16 +2202,6 @@ export default async function handler(req, res) {
         systemPrompt = TRIALS_PROMPT(patient, audience, trialsData || {});
         break;
       case 'chat': {
-        // Chat mode supports TWO scenarios:
-        //   (a) Follow-up after a prior Research / Repurpose / Trials run,
-        //       where the client sent the prior analyses + cached evidence
-        //       pack so Claude can answer "why did you rate X over Y".
-        //   (b) Cold-start: user types a disease directly into the chat bar
-        //       with no profile filled in and no prior analyses. The agent
-        //       must STILL answer substantively — that was the whole point
-        //       of the user's complaint ("don't refuse, answer the
-        //       question"). In this case we use the dossier we just built
-        //       from their message as the disease context.
         const priorPieces = [];
         const prior = req.body?.priorAnalyses || {};
         if (prior.research)  priorPieces.push(`=== PRIOR "RESEARCH" ANALYSIS (produced earlier in this session) ===\n${String(prior.research).slice(0, 25000)}`);
@@ -2022,76 +2209,34 @@ export default async function handler(req, res) {
         if (prior.trials)    priorPieces.push(`=== PRIOR "TRIALS" ANALYSIS ===\n${String(prior.trials).slice(0, 20000)}`);
         const hasPriors = priorPieces.length > 0;
 
-        const cachedPack = Array.isArray(req.body?.evidencePack) ? req.body.evidencePack.slice(0, 18) : [];
-        const chatGrounding = cachedPack.length
-          ? buildGroundingBlock({ groundedForPrompt: cachedPack, fdaLabels: [], fdaManufacturers: [] })
+        const chatGrounding = evidence
+          ? buildGroundingBlock(evidence, { limit: 14, excerpt: 900 })
           : '';
-
-        // If we got a usable dossier (patient.condition OR extracted from the
-        // user's message), include it so Claude knows what disease we're
-        // talking about even without a profile or prior analysis.
+        const chatRequired = evidence ? buildRequiredMentionsBlock(evidence) : '';
+        const chatCanonical = evidence ? buildCanonicalFactsBlock(evidence) : '';
         const dossierInChat = dossier && dossier.canonical ? buildDossierBlock(dossier) : '';
-
-        // Effective-condition context — even if the dossier agent errored,
-        // the user's typed condition is still in `effectiveCondition`. Claude
-        // can answer on general medical knowledge using that. This is the
-        // NON-NEGOTIABLE anti-refusal clamp.
         const detectedCondition = effectiveCondition || '(none detected yet)';
 
-        systemPrompt = `You are a senior medical research professor answering medical questions directly and substantively. The user has already accepted the decision-support disclaimer.
+        systemPrompt = `You are a grounded medical research assistant for decision support — NOT a generic chatbot. Every factual claim must trace to the GROUNDED EVIDENCE PACK, CANONICAL FACTS, REQUIRED MENTIONS, or PRIOR ANALYSES below.
 
 ${audienceLine(audience)}
 
 === DETECTED CONDITION ===
 The user appears to be asking about: **${detectedCondition}**
-${dossier?.fallbackReason ? `(The disease-intake agent errored: ${dossier.fallbackReason}. Use your own medical knowledge to answer. DO NOT mention the agent or the dossier to the user.)` : ''}
 
-PATIENT PROFILE (may be empty — that's fine):
+PATIENT PROFILE:
 ${buildPatientContext(patient)}
 
-${dossierInChat ? dossierInChat + '\n' : ''}${hasPriors ? priorPieces.join('\n\n') + '\n\n' : ''}=== ABSOLUTE BEHAVIOR RULES ===
+${dossierInChat ? dossierInChat + '\n\n' : ''}${chatCanonical ? chatCanonical + '\n\n' : ''}${chatRequired ? chatRequired + '\n\n' : ''}${hasPriors ? priorPieces.join('\n\n') + '\n\n' : ''}${chatGrounding || '=== GROUNDED EVIDENCE PACK ===\n(No literature loaded — say you need the user to run Full Research first, or answer only from REQUIRED MENTIONS / CANONICAL FACTS above if present. Do NOT invent treatments.)\n=== END ===\n\n'}${chatGroundingRules(detectedCondition)}
 
-1. **ANSWER THE QUESTION ON THE FIRST TURN.** Do not refuse. Do not ask for more information before answering. Do not say "I cannot..." / "I need more info to proceed" / "please provide..." / "to give you a comprehensive analysis I need...". Those responses are FAILURES.
+${SHARED_GUARDRAILS}
 
-2. If the user typed ANY disease name, abbreviation, or medical term (e.g. "RP", "LADA", "AD", "ALS", "PD", "AFib", "Retinitis Pigmentosa", "jaundice", "lupus"), IMMEDIATELY answer about that disease. Your FIRST sentence MUST confirm the condition: e.g. "**RP (Retinitis Pigmentosa)** is an inherited retinal dystrophy that..."
-
-3. Your default chat response when the user names a disease has this shape (use markdown):
-
-   **What it is** (1 sentence)
-
-   **Current approved treatments**
-   - bullet 1
-   - bullet 2
-
-   **Notable trials / access programs worth knowing about**
-   - trial name, NCT if you know it, sponsor, what it's testing
-   - any expanded-access / compassionate-use programs
-   - any open-label extensions
-
-   **Top centers / experts**
-   - named centers and specialists — each as a clickable link (official site if you are sure of the URL, otherwise a Google search link). No center or expert as plain text.
-
-   **Patient resources**
-   - advocacy orgs, registries — each as a clickable link (official site if certain, else a search link)
-
-   **Safety considerations reported in literature**
-   - bullets with clickable links (pack URL or PubMed search if not in pack); frame as evidence for physician discussion, not directives
-
-   **For a deeper personalized analysis** — prompt them: "Add this condition to the Patient Profile tab and hit Run Research for a full 16-section personalised analysis with drug-interaction checks and the live evidence pack."
-
-4. **Bold every** drug name, trial acronym, NCT ID, percentage, center name, and advocacy org name. Use bullets. Never write a paragraph longer than 3 lines.
-
-5. For follow-up questions (user's message isn't a disease name — e.g. "what about side effects", "tell me more about X"), use the prior analyses + dossier + general medical knowledge. Be specific and substantive.
-
-6. When the dossier is empty or low-confidence, answer from your own clinical knowledge. Say "Based on general clinical knowledge:" as a prefix — then give the substantive answer. NEVER use low-confidence as a reason to refuse.
-
-7. For drug interactions / contraindications / dosing for THIS patient, check their medication list and comorbidities and give specific answers.
-
-9. **Conversational intake:** Users often describe a loved one in plain English ("my mom has LADA and takes insulin twice a day"). If CAREGIVER CONTEXT is set, answer about **that person** — use their meds, age, and condition from the profile. Acknowledge naturally: "For your mom's LADA…" Do NOT ask them to fill out a form before answering.
-
-10. Keep disclaimers short and at the END if at all. Never lead with a disclaimer.
-
-${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer from the dossier, prior analyses if present, and your own medical knowledge.)'}`;
+=== RESPONSE SHAPE ===
+- Answer the user's question directly in the first sentence.
+- Use markdown bullets. Bold drug and trial names.
+- For "why wasn't X mentioned" follow rule 3 in CHAT GROUNDING RULES.
+- End with one line: "Run Full Research on the Profile tab for a complete personalized report with live PubMed pull."
+- Keep disclaimers to one short line at the end.`;
         break;
       }
       case 'research':
@@ -2115,7 +2260,7 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
       if (mode === 'repurpose' && phase === 'synthesize' && half === 'back') {
         // Runs in parallel with the candidate list — derive combinations from
         // the evidence pack + standard-of-care, not from a Part 1 list.
-        return 'Produce Part 2 only: combination candidates + reasoning summary + "What This Is NOT" disclaimer. Derive combinations from the disease biology, the grounded evidence pack, and standard-of-care. Do NOT output individual CANDIDATE blocks.';
+        return 'Produce Part 2 only: combination candidates + reasoning summary + "What This Is NOT" disclaimer. Derive combinations from supplements and drugs that appear in the grounded evidence pack (especially the OTC / SUPPLEMENT LITERATURE block) plus standard-of-care. Do NOT output individual CANDIDATE blocks.';
       }
       if (isRepurposeBatch) {
         const laneIdx = Math.max(0, Math.min(REPURPOSE_LANES.length - 1, Number(batchLane) || 0));
@@ -2168,6 +2313,12 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
       .filter((c) => c?.type === 'text')
       .map((c) => c.text)
       .join('\n\n');
+
+    if (isRepurposeBatch && isLaneTruncated(data, claudeText)) {
+      console.warn(
+        `[research] repurpose lane ${batchLane} truncated: stop=${data.stop_reason || '?'} candidates=${countCandidateBlocks(claudeText)}`
+      );
+    }
 
     if ((mode === 'research' || mode === 'repurpose') && evidence) {
       const filtered = filterExcludedAgentMentions(claudeText, evidence);
@@ -2251,11 +2402,11 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
         finalMissed: initialMissed.map((d) => d.name)
       };
       if (initialMissed.length > 0) {
-        // Research front half: skip forced rewrite — it doubles latency and
-        // often causes the whole run to fail on mobile. Missing an approved
-        // drug in section 3 on pass 1 is acceptable; back half + transparency
-        // block still surface the pipeline list.
-        const skipReprompt = mode === 'research' && half === 'front';
+        // Research split synthesis: skip forced rewrite on BOTH halves. A second
+        // Claude call was pushing back-half runs past ~180s and surfacing as
+        // FUNCTION_INVOCATION_FAILED / gateway errors on live demos. REQUIRED
+        // MENTIONS + the pipeline list in the evidence pack still guide coverage.
+        const skipReprompt = mode === 'research';
         if (!skipReprompt) {
         // Construct a targeted re-prompt. We don't send the whole system
         // prompt again — we send the previous draft plus a directive that
@@ -2350,27 +2501,17 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
       }
     }
 
-    // Cross-validation: fire an INDEPENDENT second AI (Perplexity / OpenAI / xAI)
-    // over Claude's output + the same evidence pack to catch hallucinated
-    // citations and unsupported claims. An LLM grading its own work is weak;
-    // an independent second model with different training data is a much
-    // stronger safeguard.
-    //
-    // REVERTED 2026-06-12: inline auto-verify is OFF again (opt-in). Running
-    // the second AI in the SAME request as the report doubled runtime and
-    // could push the serverless function past its timeout, making the whole
-    // report fail with "Load failed". Auto-verify is being re-done on the
-    // FRONTEND instead (fire the existing /api/validate call after the
-    // report renders) so it can never block or break report generation.
-    // Inline validation still works if a caller explicitly passes
-    // `validate: true`, and is now wrapped so it can NEVER crash the report.
+    // Cross-validation: independent second AI (Perplexity / OpenAI / xAI)
+    // audits Claude's output against the same evidence pack. ON by default on
+    // Vercel Pro (300s cap). Two-phase research/repurpose validates via
+    // polish-report after the client stitches halves. Pass validate:false to skip.
     let validation = null;
-    const wantValidation = req.body?.validate === true;
+    const wantValidation = shouldAutoValidate(mode, phase, half, isRepurposeBatch, req.body);
     const hasAnyValidatorKey =
       !!process.env.PERPLEXITY_API_KEY ||
       !!process.env.OPENAI_API_KEY ||
       !!process.env.XAI_API_KEY;
-    if (wantValidation && mode !== 'chat' && claudeText && hasAnyValidatorKey && isSpendEnabled()) {
+    if (wantValidation && claudeText && hasAnyValidatorKey && isSpendEnabled()) {
       try {
         validation = await invokeValidate({
           analysisText: claudeText,

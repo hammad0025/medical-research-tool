@@ -101,7 +101,7 @@ const hasLink = (s) => /\[[^\]]+\]\(https?:\/\/[^)]+\)|https?:\/\/|NCT\d{8}|PMID
     providedDossier: null, providedEvidence: evidence, providedTrials: null };
 
   console.time('lanes');
-  const LANES = 4, PER = 4;
+  const LANES = 3, PER = 5; // mirrors index.html: 3 lanes × 5 = 15
   const calls = [];
   for (let lane = 0; lane < LANES; lane++) calls.push(invoke({ ...synthArgs, half: 'front', batchLane: lane, batchSize: PER }));
   const settled = await Promise.allSettled(calls);

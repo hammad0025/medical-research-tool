@@ -1,0 +1,51 @@
+// GET /api/health — platform readiness (no AI spend, no auth required when gate unset).
+
+import { getInfraStatus } from '../lib/infra-status.js';
+import { listKbs } from '../lib/kb.js';
+import { requireAccess } from '../lib/access-gate.js';
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Access-Passcode');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!requireAccess(req, res)) return;
+
+  const infra = getInfraStatus();
+  let kbCount = 0;
+  try {
+    kbCount = (await listKbs()).length;
+  } catch (_) {}
+
+  const status = infra.productionReady ? 'healthy' : 'degraded';
+  res.status(infra.productionReady ? 200 : 503).json({
+    status,
+    service: 'medical-research-tool',
+    version: '3.0.0',
+    timestamp: new Date().toISOString(),
+    platform: {
+      maxFunctionDurationSec: 300,
+      repurpose: {
+        lanes: 3,
+        perLane: 5,
+        targetCandidates: 15,
+        minCandidates: 12,
+        batchMaxTokensSonnet: 4200
+      },
+      gather: {
+        repurposeSupplementQueries: true,
+        supplementDiscoveryBlock: true
+      }
+    },
+    kb: { curatedConditions: kbCount },
+    infra: {
+      productionReady: infra.productionReady,
+      ok: infra.ok,
+      warnings: infra.warnings.map((w) => w.id),
+      missing: infra.missing.map((m) => m.id),
+      brainStore: infra.brainStore
+    }
+  });
+}
