@@ -702,18 +702,50 @@ const scanForMissedPipelineDrugs = (claudeText, pipelineDrugs) => {
   return missed;
 };
 
-// Remove CANDIDATE blocks for KB excluded / already-studied drugs (e.g. metformin in IPF).
-const filterExcludedRepurposeCandidates = (text, evidence) => {
+// Remove CANDIDATE blocks and prose lines for KB excluded / already-studied drugs (e.g. metformin in IPF).
+const excludedAgentNames = (evidence) => {
   const excluded = Array.isArray(evidence?.excludedAgents) ? evidence.excludedAgents : [];
-  if (!text || !excluded.length) return text;
-  const names = excluded.flatMap((x) => [x.name, ...(x.aliases || [])]).filter(Boolean);
+  const names = new Set();
+  for (const x of excluded) {
+    if (x.name) {
+      names.add(String(x.name).toLowerCase());
+      const first = String(x.name).split(/\s+/)[0].replace(/[^a-z0-9-]/gi, '');
+      if (first.length >= 4) names.add(first.toLowerCase());
+    }
+    for (const a of x.aliases || []) {
+      const al = String(a).toLowerCase();
+      if (al.length >= 4) names.add(al);
+    }
+  }
+  return [...names];
+};
+
+const filterExcludedRepurposeCandidates = (text, evidence) => {
+  const names = excludedAgentNames(evidence);
+  if (!text || !names.length) return text;
   const blocks = String(text).split(/(?=CANDIDATE:)/i);
   if (blocks.length <= 1) return text;
   return blocks.filter((block) => {
     if (!/^CANDIDATE:/i.test(block.trim())) return true;
     const lower = block.toLowerCase();
-    return !names.some((n) => lower.includes(String(n).toLowerCase()));
+    return !names.some((n) => lower.includes(n));
   }).join('');
+};
+
+const filterExcludedAgentMentions = (text, evidence) => {
+  if (!text) return text;
+  let out = filterExcludedRepurposeCandidates(text, evidence);
+  const names = excludedAgentNames(evidence);
+  if (!names.length) return out;
+  out = out.split('\n').filter((line) => {
+    const lower = line.toLowerCase();
+    if (/already studied|set aside|excluded|did not help|no benefit|not shown to help|was tried|human data do not/.test(lower)) {
+      return true;
+    }
+    if (/^#{1,3}\s/.test(line.trim())) return true;
+    return !names.some((n) => n.length >= 5 && lower.includes(n));
+  }).join('\n');
+  return out;
 };
 
 // Build a deterministic "Agents Evaluated" transparency block that gets
@@ -2127,8 +2159,8 @@ ${chatGrounding || '(No cached evidence pack this turn — that\'s OK. Answer fr
       .map((c) => c.text)
       .join('\n\n');
 
-    if (mode === 'repurpose' && evidence?.excludedAgents?.length) {
-      const filtered = filterExcludedRepurposeCandidates(claudeText, evidence);
+    if ((mode === 'research' || mode === 'repurpose') && evidence?.excludedAgents?.length) {
+      const filtered = filterExcludedAgentMentions(claudeText, evidence);
       if (filtered !== claudeText) {
         console.warn('[research] stripped excluded-agent candidates from repurpose output');
         claudeText = filtered;
