@@ -25,6 +25,11 @@ import {
 import { checkProfileCoherence, checkDossierProfileCoherence } from '../lib/profile-coherence.js';
 import { resolveCondition } from '../lib/condition-resolver.js';
 import { getInfraStatus } from '../lib/infra-status.js';
+import {
+  applyValidationFixes,
+  injectApprovedTreatmentStubs,
+  allApprovedDrugsRendered
+} from '../lib/report-polish.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
 const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
@@ -346,6 +351,93 @@ if (/Pipeline Watch \(Investigational Programs Only\)/.test(researchSrc)) {
   pass('Section 5 is Pipeline Watch only — repurposing cards are not duplicated in report body');
 } else {
   fail('Section 5 still asks for repurposing bullets + cards — causes NAC/combo duplication');
+}
+
+// 14. BEHAVIORAL: "Second AI check" applies the FULL correction from a
+//     verbatim quote — not a no-op, not a truncated/garbled snippet.
+{
+  const quote = 'Nintedanib reverses pulmonary fibrosis and restores normal lung tissue in every patient.';
+  const correction = 'Nintedanib slows the rate of lung-function (FVC) decline; it does not reverse fibrosis or restore lung tissue.';
+  const report = [
+    '## 2. Background',
+    'IPF is a progressive scarring lung disease.',
+    quote,
+    'Patients should discuss options with their pulmonologist.'
+  ].join('\n');
+  const validation = {
+    primary: {
+      disputed: [{ claim: 'overstated nintedanib benefit', quote, reason: 'No drug reverses IPF fibrosis.', correction }]
+    }
+  };
+  const fixed = applyValidationFixes(report, validation, null, null);
+  const fullCorrectionPresent = fixed.includes(correction);
+  const originalGone = !fixed.includes('reverses pulmonary fibrosis and restores normal lung tissue');
+  const notTruncated = fixed.includes('restore lung tissue.');
+  if (fullCorrectionPresent && originalGone && notTruncated) {
+    pass('Second AI check applies the verbatim-quote correction IN FULL (no truncation/garble)');
+  } else {
+    fail(`Second AI check correction broken (full=${fullCorrectionPresent} origGone=${originalGone} notTrunc=${notTruncated})`);
+  }
+}
+
+// 15. BEHAVIORAL: a disputed claim with NO correction must NOT delete report
+//     lines (paraphrased-claim line nuking was a corruption landmine).
+{
+  const keep = 'Pirfenidone is an oral antifibrotic approved for IPF.';
+  const report = ['## 2. Background', keep, 'It can cause photosensitivity and GI upset.'].join('\n');
+  const validation = { primary: { disputed: [{ claim: 'Pirfenidone is an oral antifibrotic approved for IPF', reason: 'wording nit' }] } };
+  const fixed = applyValidationFixes(report, validation, null, null);
+  if (fixed.includes(keep)) {
+    pass('Second AI check no longer deletes report lines on a no-correction disputed claim');
+  } else {
+    fail('Second AI check deleted a report line on a no-correction disputed claim');
+  }
+}
+
+// 16. BEHAVIORAL: an approved drug that appears only as prose still surfaces as
+//     an approved treatment (the "only nerandomilast" regression).
+{
+  const pipelineDrugs = [
+    { name: 'Nerandomilast', approvalStatus: 'approved' },
+    { name: 'Nintedanib', aliases: ['Ofev'], approvalStatus: 'approved', mechanism: 'tyrosine kinase inhibitor' },
+    { name: 'Pirfenidone', aliases: ['Esbriet'], approvalStatus: 'approved' },
+    { name: 'BI 1015550', approvalStatus: 'investigational' }
+  ];
+  // Only nerandomilast parsed as a structured card; the rest are prose-only.
+  const parsedCards = [{ _type: 'treatment', treatment: 'Nerandomilast', fda_status: 'FDA-approved' }];
+  const merged = injectApprovedTreatmentStubs(parsedCards, pipelineDrugs);
+  const names = merged.map((t) => String(t.treatment || '').toLowerCase());
+  const hasNintedanib = names.some((n) => n.includes('nintedanib'));
+  const hasPirfenidone = names.some((n) => n.includes('pirfenidone'));
+  const noInvestigational = !names.some((n) => n.includes('bi 1015550'));
+  const noDupeNeran = names.filter((n) => n.includes('nerandomilast')).length === 1;
+  if (hasNintedanib && hasPirfenidone && noInvestigational && noDupeNeran) {
+    pass('Approved-treatment injection: prose-only approved drugs render as cards; no dupes; investigational excluded');
+  } else {
+    fail(`Approved-treatment injection regression (nint=${hasNintedanib} pirf=${hasPirfenidone} noInv=${noInvestigational} noDupe=${noDupeNeran})`);
+  }
+
+  // De-dupe by alias: a card already rendered under a brand name must not be
+  // injected again under the generic name (or vice-versa).
+  const mergedAlias = injectApprovedTreatmentStubs(
+    [{ _type: 'treatment', treatment: 'Ofev (nintedanib)' }],
+    [{ name: 'Nintedanib', aliases: ['Ofev'], approvalStatus: 'approved' }]
+  );
+  const ninCount = mergedAlias.filter((t) => /nintedanib|ofev/i.test(t.treatment || '')).length;
+  if (ninCount === 1) {
+    pass('Approved-treatment injection de-dupes by alias (Ofev == nintedanib)');
+  } else {
+    fail('Approved-treatment injection duplicated an already-rendered drug by alias');
+  }
+
+  // Strip guard: Section 3 prose stays until EVERY approved drug has a card.
+  const beforeAll = allApprovedDrugsRendered(pipelineDrugs, parsedCards);
+  const afterAll = allApprovedDrugsRendered(pipelineDrugs, merged);
+  if (!beforeAll && afterAll) {
+    pass('Approved-treatment guard: Section 3 prose retained until every approved drug is rendered');
+  } else {
+    fail(`Approved-treatment strip guard regression (before=${beforeAll} after=${afterAll})`);
+  }
 }
 
 console.log(process.exitCode ? '\n\x1b[31mPlatform regression FAILED\x1b[0m\n' : '\n\x1b[32mPlatform regression passed\x1b[0m\n');
