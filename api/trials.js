@@ -331,9 +331,18 @@ const scoreTrialRelevance = (study, matcher) => {
 
   // When CT.gov lists explicit conditions, they are the strongest signal.
   if (listedConds.length > 0) {
-    const condMatch = matcher.phrases.some((p) => phraseMatches(condBlob, p));
+    const condMatch = matcher.phrases.some((p) => {
+      if (phraseMatches(condBlob, p)) return true;
+      // Substring match: "pulmonary fibrosis" inside "idiopathic pulmonary fibrosis"
+      if (p.length >= 5) {
+        return listedConds.some((lc) => lc.includes(p) || p.includes(lc));
+      }
+      return false;
+    });
     if (condMatch) score += 30;
-    else if (score < 20) {
+    // Only flag wrong-disease when the title/summary also lacks any connection.
+    // Previously score < 20 dropped too many valid trials (different CT.gov wording).
+    else if (score < 5) {
       const named = listedConds.slice(0, 2).join('; ');
       return {
         score: -100,

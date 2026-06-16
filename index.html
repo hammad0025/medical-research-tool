@@ -5993,7 +5993,7 @@
                 <Beaker size={22} /> Clinical trials for {patient.condition || 'your condition'}
               </h2>
               <p style={{ color: theme.textDim, fontSize: '0.9rem', marginTop: '0.5rem', lineHeight: 1.55 }}>
-                We pull live studies from ClinicalTrials.gov, drop ones for the <strong>wrong disease</strong>,
+                We pull live studies from ClinicalTrials.gov, then hide studies that are clearly for a <strong>different condition</strong>,
                 then rank the rest by phase, whether they are still enrolling, placebo use, safety oversight,
                 and whether you can keep the drug after the study ends.
               </p>
@@ -6171,8 +6171,8 @@
               Snapshot · {data.total} trials ranked for {patient?.condition || 'this condition'}
             </h3>
             {dropped > 0 && (
-              <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', color: theme.yellow, lineHeight: 1.45 }}>
-                We removed {dropped} stud{dropped === 1 ? 'y' : 'ies'} whose listed conditions did not match <strong>{patient?.condition || 'your search'}</strong>.
+              <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.45 }}>
+                {dropped} other stud{dropped === 1 ? 'y was' : 'ies were'} found on ClinicalTrials.gov for a different condition and hidden from this list.
               </p>
             )}
             <div style={{ display: 'grid', gap: '0.85rem' }}>
@@ -6376,14 +6376,16 @@
         return (
         <div style={panelStyle}>
           <TrialScoreExplainer trial={whyTrial} onClose={() => setWhyTrial(null)} />
-          <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-            Top {Math.min(25, rows.length)} trials · {data.total} matched after filtering
-            {(data.breakdown?.droppedWrongCondition || 0) > 0 && (
-              <span style={{ fontSize: '0.78rem', color: theme.textDim, fontWeight: 400 }}>
-                ({data.breakdown.droppedWrongCondition} wrong-disease studies removed)
-              </span>
-            )}
+            <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+            Top {Math.min(25, rows.length)} trials · {data.total} matched your search
           </h3>
+          {(data.breakdown?.droppedWrongCondition || 0) > 0 && (
+            <p style={{ margin: '0 0 0.65rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.45 }}>
+              We also found {data.breakdown.droppedWrongCondition} other studies on ClinicalTrials.gov that were
+              for a <strong>different condition</strong> (for example, a drug-name search that pulled in unrelated diseases).
+              Those are hidden so this list stays focused on {data.query?.condition || 'your search'}.
+            </p>
+          )}
           <p style={{ margin: '0 0 0.65rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.45 }}>
             Tap <strong>Why this score?</strong> on any row to see exactly how the number was built.
           </p>
