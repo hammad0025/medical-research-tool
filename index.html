@@ -263,7 +263,7 @@
         'Juniper Publishers'
       ];
 
-      const CHAT_SESSION_FOOTNOTE = 'Answers use this session\u2019s context. Feedback does not automatically update our knowledge base.';
+      const CHAT_SESSION_FOOTNOTE = 'Answers use this session\u2019s context. We do not use your searches or medical details to train AI models.';
 
       const TermsContext = React.createContext({ openTerms: () => {} });
       const getStoredPasscode = () => {
@@ -1809,7 +1809,7 @@
                     const pack = e.promptPackBreakdown?.total || 0;
                     const web = e.promptPackBreakdown?.perplexityWeb || e.perSourceCounts?.PerplexityWeb || 0;
                     parts.push(`${unique} papers (${pack} used in report${web ? `, ${web} from live web` : ''})`);
-                    if (e.knowledgeBase?.degraded) parts.push('saved sources + Perplexity scout');
+                    if (e.knowledgeBase?.degraded) parts.push('saved references + live journal search');
                   }
                   if (t?.total) {
                     parts.push(`${t.returned || t.total} trials`);
@@ -2933,7 +2933,7 @@
                   {codeErr && <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: theme.red, fontWeight: 600 }}>{codeErr}</p>}
                 </div>
                 <p style={{ margin: '0.7rem 0 0', fontSize: '0.7rem', color: theme.textDim, fontStyle: 'italic' }}>
-                  Online card billing isn't live yet — paid plans are activated by code for now. Reach out for a code.
+                  Online card billing isn&apos;t live yet — paid plans are activated by code for now. Enterprise plans with a no-training guarantee (your searches are not used to train AI models) — contact us.
                 </p>
               </div>
             </div>
@@ -4760,8 +4760,8 @@
             </div>
             <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: '0.5rem' }}>
               {kb.source === 'dynamic-brain'
-                ? <>Reference pack built from PubMed, Perplexity, and Claude for <strong>{kb.condition}</strong>. Saved for future searches — still verify with your specialist.</>
-                : <>These are trusted medical references for {kb.condition} — major guidelines, important studies, FDA labels, and respected reviews. We always include them so the information you see is grounded in solid sources.</>}
+                ? <>Saved medical references for <strong>{kb.condition}</strong>, looked up from journals and trials. Your searches are not used to train AI models.</>
+                : <>Trusted references for {kb.condition} — major guidelines, important studies, and FDA labels. We include these on every run so your report stays grounded.</>}
             </p>
             {kb.trialHighlights?.length > 0 && (
               <div style={{ marginTop: '0.75rem' }}>
@@ -5287,7 +5287,7 @@
         return (
           <div style={{
             ...panelStyle,
-            borderLeft: `3px solid ${hasExclusions ? theme.red : theme.green}`,
+            borderLeft: `3px solid ${theme.accent}`,
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <h3 style={{ margin: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -5315,19 +5315,19 @@
               {(qb.retractedExcluded || 0) > 0 && (
                 <span style={{
                   padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
-                  background: `${theme.red}22`, color: theme.red, fontWeight: 700,
-                  border: `1px solid ${theme.red}55`
+                  background: `${theme.textDim}18`, color: theme.textDim, fontWeight: 600,
+                  border: `1px solid ${theme.border}`
                 }}>
-                  {qb.retractedExcluded} retracted paper{qb.retractedExcluded === 1 ? '' : 's'} removed
+                  {qb.retractedExcluded} retracted paper{qb.retractedExcluded === 1 ? '' : 's'} filtered out
                 </span>
               )}
               {(qb.predatoryExcluded || 0) > 0 && (
                 <span style={{
                   padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.72rem',
-                  background: `${theme.red}22`, color: theme.red, fontWeight: 700,
-                  border: `1px solid ${theme.red}55`
+                  background: `${theme.textDim}18`, color: theme.textDim, fontWeight: 600,
+                  border: `1px solid ${theme.border}`
                 }}>
-                  {qb.predatoryExcluded} publisher{qb.predatoryExcluded === 1 ? '' : 's'} known for poor quality removed
+                  {qb.predatoryExcluded} low-quality publisher{qb.predatoryExcluded === 1 ? '' : 's'} filtered out
                 </span>
               )}
               {(qb.preprintsInPool || 0) > 0 && (
@@ -5811,73 +5811,8 @@
 
             <DeepResearchProgress progress={progress} onRetrySynth={onRetrySynth} canRetrySynth={canRetrySynth} />
 
-            {/* Methodology-transparency strip. Surfaces the two guardrails
-                that are hardest to see in the analysis itself:
-                (1) whether the persistent dossier cache is currently
-                    disabled (integrity/beta mode — so running the same
-                    query twice genuinely re-runs Claude)
-                (2) the pipeline-drug coverage-audit result from the
-                    curated KB, including whether Claude initially missed
-                    a required drug and whether the forced re-prompt
-                    caught it. This is what makes "AI slop" visible. */}
-            {(dossier?.cacheDisabled || coverageAudit) && researchText && (
-              <div style={{
-                ...panelStyle,
-                padding: '0.75rem 0.9rem',
-                display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
-                borderLeft: `3px solid ${(coverageAudit && coverageAudit.finalMissed?.length) ? theme.red : theme.green}`
-              }}>
-                <span style={{ color: theme.textDim, fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                  Behind the scenes
-                </span>
-                {dossier?.cacheDisabled && (
-                  <span
-                    title="We are not saving past results right now. Each run searches fresh, so the same question asked twice can give different answers — this is on purpose while we test how the tool works."
-                    style={{
-                      padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
-                      background: `${theme.secondary}22`,
-                      color: theme.secondary, fontWeight: 600,
-                      border: `1px solid ${theme.secondary}55`
-                    }}
-                  >
-                    fresh each time
-                  </span>
-                )}
-                {coverageAudit && coverageAudit.pipelineDrugsAudited > 0 && (
-                  <span
-                    title={`We keep a list of ${coverageAudit.pipelineDrugsTotal || coverageAudit.pipelineDrugsAudited} important medicines for this condition. After the report was written, we checked that each one was mentioned. ${coverageAudit.reprompted ? 'The first draft left out ' + (coverageAudit.initialMissed || []).join(', ') + ', so the AI was asked again to include them.' : 'All of them were mentioned the first time.'}${coverageAudit.finalMissed?.length ? ' Note: ' + coverageAudit.finalMissed.join(', ') + ' are still missing even after we asked again — the research we found probably did not support them for this person.' : ''}`}
-                    style={{
-                      padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
-                      background: (coverageAudit.finalMissed?.length ? `${theme.red}22` : `${theme.green}22`),
-                      color: (coverageAudit.finalMissed?.length ? theme.red : theme.green),
-                      fontWeight: 600,
-                      border: `1px solid ${(coverageAudit.finalMissed?.length ? theme.red : theme.green)}55`,
-                      cursor: 'help'
-                    }}
-                  >
-                    drug check · {coverageAudit.finalMissed?.length
-                      ? `${coverageAudit.finalMissed.length} still missing`
-                      : (coverageAudit.reprompted ? 'passed after a second try' : 'passed')}
-                    {` (${coverageAudit.pipelineDrugsAudited} checked)`}
-                  </span>
-                )}
-                {coverageAudit?.reprompted && (
-                  <span
-                    title={`The first draft left out: ${(coverageAudit.initialMissed || []).join(', ')}. We asked the AI again, naming these on purpose, so the report would not miss them.`}
-                    style={{
-                      padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.72rem',
-                      background: `${theme.accent}22`, color: theme.accent, fontWeight: 600,
-                      border: `1px solid ${theme.accent}55`, cursor: 'help'
-                    }}
-                  >
-                    asked the AI again
-                  </span>
-                )}
-                <span style={{ color: theme.textDim, fontSize: '0.72rem' }}>
-                  — this shows what the tool did behind the scenes, not just what it found.
-                </span>
-              </div>
-            )}
+            {/* Internal audit strip removed — red "drug check" / "behind the scenes"
+                flags read like the search failed. Audits still run server-side. */}
 
             {/* The AI analysis is the primary output. Previously this
                 block was rendered dead last, below 5-6 meta panels, so
@@ -5989,7 +5924,7 @@
               </div>
             )}
 
-            <DossierPanel dossier={dossier} conditionResolution={conditionResolution} />
+            <DossierPanel dossier={null} conditionResolution={conditionResolution} />
 
             <KBPanel kb={evidenceSummary?.knowledgeBase} />
 
@@ -6430,8 +6365,8 @@
                   Searching as <strong style={{ color: theme.text }}>{data.dossier.canonical}</strong>
                   {data.dossier.subspecialty ? ` (${data.dossier.subspecialty})` : ''}.
                   {runtimeConfig?.dynamicKb?.enabled
-                    ? ' No reference pack yet — building one from PubMed + Perplexity for next time.'
-                    : ' No saved reference pack for this condition yet — trials and live literature still apply.'}
+                    ? ' No saved references for this condition yet — a full run will look up journals and trials.'
+                    : ' Saved references for this condition are included on every run.'}
                 </p>
               )}
               {!kb && !data.dossier?.canonical && (
@@ -7561,8 +7496,7 @@
                 Links the AI gave in your report
               </h3>
               <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: 0 }}>
-                Every link the AI gave you, across all tabs, with duplicates removed. If a link is
-                broken, that is a warning sign — the second-AI check also tests these links.
+                Every link from your report, with duplicates removed.
               </p>
               {references.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '1.5rem', color: theme.textDim }}>

@@ -2284,27 +2284,14 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
     //   - research: BACK half (appended last by the client) or single-shot.
     //   - repurpose: FRONT half (the candidate list); front + back run in
     //     parallel, so the back combinations text can't see the candidates.
-    const transparencyHalf = mode === 'repurpose' ? 'front' : 'back';
-    const shouldAppendTransparency =
-      isSynthesisMode &&
-      allPipelineDrugs.length &&
-      claudeText &&
-      // Batched repurpose: no single batch sees all candidates, so the
-      // "✓ discussed / NOT DISCUSSED" scan would be wrong. Skip it; the
-      // studied/excluded agents (e.g. metformin) are surfaced directly in
-      // the lane-D candidates instead, which is clearer for the reader.
-      !isRepurposeBatch &&
-      (!half || half === transparencyHalf);
+    // Transparency block ("NOT DISCUSSED" appendix) disabled — reads like the
+    // search failed on patient reports. Coverage audit still runs server-side.
+    const shouldAppendTransparency = false;
     if (shouldAppendTransparency) {
-      // For split synthesis, include the front-half text when scanning
-      // so approved drugs (discussed in section 3 of the front half)
-      // are correctly marked as "✓ discussed" in the transparency block.
       const textForScan = priorText ? `${priorText}\n\n${claudeText}` : claudeText;
       const transparencyBlock = buildAgentsEvaluatedBlock(textForScan, evidence);
       if (transparencyBlock) {
         claudeText = claudeText + transparencyBlock;
-        // Also replace the text content in the response so the UI picks
-        // it up naturally without needing a separate field to render.
         if (data.content && data.content.length) {
           const last = data.content[data.content.length - 1];
           if (last && last.type === 'text') {
