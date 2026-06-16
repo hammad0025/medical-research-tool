@@ -28,8 +28,16 @@ import { getInfraStatus } from '../lib/infra-status.js';
 import {
   applyValidationFixes,
   injectApprovedTreatmentStubs,
-  allApprovedDrugsRendered
+  allApprovedDrugsRendered,
+  stripApprovedTreatmentsSection,
+  drugBaseKey,
+  parseHeadlinePercent,
+  clampToCompleteSentence
 } from '../lib/report-polish.js';
+import {
+  normalizePromise,
+  applyPatientPromiseAdjustment
+} from '../api/trials.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
 const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
@@ -480,6 +488,143 @@ if (/SUBGROUP \/ BIOMARKER EXCEPTION/i.test(researchSrc) &&
     pass('Approved-treatment guard: Section 3 prose retained until every approved drug is rendered');
   } else {
     fail(`Approved-treatment strip guard regression (before=${beforeAll} after=${afterAll})`);
+  }
+}
+
+// 17. BEHAVIORAL (Item 1): a dose/brand-suffixed approved drug card must NOT be
+//     duplicated by its KB stub. The dedup key derives from the leading drug
+//     name only ("Pirfenidone (Esbriet) — 2,403 mg/day" → "pirfenidone").
+{
+  if (drugBaseKey('Pirfenidone (Esbriet) — 2,403 mg/day') === 'pirfenidone' &&
+      drugBaseKey('**Nintedanib (Ofev)** — 150 mg twice daily') === 'nintedanib') {
+    pass('drugBaseKey strips dose/brand/markdown to the leading drug name');
+  } else {
+    fail(`drugBaseKey did not isolate the leading drug name (got "${drugBaseKey('Pirfenidone (Esbriet) — 2,403 mg/day')}")`);
+  }
+
+  const pipelineDrugs = [
+    { name: 'Pirfenidone', aliases: ['Esbriet'], approvalStatus: 'approved' },
+    { name: 'Nerandomilast', approvalStatus: 'approved' },
+    { name: 'Nintedanib', aliases: ['Ofev'], approvalStatus: 'approved' }
+  ];
+  // Rich cards already parsed WITH dose suffixes — must not be re-stubbed.
+  const richCards = [
+    { _type: 'treatment', treatment: 'Pirfenidone (Esbriet) — 2,403 mg/day' },
+    { _type: 'treatment', treatment: '**Nerandomilast (Jascayd)** — 18 mg twice daily' },
+    { _type: 'treatment', treatment: 'Nintedanib (Ofev) — 150 mg twice daily' }
+  ];
+  const merged = injectApprovedTreatmentStubs(richCards, pipelineDrugs);
+  const dupePirf = merged.filter((t) => /pirfenidone/i.test(t.treatment || '')).length;
+  const dupeNeran = merged.filter((t) => /nerandomilast/i.test(t.treatment || '')).length;
+  const dupeNint = merged.filter((t) => /nintedanib|ofev/i.test(t.treatment || '')).length;
+  if (dupePirf === 1 && dupeNeran === 1 && dupeNint === 1 && merged.length === 3) {
+    pass('Dose-suffixed approved cards are NOT duplicated by KB stubs (Item 1)');
+  } else {
+    fail(`Dose-suffixed dedup regression (pirf=${dupePirf} neran=${dupeNeran} nint=${dupeNint} total=${merged.length})`);
+  }
+
+  // A stub-only approved drug (no rich card yet) still surfaces exactly once.
+  const stubOnly = injectApprovedTreatmentStubs(
+    richCards,
+    [...pipelineDrugs, { name: 'Inhaled treprostinil', aliases: ['Yutrepia', 'Tyvaso'], approvalStatus: 'approved' }]
+  );
+  const trep = stubOnly.filter((t) => /treprostinil/i.test(t.treatment || '')).length;
+  if (trep === 1 && stubOnly.length === 4) {
+    pass('Stub-only approved drug still renders once alongside rich cards (Item 1)');
+  } else {
+    fail(`Stub-only injection regression (treprostinil=${trep} total=${stubOnly.length})`);
+  }
+}
+
+// 18. BEHAVIORAL (Item 4): the headline efficacy/safety percent is parsed even
+//     when bolded, and an incidental later percent is not grabbed instead.
+{
+  const efficacy = parseHeadlinePercent('**70**% — slows FVC decline; ~10% of patients see GI upset');
+  const safety = parseHeadlinePercent('82% — higher = safer; serious AEs in 5%');
+  const noPct = parseHeadlinePercent('Mechanism: tyrosine kinase inhibitor');
+  if (efficacy === 70 && safety === 82 && noPct === null) {
+    pass('parseHeadlinePercent reads the bolded headline percent, not a later incidental one (Item 4)');
+  } else {
+    fail(`Headline percent parse regression (efficacy=${efficacy} safety=${safety} noPct=${noPct})`);
+  }
+}
+
+// 19. BEHAVIORAL (Item 2): stripping Section 3 prose leaves a "## 3. Approved
+//     Treatments" placeholder so report numbering stays 1, 2, 3, 4.
+{
+  const report = [
+    '## 2. Top Centers',
+    'Some centers.',
+    '## 3. Approved Treatments (Backed by Research)',
+    'PROVIDER: ...long prose card content...',
+    'TREATMENT: Pirfenidone',
+    '## 4. Clinical Trials',
+    'Trials prose.'
+  ].join('\n\n');
+  const stripped = stripApprovedTreatmentsSection(report);
+  const hasPlaceholderHeading = /^##\s*3\.\s*Approved Treatments\s*$/im.test(stripped);
+  const hasSeeCardsLine = /See the treatment cards above/i.test(stripped);
+  const stillHas4 = /##\s*4\.\s*Clinical Trials/i.test(stripped);
+  const proseGone = !/PROVIDER: \.\.\.long prose/.test(stripped);
+  if (hasPlaceholderHeading && hasSeeCardsLine && stillHas4 && proseGone) {
+    pass('Section 3 placeholder retained after stripping prose — numbering stays continuous (Item 2)');
+  } else {
+    fail(`Section 3 placeholder regression (heading=${hasPlaceholderHeading} line=${hasSeeCardsLine} sec4=${stillHas4} proseGone=${proseGone})`);
+  }
+}
+
+// 20. BEHAVIORAL (Item 3): a card field cut mid-word is clamped to the last
+//     complete sentence; a clean field is left untouched.
+{
+  const truncated = clampToCompleteSentence(
+    'Slows lung-function decline. Risk of bleeding is increased — nint'
+  );
+  const clean = clampToCompleteSentence('Slows FVC decline; generally well tolerated.');
+  const noFalseChop = clampToCompleteSentence('Pirfenidone (Esbriet) — 2,403 mg/day');
+  if (truncated === 'Slows lung-function decline.' &&
+      clean === 'Slows FVC decline; generally well tolerated.' &&
+      noFalseChop === 'Pirfenidone (Esbriet) — 2,403 mg/day') {
+    pass('clampToCompleteSentence drops mid-word fragments without chopping clean fields (Item 3)');
+  } else {
+    fail(`Mid-word clamp regression (truncated="${truncated}" clean="${clean}" noFalseChop="${noFalseChop}")`);
+  }
+}
+
+// 21. BEHAVIORAL (Item 7): a recruiting trial ranks ABOVE an otherwise-identical
+//     completed trial, and the PANTHER aza+pred+NAC arm is flagged + sunk.
+{
+  const RAW = 80; // identical accumulated raw before status adjustment
+  const recruiting = applyPatientPromiseAdjustment(RAW, { status: 'RECRUITING', nctId: 'NCT_REC' });
+  const completed = applyPatientPromiseAdjustment(RAW, { status: 'COMPLETED', nctId: 'NCT_DONE' });
+  const recNorm = normalizePromise(recruiting.score);
+  const doneNorm = normalizePromise(completed.score);
+  if (recNorm > doneNorm && !recruiting.caution && doneNorm > 0) {
+    pass(`Recruiting outranks completed at equal raw (${recNorm}/100 > ${doneNorm}/100), completed not hidden (Item 7)`);
+  } else {
+    fail(`Trial ranking regression (recruiting=${recNorm} completed=${doneNorm})`);
+  }
+
+  const panther = applyPatientPromiseAdjustment(60, {
+    status: 'TERMINATED', nctId: 'NCT00650091', briefTitle: 'Prednisone Azathioprine NAC IPF (PANTHER)'
+  });
+  if (panther.caution && /harm/i.test(panther.caution) && normalizePromise(panther.score) < doneNorm) {
+    pass('PANTHER aza+pred+NAC arm (NCT00650091) flagged with caution and ranked low (Item 7)');
+  } else {
+    fail(`PANTHER caution/ranking regression (caution=${!!panther.caution} score=${normalizePromise(panther.score)})`);
+  }
+}
+
+// 22. BEHAVIORAL (0-100 scale): normalized promise score never exceeds 100 or
+//     drops below 0, and the UI labels the trial score "/100".
+{
+  const hi = normalizePromise(250);
+  const lo = normalizePromise(-300);
+  const mid = normalizePromise(35);
+  const labelled = /Score \/100/.test(indexSrc) && /\{trial\.promiseScore\}\/100|promiseScore\}<span[^>]*>\/100/.test(indexSrc);
+  if (hi === 100 && lo === 0 && mid > 0 && mid < 100 && labelled) {
+    pass('Promise score clamped/scaled to 0-100 and UI labels it "/100"');
+  } else {
+    fail(`0-100 scale regression (hi=${hi} lo=${lo} mid=${mid} labelled=${labelled})`);
   }
 }
 
