@@ -146,7 +146,9 @@ const resolveMaxTokens = (model, mode, phase, half, isBatch) => {
   // every RP/IPF run (sections cut off mid-sentence). Pro allows ~300s/invoke.
   if (phase === 'synthesize' && mode === 'research') {
     if (half === 'back') return isOpus ? 3600 : 5200;
-    return isOpus ? 3200 : 4800;
+    // Front holds sections 1-3; the last approved-treatment card (e.g. the
+    // nintedanib RISKS line) was being cut mid-word at 4800. Give it headroom.
+    return isOpus ? 3600 : 5400;
   }
   if (isOpus) return 1400;
   if (m.includes('sonnet')) return 2000;
@@ -1138,7 +1140,7 @@ Your output MUST include the following 3 sections IN THIS ORDER, and nothing els
 - One-sentence definition.
 - Prevalence / incidence if you have a cited source with a number; otherwise one plain sentence ("Affects roughly X people" or "Relatively rare — exact rates vary by region") — never write "no grounded prevalence".
 - Typical trajectory if untreated.
-- Primary medical specialty + one or two named top experts (with links).
+- Primary medical specialty + one or two named top experts (with links). These are the report's headline experts — do NOT repeat the same people in Section 2's named-experts list; Section 2 should name DIFFERENT experts.
 - **If patient geneticVariant / gene is provided:** name the gene, inheritance pattern if known, and whether approved gene therapies (e.g. Luxturna for RPE65, CRISPR trials) apply ONLY to that mutation — never imply one drug covers all genetic forms of the disease.
 - **Lifestyle & environment (from dossier lifestyleCategories + KB lifestyleRecommendations):** 3-6 bullets framed as "Research suggests…" / "Studies report…" (e.g. IPF → GERD management, feather pillows/bird exposure, pulm rehab; RP → UV protection). Every bullet needs a clickable link from the evidence pack when possible.
 - **Key safety flags (top 3 redFlags from dossier/KB):** literature-framed cautions with links — NOT patient directives.
@@ -1149,7 +1151,9 @@ Use the intake context and evidence below as your starting list; add or correct 
 | Center | City | URL / Phone | Why it leads |
 |---|---|---|---|
 
-Then list 3–5 individual **named experts** with affiliations. Peer-recognised only — no clinic self-advertising.
+CENTER-LINK RULE (this table only): link each center to its OFFICIAL institutional website (e.g. [MHH Hannover](https://www.mhh.de)) ONLY when you are confident of the exact domain. If you are NOT confident of the real institutional URL, leave the center name as PLAIN TEXT — do NOT insert a "https://www.google.com/search?q=…" placeholder link in this table. A real link or none; never a search-engine placeholder for a named center here.
+
+Then list 3–5 individual **named experts** with affiliations. Peer-recognised only — no clinic self-advertising. DE-DUPLICATE ACROSS SECTIONS: any expert you already named in Section 1 must NOT be repeated in this list — each named expert appears exactly once in the whole report. Pick different experts here, or note "(see Section 1)" rather than re-listing the same person.
 
 ## 3. Approved Treatments (Backed by Research)
 Include **every** drug the KB / REQUIRED MENTIONS marks as **approved** for this condition (e.g. IPF: nerandomilast/Jascayd, pirfenidone/Esbriet, AND nintedanib/Ofev — all three cards, not just the newest). One card per approved drug. Quality over quantity for off-label extras — see FDA-STATUS HONESTY RULE; do NOT pad with supplements.
@@ -1172,8 +1176,8 @@ PROVIDER: <doctor / clinic / manufacturer with phone or URL>
 TREATMENT: <drug / biologic / device / surgery; include dose, strength, route>
 FDA_STATUS: <approved | off-label | investigational | expanded access | compassionate use | not FDA regulated>
 LENGTH_FREQUENCY: <duration + frequency>
-EFFICACY: <1-100>% — <one-line justification with grounded citation>
-SAFETY: <1-100>% — <higher = safer, one-line justification>
+EFFICACY: <1-100>% — <one-line justification with grounded citation>  (the number MUST be the very first characters of this line, plain digits + "%", NEVER bolded e.g. "**70**%"; the headline percent comes first, then the dash and justification)
+SAFETY: <1-100>% — <higher = safer, one-line justification>  (same rule: plain "NN%" at the start, never bold, never a different incidental percent first)
 RISKS: <serious AEs + THIS patient's risk given meds/comorbidities>
 INTERACTIONS: <named interactions vs this patient's meds, or "None identified">
 COST: <USD range, US insurance coverage note>
@@ -1208,7 +1212,7 @@ Your output MUST include the following 5 sections IN THIS ORDER, and nothing els
 | NCT ID | Phase | Title | Top Center? | Accepting? | URL |
 |---|---|---|---|---|---|
 
-**B. Open-Label Extension (OLE):** Up to 3 lines — NCT, sponsor, status. Plain English first: "After the main trial ends, participants may keep the study drug." If none: one sentence + suggest asking trial PI about OLE.
+**B. Open-Label Extension (OLE):** Up to 3 lines — NCT, sponsor, status. Plain English first: "After the main trial ends, participants may keep the study drug." If none: one sentence + suggest asking trial PI about OLE. DO NOT repeat an NCT here that you already listed in the Recruiting trials table above — each trial appears in ONE pathway only. If a recruiting study is itself an OLE, keep it in the recruiting table and note "(open-label extension)" there instead of re-listing it here.
 
 **C. Expanded Access:** One bullet per EA record, or ONE sentence if zero.
 

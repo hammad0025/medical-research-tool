@@ -55,6 +55,49 @@ const containsAny = (text, hints) => {
   return hints.some(h => lower.includes(h));
 };
 
+// ---- Patient-facing "promise" score (0-100) -------------------------------
+// The score rewards trials a patient can ACT on (recruiting / accepting /
+// accessible). Non-enrolling statuses are penalised so a finished or stopped
+// trial never outranks one still taking patients (Item 7). Stopped-for-harm /
+// negative trials (incl. the PANTHER aza+pred+NAC arm) get a caution + penalty.
+export const NON_ENROLLING_PENALTY = { COMPLETED: -55, TERMINATED: -60, WITHDRAWN: -60, SUSPENDED: -60 };
+export const ACTIVE_NOT_RECRUITING_PENALTY = -25;
+const HARMFUL_PATTERN = /futilit|harm|safety concern|adverse|increased (mortalit|death|risk)|stopped (early|for)|lack of efficac|did not meet|negative (result|trial)/i;
+// PANTHER-IPF prednisone+azathioprine+NAC arm — stopped for increased death
+// and hospitalisation. Never let it rank as a promising option.
+export const HARMFUL_NCTS = new Set(['NCT00650091']);
+
+// Linear map of the raw additive sum into a 0-100 scale (the UI shows "/100").
+// Monotonic, so it preserves relative ranking order while keeping distinct
+// trials distinct instead of clamping many of them at 100.
+export const PROMISE_RAW_MIN = -80;
+export const PROMISE_RAW_MAX = 150;
+export const normalizePromise = (raw) => {
+  const pct = ((Number(raw) || 0) - PROMISE_RAW_MIN) / (PROMISE_RAW_MAX - PROMISE_RAW_MIN) * 100;
+  return Math.max(0, Math.min(100, Math.round(pct)));
+};
+
+// Apply the status penalty + harmful-trial caution to an accumulated raw score.
+export const applyPatientPromiseAdjustment = (rawScore, study = {}) => {
+  let score = Number(rawScore) || 0;
+  const STATUS = String(study.status || '').toUpperCase();
+  const nct = String(study.nctId || '').toUpperCase();
+  if (NON_ENROLLING_PENALTY[STATUS] != null) score += NON_ENROLLING_PENALTY[STATUS];
+  else if (STATUS === 'ACTIVE_NOT_RECRUITING') score += ACTIVE_NOT_RECRUITING_PENALTY;
+
+  const stoppedHarmful = HARMFUL_NCTS.has(nct) ||
+    (['TERMINATED', 'SUSPENDED', 'WITHDRAWN'].includes(STATUS) && HARMFUL_PATTERN.test(study.whyStopped || '')) ||
+    HARMFUL_PATTERN.test(`${study.briefTitle || ''} ${study.whyStopped || ''}`);
+  let caution = null;
+  if (stoppedHarmful) {
+    score -= 30;
+    caution = HARMFUL_NCTS.has(nct)
+      ? 'Stopped for harm — this regimen increased death/hospitalisation. Listed for context only, not as a recommended option.'
+      : 'This trial was stopped or reported a negative result — discuss with your doctor before pursuing.';
+  }
+  return { score, caution };
+};
+
 const extractContacts = (contactsLocationsModule = {}) => {
   const centralContacts = contactsLocationsModule.centralContacts || [];
   const overallOfficials = contactsLocationsModule.overallOfficials || [];
@@ -112,6 +155,7 @@ const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
   const overallStatus = status.overallStatus;
   const isRecruiting = ['RECRUITING', 'NOT_YET_RECRUITING', 'ENROLLING_BY_INVITATION'].includes(overallStatus);
   const acceptingNew = overallStatus === 'RECRUITING' || overallStatus === 'ENROLLING_BY_INVITATION';
+  const whyStopped = status.whyStopped || '';
 
   const studyType = design.studyType;
   const isTreatment = studyType === 'INTERVENTIONAL';
@@ -223,6 +267,7 @@ const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
     status: overallStatus,
     acceptingNewPatients: acceptingNew,
     isRecruiting,
+    whyStopped,
     startDate: status.startDateStruct?.date,
     completionDate: status.completionDateStruct?.date,
     lastUpdate: status.lastUpdatePostDateStruct?.date,
@@ -648,7 +693,7 @@ export default async function handler(req, res) {
       if (phase.includes('PHASE3')) score += 40;
       else if (phase.includes('PHASE2')) score += 25;
       else if (phase.includes('PHASE1')) score += 10;
-      if (s.acceptingNewPatients) score += 15;
+      if (s.acceptingNewPatients) score += 25;
       if (!s.hasPlacebo) score += 10;
       if (s.designations.fastTrack) score += 5;
       if (s.designations.breakthrough) score += 8;
@@ -668,7 +713,13 @@ export default async function handler(req, res) {
       ) && (s.relevanceScore || 0) > -100) {
         score += 10;
       }
-      s.promiseScore = score;
+
+      // Rank patients toward trials they can actually join, flag stopped/harmful
+      // ones, and rescale the raw sum to a clear 0-100 score (Item 7 + 0-100).
+      const { score: adjustedScore, caution } = applyPatientPromiseAdjustment(score, s);
+      s.caution = caution;
+      s.promiseScoreRaw = adjustedScore;
+      s.promiseScore = normalizePromise(adjustedScore);
     });
 
     // Drop clear wrong-disease trials; keep weak cell/gene therapy trials when not hard-mismatched.

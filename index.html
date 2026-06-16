@@ -694,10 +694,9 @@
           }
           if (!cur) return;
           const field = key.replace(':', '').toLowerCase();
-          cur[field] = collectBlock(text, i, TREATMENT_KEYS);
+          cur[field] = clampToCompleteSentence(collectBlock(text, i, TREATMENT_KEYS));
           if (field === 'efficacy' || field === 'safety') {
-            const num = cur[field].match(/(\d{1,3})\s*%/);
-            cur[field + '_pct'] = num ? parseInt(num[1]) : null;
+            cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
             cur[field + '_note'] = cur[field];
           }
         });
@@ -738,8 +737,7 @@
           const field = key.replace(':', '').toLowerCase();
           cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
           if (field === 'efficacy_hypothesis' || field === 'safety' || field === 'confidence') {
-            const num = cur[field].match(/(\d{1,3})\s*%/);
-            cur[field + '_pct'] = num ? parseInt(num[1]) : null;
+            cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
             // Split out the "why" prose so the UI can show it under
             // each meter bar. Without this, users see "40% / 75% / 70%"
             // floating with no rationale.
@@ -954,6 +952,10 @@
         return s;
       };
 
+      // Keep a "## 3. Approved Treatments" placeholder so report numbering stays
+      // continuous (1, 2, 3, 4…) even though the prose is rendered as cards.
+      const SECTION_3_PLACEHOLDER =
+        '## 3. Approved Treatments\n\nSee the treatment cards above for every approved option, with dosing, evidence, and patient-specific interactions.';
       const stripApprovedTreatmentsSection = (text) => {
         if (!text) return text;
         const s = String(text);
@@ -961,17 +963,28 @@
         if (start < 0) return s;
         const rest = s.slice(start);
         const end = rest.search(/^##\s*4\./im);
-        if (end < 0) return s.slice(0, start).trim();
-        return (s.slice(0, start) + s.slice(start + end)).replace(/\n{3,}/g, '\n\n').trim();
+        const placeholder = `${SECTION_3_PLACEHOLDER}\n\n`;
+        if (end < 0) return (s.slice(0, start) + placeholder).replace(/\n{3,}/g, '\n\n').trim();
+        return (s.slice(0, start) + placeholder + s.slice(start + end)).replace(/\n{3,}/g, '\n\n').trim();
       };
 
       // Mirror of lib/report-polish.js — index.html cannot import modules, so
       // the approved-treatment injection logic is duplicated here for runtime.
-      const normalizeDrugKey = (name) =>
-        String(name || '').toLowerCase()
-          .replace(/\(.*?\)/g, '')
-          .replace(/[^a-z0-9]/g, '')
-          .trim();
+      // Dedup key = ONLY the leading drug name (strip markdown/parens, cut at
+      // first dash/colon/digit) so a dose-suffixed card ("Pirfenidone (Esbriet)
+      // — 2,403 mg/day") still matches the bare stub "pirfenidone".
+      const normalizeDrugKey = (name) => {
+        let s = String(name || '').replace(/\*/g, '');
+        s = s.replace(/\(.*?\)/g, ' ');
+        s = s.split(/[—–\-:|/]|\d/)[0];
+        return s.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+      };
+      const drugKeysMatch = (a, b) => {
+        if (!a || !b) return false;
+        if (a === b) return true;
+        if (a.length >= 4 && b.length >= 4 && (a.startsWith(b) || b.startsWith(a))) return true;
+        return false;
+      };
       const approvedPipelineDrugs = (pipelineDrugs) =>
         (Array.isArray(pipelineDrugs) ? pipelineDrugs : [])
           .filter((d) => /^approved/i.test(String((d && d.approvalStatus) || '')));
@@ -987,10 +1000,10 @@
         const list = Array.isArray(parsed) ? parsed : [];
         const approved = approvedPipelineDrugs(pipelineDrugs);
         if (!approved.length) return list;
-        const have = new Set();
+        const cardKeys = [];
         for (const t of list) {
           const k = normalizeDrugKey(t && t.treatment);
-          if (k) have.add(k);
+          if (k) cardKeys.push(k);
         }
         const stubs = [];
         const added = new Set();
@@ -999,7 +1012,7 @@
           if (!key || added.has(key)) continue;
           const already = drugNameVariants(d).some((nm) => {
             const k = normalizeDrugKey(nm);
-            return k && have.has(k);
+            return k && cardKeys.some((ck) => drugKeysMatch(k, ck));
           });
           if (already) continue;
           added.add(key);
@@ -1021,17 +1034,45 @@
       const allApprovedDrugsRendered = (pipelineDrugs, treatments) => {
         const approved = approvedPipelineDrugs(pipelineDrugs);
         if (!approved.length) return true;
-        const have = new Set();
+        const cardKeys = [];
         for (const t of (Array.isArray(treatments) ? treatments : [])) {
           const k = normalizeDrugKey(t && t.treatment);
-          if (k) have.add(k);
+          if (k) cardKeys.push(k);
         }
         return approved.every((d) =>
           drugNameVariants(d).some((nm) => {
             const k = normalizeDrugKey(nm);
-            return k && have.has(k);
+            return k && cardKeys.some((ck) => drugKeysMatch(k, ck));
           })
         );
+      };
+
+      // Mirror of lib/report-polish.js parseHeadlinePercent — strip markdown
+      // bold, prefer the headline percent at the start of the field.
+      const parseHeadlinePercent = (text) => {
+        if (text == null) return null;
+        const cleaned = String(text).replace(/\*/g, '');
+        let m = cleaned.match(/^\s*(\d{1,3})\s*%/);
+        if (!m) m = cleaned.match(/(\d{1,3})\s*%/);
+        if (!m) return null;
+        const n = parseInt(m[1], 10);
+        return n >= 0 && n <= 100 ? n : null;
+      };
+
+      // Mirror of lib/report-polish.js clampToCompleteSentence — drop a trailing
+      // mid-word fragment from a card field when a complete sentence precedes it.
+      const clampToCompleteSentence = (text) => {
+        const s = String(text == null ? '' : text).trim();
+        if (!s) return s;
+        if (/[.!?)\]%"]$/.test(s)) return s;
+        const m = s.match(/^([\s\S]*[.!?])(?=\s)([\s\S]*)$/);
+        if (!m) return s;
+        const head = m[1].trim();
+        const tail = m[2].trim();
+        if (!tail || head.length < 20) return s;
+        const danglingDash = /[—–-]\s*\S{0,5}$/.test(tail);
+        const shortFragment = tail.length <= 15;
+        return (danglingDash || shortFragment) ? head : s;
       };
 
       const extractLinksFromText = (text) => {
@@ -6115,11 +6156,9 @@
                   ✓ Found {candidates.length} drug & supplement idea{candidates.length === 1 ? '' : 's'} (includes OTC supplements with literature + logic-based prescription ideas; studied/failed drugs excluded).
                 </p>
               )}
-              {runMeta?.repurposeQuality && !runMeta.repurposeQuality.ok && (
+              {runMeta?.repurposeQuality && runMeta.repurposeQuality.totalCandidates < 8 && (
                 <p style={{ color: theme.yellow, fontSize: '0.85rem' }}>
-                  ⚠ Got {runMeta.repurposeQuality.totalCandidates} of {runMeta.repurposeQuality.target} drug ideas
-                  {runMeta.repurposeQuality.lanesRetried ? ` (${runMeta.repurposeQuality.lanesRetried} batches retried)` : ''}.
-                  Run again — your search is saved.
+                  ⚠ This run returned fewer drug ideas than usual. Tap <strong>Find drug ideas</strong> again — your search is saved.
                 </p>
               )}
             </div>
@@ -6634,6 +6673,14 @@
           why: 'Runs in a region where safety data is harder to verify from the US.' });
         if (s.oversight?.oversightHasDMC) chunks.push({ label: 'Safety watchdog', value: '+4', color: theme.green,
           why: 'An independent team monitors safety and can stop the study early if needed.' });
+        const STATUS = String(s.status || '').toUpperCase();
+        if (['COMPLETED'].includes(STATUS)) chunks.push({ label: 'Already finished', value: '-55', color: theme.red,
+          why: 'This study has finished — you cannot join it. Ranked below trials still taking patients.' });
+        else if (['TERMINATED', 'WITHDRAWN', 'SUSPENDED'].includes(STATUS)) chunks.push({ label: 'Stopped / closed', value: '-60', color: theme.red,
+          why: 'This study was stopped or withdrawn — you cannot join it. Ranked below trials still taking patients.' });
+        else if (STATUS === 'ACTIVE_NOT_RECRUITING') chunks.push({ label: 'Closed to new patients', value: '-25', color: theme.yellow,
+          why: 'The study is ongoing but no longer signing up new participants.' });
+        if (s.caution) chunks.push({ label: 'Safety caution', value: '-30', color: theme.red, why: s.caution });
         return chunks;
       };
 
@@ -6655,7 +6702,7 @@
                   {trial.briefTitle}
                 </div>
                 <div style={{ fontSize: '0.78rem', color: theme.textDim, marginTop: 2 }}>
-                  {trial.nctId} · Promise score <strong style={{ color: theme.text }}>{trial.promiseScore}</strong>
+                  {trial.nctId} · Promise score <strong style={{ color: theme.text }}>{trial.promiseScore}/100</strong>
                   {trial.relevanceLabel && <> · Match: <strong style={{ color: theme.text }}>{trial.relevanceLabel}</strong></>}
                 </div>
               </div>
@@ -6680,7 +6727,10 @@
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: '0.75rem' }}>
+            <p style={{ marginTop: '0.75rem', marginBottom: 0, fontSize: '0.76rem', color: theme.textDim, lineHeight: 1.45 }}>
+              These factors are combined and scaled to a <strong>0–100</strong> promise score — higher means more promising for a patient who wants to act now.
+            </p>
+            <div style={{ marginTop: '0.6rem' }}>
               <a href={trial.url} target="_blank" rel="noopener noreferrer" style={{ color: theme.accent, fontWeight: 600, fontSize: '0.85rem' }}>
                 Open on ClinicalTrials.gov ↗
               </a>
@@ -6756,7 +6806,7 @@
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
               <thead>
                 <tr style={{ background: theme.accentSoft, borderBottom: `2px solid ${theme.accent}` }}>
-                  {['Title / NCT','Phase','Status','Accepting','Placebo','Special status','Countries','Safety checks','Score',''].map(h => (
+                  {['Title / NCT','Phase','Status','Accepting','Placebo','Special status','Countries','Safety checks','Score /100',''].map(h => (
                     <th key={h} style={{ padding: '0.6rem', textAlign: 'left', color: theme.accent, fontWeight: 700 }}>{h}</th>
                   ))}
                 </tr>
@@ -6785,6 +6835,16 @@
                               {s.relevanceLabel}
                             </span>
                           )}
+                          {s.caution && (
+                            <div title={s.caution} style={{
+                              marginTop: 4, fontSize: '0.68rem', fontWeight: 700,
+                              padding: '0.12rem 0.4rem', borderRadius: 6,
+                              color: theme.red, border: `1px solid ${theme.red}55`, background: `${theme.red}12`,
+                              display: 'inline-block', cursor: 'help'
+                            }}>
+                              ⚠ Stopped / negative
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '0.6rem' }}>{(s.phases || []).join(', ') || '—'}</td>
                         <td style={{ padding: '0.6rem' }}>{s.status}</td>
@@ -6808,7 +6868,7 @@
                           {s.oversight?.oversightHasDMC ? <span title="An independent safety team watches the study and can stop it early if something looks unsafe.">Safety team ✓ </span> : ''}{s.oversight?.fdaRegulatedDrug ? <span title="The drug is made under FDA rules.">FDA-checked drug ✓</span> : ''}
                         </td>
                         <td style={{ padding: '0.6rem', fontWeight: 700 }}>
-                          <div>{s.promiseScore}</div>
+                          <div>{s.promiseScore}<span style={{ fontWeight: 400, fontSize: '0.72rem', color: theme.textDim }}>/100</span></div>
                           <button
                             type="button"
                             onClick={() => {
@@ -7303,15 +7363,13 @@
             <AdSlot runtimeConfig={runtimeConfig} slotKey="repurposeTop" />
             <RepurposeHero patient={patient} busy={busy} runResearch={runResearch} />
 
-            {hasRun && runMeta?.repurposeQuality && !runMeta.repurposeQuality.ok && (
+            {hasRun && runMeta?.repurposeQuality && runMeta.repurposeQuality.totalCandidates < 8 && (
               <div style={{
                 ...panelStyle, padding: '0.75rem 1rem',
                 borderLeft: `3px solid ${theme.yellow}`,
                 background: `${theme.yellow}12`, fontSize: '0.86rem', color: theme.text, lineHeight: 1.5
               }}>
-                <strong>Incomplete run.</strong> Got {runMeta.repurposeQuality.totalCandidates} of {runMeta.repurposeQuality.target} drug ideas
-                {runMeta.repurposeQuality.lanesRetried ? ` (${runMeta.repurposeQuality.lanesRetried} batch${runMeta.repurposeQuality.lanesRetried === 1 ? '' : 'es'} retried)` : ''}.
-                Tap <strong>Find drug ideas</strong> again — your search is saved and the retry is usually faster.
+                <strong>Fewer ideas than usual.</strong> Tap <strong>Find drug ideas</strong> again — your search is saved and the retry is usually faster.
               </div>
             )}
 
