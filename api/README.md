@@ -1,237 +1,137 @@
 # API Backend
 
-This directory contains Vercel serverless functions that power the Medical
-Research Assistant.
+Vercel serverless functions for the Medical Research Assistant. Six HTTP routes
+live here; evidence sources and cross-AI validation run as **in-process lib
+handlers** (not separate `/api/*` routes) to stay within Vercel Hobby function
+limits.
 
-## Structure
+## Routes (`api/`)
 
 ```
 api/
-├── research.js        # Main Anthropic pipeline. Modes: research | repurpose | trials | chat
-│                       # Fetches grounded evidence + optional cross-AI audit after Claude
-├── trials.js          # Live ClinicalTrials.gov v2 pull with structured enrichment
-├── pubmed.js          # NCBI E-utilities (esearch + esummary + efetch abstracts)
-├── europe-pmc.js      # Europe PMC — includes OA full-text retrieval
-├── openalex.js        # OpenAlex — broad scholarly coverage + journal tiering
-├── openfda.js         # openFDA — drug labels, FAERS, enforcement actions
-├── evidence.js        # Fan-out orchestrator: builds a grounded evidence pack
-└── validate.js        # Cross-AI validator (Perplexity / OpenAI / xAI)
+├── research.js         # Main pipeline — research | repurpose | trials | chat
+│                       # + utility modes: usage, activate-plan, runtime-config,
+│                         translate, benchmark-models
+├── trials.js           # ClinicalTrials.gov v2 pull with structured enrichment
+├── health.js           # Infra / KB health check
+├── alerts-subscribe.js # Email alert subscription management
+├── alerts-cron.js      # Scheduled alert delivery (CRON_SECRET)
+└── brain-cron.js       # Scheduled KB brain refresh (CRON_SECRET)
 ```
+
+## In-process lib handlers (`lib/`)
+
+Called directly from `research.js` (and cron jobs) — no HTTP hop:
+
+```
+lib/
+├── evidence.js         # Fan-out: PubMed + Europe PMC + OpenAlex + openFDA → evidence pack
+├── validate.js         # Cross-AI audit (Perplexity / OpenAI / xAI)
+├── perplexity-search.js
+├── pubmed.js           # NCBI E-utilities
+├── europe-pmc.js       # Europe PMC + OA full text
+├── openalex.js         # OpenAlex scholarly coverage
+└── openfda.js          # openFDA labels, FAERS, enforcement
+```
+
+Internal calls use `INTERNAL_CALL` (see `lib/internal-call.js`) so peer
+handlers are not exposed as public endpoints.
 
 ## Endpoints
 
 ### POST /api/research
-Body: `{ mode, patient, audience, userQuery?, chatHistory?, trialsData? }`
-- `mode`: `research` (default) | `repurpose` | `trials` | `chat`
-- `patient`: `{ condition, stage, age, gender, weight, smoking, exercise, diagnoses, medications, symptoms, labWork, scans }`
-- `audience`: `layperson` | `medical`
-- For `mode=trials`, pass the structured output of `/api/trials` as `trialsData`.
+
+Primary entry point. Body shape depends on `mode`:
+
+| mode | purpose |
+|------|---------|
+| `research` (default) | Full evidence-based treatment analysis |
+| `repurpose` | EveryCure-style drug repurposing |
+| `trials` | Narrative analysis on live trial data (pass `trialsData` from `/api/trials`) |
+| `chat` | Follow-up in existing context |
+| `usage` | Monthly IP usage + plan status |
+| `activate-plan` | Activate paid plan with `{ code }` |
+| `runtime-config` | Branding / monetization / ad runtime config |
+| `translate` | On-demand translation `{ text, targetLanguage, sourceLanguage? }` |
+| `benchmark-models` | Single-run Sonnet vs Opus speed comparison |
+
+Common fields: `patient`, `audience` (`layperson` | `medical`), optional
+`userQuery`, `chatHistory`.
+
+For `research` and `repurpose`, the handler gathers a grounded evidence pack
+in-process, then calls Anthropic with instructions to cite only from that pack.
 
 ### POST /api/trials
+
 Body: `{ condition, recruitingOnly?, treatmentOnly?, excludePlacebo?, pageSize?, country? }`
-Returns ranked, classified trials from ClinicalTrials.gov v2 including phase,
-recruiting status, placebo flag, designations (fast-track/breakthrough/orphan/
-expanded-access/PTA/OLE), oversight (IRB/DSMB/FDA-regulated), locations, contacts.
 
-### POST /api/pubmed
-Body: `{ query, limit?, sort?, withAbstract? }`
-Returns PubMed articles with PMID, title, authors, journal, year, abstract, DOI,
-and a direct pubmedUrl. Set `NCBI_API_KEY` env var for higher rate limits.
+Returns ranked trials from ClinicalTrials.gov v2 (phase, recruiting status,
+placebo flag, designations, oversight, locations, contacts).
 
-### POST /api/validate
-Body: `{ analysisText, evidencePack, patient?, condition?, audience? }`
-Runs an **independent second AI** (Perplexity preferred, then OpenAI, then xAI)
-against Claude's output and the same grounded evidence pack. Returns verdicts
-per claim: CONFIRMED / DISPUTED / UNSUPPORTED / HALLUCINATED-CITATION.
+### GET /api/health
 
-This is the safeguard against hallucinated references — it's the explicit
-"have Perplexity cross-check Claude" pattern. It can run on-demand from the
-frontend (Audit button) and can also run in-process when explicitly requested.
+Infra status and loaded KB summary.
 
-Perplexity is preferred because `sonar-reasoning-pro` has built-in live web
-### Utility modes via POST /api/research
-To stay within Vercel Hobby function limits, utility endpoints are multiplexed
-through `/api/research` with a mode field:
+### POST /api/alerts-subscribe
 
-- `mode: "usage"` → monthly IP usage + plan status
-- `mode: "activate-plan"` + `{ code }` → activate paid plan for caller IP
-- `mode: "runtime-config"` → branding/monetization/ad runtime config
-- `mode: "translate"` + `{ text, targetLanguage, sourceLanguage? }` → on-demand translation
-- `mode: "benchmark-models"` → single-run Sonnet vs Opus speed comparison
+Subscribe / manage email research alerts.
 
-search — it can actually open the URLs Claude cites and confirm whether the
-paper exists and says what was claimed.
+### GET /api/alerts-cron · GET /api/brain-cron
 
-## How It Works
+Vercel cron routes — require `CRON_SECRET`, not for browser use.
 
-1. **Frontend** (`index.html`) calls `/api/research`
-2. **Serverless function** (`research.js`) receives request
-3. **Function** calls Anthropic API with secure API key
-4. **Response** sent back to frontend
-5. **User** sees AI-powered results
+## Flow
 
-## Why We Need This
+1. Frontend calls `/api/research` (or `/api/trials` for structured trial data).
+2. `research.js` enforces access gate, usage limits, and spend controls.
+3. Evidence fan-out runs in-process via `lib/evidence.js`.
+4. Anthropic synthesizes from the grounded pack; optional cross-AI audit via `lib/validate.js`.
+5. Response returns to the frontend for chart parsing.
 
-❌ **Can't do this:** Call Anthropic directly from browser
-- Exposes API key to users
-- CORS blocks the request
-- Security nightmare
+## Environment variables
 
-✅ **Do this instead:** Use serverless backend
-- API key stays secret
-- CORS properly configured
-- Rate limiting possible
-- Audit logs available
+**Required**
 
-## Environment Variables
+- `ANTHROPIC_API_KEY` — Anthropic API key
 
-Required:
-- `ANTHROPIC_API_KEY` — Your Anthropic API key (used by `research.js`)
+**Optional — models & evidence**
 
-Optional:
-- `ANTHROPIC_RESEARCH_MODEL` — primary model for `/api/research` synthesis (default `claude-sonnet-4-20250514`; can be set to an Opus model if your account has access)
-- `ANTHROPIC_MAX_TOKENS` — overrides per-call output token cap for research synthesis
-- `NCBI_API_KEY` — NCBI E-utilities key (raises PubMed rate limit from 3 to 10 req/s)
-- `PERPLEXITY_API_KEY` — enables the cross-AI audit via Perplexity `sonar-reasoning-pro` (recommended primary validator — has live web search so it can actually open cited URLs)
-- `OPENAI_API_KEY` — cross-AI audit fallback (GPT-4.1)
-- `XAI_API_KEY` — cross-AI audit fallback (Grok)
-- `MRT_FREE_LIMIT` — monthly free runs per IP (default 4)
-- `MRT_PAID_LIMIT` — monthly paid runs per IP (default 15)
-- `MRT_PAID_PRICE_USD` — displayed paid price in UI (default 10)
-- `MRT_PAID_CODES` — comma-separated activation codes for paid-plan unlock
-- `MRT_PAID_IPS` — comma-separated always-paid IP allowlist
-- `MRT_UPGRADE_URL` — checkout/payment URL shown to users
-- `MRT_ADS_ENABLED` — `1` to enable ad slots in UI
-- `MRT_ADSENSE_CLIENT` — Adsense client id (e.g. `ca-pub-xxxx`)
-- `MRT_AD_SLOT_RESEARCH_TOP`, `MRT_AD_SLOT_REPURPOSE_TOP`, `MRT_AD_SLOT_TRIALS_TOP`, `MRT_AD_SLOT_FOOTER`
+- `ANTHROPIC_RESEARCH_MODEL` — synthesis model (default `claude-sonnet-4-20250514`)
+- `ANTHROPIC_MAX_TOKENS` — output token cap override
+- `NCBI_API_KEY` — PubMed rate limit (3 → 10 req/s)
+- `PERPLEXITY_API_KEY` — cross-AI audit (recommended; live web search)
+- `OPENAI_API_KEY`, `XAI_API_KEY` — audit fallbacks
 
-Set in Vercel:
-```bash
-vercel env add ANTHROPIC_API_KEY
-vercel env add PERPLEXITY_API_KEY   # strongly recommended for citation verification
-vercel env add OPENAI_API_KEY       # optional fallback validator
-vercel env add NCBI_API_KEY         # optional
-```
+**Optional — access & usage**
 
-## Endpoint
+- `MRT_ACCESS_PASSCODE` — site-wide passcode gate (comma-separated)
+- `MRT_FREE_LIMIT`, `MRT_PRO_LIMIT`, `MRT_MAX_LIMIT` — monthly caps per IP
+- `MRT_PRO_CODES`, `MRT_MAX_CODES`, `MRT_PAID_CODES` — plan activation codes
+- `MRT_PAID_IPS` — always-max IP allowlist
+- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — durable usage store
 
-**POST** `/api/research`
+**Optional — UI / monetization**
 
-**Request:**
-```json
-{
-  "system": "You are a medical research assistant...",
-  "messages": [
-    { "role": "user", "content": "What are IPF treatments?" }
-  ]
-}
-```
+- `MRT_UPGRADE_URL`, `MRT_PRO_PRICE_USD`, `MRT_MAX_PRICE_USD`
+- `MRT_ADS_ENABLED`, `MRT_ADSENSE_CLIENT`, `MRT_AD_SLOT_*`
 
-**Response:**
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "IPF treatments include..."
-    }
-  ]
-}
-```
+Set in Vercel: `vercel env add <NAME>`
 
-## Local Testing
+## Local testing
 
 ```bash
-# Install Vercel CLI
 npm i -g vercel
-
-# Run locally
 vercel dev
 
-# Test endpoint
 curl -X POST http://localhost:3000/api/research \
   -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"test"}]}'
+  -d '{"mode":"research","patient":{"condition":"IPF"},"audience":"layperson"}'
 ```
 
-## Security Features
+## Security
 
-- ✅ API key stored as environment variable
-- ✅ CORS headers configured
-- ✅ Request validation
-- ✅ Error handling
-- ✅ No direct API exposure
-
-## Cost
-
-**Vercel Serverless Functions:**
-- Free tier: 100,000 invocations/month
-- Typical usage: ~1,000/month
-- Cost: $0
-
-**Anthropic API:**
-- ~$3 per 1M input tokens
-- Typical usage: ~50K tokens/month
-- Cost: ~$0.15/month
-
-## Monitoring
-
-View function logs in Vercel Dashboard:
-1. Go to project → Functions
-2. Click on `research.js`
-3. See invocation logs and errors
-
-## Rate Limiting
-
-Currently no rate limiting. To add:
-
-```javascript
-// Simple IP-based rate limiting
-const rateLimit = new Map();
-
-export default async function handler(req, res) {
-  const ip = req.headers['x-forwarded-for'] || 'unknown';
-  const now = Date.now();
-  
-  if (!rateLimit.has(ip)) {
-    rateLimit.set(ip, { count: 1, resetAt: now + 3600000 });
-  } else {
-    const limit = rateLimit.get(ip);
-    if (now > limit.resetAt) {
-      limit.count = 1;
-      limit.resetAt = now + 3600000;
-    } else {
-      limit.count++;
-      if (limit.count > 100) {
-        return res.status(429).json({ error: 'Rate limit exceeded' });
-      }
-    }
-  }
-  
-  // ... rest of code
-}
-```
-
-## Troubleshooting
-
-**"API key not set" error:**
-- Check environment variables in Vercel
-- Redeploy after adding key
-
-**CORS error:**
-- Verify CORS headers in response
-- Check browser console for details
-
-**Timeout:**
-- Anthropic API can take 5-30 seconds
-- Vercel timeout is 10s (free), 60s (pro)
-- Consider streaming responses for long queries
-
-## Future Enhancements
-
-- [ ] Add rate limiting per user/IP
-- [ ] Cache common queries
-- [ ] Add request logging
-- [ ] Implement streaming responses
-- [ ] Add authentication
-- [ ] Monitor API costs automatically
+- API keys stay server-side only
+- CORS configured on all routes
+- Access gate via `MRT_ACCESS_PASSCODE` when enabled
+- IP-based usage metering (Redis or in-memory fallback)
+- Cron routes protected by `CRON_SECRET`

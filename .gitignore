@@ -8,6 +8,8 @@
 !.env.example
 
 # OS / editor noise
+.claude/
+.vercel-cache-bust
 .DS_Store
 node_modules/
 npm-debug.log*
