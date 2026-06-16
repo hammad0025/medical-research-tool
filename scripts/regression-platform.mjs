@@ -353,6 +353,49 @@ if (/Pipeline Watch \(Investigational Programs Only\)/.test(researchSrc)) {
   fail('Section 5 still asks for repurposing bullets + cards — causes NAC/combo duplication');
 }
 
+// 13b. GENERAL FAILED-TRIAL DISQUALIFIER lives in the repurpose prompt as a
+//      condition-agnostic reasoning rule — NOT a per-drug hardcoded blocklist.
+if (/FAILED-TRIAL DISQUALIFIER/.test(researchSrc) &&
+    /applies to EVERY condition and EVERY agent/i.test(researchSrc) &&
+    /COMPLETED clinical trial for THIS exact condition and FAILED/i.test(researchSrc)) {
+  pass('Repurpose prompt has a GENERAL failed-trial disqualifier (drug OR supplement, every condition)');
+} else {
+  fail('Repurpose prompt missing the general FAILED-TRIAL DISQUALIFIER reasoning rule');
+}
+if (/"it's just a supplement" is NOT a loophole/i.test(researchSrc)) {
+  pass('Failed-trial rule closes the supplement loophole (failed supplement is disqualified like any drug)');
+} else {
+  fail('Failed-trial rule does not close the supplement carve-out loophole');
+}
+if (/SUBGROUP \/ BIOMARKER EXCEPTION/i.test(researchSrc) &&
+    /never a fresh card/i.test(researchSrc)) {
+  pass('Failed-trial rule allows biomarker/genotype subgroup ONLY as context, never a fresh candidate card');
+} else {
+  fail('Failed-trial rule missing the subgroup/genotype context-only exception');
+}
+{
+  const validateSrc = readFileSync(new URL('../lib/validate.js', import.meta.url), 'utf8');
+  if (/FAILED-AGENT-AS-NEW-IDEA CHECK/.test(validateSrc)) {
+    pass('Second-AI validator flags a known failed agent presented as a new repurposing idea');
+  } else {
+    fail('Second-AI validator missing the failed-agent-as-new-idea check');
+  }
+}
+// 13c. No per-drug NAC hardcoding was bolted onto the IPF excludedAgents list as
+//      the "fix" — the reasoning layer is the primary safeguard. (Pre-existing
+//      curated entries are fine; we only guard against a new standalone
+//      "N-acetylcysteine (NAC)" repurposing-blocklist entry being the fix.)
+{
+  const ipfKb = JSON.parse(readFileSync(new URL('../data/kb/ipf.json', import.meta.url), 'utf8'));
+  const excluded = Array.isArray(ipfKb.excludedAgents) ? ipfKb.excludedAgents : [];
+  const standaloneNac = excluded.some((x) => /^n[- ]?acetylcysteine\s*\(nac\)$/i.test(String(x?.name || '').trim()));
+  if (!standaloneNac) {
+    pass('IPF excludedAgents has no standalone hardcoded "N-acetylcysteine (NAC)" repurposing-blocklist entry');
+  } else {
+    fail('A standalone hardcoded NAC excludedAgents entry was added — fix belongs in the reasoning layer, not a per-drug blocklist');
+  }
+}
+
 // 14. BEHAVIORAL: "Second AI check" applies the FULL correction from a
 //     verbatim quote — not a no-op, not a truncated/garbled snippet.
 {

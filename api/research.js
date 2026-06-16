@@ -1279,18 +1279,29 @@ This is the EveryCure / drug-repurposing methodology. Think outside the box. Rea
 
 STUDIED-AGENT RULE (critical — read before assigning evidence strength):
 Before you label any candidate MECHANISTIC_ONLY or PRECLINICAL, search the GROUNDED EVIDENCE PACK and LIVE TRIALS for human studies of that agent + THIS condition.
-- If human studies exist for a **prescription drug** + condition (even negative/null results), you MUST NOT output a CANDIDATE block — it belongs in Safety / excluded agents, NOT repurposing.
-- If human pilot/RCT data exists for a **supplement/OTC** + this condition (e.g. NAC in bipolar), output exactly ONE candidate with honest EVIDENCE_STRENGTH (SMALL_RCT, OBSERVATIONAL, etc.) — NEVER also list it as "not yet studied" or MECHANISTIC_ONLY.
-- Check EXCLUDED AGENTS — skip entirely.
-- NO DUPLICATE CANDIDATE NAMES across batches (NAC must appear once, not twice under different spellings).
+
+FAILED-TRIAL DISQUALIFIER (GENERAL RULE — applies to EVERY condition and EVERY agent, prescription drug OR over-the-counter supplement; reason it out, do not rely on a hardcoded list):
+- Do NOT propose any drug or supplement that has already been tested in a COMPLETED clinical trial for THIS exact condition and FAILED — meaning it missed its primary endpoint, showed no benefit versus placebo, was negative/null, or was terminated/halted for futility or harm. Such an agent has already been TRIED for this disease; it is NOT a "repurposing opportunity" or a "new idea to discuss," and it must NEVER appear as a fresh CANDIDATE block or in a combination.
+- Disqualifying evidence = a published failed/negative Phase 2 or Phase 3 (or equivalent RCT) for THIS indication that is present in the gathered evidence pool. Typical signal: a randomized trial reporting "no significant benefit" / "did not meet the primary endpoint," or a trial stopped early for harm.
+- SELF-CHECK every candidate before you emit it: "Has this exact agent been studied in a completed trial for THIS condition and failed (or shown no benefit / been stopped for harm)?" If YES → EXCLUDE it from candidates and combos. Do not rationalize it back in as "worth another look."
+- Base this on the GATHERED EVIDENCE (LIVE TRIALS + grounded papers), NOT on memory. If the pool contains the failed trial for that agent, that trial is your proof — and if you mention the agent at all, cite that failed trial as the reason it is not a candidate.
+- SUBGROUP / BIOMARKER EXCEPTION (context only — never a fresh card): If an agent failed in the broad population but has an ACTIVE biomarker- or genotype-defined subgroup trial ongoing (e.g. a specific gene-type cohort), you may mention it ONLY in a "previously studied / context" framing that plainly says it already failed overall — NEVER as a new candidate card and NEVER with "this might help."
+
+SUPPLEMENT / OTC HANDLING:
+- If human pilot/RCT data is POSITIVE, mixed, or genuinely untested for a **supplement/OTC** + this condition (e.g. a small positive pilot), output exactly ONE candidate with honest EVIDENCE_STRENGTH (SMALL_RCT, OBSERVATIONAL, etc.) — NEVER also list it as "not yet studied" or MECHANISTIC_ONLY.
+- BUT a supplement that FAILED a completed trial for this condition is disqualified by the FAILED-TRIAL DISQUALIFIER above, exactly like any prescription drug — "it's just a supplement" is NOT a loophole.
+
+BACKSTOP (not your primary safeguard): Some conditions also ship a curated EXCLUDED AGENTS list — skip anything on it entirely. But that list is a belt-and-suspenders backstop; the FAILED-TRIAL DISQUALIFIER above is the PRIMARY safeguard, and you must catch failed/negative agents yourself from the evidence even when they are not on any list.
+
+NO DUPLICATE CANDIDATE NAMES across batches (an agent must appear once, not twice under different spellings).
 
 CARD INTEGRITY (every CANDIDATE block):
 - REFERENCES must cite papers about THAT drug only — never paste an unrelated NCT or guideline link.
 - CONFIDENCE / PATIENT_SPECIFIC_RISKS / HOW_TO_DISCUSS must describe THIS candidate — never copy text from a different drug or combo.
-- WORKED EXAMPLE — metformin in IPF: studied in people with no benefit → must NOT appear in repurposing.
+- WORKED EXAMPLE (the general principle, not a special case): if the evidence pool shows an agent was studied in a completed trial for this condition and showed no benefit — whether it is a prescription drug (e.g. metformin in IPF) or a supplement (e.g. an antioxidant that failed its primary endpoint) — it must NOT appear as a repurposing candidate; at most it belongs in a "previously studied" context with the failed trial cited.
 
 OTC / SUPPLEMENT CARVE-OUT (Lane C and combination blocks):
-Over-the-counter supplements are DIFFERENT from prescription repurposing. Lane C MUST read the "OTC / SUPPLEMENT LITERATURE IN THIS PACK" block (if present) and output one CANDIDATE per supplement that has peer-reviewed support in the pack. Use plain-English names patients recognize (e.g. "Goji berries", "TUDCA", "Taurine", "Alpha-lipoic acid") — never Latin binomial alone as the CANDIDATE name. Label EVIDENCE_STRENGTH honestly from what the papers show. Do NOT invent supplements that are not in the evidence pack.
+Over-the-counter supplements are DIFFERENT from prescription repurposing. Lane C MUST read the "OTC / SUPPLEMENT LITERATURE IN THIS PACK" block (if present) and output one CANDIDATE per supplement that has peer-reviewed support in the pack AND has not failed a completed trial for this condition (see FAILED-TRIAL DISQUALIFIER). Use plain-English names patients recognize (e.g. "Goji berries", "TUDCA", "Taurine", "Alpha-lipoic acid") — never Latin binomial alone as the CANDIDATE name. Label EVIDENCE_STRENGTH honestly from what the papers show. Do NOT invent supplements that are not in the evidence pack.
 
 ## Mechanistic Hypotheses (genuinely no human data for this condition)
 Produce 5-8 candidates where EVIDENCE_STRENGTH is MECHANISTIC_ONLY or PRECLINICAL ONLY when the evidence pack truly contains no human studies for that drug + this condition.
@@ -1327,7 +1338,7 @@ CONFIDENCE: <1-100>% — <overall confidence that this combo is worth physician 
 HOW_TO_DISCUSS_WITH_DOCTOR: <practical script — "I read about combining X and Y for [condition] because [pathway]; can we discuss whether monitoring [labs/AEs] would let us trial it?">
 REFERENCES: <REQUIRED — 1-2 clickable markdown links [short title](url) from the evidence pack>
 
-Combinations are HYPOTHESIS-GENERATION ONLY. When interaction risk may dominate benefit, report honestly — confidence < 25% and INTERACTION_RISK: HIGH. Skip combos that repeat EXCLUDED AGENTS or failed monotherapies unless the combo rationale explicitly addresses why together might differ.
+Combinations are HYPOTHESIS-GENERATION ONLY. When interaction risk may dominate benefit, report honestly — confidence < 25% and INTERACTION_RISK: HIGH. Skip combos built on EXCLUDED AGENTS or on any agent that already failed a completed trial for THIS condition (see FAILED-TRIAL DISQUALIFIER) — a single completed failure does not become a "new idea" by being paired with something else, unless the combo rationale explicitly and credibly addresses why the combination changes the biology.
 
 ## Reasoning Summary
 Two sentences: (1) best single-agent idea and why; (2) best combo idea and why. No recap of the full list.
@@ -1351,9 +1362,9 @@ ${SHARED_GUARDRAILS}`;
 // metformin in IPF) so a studied-but-negative drug can never be mislabeled as
 // "never researched".
 const REPURPOSE_LANES = [
-  'LANE A — anti-inflammatory & immune-modulating drugs already approved for OTHER inflammatory or autoimmune conditions that could plausibly slow this condition. These must be MECHANISTIC_ONLY or PRECLINICAL for THIS condition — zero human trials for this disease. Skip any drug in EXCLUDED AGENTS.',
-  'LANE B — metabolic, antifibrotic, hormonal, and cardiovascular drugs approved for other diseases that could be repurposed via pathway overlap. MECHANISTIC_ONLY or PRECLINICAL for THIS condition only. Skip EXCLUDED AGENTS.',
-  'LANE C — over-the-counter supplements, vitamins, and antioxidants. Read the OTC / SUPPLEMENT LITERATURE block in the evidence pack and output candidates FROM those live-retrieved papers. Plain-English CANDIDATE names only (e.g. "Goji berries", not "Lycium barbarum"). Skip EXCLUDED AGENTS.'
+  'LANE A — anti-inflammatory & immune-modulating drugs already approved for OTHER inflammatory or autoimmune conditions that could plausibly slow this condition. These must be MECHANISTIC_ONLY or PRECLINICAL for THIS condition — zero human trials for this disease. Skip any drug in EXCLUDED AGENTS and any agent that already failed a completed trial for THIS condition (FAILED-TRIAL DISQUALIFIER).',
+  'LANE B — metabolic, antifibrotic, hormonal, and cardiovascular drugs approved for other diseases that could be repurposed via pathway overlap. MECHANISTIC_ONLY or PRECLINICAL for THIS condition only. Skip EXCLUDED AGENTS and any agent that already failed a completed trial for THIS condition (FAILED-TRIAL DISQUALIFIER).',
+  'LANE C — over-the-counter supplements, vitamins, and antioxidants. Read the OTC / SUPPLEMENT LITERATURE block in the evidence pack and output candidates FROM those live-retrieved papers. Plain-English CANDIDATE names only (e.g. "Goji berries", not "Lycium barbarum"). Skip EXCLUDED AGENTS and any supplement that already failed a completed trial for THIS condition (FAILED-TRIAL DISQUALIFIER).'
 ];
 
 // Batched front prompt: one lane, a handful of candidates, finishes fast.
