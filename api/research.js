@@ -203,8 +203,13 @@ const invokePerplexitySearch = (body) => invokeInProcess(perplexitySearchHandler
 
 // Map a raw article (KB item or Perplexity web hit) into the groundedForPrompt
 // shape the synthesis prompt expects.
-const toGroundedItem = (a, { isCuratedKB = false, kbCategory = null } = {}) => ({
+const toGroundedItem = (a, { isCuratedKB = false, kbCategory = null, conditionSlug = null } = {}) => ({
   id: a.id || a.doi || a.pmid || null,
+  // Provenance tag (Pillar 3): which source paper this row came from and which
+  // condition build emitted it. Threaded from the KB/fallback so a rendered
+  // claim can be traced back to its origin and never silently re-attributed.
+  provenanceId: a.provenanceId || a.id || a.doi || a.pmid || null,
+  conditionSlug: a.conditionSlug || conditionSlug || null,
   title: a.title,
   journal: a.journal || '',
   publisher: a.publisher || '',
@@ -257,8 +262,9 @@ const buildKbFallbackEvidence = async (condition, dossier = null, { kbSlug } = {
     }
     if (!kb || !kb.matched) return null;
     const canonical = kb.meta?.canonical || condition;
+    const kbConditionSlug = kb.meta?.slug || kb.slug || null;
     const kbGrounded = (kb.items || []).map((it) =>
-      toGroundedItem(it, { isCuratedKB: true, kbCategory: it.category || null })
+      toGroundedItem(it, { isCuratedKB: true, kbCategory: it.category || null, conditionSlug: kbConditionSlug })
     );
 
     // Even when PubMed/EPMC time out, Perplexity can still pull recent web

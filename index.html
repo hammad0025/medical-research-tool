@@ -730,6 +730,63 @@
         return String(raw).replace(/^\s*\d{1,3}\s*%\s*/, '').trim();
       };
 
+      // Pillar 3 anti-contamination provenance (mirror of
+      // lib/report-polish.js assertNoForeignEntities). A candidate's
+      // self-describing fields (risks, safety, confidence, how-to-discuss) must
+      // describe THIS drug. A field whose subject is a DIFFERENT candidate's
+      // drug — and which does not name this card's own drug — cannot be traced
+      // to this card's provenance, so it is dropped rather than rendered under
+      // the wrong drug (the "Magnesium card shows Lumateperone's risks" bug).
+      const CANDIDATE_SELF_FIELDS = [
+        'patient_specific_risks', 'safety', 'confidence',
+        'efficacy_hypothesis', 'how_to_discuss_with_doctor'
+      ];
+      const candidateIdentityKey = (name) =>
+        String(name || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '').trim();
+      const candidateSearchTerms = (name) => {
+        const raw = String(name || '').replace(/\*/g, '');
+        const terms = [];
+        const lead = raw.replace(/\(.*?\)/g, ' ').split(/[—–]|\s-\s|:|\|/)[0].replace(/\s+\d.*$/, '').trim();
+        if (lead.length >= 4) terms.push(lead);
+        const paren = raw.match(/\(([^)]+)\)/);
+        if (paren) {
+          paren[1].split(/[,/]/).forEach((piece) => {
+            const p = piece.trim();
+            if (p.length >= 4 && !/^\d/.test(p)) terms.push(p);
+          });
+        }
+        return terms;
+      };
+      const escapeRegExpClient = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const dropForeignCandidateFields = (cands) => {
+        const ident = cands.map((c) => ({
+          key: candidateIdentityKey(c.candidate),
+          terms: candidateSearchTerms(c.candidate)
+        }));
+        cands.forEach((cand, ci) => {
+          const self = ident[ci];
+          if (!self.key) return;
+          const foreign = ident.filter((x, i) =>
+            i !== ci && x.key && !drugKeysMatch(x.key, self.key) && x.terms.length);
+          if (!foreign.length) return;
+          CANDIDATE_SELF_FIELDS.forEach((field) => {
+            const val = cand[field];
+            if (val == null) return;
+            const lower = String(val).toLowerCase();
+            const namesSelf = self.terms.some((t) => lower.includes(t.toLowerCase()));
+            if (namesSelf) return;
+            const hit = foreign.some((f) =>
+              f.terms.some((t) => new RegExp('\\b' + escapeRegExpClient(t) + '\\b', 'i').test(String(val))));
+            if (hit) {
+              delete cand[field];
+              delete cand[field + '_pct'];
+              delete cand[field + '_note'];
+            }
+          });
+        });
+        return cands;
+      };
+
       const parseCandidates = (text) => {
         const out = [];
         const lines = text.split('\n');
@@ -783,7 +840,7 @@
           if (norm) seenNames.add(norm);
           deduped.push(cand);
         }
-        return deduped;
+        return dropForeignCandidateFields(deduped);
       };
 
       const isMechanisticEvidence = (value) => {

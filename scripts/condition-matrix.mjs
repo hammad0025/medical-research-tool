@@ -33,7 +33,8 @@ import {
   filterExcludedRepurposeCandidates,
   filterExcludedAgentMentions,
   excludedAgentNames,
-  parseHeadlinePercent
+  parseHeadlinePercent,
+  assertNoForeignEntities
 } from '../lib/report-polish.js';
 import {
   applyPatientPromiseAdjustment,
@@ -43,7 +44,7 @@ import {
   assessGroundingSufficiency,
   buildEvidenceGradeBlock
 } from '../api/research.js';
-import { validateExtract } from '../lib/kb-builder.js';
+import { validateExtract, assembleKbFromExtract, drugKeyFromName } from '../lib/kb-builder.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
 const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
@@ -581,6 +582,87 @@ head('I7 — builder schema validation (lib/kb-builder.js, Pillar 2)');
   const notObj = validateExtract(null, papers);
   if (!notObj.ok) pass('I7: null/garbled extract fails validation gracefully (drives the retry)');
   else fail('I7: null extract incorrectly validated');
+}
+
+// ===========================================================================
+// I8 — end-to-end anti-contamination provenance (lib/kb-builder.js +
+// lib/report-polish.js, Pillar 3).
+//   (a) Every KB item / pipeline drug / excluded agent assembled from an
+//       extract carries a provenance tag (conditionSlug + provenanceId/drugKey)
+//       so a downstream claim can be traced to the entity it came from.
+//   (b) assertNoForeignEntities drops a candidate field whose subject is a
+//       DIFFERENT drug (the Magnesium-card-showing-Lumateperone bug) — even
+//       when the contaminating field is NOT a duplicate the parser would split
+//       on — while preserving legitimate fields and self-referential interactions.
+// ===========================================================================
+head('I8 — anti-contamination provenance (Pillar 3)');
+
+{
+  const papers = [
+    { pmid: '11', title: 'Magnesium RCT', abstract: 'A trial.', _neg: false },
+    { pmid: '22', title: 'Failed drug trial', abstract: 'No benefit.', _neg: true }
+  ];
+  const disease = { condition: 'Bipolar Disorder', slug: 'bipolar-disorder', aliases: [] };
+  const extract = {
+    pinnedItems: [{ ref: 0, category: 'rct', tier: 'A', summary: 'A randomized trial.' }],
+    canonicalFacts: [{ claim: 'It is a mood disorder.', refs: [0] }],
+    pipelineDrugs: [{ name: 'Lumateperone (Caplyta)', aliases: [], approvalStatus: 'approved', ref: 0 }],
+    excludedAgents: [{ name: 'FailedDrug', reason: 'Phase 3 missed endpoint.', ref: 1 }]
+  };
+  const kb = assembleKbFromExtract(disease, papers, extract);
+  const itemTagged = kb.items.length > 0 &&
+    kb.items.every((it) => it.conditionSlug === 'bipolar-disorder' && it.provenanceId === it.id);
+  const drugTagged = kb.pipelineDrugs.every((d) => d.conditionSlug === 'bipolar-disorder' && d.drugKey) &&
+    kb.excludedAgents.every((x) => x.conditionSlug === 'bipolar-disorder' && x.drugKey);
+  const drugKeyOk = drugKeyFromName('Lumateperone (Caplyta)') === 'lumateperone';
+  if (itemTagged && drugTagged && drugKeyOk) {
+    pass(`I8a: provenance tags stamped (items conditionSlug+provenanceId; pipeline/excluded drugKey+conditionSlug; drugKey="${drugKeyFromName('Lumateperone (Caplyta)')}")`);
+  } else {
+    fail(`I8a: provenance tagging incomplete (items=${itemTagged} drugs=${drugTagged} drugKey=${drugKeyOk})`);
+  }
+
+  // Foreign-field bleed WITHOUT a duplicate field (parser cannot catch this):
+  // Lumateperone's risk text lands in Magnesium's PATIENT_SPECIFIC_RISKS.
+  const contaminated = [
+    'CANDIDATE: Magnesium',
+    'CLASS: mineral supplement',
+    'CONFIDENCE: 30% — weak mechanistic rationale',
+    'SAFETY: 90% — well tolerated; diarrhea at high doses',
+    'PATIENT_SPECIFIC_RISKS: Lumateperone can prolong the QT interval and cause heavy sedation in this patient.',
+    '',
+    'CANDIDATE: Lumateperone (Caplyta)',
+    'CLASS: antipsychotic',
+    'CONFIDENCE: 75% — phase 3 positive',
+    'SAFETY: 60% — metabolic and sedation risks',
+    'PATIENT_SPECIFIC_RISKS: Lumateperone may cause weight gain.'
+  ].join('\n');
+
+  const { text: cleaned, flags } = assertNoForeignEntities(contaminated);
+  const magBlock = cleaned.split(/(?=CANDIDATE:)/i).find((b) => /^CANDIDATE:\s*Magnesium/i.test(b.trim())) || '';
+  const lumaBlock = cleaned.split(/(?=CANDIDATE:)/i).find((b) => /^CANDIDATE:\s*Lumateperone/i.test(b.trim())) || '';
+  const foreignDropped = !/lumateperone/i.test(magBlock) && !/QT interval/i.test(magBlock);
+  const ownKept = /30/.test(magBlock) && /90/.test(magBlock);
+  const otherIntact = /weight gain/i.test(lumaBlock) && /75/.test(lumaBlock);
+  if (foreignDropped && ownKept && otherIntact && flags.length >= 1) {
+    pass(`I8b: foreign risk field dropped from Magnesium card (flags: ${flags.length}); Magnesium 30%/90% + Lumateperone's own card intact`);
+  } else {
+    fail(`I8b: contamination not contained (foreignDropped=${foreignDropped} ownKept=${ownKept} otherIntact=${otherIntact} flags=${flags.length})`);
+  }
+
+  // False-positive guard: a field that names another candidate but ALSO names
+  // the host (a legitimate drug-drug interaction note) must be preserved.
+  const legit = [
+    'CANDIDATE: Magnesium',
+    'PATIENT_SPECIFIC_RISKS: Magnesium may reduce absorption of Lumateperone if taken at the same time.',
+    'CANDIDATE: Lumateperone',
+    'CONFIDENCE: 75% — strong'
+  ].join('\n');
+  const { text: legitOut, flags: legitFlags } = assertNoForeignEntities(legit);
+  if (/Magnesium may reduce absorption of Lumateperone/i.test(legitOut) && legitFlags.length === 0) {
+    pass('I8c: legitimate self-named interaction note (host + foreign drug) preserved — no over-stripping');
+  } else {
+    fail(`I8c: over-stripped a legitimate self-referential interaction (flags=${legitFlags.length})`);
+  }
 }
 
 // ===========================================================================

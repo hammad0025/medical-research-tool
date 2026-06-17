@@ -32,8 +32,11 @@ import {
   stripApprovedTreatmentsSection,
   drugBaseKey,
   parseHeadlinePercent,
-  clampToCompleteSentence
+  clampToCompleteSentence,
+  finalizeReportText,
+  assertNoForeignEntities
 } from '../lib/report-polish.js';
+import { drugKeyFromName } from '../lib/kb-builder.js';
 import {
   normalizePromise,
   applyPatientPromiseAdjustment
@@ -701,6 +704,67 @@ if (/_approvedStub/.test(indexSrc) &&
   pass('Empty approved stubs render as an honest reference list (no fake "—" efficacy/safety cards, defect 3)');
 } else {
   fail('Approved stubs still render as empty cards — header overstates detailed approved-treatment cards');
+}
+
+// 28. PILLAR 3 (anti-contamination provenance): a candidate field carrying a
+//     DIFFERENT drug's content is dropped at render time, even when it is not a
+//     duplicate field the parser would split on. This is the end-to-end guard
+//     that makes the "Magnesium card shows Lumateperone's risks/sources"
+//     contamination impossible to render rather than merely unlikely.
+{
+  const contaminated = [
+    'CANDIDATE: Magnesium',
+    'CONFIDENCE: 30% — weak mechanistic rationale',
+    'SAFETY: 90% — well tolerated',
+    'PATIENT_SPECIFIC_RISKS: Lumateperone prolongs the QT interval and causes sedation in this patient.',
+    'CANDIDATE: Lumateperone (Caplyta)',
+    'CONFIDENCE: 75% — phase 3 positive',
+    'PATIENT_SPECIFIC_RISKS: Lumateperone may cause weight gain.'
+  ].join('\n');
+  const { text: cleaned, flags } = assertNoForeignEntities(contaminated);
+  const magBlock = cleaned.split(/(?=CANDIDATE:)/i).find((b) => /^CANDIDATE:\s*Magnesium/i.test(b.trim())) || '';
+  const lumaBlock = cleaned.split(/(?=CANDIDATE:)/i).find((b) => /^CANDIDATE:\s*Lumateperone/i.test(b.trim())) || '';
+  const foreignGone = !/lumateperone/i.test(magBlock) && !/QT interval/i.test(magBlock);
+  const ownKept = /30/.test(magBlock) && /90/.test(magBlock);
+  const otherIntact = /weight gain/i.test(lumaBlock);
+  if (foreignGone && ownKept && otherIntact && flags.length >= 1) {
+    pass('assertNoForeignEntities drops a foreign-drug field from a candidate card (Pillar 3, end-to-end provenance)');
+  } else {
+    fail(`Pillar 3 provenance regression (foreignGone=${foreignGone} ownKept=${ownKept} otherIntact=${otherIntact} flags=${flags.length})`);
+  }
+
+  // finalizeReportText wires the guard into the real render path.
+  const finalized = finalizeReportText(contaminated, { evidence: null, trials: null });
+  if (!/lumateperone/i.test(finalized.split(/(?=CANDIDATE:)/i).find((b) => /Magnesium/i.test(b)) || '')) {
+    pass('finalizeReportText applies the anti-contamination provenance guard');
+  } else {
+    fail('finalizeReportText did not strip cross-candidate contamination');
+  }
+
+  // A legitimate self-named interaction note is preserved (no over-stripping).
+  const legit = 'CANDIDATE: Magnesium\nPATIENT_SPECIFIC_RISKS: Magnesium may reduce absorption of Lumateperone.\nCANDIDATE: Lumateperone\nCONFIDENCE: 75%';
+  const legitOut = assertNoForeignEntities(legit);
+  if (/Magnesium may reduce absorption of Lumateperone/i.test(legitOut.text) && legitOut.flags.length === 0) {
+    pass('assertNoForeignEntities preserves a legitimate host-named interaction (no over-stripping)');
+  } else {
+    fail('assertNoForeignEntities over-stripped a legitimate interaction note');
+  }
+}
+
+// 29. PILLAR 3: provenance tags are stamped at the source and the client mirror
+//     is wired into the candidate parser.
+{
+  if (drugKeyFromName('Lumateperone (Caplyta) — 42 mg') === 'lumateperone') {
+    pass('drugKeyFromName isolates the stable drug identity for provenance tagging');
+  } else {
+    fail(`drugKeyFromName regression (got "${drugKeyFromName('Lumateperone (Caplyta) — 42 mg')}")`);
+  }
+  if (/dropForeignCandidateFields/.test(indexSrc) &&
+      /return dropForeignCandidateFields\(deduped\)/.test(indexSrc)) {
+    pass('index.html parseCandidates routes parsed cards through the foreign-field provenance drop (client mirror)');
+  } else {
+    fail('index.html parseCandidates missing the client-side anti-contamination provenance drop');
+  }
 }
 
 console.log(process.exitCode ? '\n\x1b[31mPlatform regression FAILED\x1b[0m\n' : '\n\x1b[32mPlatform regression passed\x1b[0m\n');

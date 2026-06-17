@@ -38,8 +38,9 @@
   "bugs": {
     "email": "shaque025@gmail.com"
   },
-  "dependencies": {},
-  "devDependencies": {},
+  "dependencies": {
+    "@upstash/redis": "^1.38.0"
+  },
   "scripts": {
     "info": "echo 'Medical Research Assistant - Phase 3 (curated KB + EveryCure repurpose + cross-AI audit)'",
     "e2e": "node scripts/e2e-test.mjs",
