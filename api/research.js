@@ -322,6 +322,62 @@ const buildKbFallbackEvidence = async (condition, dossier = null, { kbSlug } = {
 const evidenceIsUsable = (ev) =>
   !!ev && Array.isArray(ev.groundedForPrompt) && ev.groundedForPrompt.length > 0;
 
+// Grounding-sufficiency gate (Pillar 1). Grades the assembled evidence into
+// tiers WITHOUT blocking — the report is always produced; a thin/dossier-only
+// grade only triggers an honest banner + preserved hedges. A "real grounded
+// paper" is a row with accessLevel full-text/abstract AND a resolvable
+// identifier; accessLevel:'dossier' rows (manufactured from registry
+// red-flags/landmark names in buildDossierFallbackEvidence) do NOT count.
+const GROUNDING_REAL_LEVELS = new Set(['full-text', 'abstract']);
+const hasResolvableId = (g) => !!(g && (g.url || g.pmid || g.doi || g.id));
+
+export const assessGroundingSufficiency = (evidence) => {
+  const grounded = Array.isArray(evidence?.groundedForPrompt) ? evidence.groundedForPrompt : [];
+  const real = grounded.filter(
+    (g) => GROUNDING_REAL_LEVELS.has(g?.accessLevel) && hasResolvableId(g)
+  );
+  const realPaperCount = real.length;
+  const topTierCount = real.filter(
+    (g) => g.isRCT || g.isMetaAnalysis || g.isSystematicReview
+  ).length;
+  const sources = new Set();
+  for (const g of real) for (const s of (g.sources || [])) sources.add(s);
+  const distinctSources = sources.size;
+
+  const kb = evidence?.knowledgeBase || {};
+  // A matched, non-degraded curated KB is authoritative by construction.
+  const curatedStrong = kb.matched === true && kb.source !== 'dynamic-brain' && kb.degraded !== true;
+
+  const reasons = [];
+  let tier;
+  if (realPaperCount === 0) {
+    tier = 'dossier-only';
+    reasons.push('no real grounded literature; evidence degraded to dossier/web-derived rows');
+  } else if (curatedStrong || (realPaperCount >= 3 && topTierCount >= 1 && distinctSources >= 2)) {
+    tier = 'strong';
+    if (curatedStrong) reasons.push('curated knowledge base matched');
+    else reasons.push(`${realPaperCount} grounded papers, ${topTierCount} top-tier, ${distinctSources} sources`);
+  } else {
+    tier = 'thin';
+    reasons.push(`only ${realPaperCount} grounded paper(s), ${topTierCount} top-tier, ${distinctSources} source(s) — below the strong-grounding bar`);
+  }
+  return { tier, realPaperCount, topTierCount, distinctSources, reasons };
+};
+
+// Synthesis-prompt instruction injected when grounding is not `strong`, so the
+// model itself opens with an honest evidence-limitation line (the client also
+// renders a banner from the returned evidenceGrade).
+export const buildEvidenceGradeBlock = (grade) => {
+  if (!grade || grade.tier === 'strong') return '';
+  const label = grade.tier === 'dossier-only'
+    ? 'NO peer-reviewed literature could be grounded for this condition — the evidence below is derived from a disease dossier / web scout only.'
+    : `Only ${grade.realPaperCount} grounded paper(s) (${grade.topTierCount} RCT/meta) could be found for this condition — the evidence base is THIN.`;
+  return `=== EVIDENCE GRADE: ${grade.tier.toUpperCase()} ===
+${label}
+You MUST open the report with one honest sentence telling the reader the evidence base is limited, e.g.: "Limited high-quality evidence was found for this condition — treat the following as a starting point to discuss with a clinician, not a vetted summary." Do NOT overstate certainty. Keep any "limited/thin evidence" hedge in the final text.
+=== END EVIDENCE GRADE ===`;
+};
+
 // When there is no curated KB, still ground synthesis from the dossier agent
 // (registry or LLM) plus a Perplexity scout. Without this, conditions like
 // borderline personality disorder hit gather OK then synth with zero papers —
@@ -2163,6 +2219,11 @@ export default async function handler(req, res) {
       }
     }
 
+    // Grade the assembled grounding (Pillar 1). Never blocks — only classifies
+    // so the client can show an honest "thin / unverified evidence" banner and
+    // the synthesis prompt + polish keep the limitation hedge.
+    const evidenceGrade = evidence ? assessGroundingSufficiency(evidence) : null;
+
     // Phase='gather' short-circuits here. We hand the raw pools back to the
     // client, which will then call us again with phase='synthesize' and the
     // pools attached. This splits the >60s single-shot pipeline into two
@@ -2178,6 +2239,7 @@ export default async function handler(req, res) {
         maxTokens,
         gatherFingerprint: serverGatherFingerprint,
         conditionResolution,
+        evidenceGrade,
         ...trimmed
       });
     }
@@ -2195,6 +2257,10 @@ export default async function handler(req, res) {
     const supplementDiscoveryBlock = (mode === 'repurpose' && evidence)
       ? buildSupplementDiscoveryBlock(evidence)
       : '';
+    // Honest evidence-limitation instruction (Pillar 1) — only for synthesis
+    // modes when grounding is thin/dossier-only.
+    const evidenceGradeBlock =
+      (mode === 'research' || mode === 'repurpose') ? buildEvidenceGradeBlock(evidenceGrade) : '';
 
     let repurposeLibraryBlock = '';
     if (mode === 'repurpose' && dossier) {
@@ -2217,7 +2283,7 @@ export default async function handler(req, res) {
     // access), then repurpose drug library (open curated drug list),
     // then the REQUIRED MENTIONS list last so Claude sees the
     // anti-omission constraint immediately before starting to write.
-    const extraContext = [dossierBlock, groundingBlock, trialsBlock, repurposeLibraryBlock, requiredMentionsBlock, pipelineWatchBlock, supplementDiscoveryBlock]
+    const extraContext = [evidenceGradeBlock, dossierBlock, groundingBlock, trialsBlock, repurposeLibraryBlock, requiredMentionsBlock, pipelineWatchBlock, supplementDiscoveryBlock]
       .filter(Boolean)
       .join('\n\n');
 
@@ -2378,7 +2444,7 @@ ${SHARED_GUARDRAILS}
           );
         }
       }
-      claudeText = finalizeReportText(claudeText, { evidence, trials });
+      claudeText = finalizeReportText(claudeText, { evidence, trials, evidenceGrade });
       if (data.content?.length) {
         const lastText = data.content.findIndex((c) => c?.type === 'text');
         if (lastText >= 0) data.content[lastText] = { ...data.content[lastText], text: claudeText };
@@ -2614,6 +2680,7 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
             excludedAgents: evidence.excludedAgents || []
           }
         : null,
+      evidenceGrade,
       trials: trials
         ? {
             total: trials.total,

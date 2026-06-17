@@ -948,23 +948,28 @@
       };
 
       // Strip internal pipeline jargon before showing or exporting a report.
-      const polishReportForDisplay = (text) => {
+      const polishReportForDisplay = (text, { keepHedges = false } = {}) => {
         if (!text) return text;
         let s = String(text);
         s = s.replace(/~~([^~]+)~~/g, '$1');
-        s = s.replace(/^[^\n]*\bNo grounded evidence[^\n]*$/gim, '');
-        s = s.replace(/^[^\n]*\bno grounded prevalence[^\n]*$/gim, '');
-        s = s.replace(/^[^\n]*\bno grounded prevalence number in pack[^\n]*$/gim, '');
-        s = s.replace(/\bNo grounded evidence in pack\b/gi, '');
-        s = s.replace(/\bno grounded prevalence number in pack\b/gi, '');
+        // Honest "thin evidence" hedges — kept when the report is graded
+        // thin/dossier-only so a degraded report is not polished into a
+        // confident-looking one (mirror of lib/report-polish.js Pillar 1).
+        if (!keepHedges) {
+          s = s.replace(/^[^\n]*\bNo grounded evidence[^\n]*$/gim, '');
+          s = s.replace(/^[^\n]*\bno grounded prevalence[^\n]*$/gim, '');
+          s = s.replace(/^[^\n]*\bno grounded prevalence number in pack[^\n]*$/gim, '');
+          s = s.replace(/\bNo grounded evidence in pack\b/gi, '');
+          s = s.replace(/\bno grounded prevalence number in pack\b/gi, '');
+          s = s.replace(/\bdossier[- ]sourced\b/gi, '');
+          s = s.replace(/\bdossier source\b/gi, '');
+          s = s.replace(/\s*\(dossier-sourced[^)]*\)/gi, '');
+        }
         s = s.replace(/\bconfirmed against grounded evidence\b/gi, '');
-        s = s.replace(/\bdossier[- ]sourced\b/gi, '');
-        s = s.replace(/\bdossier source\b/gi, '');
         s = s.replace(/\bGROUNDED EVIDENCE PACK\b/gi, '');
         s = s.replace(/\bgrounded evidence pack\b/gi, '');
         s = s.replace(/\bDisease-dossier uncertainty[^.\n]*/gi, '');
         s = s.replace(/\buncertainty score[^.\n]*/gi, '');
-        s = s.replace(/\s*\(dossier-sourced[^)]*\)/gi, '');
         s = s.replace(/\s*\(confirmed against grounded evidence[^)]*\)/gi, '');
         s = s.replace(/\s*\[(FULL-TEXT|ABSTRACT-ONLY|METADATA-ONLY|CURATED KB|PREPRINT[^\]]*)\]\s*/gi, ' ');
         s = s.replace(/\n{3,}/g, '\n\n').trim();
@@ -1738,6 +1743,7 @@
         const [dossier, setDossier] = useState(null);
         const [conditionResolution, setConditionResolution] = useState(null);
         const [validationMismatch, setValidationMismatch] = useState({ research: null, repurpose: null });
+        const [evidenceGrade, setEvidenceGrade] = useState({ research: null, repurpose: null });
         const [lastGathered, setLastGathered] = useState(null);
         const [repurposeForCondition, setRepurposeForCondition] = useState(null);
 
@@ -1749,6 +1755,7 @@
           setTrialsData(null);
           setEvidencePack([]);
           setEvidenceSummary(null);
+          setEvidenceGrade({ research: null, repurpose: null });
           setDossier(null);
           setRepurposeDrugScreen(null);
           setCoverageAudit(null);
@@ -1856,12 +1863,6 @@
           () => injectApprovedTreatmentStubs(parseTreatments(researchText), evidenceSummary?.pipelineDrugs),
           [researchText, evidenceSummary]
         );
-        // Split data-bearing cards from KB-injected stubs. Stubs carry only a
-        // drug name + mechanism (no efficacy/safety/dosing), so rendering them
-        // as full cards shows empty "—" meters that imply missing data. We
-        // render them instead as an honest "also FDA-approved" reference list.
-        const realTreatments = useMemo(() => treatments.filter((t) => !t._approvedStub), [treatments]);
-        const stubTreatments = useMemo(() => treatments.filter((t) => t._approvedStub), [treatments]);
         const candidates = useMemo(() => {
           const cond = (patient.condition || '').trim().toLowerCase();
           if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) return [];
@@ -2240,6 +2241,9 @@
                   setRepurposeDrugScreen(gathered.evidence.repurposeDrugScreen);
                 }
               }
+              if ((mode === 'research' || mode === 'repurpose') && gathered.evidenceGrade) {
+                setEvidenceGrade((g) => ({ ...g, [mode]: gathered.evidenceGrade }));
+              }
               // One honest gather step — all three pools arrive together.
               updateStep('gather', {
                 status: 'done',
@@ -2431,6 +2435,9 @@
             if (data.evidence) {
               setEvidenceSummary(data.evidence);
               setEvidencePack(data.evidence.topRanked || []);
+            }
+            if (mode === 'research' || mode === 'repurpose') {
+              setEvidenceGrade((g) => ({ ...g, [mode]: data.evidenceGrade || null }));
             }
             if (data.dossier) {
               setDossier(data.dossier);
@@ -2801,6 +2808,7 @@
                 trialsData={trialsData} drugScreen={repurposeDrugScreen}
                 validation={validations.research}
                 validationMismatch={validationMismatch.research}
+                evidenceGrade={evidenceGrade.research || evidenceGrade.repurpose}
                 conditionResolution={conditionResolution}
                 evidenceSummary={evidenceSummary}
                 evidencePack={evidencePack}
@@ -6083,6 +6091,40 @@
         </div>
       );
 
+      /* ==================== Evidence-grade banner (Pillar 1) ==================== */
+      // Honest "thin / unverified evidence" banner shown above the report when
+      // the grounding-sufficiency gate graded the evidence thin or dossier-only.
+      // Never blocks the report — it only sets expectations. A `strong` grade
+      // (curated / well-grounded conditions) shows nothing.
+      const EvidenceGradeBanner = ({ grade }) => {
+        if (!grade || grade.tier === 'strong') return null;
+        const color = theme.yellow;
+        // Short title (distinct from the body sentence so the copy isn't
+        // restated), one explanatory sentence, then a brief evidence detail.
+        const title = grade.tier === 'dossier-only' ? 'Unverified evidence base' : 'Thin evidence base';
+        const detail = grade.tier === 'dossier-only'
+          ? 'No peer-reviewed papers could be grounded, so this report is derived from a disease dossier and a live web scout.'
+          : `Only ${grade.realPaperCount} grounded paper${grade.realPaperCount === 1 ? '' : 's'}${grade.topTierCount ? ` (${grade.topTierCount} RCT/meta-analysis)` : ''} could be found — below the bar for a well-evidenced summary.`;
+        return (
+          <div style={{
+            ...panelStyle,
+            borderLeft: `4px solid ${color}`,
+            background: `${color}12`
+          }}>
+            <h3 style={{ margin: '0 0 0.35rem', color, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
+              <AlertTriangle size={18} /> {title}
+            </h3>
+            <p style={{ margin: 0, color: theme.text, fontSize: '0.88rem', lineHeight: 1.55 }}>
+              Limited high-quality evidence was found for this condition — treat the following as a
+              starting point to discuss with a clinician, not a vetted summary.
+            </p>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: theme.textDim }}>
+              {detail}
+            </p>
+          </div>
+        );
+      };
+
       /* ==================== Validation mismatch banner ==================== */
       const ValidationMismatchBanner = ({ mismatch, onFixProfile, onDismiss }) => {
         if (!mismatch) return null;
@@ -6132,7 +6174,7 @@
       /* ==================== Research Tab ==================== */
       const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treatments,
                               candidates, combos, repurposeText, trialsData, drugScreen,
-                              validation, validationMismatch, conditionResolution,
+                              validation, validationMismatch, conditionResolution, evidenceGrade,
                               evidenceSummary, evidencePack, dossier, progress, coverageAudit,
                               chatHistory, userQuery, setUserQuery, sendChat, onAudit, runtimeConfig,
                               runMeta, setTab, onDismissMismatch, onRetrySynth, canRetrySynth }) => {
@@ -6144,10 +6186,17 @@
         const reportAllowedUrls = useMemo(() => {
           return buildAllowedUrlSet(trialsData, evidenceSummary || { topRanked: evidencePack });
         }, [evidenceSummary, evidencePack, trialsData]);
+        // Split data-bearing approved cards from KB-injected stubs. Derived here
+        // from the in-scope `treatments` prop — these are referenced throughout
+        // the approved-treatments render below.
+        const realTreatments = useMemo(() => treatments.filter((t) => !t._approvedStub), [treatments]);
+        const stubTreatments = useMemo(() => treatments.filter((t) => t._approvedStub), [treatments]);
+        const keepHedges = !!evidenceGrade && evidenceGrade.tier && evidenceGrade.tier !== 'strong';
         const renderedResearchText = polishReportForDisplay(
           (treatments.length > 0 && allApprovedDrugsRendered(evidenceSummary?.pipelineDrugs, treatments))
             ? stripApprovedTreatmentsSection(translatedText || researchText)
-            : (translatedText || researchText)
+            : (translatedText || researchText),
+          { keepHedges }
         );
         const profileCoherenceIssue = useMemo(() => checkProfileCoherence(patient), [patient]);
         const baseQuickPrompts = [
@@ -6227,6 +6276,8 @@
             </div>
 
             <DeepResearchProgress progress={progress} onRetrySynth={onRetrySynth} canRetrySynth={canRetrySynth} />
+
+            <EvidenceGradeBanner grade={evidenceGrade} />
 
             <ValidationMismatchBanner
               mismatch={validationMismatch}
