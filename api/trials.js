@@ -62,10 +62,48 @@ const containsAny = (text, hints) => {
 // negative trials (incl. the PANTHER aza+pred+NAC arm) get a caution + penalty.
 export const NON_ENROLLING_PENALTY = { COMPLETED: -55, TERMINATED: -60, WITHDRAWN: -60, SUSPENDED: -60 };
 export const ACTIVE_NOT_RECRUITING_PENALTY = -25;
+// An age-ineligible trial (e.g. a pediatric study for a 64-year-old) is one
+// the patient cannot enrol in — push it well below eligible options so it
+// never ranks near the top of an adult's list.
+export const AGE_INELIGIBLE_PENALTY = -70;
 const HARMFUL_PATTERN = /futilit|harm|safety concern|adverse|increased (mortalit|death|risk)|stopped (early|for)|lack of efficac|did not meet|negative (result|trial)/i;
 // PANTHER-IPF prednisone+azathioprine+NAC arm — stopped for increased death
 // and hospitalisation. Never let it rank as a promising option.
 export const HARMFUL_NCTS = new Set(['NCT00650091']);
+const ENROLLING_STATUSES = ['RECRUITING', 'NOT_YET_RECRUITING', 'ENROLLING_BY_INVITATION'];
+
+// CT.gov age strings look like "10 Years", "6 Months", "N/A". Convert to
+// fractional years so we can compare against the patient's age.
+export const parseAgeToYears = (raw) => {
+  const m = String(raw || '').match(/(\d+(?:\.\d+)?)\s*(year|month|week|day)/i);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  const unit = m[2].toLowerCase();
+  if (unit.startsWith('year')) return n;
+  if (unit.startsWith('month')) return n / 12;
+  if (unit.startsWith('week')) return n / 52;
+  if (unit.startsWith('day')) return n / 365;
+  return null;
+};
+
+// True when the patient's age falls outside the trial's eligible age window.
+// Uses the numeric min/max when present; falls back to stdAges (a CHILD-only
+// study excludes adults) so pediatric trials are caught even without numbers.
+export const patientAgeIneligible = (study = {}, patientAge) => {
+  const age = Number(patientAge);
+  if (!Number.isFinite(age) || age <= 0) return false;
+  const min = parseAgeToYears(study.minimumAge);
+  const max = parseAgeToYears(study.maximumAge);
+  if (min != null && age < min) return true;
+  if (max != null && age > max) return true;
+  if (min == null && max == null) {
+    const stdAges = (study.stdAges || []).map((a) => String(a).toUpperCase());
+    if (stdAges.length && !stdAges.includes('ADULT') && !stdAges.includes('OLDER_ADULT') && age >= 18) {
+      return true; // CHILD-only study, adult patient
+    }
+  }
+  return false;
+};
 
 // Linear map of the raw additive sum into a 0-100 scale (the UI shows "/100").
 // Monotonic, so it preserves relative ranking order while keeping distinct
@@ -78,22 +116,39 @@ export const normalizePromise = (raw) => {
 };
 
 // Apply the status penalty + harmful-trial caution to an accumulated raw score.
-export const applyPatientPromiseAdjustment = (rawScore, study = {}) => {
+export const applyPatientPromiseAdjustment = (rawScore, study = {}, { patientAge = null } = {}) => {
   let score = Number(rawScore) || 0;
   const STATUS = String(study.status || '').toUpperCase();
   const nct = String(study.nctId || '').toUpperCase();
   if (NON_ENROLLING_PENALTY[STATUS] != null) score += NON_ENROLLING_PENALTY[STATUS];
   else if (STATUS === 'ACTIVE_NOT_RECRUITING') score += ACTIVE_NOT_RECRUITING_PENALTY;
 
+  // A trial that is actively enrolling cannot have been "stopped"; only flag
+  // it as stopped/negative when there's a real basis (a hardcoded harmful NCT,
+  // or a non-enrolling status whose title/whyStopped matches the harm pattern).
+  // Without this gate, boilerplate title text like "...Adverse Events (AEs)..."
+  // falsely tagged RECRUITING trials as stopped (contradictory status flags).
+  const enrolling = ENROLLING_STATUSES.includes(STATUS) || study.acceptingNewPatients === true;
   const stoppedHarmful = HARMFUL_NCTS.has(nct) ||
-    (['TERMINATED', 'SUSPENDED', 'WITHDRAWN'].includes(STATUS) && HARMFUL_PATTERN.test(study.whyStopped || '')) ||
-    HARMFUL_PATTERN.test(`${study.briefTitle || ''} ${study.whyStopped || ''}`);
+    (!enrolling && (
+      (['TERMINATED', 'SUSPENDED', 'WITHDRAWN'].includes(STATUS) && HARMFUL_PATTERN.test(study.whyStopped || '')) ||
+      HARMFUL_PATTERN.test(`${study.briefTitle || ''} ${study.whyStopped || ''}`)
+    ));
   let caution = null;
   if (stoppedHarmful) {
     score -= 30;
     caution = HARMFUL_NCTS.has(nct)
       ? 'Stopped for harm — this regimen increased death/hospitalisation. Listed for context only, not as a recommended option.'
       : 'This trial was stopped or reported a negative result — discuss with your doctor before pursuing.';
+  }
+
+  // Penalise trials the patient is age-ineligible for (e.g. a pediatric
+  // bipolar study for a 64-year-old) so they don't rank near the top.
+  if (patientAgeIneligible(study, patientAge)) {
+    score += AGE_INELIGIBLE_PENALTY;
+    if (!caution) {
+      caution = `This trial only enrols ages ${study.minimumAge || '?'}–${study.maximumAge || '?'}, which does not include the patient's age — they likely cannot join.`;
+    }
   }
   return { score, caution };
 };
@@ -484,7 +539,8 @@ export default async function handler(req, res) {
       treatmentOnly = true,
       excludePlacebo = false,
       pageSize = 50,
-      country
+      country,
+      patientAge = null
     } = body || {};
 
     if (!condition || !String(condition).trim()) {
@@ -716,7 +772,7 @@ export default async function handler(req, res) {
 
       // Rank patients toward trials they can actually join, flag stopped/harmful
       // ones, and rescale the raw sum to a clear 0-100 score (Item 7 + 0-100).
-      const { score: adjustedScore, caution } = applyPatientPromiseAdjustment(score, s);
+      const { score: adjustedScore, caution } = applyPatientPromiseAdjustment(score, s, { patientAge });
       s.caution = caution;
       s.promiseScoreRaw = adjustedScore;
       s.promiseScore = normalizePromise(adjustedScore);

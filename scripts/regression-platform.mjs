@@ -628,4 +628,79 @@ if (/SUBGROUP \/ BIOMARKER EXCEPTION/i.test(researchSrc) &&
   }
 }
 
+// 23. BEHAVIORAL (Bipolar defect 4a): a RECRUITING trial whose title contains
+//     boilerplate like "...Adverse Events (AEs)..." must NOT be flagged as
+//     stopped/negative (contradictory "Stopped" + "RECRUITING" status flags).
+{
+  const recruitingAdverse = applyPatientPromiseAdjustment(80, {
+    status: 'RECRUITING',
+    acceptingNewPatients: true,
+    nctId: 'NCT04777357',
+    briefTitle: 'A Study to Assess Change in Disease Activity and Adverse Events (AEs) With Cariprazine'
+  });
+  // A genuinely terminated trial with a harm signal still IS flagged.
+  const terminatedHarm = applyPatientPromiseAdjustment(80, {
+    status: 'TERMINATED', acceptingNewPatients: false, nctId: 'NCT_T',
+    briefTitle: 'Trial', whyStopped: 'Stopped for safety concern (increased adverse events)'
+  });
+  if (!recruitingAdverse.caution && terminatedHarm.caution) {
+    pass('Recruiting trial w/ "Adverse Events" title NOT flagged stopped; terminated-for-harm still flagged (defect 4a)');
+  } else {
+    fail(`Stopped/negative flag regression (recruiting caution=${!!recruitingAdverse.caution} terminated caution=${!!terminatedHarm.caution})`);
+  }
+}
+
+// 24. BEHAVIORAL (Bipolar defect 4b): a pediatric trial (ages 10-17) is
+//     penalized + age-cautioned for a 64-year-old, and ranks below an
+//     otherwise-identical adult-eligible trial.
+{
+  const RAW = 90;
+  const pediatric = applyPatientPromiseAdjustment(RAW, {
+    status: 'RECRUITING', acceptingNewPatients: true, nctId: 'NCT_PED',
+    minimumAge: '10 Years', maximumAge: '17 Years', stdAges: ['CHILD']
+  }, { patientAge: 64 });
+  const adult = applyPatientPromiseAdjustment(RAW, {
+    status: 'RECRUITING', acceptingNewPatients: true, nctId: 'NCT_ADULT',
+    minimumAge: '18 Years', maximumAge: '65 Years', stdAges: ['ADULT', 'OLDER_ADULT']
+  }, { patientAge: 64 });
+  const pedNorm = normalizePromise(pediatric.score);
+  const adultNorm = normalizePromise(adult.score);
+  const pedCaution = /age|enrol/i.test(pediatric.caution || '');
+  if (pedNorm < adultNorm && pedCaution && !adult.caution) {
+    pass(`Age-ineligible pediatric trial penalized + cautioned and ranks below adult-eligible (${pedNorm}/100 < ${adultNorm}/100) (defect 4b)`);
+  } else {
+    fail(`Age-ineligibility regression (ped=${pedNorm} adult=${adultNorm} pedCaution=${pedCaution} adultCaution=${!!adult.caution})`);
+  }
+}
+
+// 25. SOURCE (Bipolar defect 1): the candidate parser must split a merged block
+//     on a duplicate field so one drug's risks/sources can't overwrite another.
+if (/duplicate key as a fresh candidate boundary/i.test(indexSrc) &&
+    /key === 'CANDIDATE:' \|\| \(cur && cur\[field\] !== undefined\)/.test(indexSrc)) {
+  pass('parseCandidates splits a delimiter-less merged block (Magnesium-carrying-Lumateperone contamination guard, defect 1)');
+} else {
+  fail('parseCandidates missing duplicate-field block-split guard — wrong-drug field contamination can recur');
+}
+
+// 26. SOURCE (Bipolar defect 2): card titles strip markdown bold/links via
+//     InlineTitle (no raw "**Quetiapine**" or "[..](..)" in headings).
+if (/const InlineTitle = /.test(indexSrc) &&
+    /<InlineTitle text=\{t\.treatment/.test(indexSrc) &&
+    /<InlineTitle text=\{c\.combo/.test(indexSrc) &&
+    /<InlineTitle text=\{c\.candidate/.test(indexSrc)) {
+  pass('Approved, combo, and candidate titles render via InlineTitle (markdown bold/link stripped, defect 2)');
+} else {
+  fail('Card titles not routed through InlineTitle — raw markdown can leak into headings');
+}
+
+// 27. SOURCE (Bipolar defect 3): KB-injected approved stubs render as an honest
+//     "also FDA-approved" reference list, not fake cards with empty "—" meters.
+if (/_approvedStub/.test(indexSrc) &&
+    /stubTreatments/.test(indexSrc) &&
+    /Also FDA-approved for this condition/i.test(indexSrc)) {
+  pass('Empty approved stubs render as an honest reference list (no fake "—" efficacy/safety cards, defect 3)');
+} else {
+  fail('Approved stubs still render as empty cards — header overstates detailed approved-treatment cards');
+}
+
 console.log(process.exitCode ? '\n\x1b[31mPlatform regression FAILED\x1b[0m\n' : '\n\x1b[32mPlatform regression passed\x1b[0m\n');

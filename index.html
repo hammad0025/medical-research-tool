@@ -5,9 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="cache-control" content="no-cache">
     <title>researchingmycondition.com</title>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- CDN versions are PINNED. Unpinned URLs silently float to new majors:
+         @babel/standalone floated to 8.0.0, whose preset-react now defaults to
+         the AUTOMATIC JSX runtime and injects `import {jsx} from "react/jsx-runtime"`.
+         That bare ES import cannot run in this no-build, UMD-global classic script
+         ("Cannot use import statement outside a module") and white-pages the app.
+         Babel 7.x keeps the classic runtime (React.createElement, no import). -->
+    <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
     <!-- Markdown renderer: the AI responses use markdown syntax (**bold**,
          tables, headings, links). Without a parser, the raw asterisks and
          pipe characters leak into the UI. marked is tiny (~40KB), fast,
@@ -732,9 +738,19 @@
           const t = line.trim();
           const key = REPURPOSE_KEYS.find(k => t.startsWith(k));
           if (!key) return;
-          if (key === 'CANDIDATE:') { if (cur) out.push(cur); cur = {}; }
-          if (!cur) return;
           const field = key.replace(':', '').toLowerCase();
+          // A repeated field inside an already-open block means the model
+          // dropped a CANDIDATE: delimiter and the NEXT drug's fields are
+          // bleeding into this card (root cause of the "Magnesium" card that
+          // showed Lumateperone's risks/confidence/sources). Treat the
+          // duplicate key as a fresh candidate boundary so one drug's data can
+          // never overwrite another's. The orphaned fragment (no CANDIDATE
+          // name) is dropped during de-dup below.
+          if (key === 'CANDIDATE:' || (cur && cur[field] !== undefined)) {
+            if (cur) out.push(cur);
+            cur = {};
+          }
+          if (!cur) return;
           cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
           if (field === 'efficacy_hypothesis' || field === 'safety' || field === 'confidence') {
             cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
@@ -755,6 +771,9 @@
         const seenNames = new Set();
         const deduped = [];
         for (const cand of sorted) {
+          // Drop orphan fragments produced when a merged block was split on a
+          // duplicate field — a real candidate always carries a CANDIDATE name.
+          if (!String(cand.candidate || '').trim()) continue;
           const norm = String(cand.candidate || '')
             .toLowerCase()
             .replace(/\(.*?\)/g, '')        // drop parenthetical brand/generic
@@ -1837,6 +1856,12 @@
           () => injectApprovedTreatmentStubs(parseTreatments(researchText), evidenceSummary?.pipelineDrugs),
           [researchText, evidenceSummary]
         );
+        // Split data-bearing cards from KB-injected stubs. Stubs carry only a
+        // drug name + mechanism (no efficacy/safety/dosing), so rendering them
+        // as full cards shows empty "—" meters that imply missing data. We
+        // render them instead as an honest "also FDA-approved" reference list.
+        const realTreatments = useMemo(() => treatments.filter((t) => !t._approvedStub), [treatments]);
+        const stubTreatments = useMemo(() => treatments.filter((t) => t._approvedStub), [treatments]);
         const candidates = useMemo(() => {
           const cond = (patient.condition || '').trim().toLowerCase();
           if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) return [];
@@ -2474,7 +2499,8 @@
                 recruitingOnly: opts?.recruitingOnly ?? true,
                 treatmentOnly: opts?.treatmentOnly ?? true,
                 excludePlacebo: opts?.excludePlacebo ?? false,
-                pageSize: 40
+                pageSize: 40,
+                patientAge: patient.age ?? null
               })
             });
             const data = await res.json();
@@ -4468,6 +4494,40 @@
         return <div className="mrt-markdown" dangerouslySetInnerHTML={{ __html: html }} />;
       };
 
+      // Render a card TITLE inline. The model sometimes wraps headings in
+      // markdown bold/italic and even link syntax, e.g.
+      //   "**Quetiapine (Seroquel XR)**"
+      //   "**Taurine + Lurasidone (Latuda)**"
+      //   "**[Lumateperone (Caplyta)](https://…)**"
+      // Those render literally in a plain {text} node. Strip the bold/italic
+      // markers and turn any [label](url) into a real anchor so titles show
+      // clean text (and links are clickable, never raw "[text](url)").
+      const InlineTitle = ({ text }) => {
+        const raw = String(text == null ? '' : text);
+        const stripBold = (s) => s.replace(/\*\*|__|\*|_/g, '');
+        const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+        const nodes = [];
+        let last = 0, m, key = 0;
+        while ((m = linkRe.exec(raw)) !== null) {
+          if (m.index > last) {
+            const lead = stripBold(raw.slice(last, m.index));
+            if (lead) nodes.push(lead);
+          }
+          nodes.push(
+            <a key={`l${key++}`} href={m[2]} target="_blank" rel="noopener noreferrer"
+              style={{ color: theme.accent, textDecoration: 'underline' }}>
+              {stripBold(m[1])}
+            </a>
+          );
+          last = linkRe.lastIndex;
+        }
+        if (last < raw.length) {
+          const tail = stripBold(raw.slice(last));
+          if (tail) nodes.push(tail);
+        }
+        return <React.Fragment>{nodes}</React.Fragment>;
+      };
+
       const SourceLinks = ({ text, label = 'Sources' }) => {
         const links = useMemo(() => extractLinksFromText(text), [text]);
         if (!links.length) return null;
@@ -6149,7 +6209,9 @@
               </p>
               {treatments.length > 0 && (
                 <p style={{ color: theme.green, fontSize: '0.85rem' }}>
-                  ✓ Found {treatments.length} approved-treatment card{treatments.length === 1 ? '' : 's'} in your report.
+                  {realTreatments.length > 0
+                    ? <>✓ Found {realTreatments.length} detailed approved-treatment card{realTreatments.length === 1 ? '' : 's'}{stubTreatments.length > 0 ? ` (plus ${stubTreatments.length} more FDA-approved option${stubTreatments.length === 1 ? '' : 's'} listed for reference)` : ''} in your report.</>
+                    : <>✓ Found {stubTreatments.length} FDA-approved option{stubTreatments.length === 1 ? '' : 's'} for this condition (listed for reference — see guidelines for per-drug details).</>}
                 </p>
               )}
               {candidates.length > 0 && (
@@ -6177,16 +6239,38 @@
             {treatments.length > 0 && (
               <div style={panelStyle}>
                 <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
-                  FDA-approved & research-backed treatments ({treatments.length})
+                  FDA-approved treatments for this condition ({treatments.length})
                 </h3>
                 <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
                   Every approved option for this condition in one place — with source links on each card.
                 </p>
-                <div style={{ display: 'grid', gap: '0.85rem' }}>
-                  {treatments.map((t, i) => (
-                    <TreatmentCard key={`tx-${i}`} t={t} rank={i + 1} />
-                  ))}
-                </div>
+                {realTreatments.length > 0 && (
+                  <div style={{ display: 'grid', gap: '0.85rem' }}>
+                    {realTreatments.map((t, i) => (
+                      <TreatmentCard key={`tx-${i}`} t={t} rank={i + 1} />
+                    ))}
+                  </div>
+                )}
+                {stubTreatments.length > 0 && (
+                  <div style={{ marginTop: realTreatments.length > 0 ? '1rem' : 0 }}>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, color: theme.textDim, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
+                      Also FDA-approved for this condition (see treatment guidelines)
+                    </div>
+                    <div style={{ display: 'grid', gap: '0.4rem' }}>
+                      {stubTreatments.map((t, i) => (
+                        <div key={`stub-${i}`} style={{ padding: '0.5rem 0.7rem', borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.panel }}>
+                          <span style={{ fontWeight: 700, color: theme.text }}><InlineTitle text={t.treatment} /></span>
+                          {t.provider && (
+                            <span style={{ color: theme.textDim, fontSize: '0.82rem' }}> — {String(t.provider).replace(/^Mechanism:\s*/i, '')}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: theme.textDim, marginTop: 6, lineHeight: 1.5 }}>
+                      These are established FDA-approved options without per-drug efficacy/safety scores in this report — ask your doctor or see condition treatment guidelines for details.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -7018,7 +7102,7 @@
               <RankBadge rank={rank} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: '1.15rem', color: theme.text }}>
-                  {t.treatment || '(unnamed treatment)'}
+                  <InlineTitle text={t.treatment || '(unnamed treatment)'} />
                 </div>
                 {t.fda_status && (
                   <div style={{ fontSize: '0.78rem', color: notApproved ? theme.yellow : theme.green, marginTop: 4, fontWeight: 600 }}>
@@ -7069,7 +7153,7 @@
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
               <RankBadge rank={rank} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800, fontSize: '1.05rem', color: theme.text }}>{c.combo || 'Combination'}</div>
+                <div style={{ fontWeight: 800, fontSize: '1.05rem', color: theme.text }}><InlineTitle text={c.combo || 'Combination'} /></div>
                 {c.rationale && <div style={{ marginTop: 6, fontSize: '0.88rem', lineHeight: 1.55 }}>{c.rationale}</div>}
                 {c.interaction_risk && (
                   <div style={{ marginTop: 6, fontSize: '0.82rem', color: theme.yellow }}>
@@ -7116,7 +7200,7 @@
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '0.6rem' }}>
                   <div style={{ fontWeight: 800, fontSize: '1.15rem', color: theme.text }}>
-                    {c.candidate || '(unnamed candidate)'}
+                    <InlineTitle text={c.candidate || '(unnamed candidate)'} />
                   </div>
                   {c.class && (
                     <div style={{ fontSize: '0.78rem', color: theme.textDim, fontStyle: 'italic' }}>

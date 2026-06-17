@@ -2100,7 +2100,8 @@ export default async function handler(req, res) {
             condition: gatherCondition,
             recruitingOnly: false,
             treatmentOnly: true,
-            pageSize: 30
+            pageSize: 30,
+            patientAge: patient?.age ?? null
           }), 'trials')
         : Promise.resolve(null);
 
