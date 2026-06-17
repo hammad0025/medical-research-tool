@@ -344,11 +344,35 @@ names leak into a card.
   STRUCTURAL (schema, guardrail serving, parser/contamination fixtures, trials fixtures) + LIVE
   (gather+synth per condition asserting I1–I5). Includes curated + genuinely non-curated Mondo
   conditions, each marked for server-need. **(a)** offline; **(b)** live.
-- **CI wiring:** add a workflow that runs `node scripts/regression-platform.mjs` +
-  `node scripts/condition-matrix.mjs` (offline mode) on push, and the live mode on a schedule
-  against a deployed URL. On failure, send email to **shaque025@gmail.com** (reuse
-  `lib/alerts-email.js`). **(a)** to author; **(b)** to validate delivery; **(c)** for the
-  CI provider/secrets choice.
+- **CI wiring (delivered):** `.github/workflows/ci.yml` runs the two **offline** suites
+  (`node scripts/regression-platform.mjs` then `node scripts/condition-matrix.mjs`) on every
+  `push`/`pull_request` to `main`, on manual `workflow_dispatch`, and on a daily `schedule`
+  (07:17 UTC). The job uses Node 20 and `npm ci`. No API keys, no running server, no network to
+  Anthropic/PubMed are required for this job. On any non-zero exit a final step gated on
+  `if: failure()` emails **shaque025@gmail.com** via `dawidd6/action-send-mail`, including the
+  repo, branch/ref, trigger, commit SHA, failed job, and the failing run URL.
+- **Live matrix (optional, deferred):** the `--live` mode (`npm run regression:matrix:live`)
+  still needs a deployed/running server + API keys and is **not** in CI yet. Wire it later as a
+  secret-gated, schedule-only job pointing `MRT_BASE_URL` at a deployed URL.
+
+#### GitHub secrets the owner must add
+Repo → **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret          | Value (Gmail App Password path)                                     |
+| --------------- | ------------------------------------------------------------------- |
+| `SMTP_HOST`     | `smtp.gmail.com`                                                    |
+| `SMTP_PORT`     | `465`                                                              |
+| `SMTP_USERNAME` | `shaque025@gmail.com`                                              |
+| `SMTP_PASSWORD` | a **Gmail App Password** (NOT the normal account password)         |
+
+To mint the Gmail App Password: Google Account → **Security** → enable **2-Step Verification**
+(required) → **App passwords** → generate one for "Mail" / "Other (CI)" → copy the 16-character
+value into `SMTP_PASSWORD`. The recipient address is hard-coded as `shaque025@gmail.com` in the
+workflow, so it is not a secret. A transactional provider (SendGrid/Mailgun/Postmark) works too:
+just set `SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/`SMTP_PASSWORD` to that provider's SMTP creds.
+
+Without these secrets the test steps still run and gate `main` correctly; only the failure email
+is skipped (the action no-ops with empty credentials).
 
 ---
 
