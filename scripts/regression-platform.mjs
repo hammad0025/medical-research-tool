@@ -2,6 +2,9 @@
 // Platform robustness regression — offline, no Anthropic spend.
 // Run: node scripts/regression-platform.mjs
 
+// TEMPORARY: intentional failure to verify CI failure-email alert. Remove with branch.
+throw new Error('CI email smoke test — intentional failure (delete this branch)');
+
 import { readFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
