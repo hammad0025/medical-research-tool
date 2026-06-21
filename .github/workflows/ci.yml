@@ -36,6 +36,9 @@ jobs:
       - name: Condition matrix invariants (offline)
         run: node scripts/condition-matrix.mjs
 
+      - name: Report-parser golden-output regression (leak detector)
+        run: node scripts/regression-report-parsers.mjs
+
       - name: Email owner on failure
         if: failure()
         uses: dawidd6/action-send-mail@v3

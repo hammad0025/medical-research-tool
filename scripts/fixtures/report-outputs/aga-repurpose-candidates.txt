@@ -1,0 +1,33 @@
+## Repurposing candidates
+
+CANDIDATE: Oral Minoxidil (low-dose)
+CLASS: antihypertensive vasodilator
+APPROVED_FOR: Hypertension
+WHAT_IT_DOES: Widens blood vessels and, at low oral doses, prolongs the hair-growth phase.
+WHY_FOR_THIS_CONDITION: Low-dose oral minoxidil reaches follicles that topical formulations miss.
+MECHANISM_TARGET: ATP-sensitive potassium channels in the dermal papilla
+REPURPOSE_RATIONALE: Repurposed off-label for androgenetic alopecia when topical therapy is poorly tolerated.
+EVIDENCE_STRENGTH: SMALL_RCT
+SUPPORTING_EVIDENCE: Retrospective cohorts report meaningful regrowth at 0.25–1.25 mg daily.
+REFERENCES: [PMID 33639033](https://pubmed.ncbi.nlm.nih.gov/33639033/)
+EFFICACY_HYPOTHESIS: 65% — comparable to topical minoxidil with better adherence
+SAFETY: 80% — hypertrichosis and mild fluid retention are the main issues
+CONFIDENCE: 60% — growing but mostly observational evidence
+PATIENT_SPECIFIC_RISKS: Monitor blood pressure and ankle swelling in this patient.
+HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether a 1.25 mg starting dose with blood-pressure monitoring is appropriate.
+
+CANDIDATE: Spironolactone
+CLASS: aldosterone antagonist
+APPROVED_FOR: Hypertension and heart failure
+WHAT_IT_DOES: Blocks androgen receptors and reduces androgen production.
+WHY_FOR_THIS_CONDITION: Anti-androgen activity can slow androgen-driven follicle miniaturization.
+MECHANISM_TARGET: Androgen receptor and aldosterone receptor
+REPURPOSE_RATIONALE: Widely used off-label for female pattern hair loss.
+EVIDENCE_STRENGTH: OBSERVATIONAL
+SUPPORTING_EVIDENCE: Cohort data support stabilization of hair loss in women.
+REFERENCES: [PMID 25522096](https://pubmed.ncbi.nlm.nih.gov/25522096/)
+EFFICACY_HYPOTHESIS: 50% — stabilizes more than it regrows
+SAFETY: 75% — hyperkalemia risk; not used in men due to feminizing effects
+CONFIDENCE: 45% — limited to specific patient groups
+PATIENT_SPECIFIC_RISKS: Not appropriate for this male patient given feminizing effects.
+HOW_TO_DISCUSS_WITH_DOCTOR: Discuss why this is generally reserved for female patients.

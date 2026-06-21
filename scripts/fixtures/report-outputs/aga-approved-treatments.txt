@@ -1,0 +1,20 @@
+## 3. Approved Treatments (Backed by Research)
+
+### 💊 CARD 1 — Finasteride
+PROVIDER: Dermatologist or primary-care physician
+TREATMENT: Finasteride (Propecia) — 1 mg/day oral
+FDA_STATUS: FDA-approved for male androgenetic alopecia
+EFFICACY: **80**% — halts hair loss in roughly 80% of men over two years
+SAFETY: 90% — generally well tolerated; sexual side effects in a small minority
+RISKS: Decreased libido or erectile dysfunction in a small percentage of men; must not be handled by women who are or may become pregnant.
+REFERENCES: [PMID 9777765](https://pubmed.ncbi.nlm.nih.gov/9777765/)
+
+--- ### 💊 CARD 2 — Minoxidil
+WHAT IT DOES: A topical vasodilator that prolongs the growth phase of the hair follicle.
+PROVIDER: Dermatologist or available over the counter
+TREATMENT: Minoxidil (Rogaine) — 5% topical foam applied twice daily
+FDA_STATUS: FDA-approved (OTC) for androgenetic alopecia
+EFFICACY: 60% — modest regrowth in about 60% of users
+SAFETY: 85% — scalp irritation and unwanted facial hair are possible
+RISKS: Temporary shedding in the first few weeks; benefit is lost if the drug is stopped.
+REFERENCES: [PMID 14996087](https://pubmed.ncbi.nlm.nih.gov/14996087/)

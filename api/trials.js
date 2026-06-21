@@ -109,6 +109,9 @@ export const patientAgeIneligible = (study = {}, patientAge) => {
     if (stdAges.length && !stdAges.includes('ADULT') && !stdAges.includes('OLDER_ADULT') && age >= 18) {
       return true; // CHILD-only study, adult patient
     }
+    if (stdAges.length && !stdAges.includes('CHILD') && age < 18) {
+      return true; // adult-only study, pediatric patient
+    }
   }
   return false;
 };
@@ -156,6 +159,32 @@ export const normalizePromise = (raw) => {
   return Math.max(0, Math.min(100, Math.round(pct)));
 };
 
+// Unified eligibility gate. ONE place that evaluates every hard patient-
+// eligibility dimension (sex restriction, age out-of-range, pediatric/adult
+// age-band) and returns the applicable penalties + per-dimension flags, instead
+// of the checks being scattered through the score adjuster. Conservative: a
+// dimension only contributes a penalty when the patient is CLEARLY ineligible.
+// Returns { penalty, flags: [{ dimension, penalty, caution }], cautions }.
+export const assessTrialEligibility = (study = {}, { patientAge = null, patientSex = null } = {}) => {
+  const flags = [];
+  if (patientAgeIneligible(study, patientAge)) {
+    flags.push({
+      dimension: 'age',
+      penalty: AGE_INELIGIBLE_PENALTY,
+      caution: `This trial only enrols ages ${study.minimumAge || '?'}–${study.maximumAge || '?'}, which does not include the patient's age — they likely cannot join.`
+    });
+  }
+  if (patientSexIneligible(study, patientSex)) {
+    flags.push({
+      dimension: 'sex',
+      penalty: SEX_INELIGIBLE_PENALTY,
+      caution: 'This trial appears to enrol only patients of a different sex than the patient — they likely cannot join.'
+    });
+  }
+  const penalty = flags.reduce((sum, f) => sum + f.penalty, 0);
+  return { penalty, flags, cautions: flags.map((f) => f.caution) };
+};
+
 // Apply the status penalty + harmful-trial caution to an accumulated raw score.
 export const applyPatientPromiseAdjustment = (rawScore, study = {}, { patientAge = null, patientSex = null } = {}) => {
   let score = Number(rawScore) || 0;
@@ -183,23 +212,14 @@ export const applyPatientPromiseAdjustment = (rawScore, study = {}, { patientAge
       : 'This trial was stopped or reported a negative result — discuss with your doctor before pursuing.';
   }
 
-  // Penalise trials the patient is age-ineligible for (e.g. a pediatric
-  // bipolar study for a 64-year-old) so they don't rank near the top.
-  if (patientAgeIneligible(study, patientAge)) {
-    score += AGE_INELIGIBLE_PENALTY;
-    if (!caution) {
-      caution = `This trial only enrols ages ${study.minimumAge || '?'}–${study.maximumAge || '?'}, which does not include the patient's age — they likely cannot join.`;
-    }
-  }
-
-  // Penalise trials restricted to the opposite sex (e.g. a Female Pattern Hair
-  // Loss study for a male AGA patient) so they don't rank near the top.
-  if (patientSexIneligible(study, patientSex)) {
-    score += SEX_INELIGIBLE_PENALTY;
-    if (!caution) {
-      caution = 'This trial appears to enrol only patients of a different sex than the patient — they likely cannot join.';
-    }
-  }
+  // Penalise trials the patient is hard-ineligible for (age out-of-range,
+  // pediatric/adult age-band, or opposite-sex restriction) via the single
+  // eligibility gate so the dimensions can never silently drift apart. The
+  // status caution (stopped-for-harm) keeps priority; otherwise the first
+  // eligibility caution (age before sex) is surfaced.
+  const eligibility = assessTrialEligibility(study, { patientAge, patientSex });
+  score += eligibility.penalty;
+  if (!caution && eligibility.cautions.length) caution = eligibility.cautions[0];
   return { score, caution };
 };
 

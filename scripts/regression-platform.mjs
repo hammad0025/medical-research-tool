@@ -34,12 +34,15 @@ import {
   parseHeadlinePercent,
   clampToCompleteSentence,
   finalizeReportText,
-  assertNoForeignEntities
+  assertNoForeignEntities,
+  detectStructuralLeak,
+  auditCardFields
 } from '../lib/report-polish.js';
 import { drugKeyFromName } from '../lib/kb-builder.js';
 import {
   normalizePromise,
-  applyPatientPromiseAdjustment
+  applyPatientPromiseAdjustment,
+  assessTrialEligibility
 } from '../api/trials.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
@@ -851,6 +854,98 @@ if (/patientSex:\s*patient\?\.gender/.test(researchSrc) && /patientSex = null/.t
   pass('research.js plumbs patientSex (gender) into the trials call, mirroring patientAge (defect 4)');
 } else {
   fail('patientSex not plumbed from research.js → trials.js the same way patientAge is');
+}
+
+// 33. LAYER 1 (leak detector): the shared detectStructuralLeak/auditCardFields
+//     flag residual structural tokens (card-boundary headers, underscore-less
+//     field labels) inside a parsed field value — the generalization of the
+//     Pillar 3 guard that makes a whole class of parse-failure blobs LOUD.
+{
+  const boundaryLeak = detectStructuralLeak('[PMID 1](u) --- ### 💊 CARD 2 — Minoxidil WHAT IT DOES: a vasodilator');
+  const blobLeak = detectStructuralLeak('Pairs two agents. EVIDENCETIER: SMALL_RCT SUPPORTINGEVIDENCE: a trial. HOWTODISCUSSWITHDOCTOR: ask.');
+  const cleanProse = detectStructuralLeak('Slows FVC decline by half; photosensitivity and GI upset are common.');
+  const acronym = detectStructuralLeak('Monitor FVC: an acronym mention should not flag.');
+  if (boundaryLeak.includes('CARD boundary') && boundaryLeak.includes('WHAT IT DOES:') &&
+      blobLeak.some((t) => /EVIDENCETIER/.test(t)) && blobLeak.some((t) => /SUPPORTINGEVIDENCE/.test(t)) &&
+      !cleanProse.length && !acronym.length) {
+    pass('Layer 1: detectStructuralLeak flags card-boundary + underscore-less label leaks; no false positive on prose/acronyms');
+  } else {
+    fail(`Layer 1: leak detector regression (boundary=${JSON.stringify(boundaryLeak)} blob=${JSON.stringify(blobLeak)} prose=${cleanProse.length} acronym=${acronym.length})`);
+  }
+
+  const leakyCard = { treatment: 'Finasteride', references: '[PMID 1](u) ### 💊 CARD 2 — Minoxidil WHAT IT DOES: ...', risks: 'Decreased libido in a small minority.' };
+  const cleanCard = { treatment: 'Pirfenidone', references: '[PMID 24836310](u)', risks: 'Nausea and rash; sun protection advised.' };
+  const leakyAudit = auditCardFields(leakyCard, ['treatment', 'references', 'risks']);
+  const cleanAudit = auditCardFields(cleanCard, ['treatment', 'references', 'risks']);
+  if (leakyAudit.length === 1 && leakyAudit[0].field === 'references' && !cleanAudit.length) {
+    pass('Layer 1: auditCardFields isolates the leaked field (references) and passes a clean card');
+  } else {
+    fail(`Layer 1: auditCardFields regression (leaky=${JSON.stringify(leakyAudit)} clean=${cleanAudit.length})`);
+  }
+}
+
+// 34. LAYER 1 (client wiring): index.html mirrors the leak detector and renders
+//     a non-blocking "formatting issue" indicator on the specific card instead
+//     of the leaked blob, via auditAndScrubCard + FormatWarning.
+if (/const detectStructuralLeak =/.test(indexSrc) &&
+    /STRUCTURAL_FIELD_LABELS/.test(indexSrc) &&
+    /auditAndScrubCard/.test(indexSrc) &&
+    /const FormatWarning =/.test(indexSrc) &&
+    /<FormatWarning leaks=\{leaks\}/.test(indexSrc)) {
+  pass('Layer 1: index.html mirrors the leak detector and renders FormatWarning on leaked cards (loud, non-blocking)');
+} else {
+  fail('Layer 1: index.html missing the client leak-detector mirror / FormatWarning wiring');
+}
+
+// 35. LAYER 3 (unified eligibility gate): one assessTrialEligibility function
+//     returns the applicable per-dimension penalties/flags. One test per
+//     dimension — sex opposite-restricted, age out-of-range, pediatric/adult
+//     age-band, mixed-sex NOT penalized, sex-neutral NOT penalized.
+{
+  // (a) sex opposite-restricted
+  const sexOpp = assessTrialEligibility(
+    { sex: 'FEMALE', briefTitle: 'Female Pattern Hair Loss', conditions: ['Female Pattern Hair Loss'] },
+    { patientSex: 'Male', patientAge: 29 }
+  );
+  // (b) age out-of-range (numeric)
+  const ageOut = assessTrialEligibility(
+    { minimumAge: '10 Years', maximumAge: '17 Years', stdAges: ['CHILD'] },
+    { patientAge: 64, patientSex: 'Male' }
+  );
+  // (c) adult-only age-band for a pediatric patient (new band sanity)
+  const adultOnlyForChild = assessTrialEligibility(
+    { stdAges: ['ADULT', 'OLDER_ADULT'] },
+    { patientAge: 9, patientSex: 'Female' }
+  );
+  // (d) mixed-sex ("men and women") NOT penalized
+  const mixed = assessTrialEligibility(
+    { sex: 'ALL', briefTitle: 'AGA in men and women', conditions: ['Androgenetic Alopecia'] },
+    { patientSex: 'Male', patientAge: 29 }
+  );
+  // (e) sex-neutral + age-eligible NOT penalized
+  const neutral = assessTrialEligibility(
+    { sex: 'ALL', minimumAge: '18 Years', maximumAge: '85 Years', stdAges: ['ADULT', 'OLDER_ADULT'] },
+    { patientSex: 'Male', patientAge: 29 }
+  );
+  const sexOk = sexOpp.penalty < 0 && sexOpp.flags.some((f) => f.dimension === 'sex');
+  const ageOk = ageOut.penalty < 0 && ageOut.flags.some((f) => f.dimension === 'age');
+  const bandOk = adultOnlyForChild.penalty < 0 && adultOnlyForChild.flags.some((f) => f.dimension === 'age');
+  const mixedOk = mixed.penalty === 0 && !mixed.flags.length;
+  const neutralOk = neutral.penalty === 0 && !neutral.flags.length;
+  if (sexOk && ageOk && bandOk && mixedOk && neutralOk) {
+    pass('Layer 3: assessTrialEligibility gates sex/age/age-band; mixed-sex + sex-neutral pass (one explicit test per dimension)');
+  } else {
+    fail(`Layer 3: eligibility-gate regression (sex=${sexOk} age=${ageOk} band=${bandOk} mixed=${mixedOk} neutral=${neutralOk})`);
+  }
+
+  // The gate is the SINGLE source used by the score adjuster (no scattered checks).
+  const trialsSrc = readFileSync(new URL('../api/trials.js', import.meta.url), 'utf8');
+  if (/export const assessTrialEligibility/.test(trialsSrc) &&
+      /const eligibility = assessTrialEligibility\(study/.test(trialsSrc)) {
+    pass('Layer 3: applyPatientPromiseAdjustment delegates to the unified assessTrialEligibility gate');
+  } else {
+    fail('Layer 3: eligibility checks still scattered — applyPatientPromiseAdjustment does not use assessTrialEligibility');
+  }
 }
 
 console.log(process.exitCode ? '\n\x1b[31mPlatform regression FAILED\x1b[0m\n' : '\n\x1b[32mPlatform regression passed\x1b[0m\n');

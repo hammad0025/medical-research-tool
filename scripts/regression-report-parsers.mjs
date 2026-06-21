@@ -1,0 +1,406 @@
+#!/usr/bin/env node
+// Golden-output regression for the report parsers + the loud leak-detector
+// invariant (Layer 1 + Layer 2). Offline, no Anthropic spend.
+// Run: node scripts/regression-report-parsers.mjs
+//
+// Feeds REAL representative model outputs (scripts/fixtures/report-outputs/),
+// including the messy formats that shipped the AGA "Male Pattern Baldness"
+// defects, through the ACTUAL parser logic and the SHARED leak detector
+// (lib/report-polish.js detectStructuralLeak / auditCardFields). It proves both
+// directions:
+//   BEFORE — the pre-fix parser logic leaves residual structural tokens in card
+//            fields and the leak detector FLAGS them (the defect would ship).
+//   AFTER  — the hardened parsers produce clean structured cards, the leak
+//            detector finds NOTHING, there is no raw-blob fallback, and no
+//            half-truncated card renders.
+//
+// The fixed parsers below are a faithful port of the index.html parsers (the
+// file is a no-build static page and cannot import modules); the leak detector,
+// percent, and sentence-clamp helpers are the REAL shared code from
+// lib/report-polish.js, so a future drift there fails this suite.
+
+import { readFileSync, readdirSync } from 'fs';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import {
+  detectStructuralLeak,
+  auditCardFields,
+  parseHeadlinePercent,
+  clampToCompleteSentence,
+  drugKeysMatch
+} from '../lib/report-polish.js';
+
+const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
+const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
+const head = (m) => console.log(`\n\x1b[1m${m}\x1b[0m`);
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FIX_DIR = path.join(__dirname, 'fixtures', 'report-outputs');
+const fx = (name) => readFileSync(path.join(FIX_DIR, name), 'utf8');
+
+console.log('\n=== Report-parser golden-output regression (Layer 1 + 2) ===');
+
+// ---------------------------------------------------------------------------
+// Shared block walkers — FIXED (hardened) and LEGACY (pre-fix) variants.
+// ---------------------------------------------------------------------------
+const CARD_BOUNDARY_RE = /^(?:-{2,}\s*)?(?:#{1,6}\s*)?(?:💊\s*)?CARD\s+\d+\s*[—–:-]/i;
+const isCardBoundaryLine = (line) => CARD_BOUNDARY_RE.test(String(line || '').trim());
+
+const collectBlock = (text, startIdx, terminators) => {
+  const lines = text.split('\n');
+  let cur = lines[startIdx].split(':').slice(1).join(':').trim();
+  let next = startIdx + 1;
+  while (next < lines.length) {
+    const trimmed = lines[next].trim();
+    if (terminators.some((t) => trimmed.startsWith(t))) break;
+    if (trimmed.startsWith('## ')) break;
+    if (isCardBoundaryLine(trimmed)) break;
+    if (trimmed) cur += ' ' + trimmed;
+    next++;
+  }
+  return cur;
+};
+
+// Pre-fix: NO card-boundary break (AGA defect 1) — a card's SOURCES/REFERENCES
+// swallowed the next "### 💊 CARD N —" header + its WHAT IT DOES intro.
+const collectBlockLegacy = (text, startIdx, terminators) => {
+  const lines = text.split('\n');
+  let cur = lines[startIdx].split(':').slice(1).join(':').trim();
+  let next = startIdx + 1;
+  while (next < lines.length) {
+    const trimmed = lines[next].trim();
+    if (terminators.some((t) => trimmed.startsWith(t))) break;
+    if (trimmed.startsWith('## ')) break;
+    if (trimmed) cur += ' ' + trimmed;
+    next++;
+  }
+  return cur;
+};
+
+// ---------------------------------------------------------------------------
+// Approved-treatment cards.
+// ---------------------------------------------------------------------------
+const TREATMENT_KEYS = [
+  'PROVIDER:', 'TREATMENT:', 'FDA_STATUS:', 'LENGTH_FREQUENCY:',
+  'EFFICACY:', 'SAFETY:', 'RISKS:', 'INTERACTIONS:', 'COST:', 'REFERENCES:'
+];
+const parseTreatmentsWith = (text, collector) => {
+  const blocks = [];
+  const lines = text.split('\n');
+  let cur = null;
+  lines.forEach((line, i) => {
+    const t = line.trim();
+    const key = TREATMENT_KEYS.find((k) => t.startsWith(k));
+    if (!key) return;
+    if (key === 'PROVIDER:') { if (cur) blocks.push(cur); cur = { _type: 'treatment' }; }
+    if (!cur) return;
+    const field = key.replace(':', '').toLowerCase();
+    cur[field] = clampToCompleteSentence(collector(text, i, TREATMENT_KEYS));
+    if (field === 'efficacy' || field === 'safety') {
+      cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
+    }
+  });
+  if (cur) blocks.push(cur);
+  return blocks.sort((a, b) => (b.efficacy_pct || 0) - (a.efficacy_pct || 0));
+};
+const parseTreatments = (text) => parseTreatmentsWith(text, collectBlock);
+const parseTreatmentsLegacy = (text) => parseTreatmentsWith(text, collectBlockLegacy);
+const TREATMENT_FIELDS = ['treatment', 'fda_status', 'provider', 'references', 'risks', 'efficacy', 'safety'];
+
+// ---------------------------------------------------------------------------
+// Repurposing candidate cards.
+// ---------------------------------------------------------------------------
+const REPURPOSE_KEYS = [
+  'CANDIDATE:', 'CLASS:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:',
+  'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:', 'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:',
+  'REFERENCES:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:', 'PATIENT_SPECIFIC_RISKS:',
+  'HOW_TO_DISCUSS_WITH_DOCTOR:'
+];
+const candidateIdentityKey = (name) =>
+  String(name || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '').trim();
+const candidateSearchTerms = (name) => {
+  const raw = String(name || '').replace(/\*/g, '');
+  const terms = [];
+  const lead = raw.replace(/\(.*?\)/g, ' ').split(/[—–]|\s-\s|:|\|/)[0].replace(/\s+\d.*$/, '').trim();
+  if (lead.length >= 4) terms.push(lead);
+  const paren = raw.match(/\(([^)]+)\)/);
+  if (paren) {
+    for (const piece of paren[1].split(/[,/]/)) {
+      const p = piece.trim();
+      if (p.length >= 4 && !/^\d/.test(p)) terms.push(p);
+    }
+  }
+  return terms;
+};
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const CANDIDATE_SELF_FIELDS = [
+  'patient_specific_risks', 'safety', 'confidence', 'efficacy_hypothesis', 'how_to_discuss_with_doctor'
+];
+const dropForeignCandidateFields = (cands) => {
+  const ident = cands.map((c) => ({ key: candidateIdentityKey(c.candidate), terms: candidateSearchTerms(c.candidate) }));
+  cands.forEach((cand, ci) => {
+    const self = ident[ci];
+    if (!self.key) return;
+    const foreign = ident.filter((x, i) => i !== ci && x.key && !drugKeysMatch(x.key, self.key) && x.terms.length);
+    if (!foreign.length) return;
+    CANDIDATE_SELF_FIELDS.forEach((field) => {
+      const val = cand[field];
+      if (val == null) return;
+      const lower = String(val).toLowerCase();
+      if (self.terms.some((t) => lower.includes(t.toLowerCase()))) return;
+      const hit = foreign.some((f) => f.terms.some((t) => new RegExp('\\b' + escapeRe(t) + '\\b', 'i').test(String(val))));
+      if (hit) delete cand[field];
+    });
+  });
+  return cands;
+};
+const parseCandidates = (text) => {
+  const out = [];
+  const lines = text.split('\n');
+  let cur = null;
+  lines.forEach((line, i) => {
+    const t = line.trim();
+    const key = REPURPOSE_KEYS.find((k) => t.startsWith(k));
+    if (!key) return;
+    const field = key.replace(':', '').toLowerCase();
+    if (key === 'CANDIDATE:' || (cur && cur[field] !== undefined)) { if (cur) out.push(cur); cur = {}; }
+    if (!cur) return;
+    cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
+    if (field === 'efficacy_hypothesis' || field === 'safety' || field === 'confidence') {
+      cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
+    }
+  });
+  if (cur) out.push(cur);
+  const sorted = out.sort((a, b) =>
+    (b.confidence_pct || b.efficacy_hypothesis_pct || 0) - (a.confidence_pct || a.efficacy_hypothesis_pct || 0));
+  const seen = new Set();
+  const deduped = [];
+  for (const cand of sorted) {
+    if (!String(cand.candidate || '').trim()) continue;
+    const norm = candidateIdentityKey(cand.candidate);
+    if (norm && seen.has(norm)) continue;
+    if (norm) seen.add(norm);
+    deduped.push(cand);
+  }
+  return dropForeignCandidateFields(deduped);
+};
+const CANDIDATE_FIELDS = [
+  'candidate', 'class', 'approved_for', 'what_it_does', 'why_for_this_condition',
+  'mechanism_target', 'repurpose_rationale', 'evidence_strength', 'supporting_evidence',
+  'references', 'efficacy_hypothesis', 'safety', 'confidence', 'patient_specific_risks',
+  'how_to_discuss_with_doctor'
+];
+
+// ---------------------------------------------------------------------------
+// Combination cards — FIXED (normalized labels + truncation drop) and LEGACY
+// (exact underscored labels, no truncation drop = AGA defects 2 + 3).
+// ---------------------------------------------------------------------------
+const COMBO_FIELD_BY_NORM = {
+  COMBO: 'combo', RATIONALE: 'rationale', EVIDENCETIER: 'evidence_tier',
+  SUPPORTINGEVIDENCE: 'supporting_evidence', INTERACTIONRISK: 'interaction_risk',
+  PATIENTSPECIFICRISKS: 'patient_specific_risks', CONFIDENCE: 'confidence',
+  HOWTODISCUSSWITHDOCTOR: 'how_to_discuss_with_doctor', REFERENCES: 'references'
+};
+const comboFieldFromLine = (line) => {
+  const t = String(line || '').trim().replace(/\*\*/g, '');
+  const m = t.match(/^([A-Za-z][A-Za-z _\-]*?)\s*:/);
+  if (!m) return null;
+  const norm = m[1].replace(/[^a-z0-9]/gi, '').toUpperCase();
+  return COMBO_FIELD_BY_NORM[norm] || null;
+};
+const collectComboValue = (lines, startIdx) => {
+  let cur = lines[startIdx].split(':').slice(1).join(':').replace(/^\s*\*+\s*/, '').trim();
+  let next = startIdx + 1;
+  while (next < lines.length) {
+    const trimmed = lines[next].trim();
+    if (comboFieldFromLine(trimmed)) break;
+    if (trimmed.startsWith('## ')) break;
+    if (isCardBoundaryLine(trimmed)) break;
+    if (trimmed) cur += ' ' + trimmed;
+    next++;
+  }
+  return cur;
+};
+const COMBO_TRAILING_FIELDS = ['interaction_risk', 'patient_specific_risks', 'confidence', 'how_to_discuss_with_doctor', 'references'];
+const parseCombos = (text) => {
+  const out = [];
+  const lines = text.split('\n');
+  let cur = null;
+  lines.forEach((line, i) => {
+    const field = comboFieldFromLine(line);
+    if (!field) return;
+    if (field === 'combo' || (cur && cur[field] !== undefined)) { if (cur) out.push(cur); cur = {}; }
+    if (!cur) return;
+    cur[field] = collectComboValue(lines, i);
+    if (field === 'confidence') {
+      const num = cur[field].match(/(\d{1,3})\s*%/);
+      cur.confidence_pct = num ? parseInt(num[1], 10) : null;
+    }
+  });
+  if (cur) out.push(cur);
+  const cleaned = out.filter((c) => String(c.combo || '').trim());
+  if (cleaned.length) {
+    const last = cleaned[cleaned.length - 1];
+    if (!COMBO_TRAILING_FIELDS.some((f) => last[f] !== undefined)) cleaned.pop();
+  }
+  return cleaned;
+};
+// Pre-fix combo parser: requires EXACT underscored labels and never drops a
+// truncated final card. Underscore-less labels (EVIDENCETIER, SUPPORTINGEVIDENCE)
+// are unrecognized, so RATIONALE swallows them into one raw ALLCAPS blob.
+const COMBO_KEYS_LEGACY = [
+  'COMBO:', 'RATIONALE:', 'EVIDENCE_TIER:', 'SUPPORTING_EVIDENCE:', 'INTERACTION_RISK:',
+  'PATIENT_SPECIFIC_RISKS:', 'CONFIDENCE:', 'HOW_TO_DISCUSS_WITH_DOCTOR:', 'REFERENCES:'
+];
+const parseCombosLegacy = (text) => {
+  const out = [];
+  const lines = text.split('\n');
+  let cur = null;
+  lines.forEach((line, i) => {
+    const t = line.trim();
+    const key = COMBO_KEYS_LEGACY.find((k) => t.startsWith(k));
+    if (!key) return;
+    if (key === 'COMBO:') { if (cur) out.push(cur); cur = {}; }
+    if (!cur) return;
+    const field = key.replace(':', '').toLowerCase();
+    cur[field] = collectBlockLegacy(text, i, COMBO_KEYS_LEGACY);
+  });
+  if (cur) out.push(cur);
+  return out;
+};
+const COMBO_FIELDS = [
+  'combo', 'rationale', 'evidence_tier', 'supporting_evidence', 'interaction_risk',
+  'patient_specific_risks', 'confidence', 'how_to_discuss_with_doctor', 'references'
+];
+
+const leaksFor = (cards, fields) =>
+  cards.flatMap((c, i) => auditCardFields(c, fields).map((l) => ({ card: i, ...l })));
+
+// ===========================================================================
+// 0. The leak detector itself — true positives AND no false positives.
+// ===========================================================================
+head('0 — leak detector unit behavior');
+{
+  const boundary = detectStructuralLeak('[PMID 1](u) --- ### 💊 CARD 2 — Minoxidil WHAT IT DOES: a vasodilator');
+  const blob = detectStructuralLeak('Pairs two agents. EVIDENCETIER: SMALL_RCT SUPPORTINGEVIDENCE: a trial. HOWTODISCUSSWITHDOCTOR: ask.');
+  const cleanProse = detectStructuralLeak('Slows FVC decline by about half; photosensitivity and GI upset are common.');
+  const acronymProse = detectStructuralLeak('Monitor FVC: an acronym mention should not flag. DLCO and HRCT are tracked.');
+  const tierValue = detectStructuralLeak('SMALL_RCT');
+  if (boundary.includes('CARD boundary') && boundary.includes('WHAT IT DOES:')) {
+    pass(`detects card-boundary + consumed intro leak (${boundary.join(', ')})`);
+  } else {
+    fail(`card-boundary/intro leak not detected (${JSON.stringify(boundary)})`);
+  }
+  if (blob.some((t) => /EVIDENCETIER/.test(t)) && blob.some((t) => /SUPPORTINGEVIDENCE/.test(t)) && blob.some((t) => /HOWTODISCUSSWITHDOCTOR/.test(t))) {
+    pass(`detects underscore-less label blob (${blob.join(', ')})`);
+  } else {
+    fail(`underscore-less label blob not detected (${JSON.stringify(blob)})`);
+  }
+  if (!cleanProse.length && !acronymProse.length && !tierValue.length) {
+    pass('no false positive on clean prose, an acronym-with-colon, or a tier VALUE');
+  } else {
+    fail(`false positive (prose=${JSON.stringify(cleanProse)} acronym=${JSON.stringify(acronymProse)} tier=${JSON.stringify(tierValue)})`);
+  }
+}
+
+// ===========================================================================
+// 1. Approved treatments (### 💊 CARD N — delimiters) — AGA defect 1.
+// ===========================================================================
+head('1 — approved-treatments emoji-delimiter fixture (defect 1)');
+{
+  const raw = fx('aga-approved-treatments.txt');
+  const before = parseTreatmentsLegacy(raw);
+  const after = parseTreatments(raw);
+  const beforeLeaks = leaksFor(before, TREATMENT_FIELDS);
+  const afterLeaks = leaksFor(after, TREATMENT_FIELDS);
+  if (beforeLeaks.length) {
+    pass(`BEFORE: pre-fix parser leaks ${beforeLeaks.length} structural token(s) — ${beforeLeaks.map((l) => `${l.field}{${l.tokens.join(',')}}`).join(' | ')}`);
+  } else {
+    fail('BEFORE: expected the pre-fix parser to leak the CARD 2 header into card 1 SOURCES, but found none');
+  }
+  const both = after.length === 2;
+  const structured = both && after.every((t) => t.treatment && t.efficacy_pct != null);
+  const fin = after.find((t) => /finasteride/i.test(t.treatment || ''));
+  const cleanRefs = fin && /9777765/.test(fin.references) && !/CARD|WHAT IT DOES/i.test(fin.references);
+  if (!afterLeaks.length && structured && cleanRefs) {
+    pass(`AFTER: 2 structured cards, zero leakage, finasteride SOURCES clean (efficacy ${after[0].efficacy_pct}/${after[1].efficacy_pct})`);
+  } else {
+    fail(`AFTER: regression (leaks=${afterLeaks.length} structured=${structured} cleanRefs=${cleanRefs} n=${after.length})`);
+  }
+}
+
+// ===========================================================================
+// 2. Combination ideas (underscore-less labels + truncated tail) — defects 2+3.
+// ===========================================================================
+head('2 — combination-ideas underscore-less + truncated fixture (defects 2+3)');
+{
+  const raw = fx('aga-combination-ideas.txt');
+  const before = parseCombosLegacy(raw);
+  const after = parseCombos(raw);
+  const beforeLeaks = leaksFor(before, COMBO_FIELDS);
+  const afterLeaks = leaksFor(after, COMBO_FIELDS);
+  if (beforeLeaks.some((l) => l.field === 'rationale')) {
+    pass(`BEFORE: pre-fix combo RATIONALE renders a raw blob — leaks ${beforeLeaks.map((l) => `${l.field}{${l.tokens.join(',')}}`).join(' | ')}`);
+  } else {
+    fail(`BEFORE: expected the pre-fix combo parser to leak a RATIONALE blob, found ${JSON.stringify(beforeLeaks)}`);
+  }
+  const droppedTruncated = after.length === 1; // 2nd combo truncated → dropped
+  const structured = droppedTruncated &&
+    after[0].evidence_tier && after[0].confidence_pct != null &&
+    after[0].how_to_discuss_with_doctor && after[0].supporting_evidence;
+  if (!afterLeaks.length && structured) {
+    pass(`AFTER: 1 structured combo (truncated final dropped), zero leakage, fields split cleanly (tier="${after[0].evidence_tier}", confidence=${after[0].confidence_pct})`);
+  } else {
+    fail(`AFTER: regression (leaks=${afterLeaks.length} structured=${structured} n=${after.length})`);
+  }
+}
+
+// ===========================================================================
+// 3. Repurposing candidates (clean underscored labels).
+// ===========================================================================
+head('3 — repurposing-candidates fixture');
+{
+  const raw = fx('aga-repurpose-candidates.txt');
+  const after = parseCandidates(raw);
+  const afterLeaks = leaksFor(after, CANDIDATE_FIELDS);
+  const structured = after.length === 2 &&
+    after.every((c) => c.candidate && c.what_it_does && c.confidence_pct != null);
+  if (!afterLeaks.length && structured) {
+    pass(`AFTER: 2 structured candidates, zero leakage (${after.map((c) => c.candidate.split(/[—(]/)[0].trim()).join(', ')})`);
+  } else {
+    fail(`AFTER: regression (leaks=${afterLeaks.length} structured=${structured} n=${after.length})`);
+  }
+}
+
+// ===========================================================================
+// 4. Curated IPF approved treatments (clean PROVIDER/TREATMENT, no emoji) —
+//    must NOT regress.
+// ===========================================================================
+head('4 — curated IPF approved-treatments fixture (no regression)');
+{
+  const raw = fx('ipf-approved-treatments.txt');
+  const after = parseTreatments(raw);
+  const afterLeaks = leaksFor(after, TREATMENT_FIELDS);
+  const structured = after.length === 2 &&
+    after.every((t) => /pirfenidone|nintedanib/i.test(t.treatment) && t.efficacy_pct != null) &&
+    after.every((t) => /\d/.test(t.references));
+  if (!afterLeaks.length && structured) {
+    pass(`AFTER: curated IPF parses to 2 clean cards, zero leakage (efficacy ${after.map((t) => t.efficacy_pct).join('/')})`);
+  } else {
+    fail(`AFTER: curated IPF regression (leaks=${afterLeaks.length} structured=${structured} n=${after.length})`);
+  }
+}
+
+// ===========================================================================
+// 5. Corpus completeness — every fixture is exercised.
+// ===========================================================================
+head('5 — corpus completeness');
+{
+  const files = readdirSync(FIX_DIR).filter((f) => f.endsWith('.txt'));
+  if (files.length >= 4) pass(`${files.length} fixtures present: ${files.join(', ')}`);
+  else fail(`expected ≥4 fixtures, found ${files.length}`);
+}
+
+console.log(process.exitCode
+  ? '\n\x1b[31mReport-parser regression FAILED\x1b[0m\n'
+  : '\n\x1b[32mReport-parser regression passed\x1b[0m\n');

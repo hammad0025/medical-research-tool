@@ -943,6 +943,65 @@
         return cleaned;
       };
 
+      // Loud leak-detector invariant (client mirror of lib/report-polish.js
+      // detectStructuralLeak / auditCardFields). A parsed card field that still
+      // contains a card-boundary marker or a known field label (underscored OR
+      // not) followed by a colon did NOT parse — render a visible "formatting
+      // issue" indicator instead of the raw blob, and warn loudly. Only a
+      // STRUCTURAL token flags; prose that merely mentions a term does not.
+      const STRUCTURAL_FIELD_LABELS = new Set([
+        'PROVIDER', 'TREATMENT', 'FDASTATUS', 'LENGTHFREQUENCY', 'EFFICACY', 'SAFETY',
+        'RISKS', 'INTERACTIONS', 'COST', 'REFERENCES',
+        'CANDIDATE', 'CLASS', 'APPROVEDFOR', 'WHATITDOES', 'WHYFORTHISCONDITION',
+        'WHYITMIGHTHELP', 'MECHANISMTARGET', 'REPURPOSERATIONALE', 'EVIDENCESTRENGTH',
+        'SUPPORTINGEVIDENCE', 'EFFICACYHYPOTHESIS', 'CONFIDENCE', 'PATIENTSPECIFICRISKS',
+        'HOWTODISCUSSWITHDOCTOR',
+        'COMBO', 'RATIONALE', 'EVIDENCETIER', 'INTERACTIONRISK'
+      ]);
+      const CARD_BOUNDARY_LEAK_RE = /(?:#{1,6}\s*)?(?:💊\s*)?CARD\s+\d+\s*[—–:-]/i;
+      const LEAK_LABEL_RE = /(?:^|[^A-Za-z0-9])([A-Z][A-Z0-9 _]{2,48}?)\s*:/g;
+      const detectStructuralLeak = (value) => {
+        const s = String(value == null ? '' : value);
+        if (!s) return [];
+        const hits = [];
+        if (CARD_BOUNDARY_LEAK_RE.test(s)) hits.push('CARD boundary');
+        LEAK_LABEL_RE.lastIndex = 0;
+        let m;
+        while ((m = LEAK_LABEL_RE.exec(s)) !== null) {
+          const words = m[1].trim().split(/\s+/);
+          for (let k = 0; k < words.length; k++) {
+            const norm = words.slice(k).join('').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            if (STRUCTURAL_FIELD_LABELS.has(norm)) { hits.push(`${words.slice(k).join(' ')}:`); break; }
+          }
+        }
+        return [...new Set(hits)];
+      };
+      // Returns { card, leaks }: a shallow clone whose leaked string fields are
+      // nulled (so the normal render skips them) plus the per-field leak list.
+      // Logs a clear warning with card/field/condition context — never silent.
+      const auditAndScrubCard = (card, fields, ctx) => {
+        if (!card || typeof card !== 'object') return { card, leaks: [] };
+        const out = { ...card };
+        const leaks = [];
+        for (const f of fields) {
+          if (typeof out[f] !== 'string') continue;
+          const tokens = detectStructuralLeak(out[f]);
+          if (!tokens.length) continue;
+          leaks.push({ field: f, tokens, value: out[f] });
+          out[f] = null;
+          if (out[f + '_note'] !== undefined) out[f + '_note'] = null;
+        }
+        if (leaks.length) {
+          console.warn(
+            `[leak-detector] ${ctx?.kind || 'card'} "${ctx?.label || '(unknown)'}"` +
+            (ctx?.condition ? ` [${ctx.condition}]` : '') +
+            ` has unparsed structural tokens: ` +
+            leaks.map((l) => `${l.field} → {${l.tokens.join(', ')}}`).join(' | ')
+          );
+        }
+        return { card: out, leaks };
+      };
+
       const TRIAL_KEYS = [
         'TRIAL:', 'NCT:', 'URL:', 'PHASE:', 'STATUS:', 'ACCEPTING:', 'PLACEBO:',
         'TREATMENT_ONLY:', 'COUNTRY:', 'OVERSIGHT:', 'DESIGNATIONS:',
@@ -4655,6 +4714,43 @@
         return <React.Fragment>{nodes}</React.Fragment>;
       };
 
+      // Non-blocking indicator shown on a card whose field(s) failed to parse
+      // (the leak detector found residual structural tokens). Shows a small
+      // "⚠ formatting issue" note with a "view raw" affordance instead of
+      // rendering the leaked blob as if it were real content.
+      const FormatWarning = ({ leaks }) => {
+        const [open, setOpen] = useState(false);
+        if (!leaks || !leaks.length) return null;
+        return (
+          <div style={{
+            marginTop: '0.5rem', padding: '0.45rem 0.6rem', borderRadius: 8,
+            border: `1px dashed ${theme.yellow}88`, background: `${theme.yellow}12`,
+            fontSize: '0.78rem', color: theme.yellow, lineHeight: 1.45
+          }}>
+            <span style={{ fontWeight: 700 }}>⚠ formatting issue</span>
+            {' '}— part of this card could not be displayed cleanly{' '}
+            <button
+              onClick={() => setOpen((v) => !v)}
+              style={{
+                background: 'none', border: 'none', color: theme.accent,
+                cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline'
+              }}>
+              {open ? 'hide raw' : 'view raw'}
+            </button>
+            {open && (
+              <div style={{ marginTop: 6 }}>
+                {leaks.map((l, i) => (
+                  <div key={i} style={{ marginBottom: 4 }}>
+                    <code style={{ color: theme.textDim }}>{l.field}</code>:{' '}
+                    <span style={{ color: theme.textDim, whiteSpace: 'pre-wrap' }}>{l.value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      };
+
       const SourceLinks = ({ text, label = 'Sources' }) => {
         const links = useMemo(() => extractLinksFromText(text), [text]);
         if (!links.length) return null;
@@ -7253,7 +7349,12 @@
       );
 
       // Individual repurposing-candidate card. One per drug/supplement.
-      const TreatmentCard = ({ t, rank }) => {
+      const TREATMENT_LEAK_FIELDS = ['treatment', 'fda_status', 'provider', 'references', 'risks', 'efficacy_note', 'safety_note'];
+      const TreatmentCard = ({ t: rawT, rank }) => {
+        const { card: t, leaks } = useMemo(
+          () => auditAndScrubCard(rawT, TREATMENT_LEAK_FIELDS, { kind: 'approved-treatment', label: rawT?.treatment }),
+          [rawT]
+        );
         const refText = linkifyMedicalIds(t.references || '');
         const cardLinks = useMemo(() => extractLinksFromText(refText), [refText]);
         const fda = String(t.fda_status || '').toLowerCase();
@@ -7274,6 +7375,7 @@
                 <div style={{ fontWeight: 800, fontSize: '1.15rem', color: theme.text }}>
                   <InlineTitle text={t.treatment || '(unnamed treatment)'} />
                 </div>
+                <FormatWarning leaks={leaks} />
                 {t.fda_status && (
                   <div style={{ fontSize: '0.78rem', color: notApproved ? theme.yellow : theme.green, marginTop: 4, fontWeight: 600 }}>
                     {t.fda_status}
@@ -7312,7 +7414,12 @@
         );
       };
 
-      const ComboCard = ({ c, rank }) => {
+      const COMBO_LEAK_FIELDS = ['combo', 'rationale', 'evidence_tier', 'supporting_evidence', 'interaction_risk', 'patient_specific_risks', 'confidence', 'how_to_discuss_with_doctor', 'references'];
+      const ComboCard = ({ c: rawC, rank }) => {
+        const { card: c, leaks } = useMemo(
+          () => auditAndScrubCard(rawC, COMBO_LEAK_FIELDS, { kind: 'combination', label: rawC?.combo }),
+          [rawC]
+        );
         const linkText = linkifyMedicalIds([c.references, c.supporting_evidence].filter(Boolean).join('\n'));
         const cardLinks = useMemo(() => extractLinksFromText(linkText), [linkText]);
         return (
@@ -7324,6 +7431,7 @@
               <RankBadge rank={rank} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: '1.05rem', color: theme.text }}><InlineTitle text={c.combo || 'Combination'} /></div>
+                <FormatWarning leaks={leaks} />
                 {c.evidence_tier && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: 6 }}>
                     <EvidenceStrengthBadge value={c.evidence_tier} />
@@ -7375,7 +7483,12 @@
         );
       };
 
-      const CandidateCard = ({ c, rank, highlightMechanistic, audience = 'layperson' }) => {
+      const CANDIDATE_LEAK_FIELDS = ['candidate', 'class', 'approved_for', 'what_it_does', 'why_for_this_condition', 'mechanism_target', 'repurpose_rationale', 'evidence_strength', 'supporting_evidence', 'references', 'efficacy_hypothesis', 'safety', 'confidence', 'patient_specific_risks', 'how_to_discuss_with_doctor'];
+      const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layperson' }) => {
+        const { card: c, leaks } = useMemo(
+          () => auditAndScrubCard(rawC, CANDIDATE_LEAK_FIELDS, { kind: 'repurposing-candidate', label: rawC?.candidate }),
+          [rawC]
+        );
         const mechanistic = highlightMechanistic || isMechanisticEvidence(c.evidence_strength);
         const lay = audience !== 'medical';
         const allLinkText = linkifyMedicalIds(
@@ -7409,6 +7522,7 @@
                     </div>
                   )}
                 </div>
+                <FormatWarning leaks={leaks} />
                 {c.what_it_does && lay && (
                   <div style={{
                     marginTop: '0.55rem', padding: '0.65rem 0.75rem', borderRadius: 8,
