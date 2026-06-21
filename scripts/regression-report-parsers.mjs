@@ -512,6 +512,17 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
   } else {
     fail('index.html Google-search anchor relabel missing');
   }
+
+  // 7d. sanitizeMarkdownLinks must KEEP Google-search fallback links. Without
+  //     this, the de-scaffolded sanitizer (7a) demotes [Google search](google…)
+  //     to the bare words "Google search" BEFORE the relabel (7c) can run — the
+  //     exact collision that left the bug live after the first fix. Pin that the
+  //     allow-check ORs in isGoogleSearchUrl.
+  if (/urlIsAllowed\(url, allowedUrls\)\s*\|\|\s*isGoogleSearchUrl\(url\)/.test(indexSrc)) {
+    pass('sanitizeMarkdownLinks keeps Google-search links so the relabel can run (no strip-before-relabel)');
+  } else {
+    fail('sanitizeMarkdownLinks strips Google-search links before relabel — bare "Google search" will leak');
+  }
 }
 
 console.log(process.exitCode

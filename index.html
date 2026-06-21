@@ -1132,7 +1132,11 @@
         if (!text || !allowedUrls?.size) return text;
         let s = String(text);
         s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (m, label, url) =>
-          urlIsAllowed(url, allowedUrls) ? m : label);
+          // Keep Google-search fallback links: they're an intentional, safe
+          // fallback (api/research.js) and the link renderer relabels the bare
+          // "Google search" anchor to "Search ↗". Stripping it here would demote
+          // it to plain "Google search" text before the relabel can run.
+          (urlIsAllowed(url, allowedUrls) || isGoogleSearchUrl(url)) ? m : label);
         s = s.replace(/(?<![(\[])(https?:\/\/[^\s)\]"']+)/g, (url) => {
           const clean = url.replace(/[.,;)]+$/, '');
           return urlIsAllowed(clean, allowedUrls)
