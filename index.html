@@ -668,6 +668,15 @@
       } catch { applyThemeMode('light'); }
 
       /* ==================== Parsers ==================== */
+      // A repeated card header — "### 💊 CARD 2 — Minoxidil", "--- ### CARD 3:",
+      // "CARD 2 —" — is a HARD boundary between cards. The model sometimes emits
+      // these delimiters between approved-treatment / candidate blocks; without
+      // treating them as a terminator, a card's last field (e.g. REFERENCES /
+      // SOURCES) swallows the next card's header + intro (the AGA "Finasteride
+      // sources bled Minoxidil's WHAT IT DOES" bug). Mirrors the hardened
+      // duplicate-field boundary added to parseCandidates.
+      const CARD_BOUNDARY_RE = /^(?:-{2,}\s*)?(?:#{1,6}\s*)?(?:💊\s*)?CARD\s+\d+\s*[—–:-]/i;
+      const isCardBoundaryLine = (line) => CARD_BOUNDARY_RE.test(String(line || '').trim());
       const collectBlock = (text, startIdx, terminators) => {
         const lines = text.split('\n');
         let cur = lines[startIdx].split(':').slice(1).join(':').trim();
@@ -676,6 +685,7 @@
           const trimmed = lines[next].trim();
           if (terminators.some(t => trimmed.startsWith(t))) break;
           if (trimmed.startsWith('## ')) break;
+          if (isCardBoundaryLine(trimmed)) break;
           if (trimmed) cur += ' ' + trimmed;
           next++;
         }
@@ -857,29 +867,80 @@
         return { mechanistic, withEvidence };
       };
 
-      const COMBO_KEYS = [
-        'COMBO:', 'RATIONALE:', 'EVIDENCE_TIER:', 'SUPPORTING_EVIDENCE:', 'INTERACTION_RISK:',
-        'PATIENT_SPECIFIC_RISKS:', 'CONFIDENCE:', 'HOW_TO_DISCUSS_WITH_DOCTOR:', 'REFERENCES:'
+      // Combination cards. The combo back-call sometimes emits field labels
+      // WITHOUT underscores (e.g. "EVIDENCE TIER:", "SUPPORTING EVIDENCE:",
+      // "PATIENT SPECIFIC RISKS:") or with markdown bold, while the single-drug
+      // CANDIDATE cards use underscored labels. Match the field by NORMALIZING
+      // the leading label (strip spaces/underscores/markdown) so the parser is
+      // robust to both styles — otherwise a label mismatch makes RATIONALE
+      // swallow every later field and the card renders as one raw ALLCAPS blob.
+      const COMBO_FIELD_BY_NORM = {
+        COMBO: 'combo',
+        RATIONALE: 'rationale',
+        EVIDENCETIER: 'evidence_tier',
+        SUPPORTINGEVIDENCE: 'supporting_evidence',
+        INTERACTIONRISK: 'interaction_risk',
+        PATIENTSPECIFICRISKS: 'patient_specific_risks',
+        CONFIDENCE: 'confidence',
+        HOWTODISCUSSWITHDOCTOR: 'how_to_discuss_with_doctor',
+        REFERENCES: 'references'
+      };
+      const comboFieldFromLine = (line) => {
+        const t = String(line || '').trim().replace(/\*\*/g, '');
+        const m = t.match(/^([A-Za-z][A-Za-z _\-]*?)\s*:/);
+        if (!m) return null;
+        const norm = m[1].replace(/[^a-z0-9]/gi, '').toUpperCase();
+        return COMBO_FIELD_BY_NORM[norm] || null;
+      };
+      const collectComboValue = (lines, startIdx) => {
+        let cur = lines[startIdx].split(':').slice(1).join(':').replace(/^\s*\*+\s*/, '').trim();
+        let next = startIdx + 1;
+        while (next < lines.length) {
+          const trimmed = lines[next].trim();
+          if (comboFieldFromLine(trimmed)) break;
+          if (trimmed.startsWith('## ')) break;
+          if (isCardBoundaryLine(trimmed)) break;
+          if (trimmed) cur += ' ' + trimmed;
+          next++;
+        }
+        return cur;
+      };
+      const COMBO_TRAILING_FIELDS = [
+        'interaction_risk', 'patient_specific_risks', 'confidence',
+        'how_to_discuss_with_doctor', 'references'
       ];
       const parseCombos = (text) => {
         const out = [];
         const lines = text.split('\n');
         let cur = null;
         lines.forEach((line, i) => {
-          const t = line.trim();
-          const key = COMBO_KEYS.find(k => t.startsWith(k));
-          if (!key) return;
-          if (key === 'COMBO:') { if (cur) out.push(cur); cur = {}; }
+          const field = comboFieldFromLine(line);
+          if (!field) return;
+          // COMBO: opens a card. A repeated field inside an already-open card
+          // means the model dropped a COMBO: delimiter — treat the duplicate as
+          // a fresh boundary so one combo's fields can't overwrite another's
+          // (mirror of the hardened parseCandidates boundary logic).
+          if (field === 'combo' || (cur && cur[field] !== undefined)) {
+            if (cur) out.push(cur);
+            cur = {};
+          }
           if (!cur) return;
-          const field = key.replace(':', '').toLowerCase();
-          cur[field] = collectBlock(text, i, COMBO_KEYS);
+          cur[field] = collectComboValue(lines, i);
           if (field === 'confidence') {
             const num = cur[field].match(/(\d{1,3})\s*%/);
             cur.confidence_pct = num ? parseInt(num[1]) : null;
           }
         });
         if (cur) out.push(cur);
-        return out;
+        // Drop orphan fragments (no COMBO name) produced by a duplicate-field split.
+        const cleaned = out.filter((c) => String(c.combo || '').trim());
+        // A token-budget cutoff truncates the FINAL combo mid-field so it never
+        // reaches its trailing fields — drop it rather than render a half card.
+        if (cleaned.length) {
+          const last = cleaned[cleaned.length - 1];
+          if (!COMBO_TRAILING_FIELDS.some((f) => last[f] !== undefined)) cleaned.pop();
+        }
+        return cleaned;
       };
 
       const TRIAL_KEYS = [
@@ -2564,7 +2625,8 @@
                 treatmentOnly: opts?.treatmentOnly ?? true,
                 excludePlacebo: opts?.excludePlacebo ?? false,
                 pageSize: 40,
-                patientAge: patient.age ?? null
+                patientAge: patient.age ?? null,
+                patientSex: patient.gender ?? null
               })
             });
             const data = await res.json();
@@ -7260,13 +7322,44 @@
           }}>
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
               <RankBadge rank={rank} />
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 800, fontSize: '1.05rem', color: theme.text }}><InlineTitle text={c.combo || 'Combination'} /></div>
-                {c.rationale && <div style={{ marginTop: 6, fontSize: '0.88rem', lineHeight: 1.55 }}>{c.rationale}</div>}
-                {c.interaction_risk && (
-                  <div style={{ marginTop: 6, fontSize: '0.82rem', color: theme.yellow }}>
-                    Interaction risk: {c.interaction_risk}
+                {c.evidence_tier && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: 6 }}>
+                    <EvidenceStrengthBadge value={c.evidence_tier} />
                   </div>
+                )}
+                {c.rationale && <div style={{ marginTop: 8, fontSize: '0.88rem', lineHeight: 1.55 }}>{c.rationale}</div>}
+                {c.confidence_pct != null && (
+                  <div style={{ marginTop: 8 }}>
+                    <MeterBar label="Confidence" value={c.confidence_pct} icon={<Award size={11} />} note={c.confidence} />
+                  </div>
+                )}
+                {c.interaction_risk && (
+                  <div style={{ marginTop: 8, fontSize: '0.82rem', color: theme.yellow }}>
+                    <strong>Interaction risk: </strong>{c.interaction_risk}
+                  </div>
+                )}
+                {c.supporting_evidence && (
+                  <Disclosure title="What the research says" icon={<Database size={13} />} color={theme.green}>
+                    <Markdown text={c.supporting_evidence} />
+                    <SourceLinks text={c.supporting_evidence} label="Links from evidence" />
+                  </Disclosure>
+                )}
+                {c.patient_specific_risks && (
+                  <Disclosure
+                    title="Risks for this patient specifically"
+                    icon={<AlertTriangle size={13} />}
+                    color={theme.yellow}
+                    defaultOpen={/high|moderate|interaction/i.test(String(c.interaction_risk))}
+                  >
+                    {c.patient_specific_risks}
+                  </Disclosure>
+                )}
+                {c.how_to_discuss_with_doctor && (
+                  <Disclosure title="Questions to ask your doctor" icon={<MessageCircle size={13} />} color={theme.green}>
+                    {c.how_to_discuss_with_doctor}
+                  </Disclosure>
                 )}
                 {cardLinks.length > 0 && (
                   <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>

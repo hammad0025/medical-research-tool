@@ -134,7 +134,10 @@ const resolveMaxTokens = (model, mode, phase, half, isBatch) => {
   // can give synthesis room for fuller output than the old 60s Hobby cap
   // allowed. These stay split across two calls for resilience + streaming UX.
   if (phase === 'synthesize' && mode === 'repurpose') {
-    if (half === 'back') return isOpus ? 1800 : 2200;
+    // BACK half = 3-4 combination cards (9 fields each) + reasoning summary +
+    // disclaimer. 2200 was truncating the final combo mid-field (the AGA
+    // "Nizoral FDA label confirms…" cutoff), so give it headroom to finish.
+    if (half === 'back') return isOpus ? 2600 : 3400;
     // BATCHED front: 5 candidates per lane. ~700 tok/candidate in plain-English
     // mode; 2800 was truncating at ~4 and Dorothy saw "only 3 drugs". Lanes
     // run in parallel so wall-clock stays ~90–120s even at ~4200 tok/lane.
@@ -1392,7 +1395,7 @@ Include at least:
 - **One 3-drug combo** (Agent A + Agent B + Agent C) when three weak-alone agents have complementary pathways.
 - **One OTC/supplement + prescription combo** (e.g. antioxidant supplement + antifibrotic) when the evidence pack supports both — label INTERACTION_RISK honestly.
 
-For EACH combo output this exact block:
+For EACH combo output this exact block. Use these field labels VERBATIM — keep the underscores and the trailing colon, no markdown bold — so the UI parses each combo into a structured card:
 
 COMBO: <Agent A + Agent B [+ Agent C]>
 RATIONALE: <one or two sentences on why the mechanisms are complementary or synergistic for THIS condition — pathway diagram in words. Say plainly if each part alone failed or is weak alone.>
@@ -2163,7 +2166,8 @@ export default async function handler(req, res) {
             recruitingOnly: false,
             treatmentOnly: true,
             pageSize: 30,
-            patientAge: patient?.age ?? null
+            patientAge: patient?.age ?? null,
+            patientSex: patient?.gender ?? null
           }), 'trials')
         : Promise.resolve(null);
 

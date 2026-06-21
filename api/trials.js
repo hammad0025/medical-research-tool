@@ -66,6 +66,14 @@ export const ACTIVE_NOT_RECRUITING_PENALTY = -25;
 // the patient cannot enrol in — push it well below eligible options so it
 // never ranks near the top of an adult's list.
 export const AGE_INELIGIBLE_PENALTY = -70;
+// A sex-ineligible trial (e.g. a Female Pattern Hair Loss study for a male
+// patient with androgenetic alopecia) is one the patient cannot enrol in —
+// push it well below eligible options, mirroring the age-ineligibility penalty.
+export const SEX_INELIGIBLE_PENALTY = -70;
+// Conservative title/condition signals that a trial is restricted to ONE sex.
+// Only used when CT.gov's eligibility.sex is not explicitly MALE/FEMALE.
+const FEMALE_RESTRICTED_TEXT = /\bfemale[- ]pattern\b|\bin women\b|\bwomen with\b|\bpost-?menopaus|\bpre-?menopaus|\bpregnan/i;
+const MALE_RESTRICTED_TEXT = /\bmale[- ]pattern\b|\bin men\b|\bmen with\b|\bprostat/i;
 const HARMFUL_PATTERN = /futilit|harm|safety concern|adverse|increased (mortalit|death|risk)|stopped (early|for)|lack of efficac|did not meet|negative (result|trial)/i;
 // PANTHER-IPF prednisone+azathioprine+NAC arm — stopped for increased death
 // and hospitalisation. Never let it rank as a promising option.
@@ -105,6 +113,39 @@ export const patientAgeIneligible = (study = {}, patientAge) => {
   return false;
 };
 
+// Normalize the patient's sex/gender field ("Male"/"Female"/"M"/"woman"…) to
+// MALE/FEMALE. Intersex/other/unknown returns null so we NEVER penalize them.
+const normalizePatientSex = (raw) => {
+  const s = String(raw || '').trim().toLowerCase();
+  if (!s) return null;
+  if (s.startsWith('m')) return 'MALE';
+  if (s.startsWith('f') || s.startsWith('w')) return 'FEMALE';
+  return null;
+};
+
+// True when a trial is clearly restricted to the OPPOSITE sex of the patient
+// (e.g. a Female Pattern Hair Loss study for a male AGA patient). Conservative:
+// the explicit CT.gov eligibility.sex restriction is the primary signal; title/
+// condition text is used only as a fallback and never fires on mixed-sex
+// ("men and women") phrasing or when BOTH sexes are referenced.
+export const patientSexIneligible = (study = {}, patientSex) => {
+  const sex = normalizePatientSex(patientSex);
+  if (!sex) return false;
+  const opposite = sex === 'MALE' ? 'FEMALE' : 'MALE';
+  const trialSex = String(study.sex || '').trim().toUpperCase();
+  if (trialSex === 'MALE' || trialSex === 'FEMALE') return trialSex === opposite;
+  const text = `${study.briefTitle || ''} ${study.officialTitle || ''} ${(study.conditions || []).join(' ')}`;
+  if (/\bmen and women\b|\bwomen and men\b|\bmales? and females?\b|\bfemales? and males?\b|\bboth sexes\b|\ball sexes\b/i.test(text)) {
+    return false;
+  }
+  const femaleOnly = FEMALE_RESTRICTED_TEXT.test(text);
+  const maleOnly = MALE_RESTRICTED_TEXT.test(text);
+  if (femaleOnly && maleOnly) return false;
+  if (sex === 'MALE' && femaleOnly) return true;
+  if (sex === 'FEMALE' && maleOnly) return true;
+  return false;
+};
+
 // Linear map of the raw additive sum into a 0-100 scale (the UI shows "/100").
 // Monotonic, so it preserves relative ranking order while keeping distinct
 // trials distinct instead of clamping many of them at 100.
@@ -116,7 +157,7 @@ export const normalizePromise = (raw) => {
 };
 
 // Apply the status penalty + harmful-trial caution to an accumulated raw score.
-export const applyPatientPromiseAdjustment = (rawScore, study = {}, { patientAge = null } = {}) => {
+export const applyPatientPromiseAdjustment = (rawScore, study = {}, { patientAge = null, patientSex = null } = {}) => {
   let score = Number(rawScore) || 0;
   const STATUS = String(study.status || '').toUpperCase();
   const nct = String(study.nctId || '').toUpperCase();
@@ -148,6 +189,15 @@ export const applyPatientPromiseAdjustment = (rawScore, study = {}, { patientAge
     score += AGE_INELIGIBLE_PENALTY;
     if (!caution) {
       caution = `This trial only enrols ages ${study.minimumAge || '?'}–${study.maximumAge || '?'}, which does not include the patient's age — they likely cannot join.`;
+    }
+  }
+
+  // Penalise trials restricted to the opposite sex (e.g. a Female Pattern Hair
+  // Loss study for a male AGA patient) so they don't rank near the top.
+  if (patientSexIneligible(study, patientSex)) {
+    score += SEX_INELIGIBLE_PENALTY;
+    if (!caution) {
+      caution = 'This trial appears to enrol only patients of a different sex than the patient — they likely cannot join.';
     }
   }
   return { score, caution };
@@ -540,7 +590,8 @@ export default async function handler(req, res) {
       excludePlacebo = false,
       pageSize = 50,
       country,
-      patientAge = null
+      patientAge = null,
+      patientSex = null
     } = body || {};
 
     if (!condition || !String(condition).trim()) {
@@ -772,7 +823,7 @@ export default async function handler(req, res) {
 
       // Rank patients toward trials they can actually join, flag stopped/harmful
       // ones, and rescale the raw sum to a clear 0-100 score (Item 7 + 0-100).
-      const { score: adjustedScore, caution } = applyPatientPromiseAdjustment(score, s, { patientAge });
+      const { score: adjustedScore, caution } = applyPatientPromiseAdjustment(score, s, { patientAge, patientSex });
       s.caution = caution;
       s.promiseScoreRaw = adjustedScore;
       s.promiseScore = normalizePromise(adjustedScore);

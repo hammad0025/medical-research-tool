@@ -767,4 +767,90 @@ if (/_approvedStub/.test(indexSrc) &&
   }
 }
 
+// 30. SOURCE (AGA defect 1): collectBlock treats a repeated card header
+//     ("### 💊 CARD N —", "--- ### CARD 3:", "CARD 2 —") as a HARD boundary so a
+//     card's REFERENCES/SOURCES field cannot swallow the next card's header +
+//     intro (the "Finasteride sources bled Minoxidil's WHAT IT DOES" bug).
+if (/CARD_BOUNDARY_RE\s*=/.test(indexSrc) &&
+    /isCardBoundaryLine\(trimmed\)\)\s*break/.test(indexSrc)) {
+  pass('collectBlock breaks on repeated "### 💊 CARD N —" boundary (approved-treatment SOURCES-bleed guard, defect 1)');
+} else {
+  fail('collectBlock missing card-header boundary guard — approved-treatment SOURCES can bleed the next card');
+}
+
+// 31. SOURCE (AGA defect 2): parseCombos matches field labels by NORMALIZING the
+//     leading token, so it is robust to non-underscored / spaced / bold labels
+//     ("EVIDENCE TIER:", "SUPPORTING EVIDENCE:"). Otherwise RATIONALE swallows
+//     every later field and the combo renders as one raw ALLCAPS blob.
+if (/COMBO_FIELD_BY_NORM/.test(indexSrc) &&
+    /comboFieldFromLine/.test(indexSrc) &&
+    /EVIDENCETIER:\s*'evidence_tier'/.test(indexSrc)) {
+  pass('parseCombos normalizes field labels (underscored OR spaced/bold) — no raw combo blob (defect 2)');
+} else {
+  fail('parseCombos still requires exact underscored labels — combos can render as a raw blob');
+}
+if (/COMBO_TRAILING_FIELDS/.test(indexSrc) && /cleaned\.pop\(\)/.test(indexSrc)) {
+  pass('parseCombos drops a truncated final combo missing all trailing fields (defect 3)');
+} else {
+  fail('parseCombos does not drop a truncated final combo — a half-complete combo card can render');
+}
+if (/<EvidenceStrengthBadge value=\{c\.evidence_tier\}/.test(indexSrc) &&
+    /c\.how_to_discuss_with_doctor/.test(indexSrc) &&
+    /c\.patient_specific_risks/.test(indexSrc)) {
+  pass('ComboCard renders combos as STRUCTURED cards (evidence tier, confidence, risks, how-to-discuss, links) (defect 2)');
+} else {
+  fail('ComboCard does not render structured combo fields — combination ideas show as a raw blob');
+}
+if (/return isOpus \? 2600 : 3400/.test(researchSrc)) {
+  pass('Repurpose back-half max_tokens raised to 3400 (Sonnet) — combos finish without mid-field truncation (defect 3)');
+} else {
+  fail('Repurpose back-half max_tokens still too low — final combination can truncate');
+}
+
+// 32. BEHAVIORAL (AGA defect 4): a Female Pattern Hair Loss trial is penalized +
+//     sex-cautioned for a MALE patient and ranks below a sex-neutral AGA trial,
+//     whether the restriction is explicit (eligibility.sex=FEMALE) or only in
+//     the title. A mixed "men and women" trial and a same-sex patient are NOT
+//     penalized (conservative — opposite-sex restriction only).
+{
+  const RAW = 80;
+  const femaleOnly = applyPatientPromiseAdjustment(RAW, {
+    status: 'RECRUITING', acceptingNewPatients: true, nctId: 'NCT_OMA102',
+    sex: 'FEMALE', briefTitle: 'OMA102 in Female Pattern Hair Loss',
+    conditions: ['Female Pattern Hair Loss']
+  }, { patientAge: 29, patientSex: 'Male' });
+  const neutral = applyPatientPromiseAdjustment(RAW, {
+    status: 'RECRUITING', acceptingNewPatients: true, nctId: 'NCT_AGA', sex: 'ALL',
+    briefTitle: 'Topical agent for Androgenetic Alopecia', conditions: ['Androgenetic Alopecia']
+  }, { patientAge: 29, patientSex: 'Male' });
+  const titleOnly = applyPatientPromiseAdjustment(RAW, {
+    status: 'RECRUITING', nctId: 'NCT_RF', sex: 'ALL',
+    briefTitle: 'Radiofrequency in Female Pattern Hair Loss', conditions: ['Female Pattern Hair Loss']
+  }, { patientAge: 29, patientSex: 'Male' });
+  const mixed = applyPatientPromiseAdjustment(RAW, {
+    status: 'RECRUITING', nctId: 'NCT_MIX', sex: 'ALL',
+    briefTitle: 'AGA in men and women', conditions: ['Androgenetic Alopecia']
+  }, { patientAge: 29, patientSex: 'Male' });
+  const samesex = applyPatientPromiseAdjustment(RAW, {
+    status: 'RECRUITING', nctId: 'NCT_OMA102', sex: 'FEMALE',
+    briefTitle: 'OMA102 in Female Pattern Hair Loss', conditions: ['Female Pattern Hair Loss']
+  }, { patientAge: 29, patientSex: 'Female' });
+  const foNorm = normalizePromise(femaleOnly.score);
+  const nNorm = normalizePromise(neutral.score);
+  const toNorm = normalizePromise(titleOnly.score);
+  const cautioned = /sex/i.test(femaleOnly.caution || '');
+  if (foNorm < nNorm && toNorm < nNorm && cautioned &&
+      !neutral.caution && !mixed.caution && !samesex.caution &&
+      normalizePromise(mixed.score) === nNorm && normalizePromise(samesex.score) === nNorm) {
+    pass(`Sex-ineligible Female Pattern trial penalized + cautioned for a male patient (${foNorm}/100 < ${nNorm}/100); mixed/same-sex not penalized (defect 4)`);
+  } else {
+    fail(`Sex-ineligibility regression (femaleOnly=${foNorm} neutral=${nNorm} titleOnly=${toNorm} cautioned=${cautioned} mixedCaution=${!!mixed.caution} samesexCaution=${!!samesex.caution})`);
+  }
+}
+if (/patientSex:\s*patient\?\.gender/.test(researchSrc) && /patientSex = null/.test(readFileSync(new URL('../api/trials.js', import.meta.url), 'utf8'))) {
+  pass('research.js plumbs patientSex (gender) into the trials call, mirroring patientAge (defect 4)');
+} else {
+  fail('patientSex not plumbed from research.js → trials.js the same way patientAge is');
+}
+
 console.log(process.exitCode ? '\n\x1b[31mPlatform regression FAILED\x1b[0m\n' : '\n\x1b[32mPlatform regression passed\x1b[0m\n');
