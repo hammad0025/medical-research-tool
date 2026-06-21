@@ -675,7 +675,7 @@
       // SOURCES) swallows the next card's header + intro (the AGA "Finasteride
       // sources bled Minoxidil's WHAT IT DOES" bug). Mirrors the hardened
       // duplicate-field boundary added to parseCandidates.
-      const CARD_BOUNDARY_RE = /^(?:-{2,}\s*)?(?:#{1,6}\s*)?(?:💊\s*)?CARD\s+\d+\s*[—–:-]/i;
+      const CARD_BOUNDARY_RE = /^(?:-{2,}\s*)?(?:#{1,6}\s*)?(?:💊\s*)?(?:(?:drug|treatment|combo|combination|candidate|supplement)\s+)?CARD\s+\d+\s*[—–:-]/i;
       const isCardBoundaryLine = (line) => CARD_BOUNDARY_RE.test(String(line || '').trim());
       const collectBlock = (text, startIdx, terminators) => {
         const lines = text.split('\n');

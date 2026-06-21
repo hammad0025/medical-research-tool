@@ -43,7 +43,7 @@ console.log('\n=== Report-parser golden-output regression (Layer 1 + 2) ===');
 // ---------------------------------------------------------------------------
 // Shared block walkers — FIXED (hardened) and LEGACY (pre-fix) variants.
 // ---------------------------------------------------------------------------
-const CARD_BOUNDARY_RE = /^(?:-{2,}\s*)?(?:#{1,6}\s*)?(?:💊\s*)?CARD\s+\d+\s*[—–:-]/i;
+const CARD_BOUNDARY_RE = /^(?:-{2,}\s*)?(?:#{1,6}\s*)?(?:💊\s*)?(?:(?:drug|treatment|combo|combination|candidate|supplement)\s+)?CARD\s+\d+\s*[—–:-]/i;
 const isCardBoundaryLine = (line) => CARD_BOUNDARY_RE.test(String(line || '').trim());
 
 const collectBlock = (text, startIdx, terminators) => {
@@ -324,6 +324,34 @@ head('1 — approved-treatments emoji-delimiter fixture (defect 1)');
   const cleanRefs = fin && /9777765/.test(fin.references) && !/CARD|WHAT IT DOES/i.test(fin.references);
   if (!afterLeaks.length && structured && cleanRefs) {
     pass(`AFTER: 2 structured cards, zero leakage, finasteride SOURCES clean (efficacy ${after[0].efficacy_pct}/${after[1].efficacy_pct})`);
+  } else {
+    fail(`AFTER: regression (leaks=${afterLeaks.length} structured=${structured} cleanRefs=${cleanRefs} n=${after.length})`);
+  }
+}
+
+// ===========================================================================
+// 1b. Approved treatments (### Drug Card N — delimiters) — defect 1 FORMAT
+//     DRIFT: the live MPB report drifted from "### 💊 CARD N —" to
+//     "### Drug Card N — <name> — Off-Label", which the un-widened boundary
+//     regex did not recognize, so the bleed returned (leak detector caught it).
+// ===========================================================================
+head('1b — approved-treatments "Drug Card N —" delimiter drift (defect 1)');
+{
+  const raw = fx('aga-approved-treatments-drugcard.txt');
+  const before = parseTreatmentsLegacy(raw);
+  const after = parseTreatments(raw);
+  const beforeLeaks = leaksFor(before, TREATMENT_FIELDS);
+  const afterLeaks = leaksFor(after, TREATMENT_FIELDS);
+  if (beforeLeaks.length) {
+    pass(`BEFORE: pre-fix parser leaks ${beforeLeaks.length} token(s) on "Drug Card" headers — ${beforeLeaks.map((l) => `${l.field}{${l.tokens.join(',')}}`).join(' | ')}`);
+  } else {
+    fail('BEFORE: expected the pre-fix parser to leak the "Drug Card 2" header into card 1 SOURCES, but found none');
+  }
+  const structured = after.length === 2 && after.every((t) => t.treatment && t.efficacy_pct != null);
+  const fin = after.find((t) => /finasteride/i.test(t.treatment || ''));
+  const cleanRefs = fin && /9777765/.test(fin.references) && !/CARD|WHAT IT DOES/i.test(fin.references);
+  if (!afterLeaks.length && structured && cleanRefs) {
+    pass(`AFTER: widened boundary parses "Drug Card" variant → 2 structured cards, zero leakage (efficacy ${after[0].efficacy_pct}/${after[1].efficacy_pct})`);
   } else {
     fail(`AFTER: regression (leaks=${afterLeaks.length} structured=${structured} cleanRefs=${cleanRefs} n=${after.length})`);
   }
