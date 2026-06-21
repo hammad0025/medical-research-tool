@@ -42,7 +42,10 @@ import { drugKeyFromName } from '../lib/kb-builder.js';
 import {
   normalizePromise,
   applyPatientPromiseAdjustment,
-  assessTrialEligibility
+  assessTrialEligibility,
+  NON_ENROLLING_PENALTY,
+  accessDesignationBonus,
+  programIsAvailable
 } from '../api/trials.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
@@ -617,6 +620,51 @@ if (/SUBGROUP \/ BIOMARKER EXCEPTION/i.test(researchSrc) &&
     pass('PANTHER aza+pred+NAC arm (NCT00650091) flagged with caution and ranked low (Item 7)');
   } else {
     fail(`PANTHER caution/ranking regression (caution=${!!panther.caution} score=${normalizePromise(panther.score)})`);
+  }
+}
+
+// 21b. BEHAVIORAL (Chronic Constipation defect): a NO_LONGER_AVAILABLE trial
+//      (e.g. a defunct expanded-access protocol) must rank BELOW an otherwise-
+//      identical RECRUITING trial, and an UNKNOWN-status trial must be
+//      penalised. Previously these statuses skipped NON_ENROLLING_PENALTY
+//      entirely, so a dead program (60/100) outranked a live Phase 3 (33/100).
+{
+  const RAW = 80;
+  const recruiting = applyPatientPromiseAdjustment(RAW, { status: 'RECRUITING', nctId: 'NCT_REC' });
+  const noLonger = applyPatientPromiseAdjustment(RAW, { status: 'NO_LONGER_AVAILABLE', nctId: 'NCT_GONE' });
+  const unknown = applyPatientPromiseAdjustment(RAW, { status: 'UNKNOWN', nctId: 'NCT_UNK' });
+  const recNorm = normalizePromise(recruiting.score);
+  const goneNorm = normalizePromise(noLonger.score);
+  const unkNorm = normalizePromise(unknown.score);
+  const penaltyWired = NON_ENROLLING_PENALTY.NO_LONGER_AVAILABLE < 0 && NON_ENROLLING_PENALTY.UNKNOWN < 0;
+  if (penaltyWired && goneNorm < recNorm && unkNorm < recNorm && noLonger.score < RAW && unknown.score < RAW) {
+    pass(`NO_LONGER_AVAILABLE (${goneNorm}/100) and UNKNOWN (${unkNorm}/100) rank below RECRUITING (${recNorm}/100) at equal raw (Chronic Constipation defect)`);
+  } else {
+    fail(`NO_LONGER_AVAILABLE/UNKNOWN penalty regression (rec=${recNorm} gone=${goneNorm} unk=${unkNorm} wired=${penaltyWired})`);
+  }
+}
+
+// 21c. BEHAVIORAL (Chronic Constipation defect): the expanded-access / OLE
+//      bonus is granted ONLY to a program a patient can actually join. A
+//      NO_LONGER_AVAILABLE or COMPLETED expanded-access program gets NO bonus;
+//      a RECRUITING / AVAILABLE one does. Previously the +20/+15 bonuses were
+//      unconditional, lifting a defunct program above live trials.
+{
+  const ea = { designations: { hasExpandedAccess: true } };
+  const ole = { designations: { hasOpenLabelExtension: true } };
+  const recruitingEA = accessDesignationBonus({ status: 'RECRUITING', ...ea });
+  const availableEA = accessDesignationBonus({ status: 'AVAILABLE', ...ea });
+  const acceptingEA = accessDesignationBonus({ status: 'NO_LONGER_AVAILABLE', acceptingNewPatients: true, ...ea });
+  const deadEA = accessDesignationBonus({ status: 'NO_LONGER_AVAILABLE', ...ea });
+  const completedEA = accessDesignationBonus({ status: 'COMPLETED', ...ea });
+  const recruitingOLE = accessDesignationBonus({ status: 'RECRUITING', ...ole });
+  const deadOLE = accessDesignationBonus({ status: 'NO_LONGER_AVAILABLE', ...ole });
+  const gatedOff = deadEA === 0 && completedEA === 0 && deadOLE === 0;
+  const grantedOn = recruitingEA === 20 && availableEA === 20 && acceptingEA === 20 && recruitingOLE === 15;
+  if (gatedOff && grantedOn && !programIsAvailable({ status: 'NO_LONGER_AVAILABLE' }) && programIsAvailable({ status: 'RECRUITING' })) {
+    pass(`Access-designation bonus gated on availability (recruiting EA=+${recruitingEA}, available EA=+${availableEA}, dead EA=+${deadEA}, completed EA=+${completedEA}, dead OLE=+${deadOLE})`);
+  } else {
+    fail(`Access-designation gating regression (recEA=${recruitingEA} availEA=${availableEA} acceptEA=${acceptingEA} deadEA=${deadEA} compEA=${completedEA} recOLE=${recruitingOLE} deadOLE=${deadOLE})`);
   }
 }
 

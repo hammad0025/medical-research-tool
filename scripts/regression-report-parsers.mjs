@@ -27,7 +27,9 @@ import {
   auditCardFields,
   parseHeadlinePercent,
   clampToCompleteSentence,
-  drugKeysMatch
+  drugKeysMatch,
+  renderInlineMarkdownHtml,
+  cleanAnchorLabel
 } from '../lib/report-polish.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
@@ -427,6 +429,89 @@ head('5 — corpus completeness');
   const files = readdirSync(FIX_DIR).filter((f) => f.endsWith('.txt'));
   if (files.length >= 4) pass(`${files.length} fixtures present: ${files.join(', ')}`);
   else fail(`expected ≥4 fixtures, found ${files.length}`);
+}
+
+// ===========================================================================
+// 6. Inline-markdown card-body rendering (Chronic Constipation defect):
+//    short card fields (meter note, risks, rationale, etc.) must render
+//    **bold** as bold and [label](url) as a real link — NEVER as raw
+//    characters. renderInlineMarkdownHtml is the source-of-truth port of the
+//    index.html <InlineMD> component; this proves the conversion happens and
+//    no literal markdown token survives into the rendered body.
+// ===========================================================================
+head('6 — inline-markdown card-body rendering (literal **bold**/[label](url) leak)');
+{
+  // The exact strings the production Chronic Constipation report leaked.
+  const meterNote = 'Trials reported **57%** of patients had a response.';
+  const risks = 'Cardiac risk noted [(#6 — American Journal of Gastroenterology 2005)](https://doi.org/10.1111/j.1572-0241.2005.41832.x).';
+  const noteHtml = renderInlineMarkdownHtml(meterNote);
+  const risksHtml = renderInlineMarkdownHtml(risks);
+
+  const boldConverted = /<strong>57%<\/strong>/.test(noteHtml) && !/\*\*/.test(noteHtml);
+  const linkConverted = /<a href="https:\/\/doi\.org\/[^"]+" target="_blank" rel="noopener noreferrer">/.test(risksHtml)
+    && !/\]\(http/.test(risksHtml) && !/\*\*/.test(risksHtml);
+  // Generic: no rendered inline body may still contain literal **bold** or a
+  // raw [label](url) markdown link.
+  const noLiteral = (html) => !/\*\*[^*]+\*\*/.test(html) && !/\[[^\]]+\]\(https?:\/\//.test(html);
+
+  if (boldConverted && linkConverted && noLiteral(noteHtml) && noLiteral(risksHtml)) {
+    pass('renderInlineMarkdownHtml converts **bold**→<strong> and [label](url)→<a target=_blank>; no literal markdown survives');
+  } else {
+    fail(`inline-markdown rendering regression (bold=${boldConverted} link=${linkConverted} note=${JSON.stringify(noteHtml)} risks=${JSON.stringify(risksHtml)})`);
+  }
+
+  // Google-search fallback anchor text is relabelled (never the bare words).
+  const googleLabel = cleanAnchorLabel('Google search', 'https://www.google.com/search?q=Augusta+University+Digestive+Health+Center');
+  const entityKept = cleanAnchorLabel('Augusta University', 'https://www.google.com/search?q=Augusta');
+  const realLink = renderInlineMarkdownHtml('See [Google search](https://www.google.com/search?q=x).');
+  if (googleLabel === 'Search ↗' && entityKept === 'Augusta University' && /Search ↗/.test(realLink) && !/Google search/.test(realLink)) {
+    pass(`Google-search anchor relabelled to "Search ↗" (bare label), entity-name labels preserved`);
+  } else {
+    fail(`Google-search relabel regression (label=${JSON.stringify(googleLabel)} entity=${JSON.stringify(entityKept)} link=${JSON.stringify(realLink)})`);
+  }
+}
+
+// ===========================================================================
+// 7. Source-level guards on index.html — the runtime <InlineMD> component and
+//    the de-scaffolded link sanitizer. These pin the static-page behavior the
+//    test cannot execute directly, so the rendering fixes cannot silently
+//    regress.
+// ===========================================================================
+head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)');
+{
+  const indexSrc = readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+
+  // 7a. The internal scaffolding phrase must never be emitted to users again.
+  if (!/\(link removed/.test(indexSrc)) {
+    pass('index.html no longer emits the internal phrase "(link removed …)" to users');
+  } else {
+    fail('index.html still contains the internal scaffolding phrase "(link removed …)"');
+  }
+
+  // 7b. The InlineMD component exists and is wired into the short prose fields
+  //     that previously rendered as bare {field} text nodes.
+  const hasComponent = /const InlineMD = \(\{ text \}\) =>/.test(indexSrc);
+  const wiredFields = [
+    /<InlineMD text=\{note\} \/>/,                          // MeterBar note
+    /<InlineMD text=\{t\.risks\} \/>/,                       // TreatmentCard risks
+    /<InlineMD text=\{c\.rationale\} \/>/,                   // ComboCard rationale
+    /<InlineMD text=\{c\.what_it_does\} \/>/,                // CandidateCard what it does
+    /<InlineMD text=\{c\.patient_specific_risks\} \/>/       // patient-specific risks
+  ];
+  const wiredCount = wiredFields.filter((re) => re.test(indexSrc)).length;
+  if (hasComponent && wiredCount === wiredFields.length) {
+    pass(`InlineMD component present and wired into ${wiredCount}/${wiredFields.length} key prose fields`);
+  } else {
+    fail(`InlineMD wiring regression (component=${hasComponent} wired=${wiredCount}/${wiredFields.length})`);
+  }
+
+  // 7c. The Google-search relabel helper is present (Section 2 "Google search"
+  //     center link defect).
+  if (/isGoogleSearchUrl/.test(indexSrc) && /Search ↗/.test(indexSrc)) {
+    pass('index.html relabels Google-search anchors (isGoogleSearchUrl + "Search ↗")');
+  } else {
+    fail('index.html Google-search anchor relabel missing');
+  }
 }
 
 console.log(process.exitCode

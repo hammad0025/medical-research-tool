@@ -1109,17 +1109,35 @@
         return false;
       };
 
+      // True for a Google-search fallback URL (the model emits these for
+      // centers/orgs that have no canonical page — api/research.js).
+      const isGoogleSearchUrl = (url) =>
+        /^https?:\/\/(www\.)?google\.[a-z.]+\/search\b/i.test(String(url || ''));
+      // Display label for an anchor: strip markdown emphasis markers and, for a
+      // bare "Google search" anchor, relabel to a clean "Search ↗" so the words
+      // "Google search" never render as a user-facing link label.
+      const cleanAnchorLabel = (label, url) => {
+        const stripped = String(label == null ? '' : label).replace(/\*\*|__|\*|_/g, '').trim();
+        if (isGoogleSearchUrl(url) && (!stripped || /^google\s*search$/i.test(stripped))) {
+          return 'Search ↗';
+        }
+        return stripped;
+      };
+
       // Strip markdown links the model invented (not in trials/evidence pack).
+      // When a link is not allowed we keep the human-readable label/citation
+      // text and SILENTLY drop the dead link — never surface an internal
+      // "removed link" scaffolding note to users.
       const sanitizeMarkdownLinks = (text, allowedUrls) => {
         if (!text || !allowedUrls?.size) return text;
         let s = String(text);
         s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (m, label, url) =>
-          urlIsAllowed(url, allowedUrls) ? m : `${label} (link removed — not in search results)`);
+          urlIsAllowed(url, allowedUrls) ? m : label);
         s = s.replace(/(?<![(\[])(https?:\/\/[^\s)\]"']+)/g, (url) => {
           const clean = url.replace(/[.,;)]+$/, '');
           return urlIsAllowed(clean, allowedUrls)
             ? `[${clean.replace(/^https?:\/\//, '').slice(0, 50)}](${clean})`
-            : clean.replace(/^https?:\/\//, '') + ' (link removed)';
+            : clean.replace(/^https?:\/\//, '');
         });
         return s;
       };
@@ -4583,7 +4601,7 @@
                 lineHeight: 1.45,
                 fontStyle: 'italic'
               }}>
-                {note}
+                <InlineMD text={note} />
               </div>
             )}
           </div>
@@ -4670,7 +4688,16 @@
           const renderer = new window.marked.Renderer();
           const origLink = renderer.link.bind(renderer);
           renderer.link = (href, title, label) => {
-            const out = origLink(href, title, label);
+            // The model is told to emit a Google-search fallback link for
+            // centers/orgs (api/research.js). Relabel the bare "Google search"
+            // anchor text to a clean "Search ↗" so it never leaks as visible
+            // prose; keep entity-name labels intact.
+            let displayLabel = label;
+            const plain = String(label || '').replace(/<[^>]+>/g, '').trim();
+            if (isGoogleSearchUrl(href) && (!plain || /^google\s*search$/i.test(plain))) {
+              displayLabel = 'Search ↗';
+            }
+            const out = origLink(href, title, displayLabel);
             return out.replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
           };
           // Models sometimes wrap NOT-approved flags in ~~strikethrough~~ — show plain text.
@@ -4711,6 +4738,48 @@
           const tail = stripBold(raw.slice(last));
           if (tail) nodes.push(tail);
         }
+        return <React.Fragment>{nodes}</React.Fragment>;
+      };
+
+      // Inline-safe markdown for SHORT card fields (meter notes, risks line,
+      // rationale, "what it does", patient-specific risks, etc.). Converts
+      //   **bold** / __bold__         → <strong>
+      //   [label](url)                → real clickable link (new tab)
+      // and renders everything else as plain text. Unlike <Markdown> it injects
+      // NO block wrappers (<p>/<div>), so it is safe inside tiny one-line rows
+      // where a block renderer would break the layout. The model emits literal
+      // `**bold**` and `[label](url)` in these fields; rendered as a bare
+      // {field} text node they showed as raw characters (the defect this fixes).
+      // Always render the SCRUBBED value (callers pass auditAndScrubCard output).
+      const InlineMD = ({ text }) => {
+        const raw = String(text == null ? '' : text);
+        if (!raw) return null;
+        const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+        const renderBold = (s, keyBase) => {
+          const out = [];
+          const boldRe = /\*\*([^*]+)\*\*|__([^_]+)__/g;
+          let last = 0, m, i = 0;
+          while ((m = boldRe.exec(s)) !== null) {
+            if (m.index > last) out.push(s.slice(last, m.index));
+            out.push(<strong key={`${keyBase}b${i++}`}>{m[1] || m[2]}</strong>);
+            last = boldRe.lastIndex;
+          }
+          if (last < s.length) out.push(s.slice(last));
+          return out;
+        };
+        const nodes = [];
+        let last = 0, m, key = 0;
+        while ((m = linkRe.exec(raw)) !== null) {
+          if (m.index > last) nodes.push(...renderBold(raw.slice(last, m.index), `t${key}`));
+          nodes.push(
+            <a key={`l${key++}`} href={m[2]} target="_blank" rel="noopener noreferrer"
+              style={{ color: theme.accent, textDecoration: 'underline' }}>
+              {cleanAnchorLabel(m[1], m[2])}
+            </a>
+          );
+          last = linkRe.lastIndex;
+        }
+        if (last < raw.length) nodes.push(...renderBold(raw.slice(last), `t${key}`));
         return <React.Fragment>{nodes}</React.Fragment>;
       };
 
@@ -7407,7 +7476,7 @@
             </div>
             {t.risks && (
               <div style={{ marginTop: '0.6rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.5 }}>
-                <strong style={{ color: theme.text }}>Risks: </strong>{t.risks}
+                <strong style={{ color: theme.text }}>Risks: </strong><InlineMD text={t.risks} />
               </div>
             )}
           </div>
@@ -7437,7 +7506,7 @@
                     <EvidenceStrengthBadge value={c.evidence_tier} />
                   </div>
                 )}
-                {c.rationale && <div style={{ marginTop: 8, fontSize: '0.88rem', lineHeight: 1.55 }}>{c.rationale}</div>}
+                {c.rationale && <div style={{ marginTop: 8, fontSize: '0.88rem', lineHeight: 1.55 }}><InlineMD text={c.rationale} /></div>}
                 {c.confidence_pct != null && (
                   <div style={{ marginTop: 8 }}>
                     <MeterBar label="Confidence" value={c.confidence_pct} icon={<Award size={11} />} note={c.confidence} />
@@ -7445,7 +7514,7 @@
                 )}
                 {c.interaction_risk && (
                   <div style={{ marginTop: 8, fontSize: '0.82rem', color: theme.yellow }}>
-                    <strong>Interaction risk: </strong>{c.interaction_risk}
+                    <strong>Interaction risk: </strong><InlineMD text={c.interaction_risk} />
                   </div>
                 )}
                 {c.supporting_evidence && (
@@ -7461,12 +7530,12 @@
                     color={theme.yellow}
                     defaultOpen={/high|moderate|interaction/i.test(String(c.interaction_risk))}
                   >
-                    {c.patient_specific_risks}
+                    <InlineMD text={c.patient_specific_risks} />
                   </Disclosure>
                 )}
                 {c.how_to_discuss_with_doctor && (
                   <Disclosure title="Questions to ask your doctor" icon={<MessageCircle size={13} />} color={theme.green}>
-                    {c.how_to_discuss_with_doctor}
+                    <InlineMD text={c.how_to_discuss_with_doctor} />
                   </Disclosure>
                 )}
                 {cardLinks.length > 0 && (
@@ -7532,7 +7601,7 @@
                     <strong style={{ color: theme.accent, fontSize: '0.72rem', letterSpacing: 0.4, textTransform: 'uppercase' }}>
                       What it is
                     </strong>
-                    <div style={{ marginTop: 4 }}>{c.what_it_does}</div>
+                    <div style={{ marginTop: 4 }}><InlineMD text={c.what_it_does} /></div>
                   </div>
                 )}
                 {whyPlain && (
@@ -7546,7 +7615,7 @@
                     </strong>
                     <div style={{ marginTop: 4 }}>
                       {c.why_for_this_condition
-                        ? c.why_for_this_condition
+                        ? <InlineMD text={c.why_for_this_condition} />
                         : <Markdown text={String(c.repurpose_rationale).split('\n').slice(0, 3).join('\n')} />}
                     </div>
                   </div>
@@ -7650,7 +7719,7 @@
                 color={theme.yellow}
                 defaultOpen={(c.safety_pct != null && c.safety_pct < 70) || /high|moderate|interaction|sedat|fall/i.test(String(c.patient_specific_risks))}
               >
-                {c.patient_specific_risks}
+                <InlineMD text={c.patient_specific_risks} />
               </Disclosure>
             )}
             {c.how_to_discuss_with_doctor && (
@@ -7659,7 +7728,7 @@
                 icon={<MessageCircle size={13} />}
                 color={theme.green}
               >
-                {c.how_to_discuss_with_doctor}
+                <InlineMD text={c.how_to_discuss_with_doctor} />
               </Disclosure>
             )}
           </div>

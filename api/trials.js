@@ -60,7 +60,12 @@ const containsAny = (text, hints) => {
 // accessible). Non-enrolling statuses are penalised so a finished or stopped
 // trial never outranks one still taking patients (Item 7). Stopped-for-harm /
 // negative trials (incl. the PANTHER aza+pred+NAC arm) get a caution + penalty.
-export const NON_ENROLLING_PENALTY = { COMPLETED: -55, TERMINATED: -60, WITHDRAWN: -60, SUSPENDED: -60 };
+// NO_LONGER_AVAILABLE = the program (often an expanded-access protocol) can no
+// longer be accessed, so penalise it like COMPLETED. UNKNOWN status means we
+// cannot confirm a patient can act on it — penalise so it never outranks a
+// confirmed-enrolling trial (Chronic Constipation defect: a defunct Domperidone
+// expanded-access protocol at NO_LONGER_AVAILABLE outranked a live Phase 3).
+export const NON_ENROLLING_PENALTY = { COMPLETED: -55, TERMINATED: -60, WITHDRAWN: -60, SUSPENDED: -60, NO_LONGER_AVAILABLE: -55, UNKNOWN: -40 };
 export const ACTIVE_NOT_RECRUITING_PENALTY = -25;
 // An age-ineligible trial (e.g. a pediatric study for a 64-year-old) is one
 // the patient cannot enrol in — push it well below eligible options so it
@@ -79,6 +84,26 @@ const HARMFUL_PATTERN = /futilit|harm|safety concern|adverse|increased (mortalit
 // and hospitalisation. Never let it rank as a promising option.
 export const HARMFUL_NCTS = new Set(['NCT00650091']);
 const ENROLLING_STATUSES = ['RECRUITING', 'NOT_YET_RECRUITING', 'ENROLLING_BY_INVITATION'];
+// Statuses a patient can actually act on: enrolling, or an open expanded-access
+// program (AVAILABLE). Used to gate the access-designation bonuses below.
+export const AVAILABLE_STATUSES = [...ENROLLING_STATUSES, 'AVAILABLE'];
+export const programIsAvailable = (study = {}) => {
+  const status = String(study.status || '').toUpperCase();
+  return AVAILABLE_STATUSES.includes(status) || study.acceptingNewPatients === true;
+};
+// Expanded-access / open-label-extension bonuses help a patient ONLY when the
+// program is currently available to join. A NO_LONGER_AVAILABLE or COMPLETED
+// expanded-access/OLE program is a dead end and must not be rewarded (Chronic
+// Constipation defect: a defunct Domperidone expanded-access protocol got the
+// +20 bonus and outranked a live Phase 3 trial).
+export const accessDesignationBonus = (study = {}) => {
+  if (!programIsAvailable(study)) return 0;
+  const d = study.designations || {};
+  let bonus = 0;
+  if (d.hasExpandedAccess) bonus += 20;
+  if (d.hasOpenLabelExtension) bonus += 15;
+  return bonus;
+};
 
 // CT.gov age strings look like "10 Years", "6 Months", "N/A". Convert to
 // fractional years so we can compare against the patient's age.
@@ -825,8 +850,7 @@ export default async function handler(req, res) {
       if (s.designations.fastTrack) score += 5;
       if (s.designations.breakthrough) score += 8;
       if (s.designations.orphan) score += 3;
-      if (s.designations.hasExpandedAccess) score += 20;
-      if (s.designations.hasOpenLabelExtension) score += 15;
+      score += accessDesignationBonus(s);
       if (s.designations.hasPostTrialAccess) score += 6;
       score += s.topCenterScore || 0;
       const westernHit = (s.countries || []).some(c => WESTERN.has(c));
