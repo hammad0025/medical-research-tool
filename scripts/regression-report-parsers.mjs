@@ -103,7 +103,20 @@ const parseTreatmentsWith = (text, collector) => {
     }
   });
   if (cur) blocks.push(cur);
-  return blocks.sort((a, b) => (b.efficacy_pct || 0) - (a.efficacy_pct || 0));
+  // Mirror of index.html: recover a name for a PROVIDER-only card (device
+  // entries the model left without a TREATMENT: line) and drop nameless,
+  // contentless cards so "(unnamed treatment)" never renders.
+  const deriveTreatmentName = (b) => String(b.provider || '')
+    .split(/\s*[|—–]\s*/)
+    .map((s) => s.trim())
+    .find((s) => s
+      && !/^\+?[\d().\s-]{7,}$/.test(s)
+      && !/^https?:|\.(com|org|gov|net|edu)\b/i.test(s)
+      && !/^(ask|call|available|implanted|administered|contact|by )/i.test(s)) || '';
+  return blocks
+    .map((b) => (b.treatment ? b : { ...b, treatment: deriveTreatmentName(b) }))
+    .filter((b) => b.treatment || b.efficacy_pct != null || b.safety_pct != null || b.risks)
+    .sort((a, b) => (b.efficacy_pct || 0) - (a.efficacy_pct || 0));
 };
 const parseTreatments = (text) => parseTreatmentsWith(text, collectBlock);
 const parseTreatmentsLegacy = (text) => parseTreatmentsWith(text, collectBlockLegacy);
@@ -422,6 +435,38 @@ head('4 — curated IPF approved-treatments fixture (no regression)');
 }
 
 // ===========================================================================
+// 4b. PROVIDER-only card with no TREATMENT: name (Overactive Bladder defect —
+//     the "Medtronic InterStim" card rendered as "(unnamed treatment)" with
+//     empty meters). The parser must recover a name from the provider line and
+//     drop a card that has neither a name nor any content.
+// ===========================================================================
+head('4b — PROVIDER-only card recovers a name / drops if empty (unnamed-treatment defect)');
+{
+  const raw = [
+    'PROVIDER: Allergan / AbbVie | Administered by a urologist | DailyMed label',
+    'TREATMENT: OnabotulinumtoxinA (Botox) — 100 units into the bladder wall',
+    'FDA_STATUS: FDA-approved for OAB',
+    'EFFICACY: 65% — reduces urgency incontinence episodes',
+    'SAFETY: 65% — urinary retention is the main risk',
+    'RISKS: Urinary retention requiring temporary catheterization.',
+    'REFERENCES: [AUA/SUFU Guideline](https://doi.org/10.1016/j.juro.2015.01.087)',
+    '',
+    'PROVIDER: Medtronic InterStim | 1-800-633-8766 | Implanted by a urologist or urogynecologist',
+    '',
+    'PROVIDER: 1-800-000-0000 | Ask your doctor'
+  ].join('\n');
+  const after = parseTreatments(raw);
+  const noUnnamed = after.every((t) => t.treatment && !/^\(unnamed/i.test(t.treatment));
+  const interstim = after.find((t) => /interstim/i.test(t.treatment || ''));
+  const emptyDropped = !after.some((t) => !t.treatment && t.efficacy_pct == null && t.safety_pct == null && !t.risks);
+  if (after.length === 2 && noUnnamed && interstim && interstim.treatment === 'Medtronic InterStim' && emptyDropped) {
+    pass(`AFTER: nameless device card recovered ("${interstim.treatment}"), empty PROVIDER-only card dropped, zero "(unnamed treatment)"`);
+  } else {
+    fail(`AFTER: unnamed-treatment regression (n=${after.length} noUnnamed=${noUnnamed} interstim=${JSON.stringify(interstim?.treatment)} emptyDropped=${emptyDropped})`);
+  }
+}
+
+// ===========================================================================
 // 5. Corpus completeness — every fixture is exercised.
 // ===========================================================================
 head('5 — corpus completeness');
@@ -522,6 +567,14 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
     pass('sanitizeMarkdownLinks keeps Google-search links so the relabel can run (no strip-before-relabel)');
   } else {
     fail('sanitizeMarkdownLinks strips Google-search links before relabel — bare "Google search" will leak');
+  }
+
+  // 7e. parseTreatments must recover/drop nameless cards so a PROVIDER-only
+  //     entry never renders as "(unnamed treatment)" (Overactive Bladder defect).
+  if (/deriveTreatmentName/.test(indexSrc)) {
+    pass('parseTreatments recovers/drops nameless cards (deriveTreatmentName present)');
+  } else {
+    fail('parseTreatments has no nameless-card recovery — "(unnamed treatment)" can render');
   }
 }
 

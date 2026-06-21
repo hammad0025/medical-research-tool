@@ -717,7 +717,23 @@
           }
         });
         if (cur) blocks.push(cur);
-        return blocks.sort((a, b) => (b.efficacy_pct || 0) - (a.efficacy_pct || 0));
+        // A model card that only had a PROVIDER: line (e.g. a device entry like
+        // "Medtronic InterStim") arrives with no TREATMENT: name and would render
+        // as "(unnamed treatment)". Recover a display name from the first
+        // descriptive segment of the provider/manufacturer line (skipping phone
+        // numbers, URLs, and "ask/call/implanted by …" boilerplate); drop a card
+        // that ends up with neither a name nor any content.
+        const deriveTreatmentName = (b) => String(b.provider || '')
+          .split(/\s*[|—–]\s*/)
+          .map((s) => s.trim())
+          .find((s) => s
+            && !/^\+?[\d().\s-]{7,}$/.test(s)
+            && !/^https?:|\.(com|org|gov|net|edu)\b/i.test(s)
+            && !/^(ask|call|available|implanted|administered|contact|by )/i.test(s)) || '';
+        return blocks
+          .map((b) => (b.treatment ? b : { ...b, treatment: deriveTreatmentName(b) }))
+          .filter((b) => b.treatment || b.efficacy_pct != null || b.safety_pct != null || b.risks)
+          .sort((a, b) => (b.efficacy_pct || 0) - (a.efficacy_pct || 0));
       };
 
       const REPURPOSE_KEYS = [
