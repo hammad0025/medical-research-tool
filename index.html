@@ -6616,7 +6616,7 @@
                         <div key={`stub-${i}`} style={{ padding: '0.5rem 0.7rem', borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.panel }}>
                           <span style={{ fontWeight: 700, color: theme.text }}><InlineTitle text={t.treatment} /></span>
                           {t.provider && (
-                            <span style={{ color: theme.textDim, fontSize: '0.82rem' }}> — {String(t.provider).replace(/^Mechanism:\s*/i, '')}</span>
+                            <span style={{ color: theme.textDim, fontSize: '0.82rem' }}> — <InlineMD text={String(t.provider).replace(/^Mechanism:\s*/i, '')} /></span>
                           )}
                         </div>
                       ))}
@@ -7467,11 +7467,11 @@
                 <FormatWarning leaks={leaks} />
                 {t.fda_status && (
                   <div style={{ fontSize: '0.78rem', color: notApproved ? theme.yellow : theme.green, marginTop: 4, fontWeight: 600 }}>
-                    {t.fda_status}
+                    <InlineMD text={t.fda_status} />
                   </div>
                 )}
                 {t.provider && (
-                  <div style={{ fontSize: '0.82rem', color: theme.textDim, marginTop: 4 }}>{t.provider}</div>
+                  <div style={{ fontSize: '0.82rem', color: theme.textDim, marginTop: 4 }}><InlineMD text={t.provider} /></div>
                 )}
                 {cardLinks.length > 0 ? (
                   <div style={{ marginTop: '0.55rem' }}>
@@ -7607,7 +7607,7 @@
                   </div>
                   {c.class && (
                     <div style={{ fontSize: '0.78rem', color: theme.textDim, fontStyle: 'italic' }}>
-                      {c.class}
+                      <InlineMD text={c.class} />
                     </div>
                   )}
                 </div>
@@ -7669,7 +7669,7 @@
                 {c.approved_for && (
                   <div style={{ fontSize: '0.78rem', color: theme.textDim, marginTop: 2 }}>
                     {lay ? 'Usually used for: ' : 'Currently approved for: '}
-                    <span style={{ color: theme.text }}>{c.approved_for}</span>
+                    <span style={{ color: theme.text }}><InlineMD text={c.approved_for} /></span>
                   </div>
                 )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.55rem' }}>
@@ -7682,9 +7682,9 @@
                       color: theme.accent, fontWeight: 600
                     }}>
                       <Flask size={11} /> {lay ? 'Might work by: ' : ''}
-                      {String(c.mechanism_target).length > (lay ? 100 : 80)
+                      <InlineMD text={String(c.mechanism_target).length > (lay ? 100 : 80)
                         ? String(c.mechanism_target).slice(0, (lay ? 97 : 77)) + '…'
-                        : c.mechanism_target}
+                        : c.mechanism_target} />
                     </span>
                   )}
                 </div>
@@ -8194,7 +8194,7 @@
                                 marginTop: 5, fontSize: '0.7rem', color: theme.textDim,
                                 lineHeight: 1.4, fontStyle: 'italic', textAlign: 'left'
                               }}>
-                                {note.length > 140 ? note.slice(0, 137) + '…' : note}
+                                <InlineMD text={note.length > 140 ? note.slice(0, 137) + '…' : note} />
                               </div>
                             )}
                           </td>
@@ -8221,7 +8221,7 @@
                           </td>
                         );
                       }
-                      return <td key={c.k} style={{ padding: '0.6rem', lineHeight: 1.5 }}>{v || '—'}</td>;
+                      return <td key={c.k} style={{ padding: '0.6rem', lineHeight: 1.5 }}>{v ? <InlineMD text={v} /> : '—'}</td>;
                     })}
                   </tr>
                 ))}

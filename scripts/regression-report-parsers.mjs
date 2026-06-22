@@ -514,6 +514,21 @@ head('6 — inline-markdown card-body rendering (literal **bold**/[label](url) l
   } else {
     fail(`Google-search relabel regression (label=${JSON.stringify(googleLabel)} entity=${JSON.stringify(entityKept)} link=${JSON.stringify(realLink)})`);
   }
+
+  // The CONFIRMED Parkinson Disease leak: the approved-treatment PROVIDER line
+  // shipped a raw markdown link rendered literally because {t.provider} was a
+  // bare text node. Mirror the real Crexont case and prove that routing it
+  // through InlineMD (renderInlineMarkdownHtml port) yields a real
+  // target=_blank link with NO surviving [label](url) literal and no **.
+  const providerLeak = 'Multiple manufacturers · Inbrija (Acorda) · [Crexont ER (Impax)](https://clinicaltrials.gov/study/NCT06765668)';
+  const providerHtml = renderInlineMarkdownHtml(providerLeak);
+  const providerLinked = /<a href="https:\/\/clinicaltrials\.gov\/study\/NCT06765668" target="_blank" rel="noopener noreferrer">/.test(providerHtml);
+  const providerPlainKept = /Multiple manufacturers/.test(providerHtml) && /Inbrija \(Acorda\)/.test(providerHtml);
+  if (providerLinked && providerPlainKept && noLiteral(providerHtml) && !/\]\(http/.test(providerHtml)) {
+    pass('TreatmentCard provider markdown link (Crexont case) renders as <a target=_blank>; no literal [label](url) or ** survives');
+  } else {
+    fail(`provider markdown-link rendering regression (linked=${providerLinked} plainKept=${providerPlainKept} html=${JSON.stringify(providerHtml)})`);
+  }
 }
 
 // ===========================================================================
@@ -575,6 +590,37 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
     pass('parseTreatments recovers/drops nameless cards (deriveTreatmentName present)');
   } else {
     fail('parseTreatments has no nameless-card recovery — "(unnamed treatment)" can render');
+  }
+
+  // 7f. Comprehensive sweep guard — the FULL class of "literal markdown leaks in
+  //     card fields". Every model-supplied prose field that was previously a
+  //     bare {field} text node must now be routed through <InlineMD>. The list
+  //     below matches EXACTLY what was wired (Parkinson Disease Crexont leak +
+  //     siblings). If any regresses to a bare render, this fails loudly.
+  const sweepWired = [
+    /<InlineMD text=\{t\.provider\} \/>/,                                                  // TreatmentCard provider (CONFIRMED leak)
+    /<InlineMD text=\{t\.fda_status\} \/>/,                                                // TreatmentCard FDA status
+    /<InlineMD text=\{String\(t\.provider\)\.replace\(\/\^Mechanism:\\s\*\/i, ''\)\} \/>/, // "Also FDA-approved" overflow list provider
+    /<InlineMD text=\{c\.class\} \/>/,                                                     // CandidateCard drug class
+    /<InlineMD text=\{c\.approved_for\} \/>/,                                              // CandidateCard "usually used for"
+    /<InlineMD text=\{String\(c\.mechanism_target\)\.length/,                              // CandidateCard "might work by" / mechanism
+    /<InlineMD text=\{v\} \/>/                                                             // ComparisonTable default prose cell (provider/risks/class/etc.)
+  ];
+  const sweepCount = sweepWired.filter((re) => re.test(indexSrc)).length;
+  if (sweepCount === sweepWired.length) {
+    pass(`comprehensive markdown-leak sweep: all ${sweepCount}/${sweepWired.length} audited card fields routed through InlineMD`);
+  } else {
+    const missing = sweepWired.map((re, i) => re.test(indexSrc) ? null : i).filter((x) => x != null);
+    fail(`markdown-leak sweep regression — ${sweepWired.length - sweepCount} field(s) not wired via InlineMD (indices ${missing.join(', ')})`);
+  }
+
+  // 7g. The CONFIRMED defect must not return: no bare {t.provider} text node.
+  //     The Parkinson report leaked because the provider line was rendered as
+  //     >{t.provider}< instead of <InlineMD text={t.provider} />.
+  if (!/>\{t\.provider\}</.test(indexSrc) && !/>\s*\{t\.provider\}\s*</.test(indexSrc)) {
+    pass('no bare >{t.provider}< text node remains (Crexont markdown-link leak cannot recur)');
+  } else {
+    fail('bare {t.provider} text node still present — markdown in provider would render literally');
   }
 }
 
