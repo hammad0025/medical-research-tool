@@ -138,10 +138,11 @@ const resolveMaxTokens = (model, mode, phase, half, isBatch) => {
     // disclaimer. 2200 was truncating the final combo mid-field (the AGA
     // "Nizoral FDA label confirms…" cutoff), so give it headroom to finish.
     if (half === 'back') return isOpus ? 2600 : 3400;
-    // BATCHED front: 5 candidates per lane. ~700 tok/candidate in plain-English
-    // mode; 2800 was truncating at ~4 and Dorothy saw "only 3 drugs". Lanes
-    // run in parallel so wall-clock stays ~90–120s even at ~4200 tok/lane.
-    if (isBatch) return isOpus ? 3400 : 4200;
+    // BATCHED front: up to 7 candidates per lane. ~700 tok/candidate in plain-
+    // English mode, so 7 needs ~4900; give headroom so the last candidate
+    // finishes cleanly. Lanes run in parallel so wall-clock stays bounded well
+    // under the 300s Vercel Pro cap even at this budget.
+    if (isBatch) return isOpus ? 4400 : 5600;
     // Single-shot fallback (API back-compat): one big call for all 15.
     return isOpus ? 5200 : 7000;
   }
@@ -1330,7 +1331,7 @@ WHY_FOR_THIS_CONDITION: <REQUIRED — one plain sentence. For a drug with positi
 MECHANISM_TARGET: <for medical audience: molecular target/pathway. For layperson: ≤12-word plain phrase, e.g. "Helps cells clean up damaged parts" — define any technical term in parentheses>
 REPURPOSE_RATIONALE: <why it might help THIS condition — at the specified audience level. Layperson: 3 bullet lines per LAYPERSON RULES above. Medical: step-by-step biology.>
 EVIDENCE_STRENGTH: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
-SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. If no human data exists, say "Mechanistic hypothesis only — no human data yet".>
+SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. STATE THE EVIDENCE LEVEL IN PLAIN WORDS and name the species/study type — e.g. "tested in rats and large animals, not yet in humans" for preclinical work, or "human observational study (n=…)". If the human evidence is for a RELATED condition rather than THIS exact one, say so plainly (e.g. "human trials in retinal degeneration broadly, not RP specifically"). If no study of any kind exists, say "Mechanistic hypothesis only — no human or animal data yet".>
 REFERENCES: <REQUIRED — 1-3 clickable markdown links [short title](url) from the evidence pack or trials pull. Every candidate MUST have at least one link here even if SUPPORTING_EVIDENCE repeats them.>
 EFFICACY_HYPOTHESIS: <1-100>% — <one-line plain-English justification>
 SAFETY: <1-100>% — <higher = safer; reference FDA label / FAERS reactions if available>
@@ -1444,8 +1445,8 @@ const REPURPOSE_PROMPT_FRONT_BATCH_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS ONE BATCH of a larger candidate list. Other batches (running at the same time) cover the other drug lanes, so produce ONLY candidates that fit the LANE named in the user message — do not stray into other lanes, or you will duplicate another batch.
 Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary, no preamble.
-Produce the EXACT number of candidates requested in the user message. Quality over padding, but do not stop short of the requested count.
-Keep EVERY field to ONE concise sentence (≤25 words). Every candidate MUST include WHY_FOR_THIS_CONDITION and at least one link in REFERENCES. FINISH the last candidate fully.
+Produce UP TO the number of candidates requested in the user message. This is a quality-curated list, not a quota: prefer candidates you can back with a real citation from the evidence pack, and NEVER invent a citation. A mechanistically sound idea with no published trial for THIS condition is still valuable (especially cheap/unpatentable agents no one will fund a trial for) — include it, label EVIDENCE_STRENGTH: MECHANISTIC_ONLY, and say plainly there is no human data yet. Do not pad with weak duplicates.
+Keep EVERY field to ONE concise sentence (≤25 words). Every candidate MUST include WHY_FOR_THIS_CONDITION; cite the mechanism/pathway paper in REFERENCES whenever one exists. FINISH the last candidate fully.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -2388,7 +2389,7 @@ ${SHARED_GUARDRAILS}
       if (isRepurposeBatch) {
         const laneIdx = Math.max(0, Math.min(REPURPOSE_LANES.length - 1, Number(batchLane) || 0));
         const count = Math.max(1, Math.min(8, Number(batchSize) || 4));
-        return `Produce EXACTLY ${count} CANDIDATE blocks, and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the ${count} CANDIDATE blocks.`;
+        return `Produce UP TO ${count} CANDIDATE blocks, and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nEVIDENCE BAR: prefer candidates you can back with a real paper from the evidence pack (a working markdown link in REFERENCES) — quality over quantity, and NEVER invent a citation. BUT a compelling, mechanistically sound idea with no published trial for this condition is still valuable (e.g. an unpatentable supplement like magnesium L-threonate that no one will fund a trial for) — include it, set EVIDENCE_STRENGTH: MECHANISTIC_ONLY, and state plainly there is no human data for this condition yet. Cite the mechanism/pathway paper if one exists. Aim for ${count}; do not pad with weak duplicates.\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the CANDIDATE blocks.`;
       }
       if (mode === 'repurpose' && phase === 'synthesize' && half === 'front') {
         return 'Produce Part 1 only: ranked CANDIDATE blocks (mechanistic/preclinical first, then published-support). No combinations or summary.';

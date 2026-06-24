@@ -29,7 +29,8 @@ import {
   clampToCompleteSentence,
   drugKeysMatch,
   renderInlineMarkdownHtml,
-  cleanAnchorLabel
+  cleanAnchorLabel,
+  filterExcludedAgentMentions
 } from '../lib/report-polish.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
@@ -621,6 +622,55 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
     pass('no bare >{t.provider}< text node remains (Crexont markdown-link leak cannot recur)');
   } else {
     fail('bare {t.provider} text node still present — markdown in provider would render literally');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 8 — Excluded-agent filter must drop ONLY the excluded drug, never a
+//     legitimate candidate that merely MENTIONS one in its prose. This is the
+//     IPF "only 4 drugs" defect: filterExcludedRepurposeCandidates scanned the
+//     whole CANDIDATE block, so any candidate whose rationale referenced
+//     prednisone / metformin / N-acetylcysteine was silently deleted, collapsing
+//     a 12-candidate list to ~4.
+// ---------------------------------------------------------------------------
+head('8 — excluded-agent filter scopes to the candidate name, not its prose');
+{
+  const countCand = (t) => (String(t || '').match(/^CANDIDATE:/gm) || []).length;
+  const evidence = {
+    excludedAgents: [
+      { name: 'Metformin as an antifibrotic', aliases: ['metformin', 'Glucophage'] },
+      { name: 'Pamrevlumab (FG-3019)' },
+      { name: 'N-acetylcysteine monotherapy', aliases: ['n-acetylcysteine'] },
+      { name: 'Prednisone monotherapy' }
+    ]
+  };
+  const mkCand = (name, rationale) =>
+    `CANDIDATE: ${name}\nCLASS: test class\nWHY_FOR_THIS_CONDITION: hypothesis\n` +
+    `REPURPOSE_RATIONALE: ${rationale}\nREFERENCES: [r](https://example.org/1)`;
+
+  // Legit candidates whose rationale references an excluded drug — must SURVIVE.
+  const legit = [
+    mkCand('Empagliflozin', 'Metabolic pathway, complements the metformin antifibrotic hypothesis.'),
+    mkCand('Quercetin', 'Senolytic antioxidant, unlike N-acetylcysteine it acts on senescence.'),
+    mkCand('Tofacitinib', 'JAK inhibitor; avoids the steroid harm seen with prednisone.')
+  ].join('\n\n');
+  const keptText = filterExcludedAgentMentions(legit, evidence);
+  if (countCand(keptText) === 3) {
+    pass('legitimate candidates mentioning an excluded drug in rationale are KEPT (3/3 survive)');
+  } else {
+    fail(`excluded-filter over-reach: ${countCand(keptText)}/3 candidates survived (rationale mention wrongly deleted)`);
+  }
+
+  // Candidates that ARE the excluded drug — must be DROPPED.
+  const offenders = [
+    mkCand('Metformin', 'Diabetes drug repurposed for fibrosis.'),
+    mkCand('Pamrevlumab', 'Anti-CTGF antibody.')
+  ].join('\n\n');
+  const droppedText = filterExcludedAgentMentions(offenders, evidence);
+  if (countCand(droppedText) === 0) {
+    pass('candidates that ARE excluded agents are still DROPPED (guardrail intact, 0/2 survive)');
+  } else {
+    fail(`excluded-filter guardrail broken: ${countCand(droppedText)}/2 excluded-agent candidates leaked through`);
   }
 }
 

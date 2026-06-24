@@ -3,6 +3,12 @@
 import { getInfraStatus } from '../lib/infra-status.js';
 import { listKbs } from '../lib/kb.js';
 import { requireAccess } from '../lib/access-gate.js';
+import {
+  REPURPOSE_LANE_COUNT,
+  REPURPOSE_PER_LANE,
+  REPURPOSE_SOFT_CAP,
+  REPURPOSE_MIN_TOTAL
+} from '../lib/repurpose-quality.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -28,11 +34,12 @@ export default async function handler(req, res) {
     platform: {
       maxFunctionDurationSec: 300,
       repurpose: {
-        lanes: 3,
-        perLane: 5,
-        targetCandidates: 15,
-        minCandidates: 12,
-        batchMaxTokensSonnet: 4200
+        lanes: REPURPOSE_LANE_COUNT,
+        perLane: REPURPOSE_PER_LANE,
+        softCapCandidates: REPURPOSE_SOFT_CAP,
+        minCandidates: REPURPOSE_MIN_TOTAL,
+        batchMaxTokensSonnet: 5600,
+        groundingGated: true
       },
       gather: {
         repurposeSupplementQueries: true,

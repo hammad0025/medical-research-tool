@@ -873,14 +873,24 @@
         const v = String(value || '').toUpperCase().trim();
         return v.includes('MECHANISTIC_ONLY') || v.includes('PRECLINICAL');
       };
+      // Three evidence tiers, strongest → weakest:
+      //   human       — case report / observational / RCT (tested in PEOPLE)
+      //   preclinical — animal / lab studies only (e.g. goji berry in rats), no
+      //                 human trials yet
+      //   mechanistic — pure pathway reasoning, no studies at all (or uncited,
+      //                 since without a citation we cannot honor a higher tier)
       const partitionCandidates = (candidates) => {
+        const human = [];
+        const preclinical = [];
         const mechanistic = [];
-        const withEvidence = [];
         (candidates || []).forEach(c => {
-          if (isMechanisticEvidence(c.evidence_strength)) mechanistic.push(c);
-          else withEvidence.push(c);
+          if (c._uncited) { mechanistic.push(c); return; }
+          const v = String(c.evidence_strength || '').toUpperCase();
+          if (v.includes('PRECLINICAL')) preclinical.push(c);
+          else if (v.includes('MECHANISTIC_ONLY')) mechanistic.push(c);
+          else human.push(c);
         });
-        return { mechanistic, withEvidence };
+        return { human, preclinical, mechanistic };
       };
 
       // Combination cards. The combo back-call sometimes emits field labels
@@ -2081,16 +2091,40 @@
         const candidates = useMemo(() => {
           const cond = (patient.condition || '').trim().toLowerCase();
           if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) return [];
-          const parsed = parseCandidates(repurposeText);
+          // Mirror of REPURPOSE_SOFT_CAP in lib/repurpose-quality.js. index.html
+          // is a no-build static page and cannot import the module.
+          const SOFT_CAP = 20;
+          // A candidate is "evidence-cited" if it carries at least one real
+          // citation (a URL in REFERENCES or SUPPORTING_EVIDENCE; server-side
+          // sanitization already stripped any link not in the evidence pack /
+          // trials pull). We do NOT drop uncited candidates: a mechanistically
+          // promising but never-trialed idea — e.g. an unpatentable supplement
+          // like magnesium L-threonate that no one will fund a trial for — is
+          // exactly what repurposing should surface. Instead we KEEP them, tag
+          // them `_uncited`, and partitionCandidates routes them into the
+          // clearly-labeled "logic-based" (mechanistic hypothesis) section.
+          const hasCitation = (c) =>
+            /https?:\/\//i.test(`${c.references || ''} ${c.supporting_evidence || ''}`);
+          let parsed = parseCandidates(repurposeText)
+            .map((c) => ({ ...c, _uncited: !hasCitation(c) }));
           const excluded = evidenceSummary?.excludedAgents || [];
-          if (!excluded.length) return parsed;
-          const blockNames = excluded.flatMap((x) =>
-            [x.name, ...(x.aliases || [])].map((n) => String(n).toLowerCase().trim()).filter(Boolean)
-          );
-          return parsed.filter((c) => {
-            const name = String(c.candidate || '').toLowerCase();
-            return !blockNames.some((ex) => name.includes(ex) || ex.includes(name.replace(/[^a-z0-9]/g, '')));
-          });
+          if (excluded.length) {
+            const blockNames = excluded.flatMap((x) =>
+              [x.name, ...(x.aliases || [])].map((n) => String(n).toLowerCase().trim()).filter(Boolean)
+            );
+            parsed = parsed.filter((c) => {
+              const name = String(c.candidate || '').toLowerCase();
+              return !blockNames.some((ex) => name.includes(ex) || ex.includes(name.replace(/[^a-z0-9]/g, '')));
+            });
+          }
+          // Cited candidates rank ahead of uncited hypotheses so the latter
+          // never crowd evidence-backed ideas out of the soft cap. (Stable:
+          // parseCandidates already de-duped and ranked by confidence.)
+          const ranked = [
+            ...parsed.filter((c) => !c._uncited),
+            ...parsed.filter((c) => c._uncited)
+          ];
+          return ranked.slice(0, SOFT_CAP);
         }, [repurposeText, evidenceSummary, repurposeForCondition, patient.condition]);
         const trialBlocks = useMemo(() => parseTrialBlocks(trialsText), [trialsText]);
         const combos = useMemo(() => parseCombos(repurposeText), [repurposeText]);
@@ -2526,8 +2560,8 @@
                 };
               } else if (mode === 'repurpose') {
                 const LANE_COUNT = 3;
-                const PER_LANE = 4;
-                const TARGET_TOTAL = 12;
+                const PER_LANE = 7;
+                const TARGET_TOTAL = 20;
                 const runLane = (lane) => callResearch({
                   ...synthBase, half: 'front', batchLane: lane, batchSize: PER_LANE
                 });
@@ -2589,6 +2623,9 @@
                     lanesRetried: retryLanes.length,
                     ok: totalCandidates >= 12
                   }
+                  // NB: `totalCandidates` is the RAW lane output; the displayed
+                  // set is gated to grounded candidates and capped at the soft
+                  // cap in the `candidates` memo below.
                 };
               } else {
                 data = await callResearch({ mode, patient, audience, phase: 'synthesize', ...extra });
@@ -4644,6 +4681,32 @@
         const hit = EVIDENCE_LADDER.find(e => v.includes(e.key));
         return hit || { key: 'UNSPECIFIED', label: value || 'Unspecified', color: theme.textDim, rank: 0 };
       };
+      // Plain-English "what has this actually been tested in?" — so a reader
+      // instantly sees that e.g. goji berry for RP has animal evidence but no
+      // human trials, instead of having to decode the "Preclinical" tier.
+      const evidenceTestedIn = (value, lay = true) => {
+        const m = evidenceMeta(value);
+        switch (m.key) {
+          case 'MECHANISTIC_ONLY':
+            return lay ? 'Idea from biology only — not yet tested in humans or animals for this condition'
+                       : 'Mechanistic rationale only — no human or animal data for this condition';
+          case 'PRECLINICAL':
+            return lay ? 'Tested in lab and animal studies (e.g. rats / large animals) — not yet tested in humans for this condition'
+                       : 'Preclinical (in vitro / animal models) — no human data for this condition yet';
+          case 'CASE_REPORT':
+            return lay ? 'Reported in a small number of human cases — no formal trial yet'
+                       : 'Human case report(s) only';
+          case 'OBSERVATIONAL':
+            return lay ? 'Seen in human observational studies (not a controlled trial)'
+                       : 'Human observational data';
+          case 'SMALL_RCT':
+            return lay ? 'Tested in a small human clinical trial' : 'Small randomized controlled trial';
+          case 'LARGE_RCT':
+            return lay ? 'Tested in large human clinical trials' : 'Large randomized controlled trial';
+          default:
+            return '';
+        }
+      };
       const EvidenceStrengthBadge = ({ value }) => {
         const m = evidenceMeta(value);
         const isHypothesisOnly = m.key === 'MECHANISTIC_ONLY';
@@ -6524,9 +6587,9 @@
           `How should I interpret a ~5–10% FVC decline over 12 months — is it time to change therapy?`
         ];
         const quickPrompts = isIpf ? ipfQuickPrompts : baseQuickPrompts;
-        const { mechanistic: repurposeMechanistic, withEvidence: repurposeWithEvidence } =
+        const { human: repurposeHuman, preclinical: repurposePreclinical, mechanistic: repurposeMechanistic } =
           partitionCandidates(candidates);
-        const allDrugIdeas = [...repurposeMechanistic, ...repurposeWithEvidence];
+        const allDrugIdeas = [...repurposeHuman, ...repurposePreclinical, ...repurposeMechanistic];
         const visibleDrugIdeas = showAllDrugIdeas ? allDrugIdeas : allDrugIdeas.slice(0, DRUG_IDEAS_INITIAL);
         const hiddenDrugCount = Math.max(0, allDrugIdeas.length - DRUG_IDEAS_INITIAL);
         return (
@@ -7663,13 +7726,25 @@
                     border: `1px dashed ${theme.yellow}66`, background: `${theme.yellow}10`,
                     fontSize: '0.78rem', color: theme.yellow, lineHeight: 1.45
                   }}>
-                    No source links on this card — re-run the analysis or verify claims with your doctor.
+                    No published study found for this condition — included as a biological hypothesis (how the drug works suggests it could help). Discuss with your doctor before acting on it.
                   </div>
                 )}
                 {c.approved_for && (
                   <div style={{ fontSize: '0.78rem', color: theme.textDim, marginTop: 2 }}>
                     {lay ? 'Usually used for: ' : 'Currently approved for: '}
                     <span style={{ color: theme.text }}><InlineMD text={c.approved_for} /></span>
+                  </div>
+                )}
+                {c.evidence_strength && evidenceTestedIn(c.evidence_strength, lay) && (
+                  <div style={{
+                    marginTop: '0.55rem', padding: '0.5rem 0.65rem', borderRadius: 8,
+                    border: `1px solid ${evidenceMeta(c.evidence_strength).color}55`,
+                    background: `${evidenceMeta(c.evidence_strength).color}12`,
+                    fontSize: '0.8rem', lineHeight: 1.45, color: theme.text,
+                    display: 'flex', alignItems: 'center', gap: 6
+                  }}>
+                    <Flask size={13} style={{ color: evidenceMeta(c.evidence_strength).color, flexShrink: 0 }} />
+                    <span><strong style={{ color: evidenceMeta(c.evidence_strength).color }}>Tested in:</strong> {evidenceTestedIn(c.evidence_strength, lay)}</span>
                   </div>
                 )}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.55rem' }}>
@@ -7794,10 +7869,11 @@
               border: `1px solid ${theme.accent}55`, background: `${theme.accent}10`,
               fontSize: '0.85rem', lineHeight: 1.55, color: theme.text
             }}>
-              <strong style={{ color: theme.accent }}>Two buckets of candidates:</strong>{' '}
+              <strong style={{ color: theme.accent }}>Three buckets, strongest evidence first:</strong>{' '}
               <span style={{ color: theme.textDim }}>
-                (1) <strong style={{ color: theme.text }}>Logic-based ideas</strong> — drugs that could make sense based on how the disease and the drug work, even though no one has studied them for {cond} yet; marked <em>Just an idea</em> or <em>Tested in the lab only</em>.
-                (2) <strong style={{ color: theme.text }}>Backed by studies</strong> — drugs that already have some human evidence, from single patient reports up to large studies.
+                (1) <strong style={{ color: theme.text }}>Tested in people</strong> — already studied in humans for {cond} or a closely related condition (patient reports up to clinical trials).
+                (2) <strong style={{ color: theme.text }}>Promising in animal & lab studies</strong> — real preclinical evidence (e.g. rats), but not yet tested in humans.
+                (3) <strong style={{ color: theme.text }}>Logic-based ideas</strong> — make sense from how the disease and drug work, but no studies for {cond} yet; marked <em>Just an idea</em>.
               </span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '1.1rem' }}>
@@ -7837,7 +7913,8 @@
         const [showRaw, setShowRaw] = useState(false);
         const [translatedText, setTranslatedText] = useState('');
         const renderedRepurposeText = translatedText || repurposeText;
-        const { mechanistic, withEvidence } = useMemo(() => partitionCandidates(candidates), [candidates]);
+        const { human, preclinical, mechanistic } = useMemo(() => partitionCandidates(candidates), [candidates]);
+        const isMed = audience === 'medical';
         const byStrength = {
           LARGE_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 6).length,
           SMALL_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 5).length,
@@ -7921,7 +7998,7 @@
                   <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem' }}>
                     {candidates.length} candidate{candidates.length === 1 ? '' : 's'}
                     <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem', marginLeft: '0.5rem' }}>
-                      · {mechanistic.length} logic-based · {withEvidence.length} with published support
+                      · {human.length} human studies · {preclinical.length} preclinical (animal/lab) · {mechanistic.length} logic-based
                     </span>
                   </h3>
                 </div>
@@ -7939,68 +8016,85 @@
               </div>
             )}
 
-            <div style={{
-              ...panelStyle,
-              borderLeft: `4px solid ${theme.accent}`,
-              background: `linear-gradient(90deg, ${theme.accent}12 0%, ${theme.panel} 55%)`
-            }}>
-              <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <Brain size={18} />
-                {audience === 'medical'
-                  ? 'Logic-based candidates (pathway reasoning — verify human data below)'
-                  : 'Drug ideas from biology — check the links before asking your doctor'}
-              </h3>
-              <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                {audience === 'medical'
-                  ? 'These are hypothesis-generation ideas from pathway reasoning — not prescriptions. Every item is labeled by evidence tier.'
-                  : 'These are educated guesses based on how the disease works and what each drug does — not proven treatments. Each card explains the drug in plain English and why it might be worth asking your doctor about.'}
-              </p>
-              {mechanistic.length > 0 ? (
+            {!hasRun && (
+              <div style={{
+                ...panelStyle,
+                borderLeft: `4px solid ${theme.accent}`,
+                background: `linear-gradient(90deg, ${theme.accent}12 0%, ${theme.panel} 55%)`
+              }}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Brain size={18} /> Drug ideas
+                </h3>
+                <div style={{
+                  textAlign: 'center', padding: '1.25rem', color: theme.textDim,
+                  border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
+                }}>
+                  Click &ldquo;Find drug ideas&rdquo; to start — results are grouped by how strong the evidence is: human studies, animal/lab (preclinical) studies, and logic-based ideas.
+                </div>
+              </div>
+            )}
+
+            {/* TIER 1 — human evidence */}
+            {human.length > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Database size={18} />
+                  {isMed ? 'Backed by human studies' : 'Tested in people (human studies)'}
+                </h3>
+                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  {isMed
+                    ? 'Agents with human data — case reports, observational studies, or clinical trials — for this or a closely related condition. Cards note when the human evidence is for a related disease rather than this exact one.'
+                    : 'These have actually been studied in people — from a few patient reports up to clinical trials — for this condition or a closely related one. Sorted by how confident we are.'}
+                </p>
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  {human.map((c, i) => (
+                    <CandidateCard key={`h-${i}`} c={c} rank={i + 1} audience={audience} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TIER 2 — preclinical (animal / lab) */}
+            {preclinical.length > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Flask size={18} />
+                  {isMed ? 'Preclinical evidence (animal / lab) — no human trials yet' : 'Promising in animal & lab studies (not yet tested in humans)'}
+                </h3>
+                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  {isMed
+                    ? 'Agents with in vitro or animal-model evidence for this condition but no human trials. Biologically encouraging, unproven in people. Each card\u2019s "Tested in" line names the model/species.'
+                    : 'These have shown promise in lab dishes or animals (like rats), but have not been tested in humans for this condition yet. Each card\u2019s "Tested in" line says exactly what was studied.'}
+                </p>
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  {preclinical.map((c, i) => (
+                    <CandidateCard key={`p-${i}`} c={c} rank={i + 1} audience={audience} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TIER 3 — logic-based (mechanism only) */}
+            {mechanistic.length > 0 && (
+              <div style={{
+                ...panelStyle,
+                borderLeft: `4px solid ${theme.accent}`,
+                background: `linear-gradient(90deg, ${theme.accent}12 0%, ${theme.panel} 55%)`
+              }}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Brain size={18} />
+                  {isMed ? 'Logic-based candidates (mechanism only — no studies yet)' : 'Drug ideas from biology (no studies yet)'}
+                </h3>
+                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  {isMed
+                    ? 'Pure pathway/mechanism reasoning — no human or animal studies for this condition. Hypotheses for discussion, not prescriptions.'
+                    : 'These are educated guesses based on how the disease and the drug work — nobody has studied them for this condition yet. Worth asking your doctor about, but not proven.'}
+                </p>
                 <div style={{ display: 'grid', gap: '0.85rem' }}>
                   {mechanistic.map((c, i) => (
                     <CandidateCard key={`m-${i}`} c={c} rank={i + 1} highlightMechanistic={true} audience={audience} />
                   ))}
                 </div>
-              ) : hasRun ? (
-                <div style={{
-                  textAlign: 'center', padding: '1.25rem', color: theme.textDim,
-                  border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
-                }}>
-                  No logic-based ideas came back this time. Try running it again — the AI is asked to include logic-based ideas and to be honest when there is &ldquo;no human data for this condition yet.&rdquo;
-                </div>
-              ) : (
-                <div style={{
-                  textAlign: 'center', padding: '1.25rem', color: theme.textDim,
-                  border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
-                }}>
-                  Click &ldquo;Find drug ideas&rdquo; to start — the AI is asked to include logic-based ideas too.
-                </div>
-              )}
-            </div>
-
-            {(withEvidence.length > 0 || (hasRun && mechanistic.length > 0)) && (
-              <div style={panelStyle}>
-                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <Database size={18} />
-                  Drugs & OTC supplements already backed by studies
-                </h3>
-                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  Prescription drugs and over-the-counter supplements (goji, TUDCA, taurine, vitamins, etc.) that already have some human or animal evidence for this condition — from single patient reports up to small trials — sorted by how confident we are.
-                </p>
-                {withEvidence.length > 0 ? (
-                  <div style={{ display: 'grid', gap: '0.85rem' }}>
-                    {withEvidence.map((c, i) => (
-                      <CandidateCard key={`e-${i}`} c={c} rank={i + 1} audience={audience} />
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{
-                    textAlign: 'center', padding: '1rem', color: theme.textDim,
-                    border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
-                  }}>
-                    Every idea this time was a logic-based idea, not yet backed by studies.
-                  </div>
-                )}
               </div>
             )}
 

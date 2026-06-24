@@ -69,10 +69,10 @@ if (REPURPOSE_LANE_COUNT * REPURPOSE_PER_LANE >= REPURPOSE_TARGET_TOTAL) {
   fail('Lane count × per-lane does not reach target total');
 }
 
-// 2. Batch token budget — must be high enough for 5 candidates/lane
+// 2. Batch token budget — must be high enough for up to 7 candidates/lane
 const researchSrc = readFileSync(new URL('../api/research.js', import.meta.url), 'utf8');
-if (/isBatch\)\s*return\s+isOpus\s*\?\s*3400\s*:\s*4200/.test(researchSrc)) {
-  pass('Repurpose lane max_tokens = 4200 (Sonnet) — prevents 3-drug truncation');
+if (/isBatch\)\s*return\s+isOpus\s*\?\s*4400\s*:\s*5600/.test(researchSrc)) {
+  pass('Repurpose lane max_tokens = 5600 (Sonnet) — fits up to 7 candidates/lane');
 } else {
   fail('Repurpose batch max_tokens may be too low — check resolveMaxTokens in api/research.js');
 }
@@ -150,6 +150,19 @@ if (/Retrying.*incomplete drug batch/i.test(html) || /MIN_PER_LANE|laneNeedsRetr
   pass('Frontend retries incomplete repurpose lanes');
 } else {
   warn('Frontend lane retry not detected — add orchestration in index.html');
+}
+
+// 8b. Citation tagging + soft cap (index.html). Uncited candidates are KEPT
+//     (tagged `_uncited`) and routed to the logic-based section, not dropped;
+//     cited candidates rank ahead and the list is trimmed to the soft cap.
+const keepsUncited = /_uncited/.test(html) && /hasCitation/.test(html);
+const capsList = /SOFT_CAP/.test(html) && /ranked\.slice\(0, SOFT_CAP\)/.test(html);
+const routesUncited = /if \(c\._uncited\) \{ mechanistic\.push\(c\); return; \}/.test(html);
+const threeTiers = /const human = \[\];/.test(html) && /const preclinical = \[\];/.test(html);
+if (keepsUncited && capsList && routesUncited && threeTiers) {
+  pass('Repurpose candidates: three tiers (human/preclinical/logic-based), uncited kept as hypotheses, cited ranked first, capped to soft cap (index.html)');
+} else {
+  fail(`Citation/tier wiring missing in index.html (keepsUncited=${keepsUncited} caps=${capsList} routes=${routesUncited} threeTiers=${threeTiers})`);
 }
 
 // 9. Health endpoint
