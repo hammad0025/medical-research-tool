@@ -713,7 +713,10 @@
           cur[field] = clampToCompleteSentence(collectBlock(text, i, TREATMENT_KEYS));
           if (field === 'efficacy' || field === 'safety') {
             cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
-            cur[field + '_note'] = cur[field];
+            // Note is the justification WITHOUT the redundant leading "NN% —"
+            // (the bar already shows the %). Any inline [source](url) at the end
+            // of the justification is preserved for InlineMD to render.
+            cur[field + '_note'] = splitMeterJustification(cur[field]);
           }
         });
         if (cur) blocks.push(cur);
@@ -6268,23 +6271,9 @@
       };
 
       const ValidatorPanel = ({ validation, onAudit, canAudit }) => {
-        // Auto-runs after every report; button below re-runs on demand.
-        if (!validation) {
-          if (!canAudit || !onAudit) return null;
-          return (
-            <div style={panelStyle}>
-              <h3 style={{ marginTop: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Scales size={18} /> Second AI check
-              </h3>
-              <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: '0 0 0.9rem' }}>
-                Cross-validation runs automatically when your report finishes. Tap below to run it again.
-              </p>
-              <button onClick={onAudit} style={{ ...btn, background: theme.accent, color: '#fff', borderColor: theme.accent }}>
-                <Scales size={16} style={{ marginRight: 6 }} /> Re-check this report
-              </button>
-            </div>
-          );
-        }
+        // The second-AI check runs automatically after every report, so there
+        // is no manual "re-check" button — a re-check is simply a new search.
+        if (!validation) return null;
         if (validation._auditing) {
           return (
             <div style={panelStyle}>

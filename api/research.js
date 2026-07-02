@@ -32,6 +32,7 @@ import {
   applyValidationFixes,
   collectAllowedUrls
 } from '../lib/report-polish.js';
+import { removeDeadLinks } from '../lib/link-check.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb, matchKb } from '../lib/kb.js';
 import { ensureDynamicKb } from '../lib/kb-bootstrap.js';
@@ -173,6 +174,11 @@ const groundingPlan = (mode, phase, half) => {
   if (mode === 'repurpose') return { limit: 12, excerpt: 2000 };
   return { limit: 6, excerpt: 2000 };
 };
+
+// Dead-link gate toggle. On by default; set MRT_LINKCHECK_ENABLED=0 to skip
+// the outbound HTTP probes (e.g. if a run environment blocks egress).
+const isLinkCheckEnabled = () =>
+  String(process.env.MRT_LINKCHECK_ENABLED ?? '1').trim() !== '0';
 
 // Cross-validation runs automatically on every complete report (Vercel Pro
 // allows 300s). Pass validate:false to skip. Partial synth halves / repurpose
@@ -1242,8 +1248,8 @@ PROVIDER: <doctor / clinic / manufacturer with phone or URL>
 TREATMENT: <drug / biologic / device / surgery; include dose, strength, route>
 FDA_STATUS: <approved | off-label | investigational | expanded access | compassionate use | not FDA regulated>
 LENGTH_FREQUENCY: <duration + frequency>
-EFFICACY: <1-100>% — <one-line justification with grounded citation>  (the number MUST be the very first characters of this line, plain digits + "%", NEVER bolded e.g. "**70**%"; the headline percent comes first, then the dash and justification)
-SAFETY: <1-100>% — <higher = safer, one-line justification>  (same rule: plain "NN%" at the start, never bold, never a different incidental percent first)
+EFFICACY: <1-100>% — <one-line justification that ENDS WITH an inline clickable source link [source](url) drawn from the evidence pack and supporting THIS specific number>  (the number MUST be the very first characters of this line, plain digits + "%", NEVER bolded e.g. "**70**%"; the headline percent comes first, then the dash, the justification, then the [source](url) link)
+SAFETY: <1-100>% — <higher = safer, one-line justification that ENDS WITH an inline clickable source link [source](url) from the evidence pack (FDA label / FAERS / paper) supporting THIS number>  (same rule: plain "NN%" at the start, never bold, never a different incidental percent first)
 RISKS: <serious AEs + THIS patient's risk given meds/comorbidities>
 INTERACTIONS: <named interactions vs this patient's meds, or "None identified">
 COST: <USD range, US insurance coverage note>
@@ -1333,9 +1339,9 @@ REPURPOSE_RATIONALE: <why it might help THIS condition — at the specified audi
 EVIDENCE_STRENGTH: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
 SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. STATE THE EVIDENCE LEVEL IN PLAIN WORDS and name the species/study type — e.g. "tested in rats and large animals, not yet in humans" for preclinical work, or "human observational study (n=…)". If the human evidence is for a RELATED condition rather than THIS exact one, say so plainly (e.g. "human trials in retinal degeneration broadly, not RP specifically"). If no study of any kind exists, say "Mechanistic hypothesis only — no human or animal data yet".>
 REFERENCES: <REQUIRED — 1-3 clickable markdown links [short title](url) from the evidence pack or trials pull. Every candidate MUST have at least one link here even if SUPPORTING_EVIDENCE repeats them.>
-EFFICACY_HYPOTHESIS: <1-100>% — <one-line plain-English justification>
-SAFETY: <1-100>% — <higher = safer; reference FDA label / FAERS reactions if available>
-CONFIDENCE: <1-100>% — <overall confidence that this is worth physician discussion>
+EFFICACY_HYPOTHESIS: <1-100>% — <one-line plain-English justification ending with an inline clickable source link [source](url) from the evidence pack supporting this number>
+SAFETY: <1-100>% — <higher = safer; reference FDA label / FAERS reactions if available, ending with an inline clickable source link [source](url) from the evidence pack>
+CONFIDENCE: <1-100>% — <overall confidence that this is worth physician discussion — no source link needed (this is your own synthesis)>
 PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's meds, age, comorbidities>
 HOW_TO_DISCUSS_WITH_DOCTOR: <practical script / questions the patient should ask a physician>`;
 
@@ -1951,6 +1957,20 @@ export default async function handler(req, res) {
           collectAllowedUrls(evidence, trials)
         );
       }
+      // Dead-link gate: open every remaining link and demote any that 404/410
+      // or fail DNS to plain text, so a "page not found" citation can never
+      // render as clickable (Dorothy's demo failure). Non-fatal + budgeted.
+      if (isLinkCheckEnabled()) {
+        try {
+          const { text: deadStripped, deadUrls } = await removeDeadLinks(polished);
+          if (deadUrls.size) {
+            console.warn(`[research] polish-report stripped ${deadUrls.size} dead link(s)`);
+            polished = deadStripped;
+          }
+        } catch (err) {
+          console.warn('[research] polish-report dead-link check skipped:', err.message);
+        }
+      }
       return res.status(200).json({
         content: [{ type: 'text', text: polished }],
         validation,
@@ -2456,6 +2476,17 @@ ${SHARED_GUARDRAILS}
         }
       }
       claudeText = finalizeReportText(claudeText, { evidence, trials, evidenceGrade });
+      if (isLinkCheckEnabled()) {
+        try {
+          const { text: deadStripped, deadUrls } = await removeDeadLinks(claudeText);
+          if (deadUrls.size) {
+            console.warn(`[research] synthesis stripped ${deadUrls.size} dead link(s)`);
+            claudeText = deadStripped;
+          }
+        } catch (err) {
+          console.warn('[research] synthesis dead-link check skipped:', err.message);
+        }
+      }
       if (data.content?.length) {
         const lastText = data.content.findIndex((c) => c?.type === 'text');
         if (lastText >= 0) data.content[lastText] = { ...data.content[lastText], text: claudeText };
