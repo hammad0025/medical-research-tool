@@ -38,7 +38,7 @@ export default async function handler(req, res) {
         perLane: REPURPOSE_PER_LANE,
         softCapCandidates: REPURPOSE_SOFT_CAP,
         minCandidates: REPURPOSE_MIN_TOTAL,
-        batchMaxTokensSonnet: 5600,
+        batchMaxTokensSonnet: 7200,
         groundingGated: true
       },
       gather: {

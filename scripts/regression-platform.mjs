@@ -69,10 +69,10 @@ if (REPURPOSE_LANE_COUNT * REPURPOSE_PER_LANE >= REPURPOSE_TARGET_TOTAL) {
   fail('Lane count × per-lane does not reach target total');
 }
 
-// 2. Batch token budget — must be high enough for up to 7 candidates/lane
+// 2. Batch token budget — must be high enough for up to 9 candidates/lane
 const researchSrc = readFileSync(new URL('../api/research.js', import.meta.url), 'utf8');
-if (/isBatch\)\s*return\s+isOpus\s*\?\s*4400\s*:\s*5600/.test(researchSrc)) {
-  pass('Repurpose lane max_tokens = 5600 (Sonnet) — fits up to 7 candidates/lane');
+if (/isBatch\)\s*return\s+isOpus\s*\?\s*5600\s*:\s*7200/.test(researchSrc)) {
+  pass('Repurpose lane max_tokens = 7200 (Sonnet) — fits up to 9 candidates/lane');
 } else {
   fail('Repurpose batch max_tokens may be too low — check resolveMaxTokens in api/research.js');
 }
@@ -453,17 +453,21 @@ if (/SUBGROUP \/ BIOMARKER EXCEPTION/i.test(researchSrc) &&
   }
 }
 
-// 15. BEHAVIORAL: a disputed claim with NO correction must NOT delete report
-//     lines (paraphrased-claim line nuking was a corruption landmine).
+// 15. BEHAVIORAL: a disputed claim WITH a correction is rewritten in place
+//     (kept, corrected); a disputed claim with NO correction is removed
+//     entirely (Dorothy: "remove things the AI disagrees with if it's not
+//     accurate"). Now safe because the validator receives the full patient
+//     snapshot, so disputes reflect real errors, not missing context.
 {
+  const badClaim = 'This patient tested negative for known IPF-related gene variants.';
   const keep = 'Pirfenidone is an oral antifibrotic approved for IPF.';
-  const report = ['## 2. Background', keep, 'It can cause photosensitivity and GI upset.'].join('\n');
-  const validation = { primary: { disputed: [{ claim: 'Pirfenidone is an oral antifibrotic approved for IPF', reason: 'wording nit' }] } };
+  const report = ['## 2. Background', keep, badClaim, 'It can cause photosensitivity and GI upset.'].join('\n');
+  const validation = { primary: { disputed: [{ claim: badClaim, quote: badClaim, reason: 'hallucinated clinical finding' }] } };
   const fixed = applyValidationFixes(report, validation, null, null);
-  if (fixed.includes(keep)) {
-    pass('Second AI check no longer deletes report lines on a no-correction disputed claim');
+  if (!fixed.includes(badClaim) && fixed.includes(keep)) {
+    pass('Second AI check removes a no-correction disputed claim while keeping unrelated lines');
   } else {
-    fail('Second AI check deleted a report line on a no-correction disputed claim');
+    fail(`Second AI check disputed-removal broken (removedBad=${!fixed.includes(badClaim)} keptOther=${fixed.includes(keep)})`);
   }
 }
 

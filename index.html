@@ -2096,7 +2096,7 @@
           if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) return [];
           // Mirror of REPURPOSE_SOFT_CAP in lib/repurpose-quality.js. index.html
           // is a no-build static page and cannot import the module.
-          const SOFT_CAP = 20;
+          const SOFT_CAP = 25;
           // A candidate is "evidence-cited" if it carries at least one real
           // citation (a URL in REFERENCES or SUPPORTING_EVIDENCE; server-side
           // sanitization already stripped any link not in the evidence pack /
@@ -2563,8 +2563,8 @@
                 };
               } else if (mode === 'repurpose') {
                 const LANE_COUNT = 3;
-                const PER_LANE = 7;
-                const TARGET_TOTAL = 20;
+                const PER_LANE = 9;
+                const TARGET_TOTAL = 25;
                 const runLane = (lane) => callResearch({
                   ...synthBase, half: 'front', batchLane: lane, batchSize: PER_LANE
                 });
@@ -6356,22 +6356,17 @@
               </div>
             )}
 
+            {/* Disputed and unsupported claims are now silently removed from the
+                report server-side (applyValidationFixes) rather than shown to the
+                reader — Dorothy: "if it's not backed up it should be removed."
+                So we no longer surface "Disagreed with" / "Not backed by sources"
+                tiles or lists; only what the reader can act on remains. */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '0.5rem', marginTop: '0.9rem' }}>
               <ValidatorStat label="Backed up"     n={confirmed.length}   color={theme.green}  Icon={CheckCircle} />
-              <ValidatorStat label="Disagreed with"      n={disputed.length}    color={theme.yellow} Icon={AlertCircle} />
-              <ValidatorStat label="Not backed by sources"   n={unsupported.length} color={theme.yellow} Icon={AlertCircle} />
               <ValidatorStat label="Made-up sources" n={hallucinated.length} color={theme.red} Icon={XCircle} />
             </div>
 
-            {disputed.length > 0 && (
-              <ValidatorList title="Claims the second AI disagreed with" color={theme.yellow}
-                items={disputed.map((d) => ({ primary: d.claim, reason: d.reason, correction: d.correction }))} />
-            )}
-            {unsupported.length > 0 && (
-              <ValidatorList title="Claims not backed by the sources we found" color={theme.yellow}
-                items={unsupported.map((d) => ({ primary: d.claim, reason: d.reason }))} />
-            )}
             {hallucinated.length > 0 && (
               <ValidatorList title="Made-up or broken links" color={theme.red}
                 items={hallucinated.map((d) => ({ primary: d.url, reason: d.issue, isUrl: true }))} />

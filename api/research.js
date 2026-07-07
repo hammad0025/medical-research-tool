@@ -88,7 +88,17 @@ import {
 
 const DEFAULT_MODEL = DEFAULT_RESEARCH_MODEL;
 
-const callAnthropicMessages = async ({ model, maxTokens, system, messages, apiKey }) => {
+// Low temperature so the same search returns stable results run-to-run.
+// Previously this call set no temperature, so Anthropic defaulted to ~1.0
+// (maximum randomness) — that was why identical searches produced different
+// top centers, experts, and drug lists each time. Override with
+// ANTHROPIC_TEMPERATURE if a future need arises.
+const DEFAULT_GEN_TEMPERATURE = (() => {
+  const t = Number(process.env.ANTHROPIC_TEMPERATURE);
+  return Number.isFinite(t) && t >= 0 && t <= 1 ? t : 0.2;
+})();
+
+const callAnthropicMessages = async ({ model, maxTokens, system, messages, apiKey, temperature = DEFAULT_GEN_TEMPERATURE }) => {
   let activeModel = model;
   let lastError = null;
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -102,6 +112,7 @@ const callAnthropicMessages = async ({ model, maxTokens, system, messages, apiKe
       body: JSON.stringify({
         model: activeModel,
         max_tokens: maxTokens,
+        temperature,
         system,
         messages
       })
@@ -139,11 +150,11 @@ const resolveMaxTokens = (model, mode, phase, half, isBatch) => {
     // disclaimer. 2200 was truncating the final combo mid-field (the AGA
     // "Nizoral FDA label confirms…" cutoff), so give it headroom to finish.
     if (half === 'back') return isOpus ? 2600 : 3400;
-    // BATCHED front: up to 7 candidates per lane. ~700 tok/candidate in plain-
-    // English mode, so 7 needs ~4900; give headroom so the last candidate
+    // BATCHED front: up to 9 candidates per lane. ~700 tok/candidate in plain-
+    // English mode, so 9 needs ~6300; give headroom so the last candidate
     // finishes cleanly. Lanes run in parallel so wall-clock stays bounded well
     // under the 300s Vercel Pro cap even at this budget.
-    if (isBatch) return isOpus ? 4400 : 5600;
+    if (isBatch) return isOpus ? 5600 : 7200;
     // Single-shot fallback (API back-compat): one big call for all 15.
     return isOpus ? 5200 : 7000;
   }
@@ -1141,6 +1152,12 @@ ACCESS-LEVEL HONESTY (critical — many high-impact medical journals are paywall
 - For abstract-only papers: you may cite what the abstract literally says. You may NOT invent numeric values, methodological details, subgroup outcomes, or adverse-event frequencies that are not in the abstract text.
 - For metadata-only papers: you may name the paper but you must NOT claim what it found. Say "a peer-reviewed paper exists but the full study was not available to us."
 - If a claim cannot be supported without overreaching past abstract content, state the limitation in plain English: "Based on the study summary; the full methods/results were not accessible."
+
+NO-INVENTED-PATIENT-FACTS (critical — the second AI flags violations, and a hallucinated clinical detail is the most damaging failure mode):
+- Use ONLY the patient facts explicitly provided in the patient context. Do NOT infer, assume, or invent disease stage, severity, fibrosis/lesion location or extent (e.g. "mild honeycombing in one lobe"), imaging findings, or lab values that were not given. If a detail is not in the profile, do not state it.
+- Do NOT convert "not tested" into "tested negative," or absence of a finding into a specific result. If genetic testing was not done, say testing was not performed — never assert a negative result.
+- Do NOT invent the identity, drug class, or definition of a medication you do not recognize. If a listed medication (e.g. an abbreviation like "NAD") is ambiguous, write "identity unclear from the information provided — confirm with the prescriber" instead of guessing a definition (never label it a "sunscreen," "supplement," etc. without support).
+- When you lack a patient-specific fact needed for a statement, either omit the statement or explicitly say the information was not provided — never fabricate to fill the gap.
 
 READER-FACING LANGUAGE (critical — demo / lawyer audience):
 - NEVER expose internal terms to the reader: "grounded evidence", "evidence pack", "dossier", "dossier source", "confirmed against grounded evidence", "uncertainty score", or similar.
@@ -2409,7 +2426,7 @@ ${SHARED_GUARDRAILS}
       }
       if (isRepurposeBatch) {
         const laneIdx = Math.max(0, Math.min(REPURPOSE_LANES.length - 1, Number(batchLane) || 0));
-        const count = Math.max(1, Math.min(8, Number(batchSize) || 4));
+        const count = Math.max(1, Math.min(10, Number(batchSize) || 4));
         return `Produce UP TO ${count} CANDIDATE blocks, and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nEVIDENCE BAR: prefer candidates you can back with a real paper from the evidence pack (a working markdown link in REFERENCES) — quality over quantity, and NEVER invent a citation. BUT a compelling, mechanistically sound idea with no published trial for this condition is still valuable (e.g. an unpatentable supplement like magnesium L-threonate that no one will fund a trial for) — include it, set EVIDENCE_STRENGTH: MECHANISTIC_ONLY, and state plainly there is no human data for this condition yet. Cite the mechanism/pathway paper if one exists. Aim for ${count}; do not pad with weak duplicates.\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the CANDIDATE blocks.`;
       }
       if (mode === 'repurpose' && phase === 'synthesize' && half === 'front') {
