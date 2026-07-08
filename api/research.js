@@ -30,9 +30,11 @@ import {
   finalizeReportText,
   filterExcludedAgentMentions,
   applyValidationFixes,
-  collectAllowedUrls
+  collectAllowedUrls,
+  reattachEntityLinks
 } from '../lib/report-polish.js';
 import { removeDeadLinks } from '../lib/link-check.js';
+import { geneticContextLine } from '../lib/genetics.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb, matchKb } from '../lib/kb.js';
 import { ensureDynamicKb } from '../lib/kb-bootstrap.js';
@@ -89,14 +91,20 @@ import {
 
 const DEFAULT_MODEL = DEFAULT_RESEARCH_MODEL;
 
-// Low temperature so the same search returns stable results run-to-run.
-// Previously this call set no temperature, so Anthropic defaulted to ~1.0
-// (maximum randomness) — that was why identical searches produced different
-// top centers, experts, and drug lists each time. Override with
-// ANTHROPIC_TEMPERATURE if a future need arises.
-const DEFAULT_GEN_TEMPERATURE = (() => {
+// Temperature 0 so the same search returns stable results run-to-run.
+// Previously this defaulted to 0.2, which still let identical searches produce
+// different top centers, experts, and drug lists each time — the exact
+// non-determinism Dorothy complained about. Dropped to 0 for reproducibility;
+// the drug-selection tie-breaker was also made deterministic (see
+// lib/drug-registry.js stableTieBreak). The ANTHROPIC_TEMPERATURE env override
+// is preserved so quality can still be tuned without a code change.
+//
+// NOTE: a future "run 3× and average / self-consistency" orchestration would
+// live in the synthesis fan-out (the repurpose lane loop in index.html + the
+// synthesis call here) — intentionally NOT built (out of scope).
+export const DEFAULT_GEN_TEMPERATURE = (() => {
   const t = Number(process.env.ANTHROPIC_TEMPERATURE);
-  return Number.isFinite(t) && t >= 0 && t <= 1 ? t : 0.2;
+  return Number.isFinite(t) && t >= 0 && t <= 1 ? t : 0;
 })();
 
 const callAnthropicMessages = async ({ model, maxTokens, system, messages, apiKey, temperature = DEFAULT_GEN_TEMPERATURE }) => {
@@ -1095,7 +1103,7 @@ ${packed}
 ${fdaBits.join('\n\n')}`;
 };
 
-const buildPatientContext = (p = {}) => {
+export const buildPatientContext = (p = {}) => {
   const lines = [];
   if (p.condition) lines.push(`PRIMARY CONDITION TO RESEARCH: ${p.condition}${p.stage ? ` (stage: ${p.stage})` : ''}`);
   if (p.age) lines.push(`Age: ${p.age}`);
@@ -1108,17 +1116,16 @@ const buildPatientContext = (p = {}) => {
   if (p.symptoms) lines.push(`Current symptoms: ${p.symptoms}`);
   if (p.labWork) lines.push(`Lab work / pulmonary function / other studies: ${p.labWork}`);
   if (p.scans) lines.push(`Recent imaging / scans: ${p.scans}`);
-  // Genetic variant — critical for gene-therapy eligibility. We label it
-  // CONFIRMED GENETIC MUTATION/VARIANT and instruct the model to filter
-  // gene-targeted therapies by this variant explicitly. Without this the
-  // model has historically suggested e.g. Luxturna (RPE65-only) for an
-  // RP patient who actually carries USH2A — wrong eligibility, wasted
-  // hope. This block tells the model: if a gene therapy targets a
-  // different gene, say so out loud and don't recommend it.
-  if (p.geneticVariant) {
-    lines.push(`CONFIRMED GENETIC MUTATION / VARIANT (use this to gate gene-therapy and gene-targeted small-molecule recommendations): ${p.geneticVariant}
-  → For EVERY gene-targeted therapy you mention, you MUST explicitly check whether the therapy targets the SAME gene as the patient's variant. If yes, call out the eligibility match. If no, write "NOT ELIGIBLE — therapy targets <other gene>, patient carries <patient's gene>." Do not silently recommend gene therapies for the wrong gene.`);
-  }
+  // Genetic status — critical for gene-therapy eligibility AND for honesty
+  // about provided negative results. geneticContextLine (lib/genetics.js)
+  // classifies the field into a POSITIVE variant, a PROVIDED NEGATIVE result
+  // ("tested, no known variant" / "no genetic component" — Dorothy's case), or
+  // NOT-TESTED, and frames each correctly: a positive variant gates gene
+  // therapies (the Luxturna/RPE65 vs USH2A eligibility guard), a provided
+  // negative is stated as a legitimate fact (never deleted, never inflated into
+  // a variant), and not-tested is never asserted as "tested negative".
+  const geneticLine = geneticContextLine(p.geneticVariant);
+  if (geneticLine) lines.push(geneticLine);
   if (p.caregiverContext) {
     lines.push(`CAREGIVER CONTEXT: ${p.caregiverContext} — tailor answers to the person being cared for, not the person typing.`);
   }
@@ -1190,7 +1197,7 @@ ACCESS-LEVEL HONESTY (critical — many high-impact medical journals are paywall
 
 NO-INVENTED-PATIENT-FACTS (critical — the second AI flags violations, and a hallucinated clinical detail is the most damaging failure mode):
 - Use ONLY the patient facts explicitly provided in the patient context. Do NOT infer, assume, or invent disease stage, severity, fibrosis/lesion location or extent (e.g. "mild honeycombing in one lobe"), imaging findings, or lab values that were not given. If a detail is not in the profile, do not state it.
-- Do NOT convert "not tested" into "tested negative," or absence of a finding into a specific result. If genetic testing was not done, say testing was not performed — never assert a negative result.
+- GENETIC RESULTS — distinguish three cases and treat them differently: (a) a PROVIDED POSITIVE variant is a fact you state and use to gate gene therapies; (b) a PROVIDED NEGATIVE result (e.g. "genetic testing done, no known pathogenic variant," "no genetic component") is ALSO a legitimate patient-reported fact — you MAY and SHOULD state it plainly (e.g. "Genetic testing did not find a known disease-causing variant"), and you must NOT delete it or inflate it into a specific variant; (c) when NO genetic testing was reported, do NOT convert "not tested" into "tested negative" and do NOT assert any result — only say testing was not reported. The ban is on ASSERTING a negative that was never reported, NOT on stating a negative the patient actually provided.
 - Do NOT invent the identity, drug class, or definition of a medication you do not recognize. If a listed medication (e.g. an abbreviation like "NAD") is ambiguous, write "identity unclear from the information provided — confirm with the prescriber" instead of guessing a definition (never label it a "sunscreen," "supplement," etc. without support).
 - When you lack a patient-specific fact needed for a statement, either omit the statement or explicitly say the information was not provided — never fabricate to fill the gap.
 - NEVER invent an efficacy or "how well it works" percentage. A percent may appear ONLY when it is the exact statistic reported in a cited study. For a drug's effectiveness, report the REAL measured outcome from the evidence pack (e.g. "slowed decline by ~110 mL/year", "cut flares roughly in half") — do NOT convert a study result into a made-up 0-100 score. If no measured outcome is available, say so plainly rather than inventing a number.
@@ -1662,6 +1669,10 @@ export default async function handler(req, res) {
       //   batchSize  → how many candidates this batch should produce
       batchLane = null,
       batchSize = null,
+      // Backfill/top-up pass (Fix 2): names of candidates already produced by
+      // the parallel lanes, so a top-up batch can be told to propose only NEW,
+      // non-duplicate grounded candidates instead of repeating the same drugs.
+      avoidCandidates = null,
       gatherFingerprint: clientGatherFingerprint = null
     } = req.body || {};
     const model = String(req.body?.model || DEFAULT_MODEL);
@@ -1984,11 +1995,23 @@ export default async function handler(req, res) {
 
     if (mode === 'polish-report') {
       const analysisText = String(req.body?.analysisText || '');
+      // Grounding for the validator gate (lib/grounding-gate.js): thread the
+      // condition's canonical facts + KB lifestyle/red-flag guidance through so
+      // applyValidationFixes can KEEP a validator-disputed claim that our own
+      // ground truth supports (the GERD/87% antacid regression) instead of
+      // destructively deleting it.
+      const clientKb = req.body?.knowledgeBase || {};
       const evidence = {
         excludedAgents: req.body?.excludedAgents || [],
         groundedForPrompt: req.body?.evidencePack || [],
         topRanked: req.body?.evidencePack || [],
-        pipelineDrugs: req.body?.pipelineDrugs || []
+        pipelineDrugs: req.body?.pipelineDrugs || [],
+        canonicalFacts: req.body?.canonicalFacts || clientKb.canonicalFacts || [],
+        knowledgeBase: {
+          canonicalFacts: req.body?.canonicalFacts || clientKb.canonicalFacts || [],
+          lifestyleRecommendations: req.body?.lifestyle || clientKb.lifestyleRecommendations || [],
+          redFlags: req.body?.redFlags || clientKb.redFlags || []
+        }
       };
       const trials = req.body?.trials || null;
       let polished = finalizeReportText(analysisText, { evidence, trials });
@@ -2006,6 +2029,9 @@ export default async function handler(req, res) {
             invokeValidate({
               analysisText: polished,
               evidencePack: (req.body.evidencePack || []).slice(0, 18),
+              canonicalFacts: evidence.canonicalFacts,
+              lifestyle: evidence.knowledgeBase.lifestyleRecommendations,
+              redFlags: evidence.knowledgeBase.redFlags,
               patient: req.body.patient || {},
               condition: req.body.condition || req.body.patient?.condition || '',
               audience: req.body.audience || 'layperson'
@@ -2048,6 +2074,14 @@ export default async function handler(req, res) {
           }
         } catch (err) {
           console.warn('[research] polish-report dead-link check skipped:', err.message);
+        }
+      }
+      // Fix 4: re-attach fallback links after dead-link demotion (see synthesis path).
+      {
+        const relinked = reattachEntityLinks(polished);
+        if (relinked.reattached.length) {
+          console.warn(`[research] polish-report re-attached ${relinked.reattached.length} fallback entity link(s)`);
+          polished = relinked.text;
         }
       }
       return res.status(200).json({
@@ -2501,7 +2535,18 @@ ${SHARED_GUARDRAILS}
       if (isRepurposeBatch) {
         const laneIdx = Math.max(0, Math.min(REPURPOSE_LANES.length - 1, Number(batchLane) || 0));
         const count = Math.max(1, Math.min(10, Number(batchSize) || 4));
-        return `Produce UP TO ${count} CANDIDATE blocks, and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nEVIDENCE BAR: prefer candidates you can back with a real paper from the evidence pack (a working markdown link in REFERENCES) — quality over quantity, and NEVER invent a citation. BUT a compelling, mechanistically sound idea with no published trial for this condition is still valuable (e.g. an unpatentable supplement like magnesium L-threonate that no one will fund a trial for) — include it, set EVIDENCE_STRENGTH: MECHANISTIC_ONLY, and state plainly there is no human data for this condition yet. Cite the mechanism/pathway paper if one exists. Aim for ${count}; do not pad with weak duplicates.\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the CANDIDATE blocks.`;
+        // Backfill/top-up pass (Fix 2): when the parallel lanes came up short of
+        // target, this batch is asked for MORE grounded candidates. We pass the
+        // already-used drug names so the model produces only NEW, non-duplicate
+        // ideas — and we DO NOT relax the evidence bar (no padding to hit a
+        // number; a truthful 20 beats 25 with junk).
+        const avoidList = Array.isArray(avoidCandidates)
+          ? [...new Set(avoidCandidates.map((n) => String(n || '').trim()).filter(Boolean))]
+          : [];
+        const avoidBlock = avoidList.length
+          ? `\n\nDO NOT REPEAT any of these already-suggested candidates (propose only NEW, different drugs/supplements): ${avoidList.slice(0, 60).join(', ')}.`
+          : '';
+        return `Produce UP TO ${count} CANDIDATE blocks, and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nEVIDENCE BAR: prefer candidates you can back with a real paper from the evidence pack (a working markdown link in REFERENCES) — quality over quantity, and NEVER invent a citation. BUT a compelling, mechanistically sound idea with no published trial for this condition is still valuable (e.g. an unpatentable supplement like magnesium L-threonate that no one will fund a trial for) — include it, set EVIDENCE_STRENGTH: MECHANISTIC_ONLY, and state plainly there is no human data for this condition yet. Cite the mechanism/pathway paper if one exists. Aim for ${count}; do not pad with weak duplicates.${avoidBlock}\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the CANDIDATE blocks.`;
       }
       if (mode === 'repurpose' && phase === 'synthesize' && half === 'front') {
         return 'Produce Part 1 only: ranked CANDIDATE blocks (mechanistic/preclinical first, then published-support). No combinations or summary.';
@@ -2577,6 +2622,15 @@ ${SHARED_GUARDRAILS}
           }
         } catch (err) {
           console.warn('[research] synthesis dead-link check skipped:', err.message);
+        }
+      }
+      // Fix 4: re-attach a fallback link to any named entity a dead-link
+      // demotion just stripped, so "links on everything" still holds.
+      {
+        const relinked = reattachEntityLinks(claudeText);
+        if (relinked.reattached.length) {
+          console.warn(`[research] synthesis re-attached ${relinked.reattached.length} fallback entity link(s)`);
+          claudeText = relinked.text;
         }
       }
       if (data.content?.length) {
@@ -2763,6 +2817,10 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
         validation = await invokeValidate({
           analysisText: claudeText,
           evidencePack: (evidence?.groundedForPrompt || []).slice(0, 18),
+          // Grounding for the validator's persistence gate (lib/grounding-gate.js).
+          canonicalFacts: evidence?.canonicalFacts || evidence?.knowledgeBase?.canonicalFacts || [],
+          lifestyle: evidence?.knowledgeBase?.lifestyleRecommendations || [],
+          redFlags: evidence?.knowledgeBase?.redFlags || [],
           patient,
           condition: patient.condition || '',
           audience

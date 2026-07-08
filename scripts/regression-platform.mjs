@@ -30,8 +30,13 @@ import {
   getConditionErrors,
   _resetErrorStoreForTests
 } from '../lib/error-store.js';
-import { verdictToErrorRecords } from '../lib/validate.js';
-import { buildLearnedErrorsBlock, MAX_LEARNED_ERRORS } from '../api/research.js';
+import { verdictToErrorRecords, buildPatientSnapshot } from '../lib/validate.js';
+import {
+  buildLearnedErrorsBlock,
+  MAX_LEARNED_ERRORS,
+  DEFAULT_GEN_TEMPERATURE,
+  buildPatientContext
+} from '../api/research.js';
 import {
   applyValidationFixes,
   injectApprovedTreatmentStubs,
@@ -43,8 +48,27 @@ import {
   finalizeReportText,
   assertNoForeignEntities,
   detectStructuralLeak,
-  auditCardFields
+  auditCardFields,
+  reattachEntityLinks
 } from '../lib/report-polish.js';
+import {
+  buildGroundingIndex,
+  isClaimGrounded,
+  partitionValidatorFindings
+} from '../lib/grounding-gate.js';
+import {
+  REPURPOSE_MIN_PER_LANE,
+  REPURPOSE_BACKFILL_THRESHOLD,
+  distinctCandidateCount,
+  candidateNamesFromText,
+  needsBackfill
+} from '../lib/repurpose-quality.js';
+import { selectRepurposeDrugs } from '../lib/drug-registry.js';
+import {
+  classifyGeneticResult,
+  geneticContextLine,
+  geneticSnapshotRow
+} from '../lib/genetics.js';
 import { drugKeyFromName } from '../lib/kb-builder.js';
 import {
   normalizePromise,
@@ -1113,6 +1137,153 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
     fail(`Error memory (c): validate persistence regression (map=${mapOk} persist=${persistOk})`);
   }
   _resetErrorStoreForTests();
+}
+
+// ===========================================================================
+// FIX 1 — validator grounding gate (medical safety). A validator-disputed claim
+// that OUR grounding (canonical facts / evidence pack) supports must be KEPT and
+// NOT persisted; an ungrounded one is still removed. GERD/87% IPF is the case.
+// ===========================================================================
+{
+  const canonicalFacts = [
+    { claim: '~87% of IPF patients have abnormal acid gastroesophageal reflux on pH probe studies.' }
+  ];
+  const evidencePack = [
+    { title: 'Antacid therapy for idiopathic pulmonary fibrosis',
+      summary: 'Treat GERD when symptomatic; GERD treatment should not be withheld in IPF.' }
+  ];
+  const index = buildGroundingIndex({ canonicalFacts, evidencePack });
+  const groundedClaim = 'About 87% of people with IPF have acid reflux (GERD), and antacid medicines may help.';
+  const ungroundedClaim = 'Vitamin C at 5000 mg daily reverses lung scarring in 95% of IPF patients.';
+  const gOk = isClaimGrounded(groundedClaim, index) === true;
+  const uOk = isClaimGrounded(ungroundedClaim, index) === false;
+  if (gOk && uOk) pass('Fix 1: grounding index accepts the KB-backed 87% GERD/antacid claim, rejects an ungrounded 95% claim');
+  else fail(`Fix 1: grounding recognition broken (grounded=${gOk} ungrounded=${uOk})`);
+
+  const report = ['## 1. Snapshot', groundedClaim, ungroundedClaim].join('\n');
+  const validation = { primary: { disputed: [
+    { claim: 'GERD prevalence overstated', quote: groundedClaim, reason: 'validator thinks guideline recommends against antacids' },
+    { claim: 'vitamin C efficacy', quote: ungroundedClaim, reason: 'no evidence in pack' }
+  ] } };
+  const evidence = { canonicalFacts, groundedForPrompt: evidencePack };
+  const fixed = applyValidationFixes(report, validation, evidence, null);
+  const keptGrounded = fixed.includes('87%') && /antacid/i.test(fixed);
+  const removedUngrounded = !fixed.includes('reverses lung scarring');
+  if (keptGrounded && removedUngrounded) pass('Fix 1: applyValidationFixes KEEPS the grounded disputed claim and REMOVES the ungrounded one');
+  else fail(`Fix 1: gate end-to-end broken (kept=${keptGrounded} removed=${removedUngrounded})`);
+
+  const { disputed, overruled } = partitionValidatorFindings(validation.primary, index);
+  const overruledGrounded = overruled.some((o) => o.quote === groundedClaim)
+    && !disputed.some((d) => d.quote === groundedClaim);
+  const persistUngrounded = disputed.some((d) => d.quote === ungroundedClaim);
+  if (overruledGrounded && persistUngrounded) pass('Fix 1: grounded finding is overruled (not persisted); ungrounded finding still persists to error store');
+  else fail(`Fix 1: partition broken (overruleGrounded=${overruledGrounded} persistUngrounded=${persistUngrounded})`);
+
+  // Empty grounding (thin dynamic KB) must fall back to current remove behaviour.
+  const emptyIdx = buildGroundingIndex({});
+  if (isClaimGrounded(groundedClaim, emptyIdx) === false) pass('Fix 1: an empty grounding index never grounds a claim (thin-KB fallback preserves remove-and-learn)');
+  else fail('Fix 1: empty grounding wrongly grounded a claim');
+}
+
+// ===========================================================================
+// FIX 2 — repurpose count is a floor, not a ceiling. Retry floor raised to 7;
+// bounded backfill tops up a short list toward target without duplicates; a
+// genuinely full list does not trigger backfill (honesty: no padding).
+// ===========================================================================
+{
+  const floorOk = REPURPOSE_MIN_PER_LANE === 7 && REPURPOSE_BACKFILL_THRESHOLD === 22;
+  const lane5 = Array.from({ length: 5 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + i)}`).join('\n');
+  const lane8 = Array.from({ length: 8 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + i)}`).join('\n');
+  const retry5 = countCandidateBlocks(lane5) < REPURPOSE_MIN_PER_LANE;
+  const retry8 = countCandidateBlocks(lane8) < REPURPOSE_MIN_PER_LANE;
+  if (floorOk && retry5 && !retry8) pass('Fix 2: retry floor is 7 (a 5-candidate lane retries, an 8-candidate lane does not); backfill threshold 22');
+  else fail(`Fix 2: retry-floor regression (floor=${floorOk} retry5=${retry5} retry8=${retry8})`);
+
+  const mk = (n) => Array.from({ length: n }, (_, i) =>
+    `CANDIDATE: Drug${String.fromCharCode(97 + i)} (Brand) — 100 mg`).join('\n');
+  const dupSome = mk(20) + '\nCANDIDATE: Druga (dup entry)';
+  const distinct = distinctCandidateCount(dupSome);
+  const namesOk = candidateNamesFromText(dupSome).length === 21;
+  const backfillNeeded = needsBackfill(distinct);
+  if (distinct === 20 && namesOk && backfillNeeded) pass('Fix 2: distinctCandidateCount ignores a duplicate (20), needsBackfill fires below the 22 target');
+  else fail(`Fix 2: distinct/backfill regression (distinct=${distinct} names=${namesOk} needBackfill=${backfillNeeded})`);
+
+  const fullList = mk(25);
+  if (!needsBackfill(distinctCandidateCount(fullList))) pass('Fix 2: a genuinely full list (25 distinct) does NOT trigger backfill — a truthful count beats padding');
+  else fail('Fix 2: full list wrongly triggered backfill');
+}
+
+// ===========================================================================
+// FIX 3 — run-to-run determinism. Default synthesis temperature is 0 and the
+// drug tie-breaker is a stable hash (no Math.random), so identical inputs give
+// identical drug ordering across two calls.
+// ===========================================================================
+{
+  const tempOk = DEFAULT_GEN_TEMPERATURE === 0;
+  const a = await selectRepurposeDrugs({ subspecialty: 'respiratory' }, { limit: 15 });
+  const b = await selectRepurposeDrugs({ subspecialty: 'respiratory' }, { limit: 15 });
+  const nA = a.map((d) => d.name);
+  const nB = b.map((d) => d.name);
+  const sameOrder = nA.length > 0 && nA.length === nB.length && nA.every((n, i) => n === nB[i]);
+  if (tempOk && sameOrder) pass('Fix 3: default synthesis temperature is 0 and the deterministic drug tie-breaker yields identical ordering across runs');
+  else fail(`Fix 3: determinism regression (temp0=${tempOk} sameOrder=${sameOrder} n=${nA.length})`);
+}
+
+// ===========================================================================
+// FIX 4 — post-finalize link audit re-attaches a fallback link to a named
+// entity whose line lost every link, ignores percentages/doses, and preserves
+// (but logs) center-table rows per the CENTER-LINK RULE.
+// ===========================================================================
+{
+  const text = [
+    '## 5. Pipeline',
+    '- **BI 1015550** is an oral PDE4B inhibitor in phase 3.',
+    '- See [the trial](https://clinicaltrials.gov/study/NCT05321069) for details.'
+  ].join('\n');
+  const { text: relinked, reattached } = reattachEntityLinks(text);
+  const gotLink = /\[\*\*BI 1015550\*\*\]\(https:\/\/www\.google\.com\/search/.test(relinked);
+  const keptLinkedLine = relinked.includes('[the trial](https://clinicaltrials.gov/study/NCT05321069)');
+  if (gotLink && reattached.includes('BI 1015550') && keptLinkedLine) pass('Fix 4: link audit re-attaches a fallback search link to a bolded entity that lost its link; leaves already-linked lines untouched');
+  else fail(`Fix 4: link audit regression (gotLink=${gotLink} kept=${keptLinkedLine})`);
+
+  const noise = '- How well it works was **70%**, at a **150 mg** dose.';
+  const noiseOut = reattachEntityLinks(noise).text;
+  const noiseUntouched = noiseOut === noise;
+  const tableRow = '| **Mayo Clinic** | Rochester | (507) 284-2511 | leads in IPF |';
+  const { text: tableOut, skipped } = reattachEntityLinks(tableRow);
+  const tableUntouched = tableOut === tableRow && skipped.includes('Mayo Clinic');
+  if (noiseUntouched && tableUntouched) pass('Fix 4: link audit ignores percentages/doses and does NOT auto-link center-table rows (CENTER-LINK RULE) but logs them');
+  else fail(`Fix 4: link-audit conservatism regression (noise=${noiseUntouched} table=${tableUntouched})`);
+}
+
+// ===========================================================================
+// FIX 5 — genetics negative-result handling. A provided negative reaches BOTH
+// the generator and validator snapshots as a first-class, legitimate fact (not
+// a "confirmed mutation," not invented); positive variants still gate therapy.
+// ===========================================================================
+{
+  const negatives = ['Genetic testing done — no known pathogenic variant found', 'no genetic component', 'tested negative'];
+  const negClassOk = negatives.every((t) => classifyGeneticResult(t) === 'negative');
+  const posOk = classifyGeneticResult('TERT pathogenic variant') === 'positive';
+  const ntOk = classifyGeneticResult('Not tested') === 'nottested';
+  if (negClassOk && posOk && ntOk) pass('Fix 5: classifyGeneticResult separates provided-negative, positive variant, and not-tested');
+  else fail(`Fix 5: classify regression (neg=${negClassOk} pos=${posOk} nt=${ntOk})`);
+
+  const neg = 'Genetic testing done — no known pathogenic variant found';
+  const genLine = buildPatientContext({ condition: 'IPF', geneticVariant: neg });
+  const genOk = genLine.includes(neg) && /legitimate|provided negative/i.test(genLine)
+    && !/CONFIRMED GENETIC MUTATION/.test(genLine);
+  const snap = buildPatientSnapshot({ geneticVariant: neg });
+  const snapOk = snap.includes(neg) && /no known pathogenic variant/i.test(snap)
+    && !/Confirmed genetic mutation/.test(snap);
+  const row = geneticSnapshotRow(neg);
+  const rowOk = !!row && /provided/i.test(row[0]);
+  if (genOk && snapOk && rowOk) pass('Fix 5: a provided negative genetic result reaches the generator + validator snapshots as a legitimate fact (not invented, not a confirmed mutation)');
+  else fail(`Fix 5: negative-genetics plumbing regression (gen=${genOk} snap=${snapOk} row=${rowOk})`);
+
+  const posLine = buildPatientContext({ condition: 'RP', geneticVariant: 'USH2A compound heterozygous' });
+  if (/CONFIRMED GENETIC MUTATION/.test(posLine) && /USH2A/.test(posLine)) pass('Fix 5: a positive variant still gates gene-targeted therapy (CONFIRMED GENETIC MUTATION block preserved)');
+  else fail('Fix 5: positive-variant gene-gating regression');
 }
 
 console.log(process.exitCode ? '\n\x1b[31mPlatform regression FAILED\x1b[0m\n' : '\n\x1b[32mPlatform regression passed\x1b[0m\n');

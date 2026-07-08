@@ -2423,12 +2423,20 @@
             let validation = null;
             let validationMismatch = null;
             try {
+              // Thread the condition's grounding (canonical facts + KB lifestyle
+              // / red-flag guidance) to the server so applyValidationFixes can
+              // KEEP a validator-disputed claim that our own ground truth backs
+              // (the GERD/87% antacid regression) rather than deleting it.
+              const kbForPolish = reportData?.evidence?.knowledgeBase || {};
               const d = await callResearch({
                 mode: 'polish-report',
                 analysisText: out,
                 excludedAgents: reportData?.evidence?.excludedAgents || [],
                 evidencePack: packForPolish(reportData?.evidence),
                 pipelineDrugs: reportData?.evidence?.pipelineDrugs || [],
+                canonicalFacts: kbForPolish.canonicalFacts || reportData?.evidence?.canonicalFacts || [],
+                lifestyle: kbForPolish.lifestyleRecommendations || [],
+                redFlags: kbForPolish.redFlags || [],
                 trials: reportData?.trials || null,
                 patient: runPatient,
                 audience,
@@ -2444,10 +2452,16 @@
           };
           const countCandidateBlocks = (text) =>
             (String(text || '').match(/^CANDIDATE:/gm) || []).length;
+          // Retry a lane that failed, truncated (max_tokens), or came back
+          // mid-sized. Floor mirrors REPURPOSE_MIN_PER_LANE in
+          // lib/repurpose-quality.js (raised 3 → 7 in Fix 2): a lane returning
+          // 4-6 candidates used to be accepted, which is how the merged list
+          // kept getting stuck near ~20 for rare conditions.
+          const MIN_PER_LANE = 7;
           const laneNeedsRetry = (result, text) => {
             if (!result) return true;
             const stop = result.stop_reason || result.stopReason || '';
-            return stop === 'max_tokens' || countCandidateBlocks(text) < 3;
+            return stop === 'max_tokens' || countCandidateBlocks(text) < MIN_PER_LANE;
           };
           try {
             // Two-phase for research + repurpose (fan-out is too heavy to
@@ -2583,9 +2597,9 @@
                   Array.from({ length: LANE_COUNT }, (_, lane) => runLane(lane))
                 );
 
-                // Retry any lane that failed or returned a truncated batch (<4
-                // candidates or max_tokens). Silent partial failure was how
-                // Dorothy kept seeing "only 3 drugs."
+                // Retry any lane that failed, hit max_tokens, or returned fewer
+                // than MIN_PER_LANE (7) candidates. Silent partial failure was
+                // how Dorothy kept seeing "only ~20 drugs."
                 const retryLanes = [];
                 for (let i = 0; i < LANE_COUNT; i++) {
                   const s = laneResults[i];
@@ -2603,6 +2617,56 @@
                     const lane = retryLanes[j];
                     if (s.status === 'fulfilled' && s.value) laneResults[lane] = s;
                   });
+                }
+
+                // Backfill/top-up (Fix 2). Rare conditions (e.g. "cerebellar
+                // ataxia variant 34" with only a thin dynamic KB) reliably land
+                // at ~20 candidates. After cross-lane dedup + excluded-agent
+                // filtering, if the DISTINCT grounded count is short of target,
+                // make ONE more attempt for NON-DUPLICATE grounded candidates,
+                // passing the already-used names so the model can't repeat them.
+                // HONESTY: we never pad — if genuine grounded ideas run out the
+                // count simply stays low and the "fewer drug ideas" banner shows.
+                const BACKFILL_THRESHOLD = 22;
+                const candNamesOf = (txt) =>
+                  (String(txt || '').match(/^CANDIDATE:\s*(.+)$/gim) || [])
+                    .map((l) => l.replace(/^CANDIDATE:\s*/i, '').replace(/\*/g, '').trim())
+                    .filter(Boolean);
+                const dedupKey = (name) => String(name || '')
+                  .replace(/\(.*?\)/g, ' ')
+                  .split(/[—–\-:|/]|\d/)[0]
+                  .toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+                const excludedForBackfill = (gathered.evidence?.excludedAgents || [])
+                  .flatMap((x) => [x.name, ...(x.aliases || [])]
+                    .map((n) => String(n || '').toLowerCase().trim()).filter(Boolean));
+                const isExcludedName = (name) => {
+                  const n = String(name || '').toLowerCase();
+                  const bare = n.replace(/[^a-z0-9]/g, '');
+                  return excludedForBackfill.some((ex) => n.includes(ex) || (ex && ex.includes(bare)));
+                };
+                const laneTextNow = () => laneResults
+                  .filter((s) => s.status === 'fulfilled' && s.value)
+                  .map((s) => textOf(s.value)).join('\n\n');
+                const usedNames = candNamesOf(laneTextNow());
+                const distinctGrounded = new Set(
+                  usedNames.filter((n) => !isExcludedName(n)).map(dedupKey).filter(Boolean)
+                );
+                let backfilled = false;
+                if (distinctGrounded.size > 0 && distinctGrounded.size < BACKFILL_THRESHOLD) {
+                  updateStep('synth', { status: 'running', detail: 'Looking for a few more drug ideas…' });
+                  const laneCounts = laneResults.map((s) =>
+                    s.status === 'fulfilled' && s.value ? countCandidateBlocks(textOf(s.value)) : 0);
+                  const weakestLane = laneCounts.indexOf(Math.min(...laneCounts));
+                  const backfill = await callResearch({
+                    ...synthBase, half: 'front',
+                    batchLane: weakestLane >= 0 ? weakestLane : 0,
+                    batchSize: PER_LANE,
+                    avoidCandidates: usedNames
+                  }).catch(() => null);
+                  if (backfill && countCandidateBlocks(textOf(backfill)) > 0) {
+                    laneResults = [...laneResults, { status: 'fulfilled', value: backfill }];
+                    backfilled = true;
+                  }
                 }
 
                 const back = await callResearch({ ...synthBase, half: 'back' }).catch(() => null);
@@ -2633,6 +2697,7 @@
                     totalCandidates,
                     target: TARGET_TOTAL,
                     lanesRetried: retryLanes.length,
+                    backfilled,
                     ok: totalCandidates >= 12
                   }
                   // NB: `totalCandidates` is the RAW lane output; the displayed
@@ -2828,6 +2893,10 @@
                 mode: 'validate',
                 analysisText,
                 evidencePack: packForValidator,
+                // Grounding for the validator's persistence gate (grounding-gate.js).
+                canonicalFacts: evidenceSummary?.knowledgeBase?.canonicalFacts || [],
+                lifestyle: evidenceSummary?.knowledgeBase?.lifestyleRecommendations || [],
+                redFlags: evidenceSummary?.knowledgeBase?.redFlags || [],
                 patient,
                 condition: patient.condition || '',
                 audience
@@ -2872,6 +2941,11 @@
                     evidencePack: (sourcePack || []).slice(0, 25).map((a) => ({
                       title: a.title, url: a.url || a.pubmedUrl || a.doiUrl, pmid: a.pmid, doi: a.doi
                     })),
+                    // Grounding so applyValidationFixes keeps KB-backed claims
+                    // the validator wrongly disputes (grounding-gate.js).
+                    canonicalFacts: evidenceSummary?.knowledgeBase?.canonicalFacts || [],
+                    lifestyle: evidenceSummary?.knowledgeBase?.lifestyleRecommendations || [],
+                    redFlags: evidenceSummary?.knowledgeBase?.redFlags || [],
                     pipelineDrugs: evidenceSummary?.pipelineDrugs || [],
                     trials: trialsData || null,
                     patient,
@@ -4091,8 +4165,8 @@
             ph: 'e.g. FVC 58% predicted, DLCO 42%, 6MWT 350m' },
           { k: 'scans',      l: 'Recent scans or X-rays',           ta: true,
             ph: 'e.g. HRCT 3/2025: UIP pattern, honeycombing basal/peripheral' },
-          { k: 'geneticVariant', l: 'Gene change / mutation (if you know it)', ta: true,
-            ph: 'e.g. USH2A compound heterozygous (RP / Usher), RPE65 biallelic (LCA / RP), SOD1 A4V (ALS), DMD exon 51 deletion, BRCA1 pathogenic, HTT 44 CAG repeats. This matters for gene therapy (treatments that fix or replace faulty genes).' }
+          { k: 'geneticVariant', l: 'Gene test result (if you have one)', ta: true,
+            ph: 'You can enter a result three ways: (1) a specific change, e.g. "USH2A compound heterozygous", "RPE65 biallelic", "SOD1 A4V", "BRCA1 pathogenic"; (2) a NEGATIVE result you were given, e.g. "Genetic testing done — no known pathogenic variant found" or "no genetic component"; or (3) "Not tested". This matters for gene therapy (treatments that fix or replace faulty genes) — and a negative result is a real finding we will keep.' }
         ];
         return (
           <div style={panelStyle}>
