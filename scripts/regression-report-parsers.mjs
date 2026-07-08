@@ -99,7 +99,9 @@ const parseTreatmentsWith = (text, collector) => {
     if (!cur) return;
     const field = key.replace(':', '').toLowerCase();
     cur[field] = clampToCompleteSentence(collector(text, i, TREATMENT_KEYS));
-    if (field === 'efficacy' || field === 'safety') {
+    // EFFICACY is now a real sourced outcome sentence, not a % score — only
+    // SAFETY is a headline-percent meter (mirror of index.html).
+    if (field === 'safety') {
       cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
     }
   });
@@ -116,8 +118,7 @@ const parseTreatmentsWith = (text, collector) => {
       && !/^(ask|call|available|implanted|administered|contact|by )/i.test(s)) || '';
   return blocks
     .map((b) => (b.treatment ? b : { ...b, treatment: deriveTreatmentName(b) }))
-    .filter((b) => b.treatment || b.efficacy_pct != null || b.safety_pct != null || b.risks)
-    .sort((a, b) => (b.efficacy_pct || 0) - (a.efficacy_pct || 0));
+    .filter((b) => b.treatment || b.efficacy || b.safety_pct != null || b.risks);
 };
 const parseTreatments = (text) => parseTreatmentsWith(text, collectBlock);
 const parseTreatmentsLegacy = (text) => parseTreatmentsWith(text, collectBlockLegacy);
@@ -182,13 +183,15 @@ const parseCandidates = (text) => {
     if (key === 'CANDIDATE:' || (cur && cur[field] !== undefined)) { if (cur) out.push(cur); cur = {}; }
     if (!cur) return;
     cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
-    if (field === 'efficacy_hypothesis' || field === 'safety' || field === 'confidence') {
+    // EFFICACY_HYPOTHESIS is now an honest sourced statement, not a % score —
+    // only SAFETY and CONFIDENCE are headline-percent meters (mirror of index.html).
+    if (field === 'safety' || field === 'confidence') {
       cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
     }
   });
   if (cur) out.push(cur);
   const sorted = out.sort((a, b) =>
-    (b.confidence_pct || b.efficacy_hypothesis_pct || 0) - (a.confidence_pct || a.efficacy_hypothesis_pct || 0));
+    (b.confidence_pct || 0) - (a.confidence_pct || 0));
   const seen = new Set();
   const deduped = [];
   for (const cand of sorted) {
@@ -335,11 +338,11 @@ head('1 — approved-treatments emoji-delimiter fixture (defect 1)');
     fail('BEFORE: expected the pre-fix parser to leak the CARD 2 header into card 1 SOURCES, but found none');
   }
   const both = after.length === 2;
-  const structured = both && after.every((t) => t.treatment && t.efficacy_pct != null);
+  const structured = both && after.every((t) => t.treatment && t.efficacy && t.safety_pct != null);
   const fin = after.find((t) => /finasteride/i.test(t.treatment || ''));
   const cleanRefs = fin && /9777765/.test(fin.references) && !/CARD|WHAT IT DOES/i.test(fin.references);
   if (!afterLeaks.length && structured && cleanRefs) {
-    pass(`AFTER: 2 structured cards, zero leakage, finasteride SOURCES clean (efficacy ${after[0].efficacy_pct}/${after[1].efficacy_pct})`);
+    pass(`AFTER: 2 structured cards, zero leakage, finasteride SOURCES clean (safety ${after[0].safety_pct}/${after[1].safety_pct})`);
   } else {
     fail(`AFTER: regression (leaks=${afterLeaks.length} structured=${structured} cleanRefs=${cleanRefs} n=${after.length})`);
   }
@@ -363,11 +366,11 @@ head('1b — approved-treatments "Drug Card N —" delimiter drift (defect 1)');
   } else {
     fail('BEFORE: expected the pre-fix parser to leak the "Drug Card 2" header into card 1 SOURCES, but found none');
   }
-  const structured = after.length === 2 && after.every((t) => t.treatment && t.efficacy_pct != null);
+  const structured = after.length === 2 && after.every((t) => t.treatment && t.efficacy && t.safety_pct != null);
   const fin = after.find((t) => /finasteride/i.test(t.treatment || ''));
   const cleanRefs = fin && /9777765/.test(fin.references) && !/CARD|WHAT IT DOES/i.test(fin.references);
   if (!afterLeaks.length && structured && cleanRefs) {
-    pass(`AFTER: widened boundary parses "Drug Card" variant → 2 structured cards, zero leakage (efficacy ${after[0].efficacy_pct}/${after[1].efficacy_pct})`);
+    pass(`AFTER: widened boundary parses "Drug Card" variant → 2 structured cards, zero leakage (safety ${after[0].safety_pct}/${after[1].safety_pct})`);
   } else {
     fail(`AFTER: regression (leaks=${afterLeaks.length} structured=${structured} cleanRefs=${cleanRefs} n=${after.length})`);
   }
@@ -426,10 +429,10 @@ head('4 — curated IPF approved-treatments fixture (no regression)');
   const after = parseTreatments(raw);
   const afterLeaks = leaksFor(after, TREATMENT_FIELDS);
   const structured = after.length === 2 &&
-    after.every((t) => /pirfenidone|nintedanib/i.test(t.treatment) && t.efficacy_pct != null) &&
+    after.every((t) => /pirfenidone|nintedanib/i.test(t.treatment) && t.efficacy) &&
     after.every((t) => /\d/.test(t.references));
   if (!afterLeaks.length && structured) {
-    pass(`AFTER: curated IPF parses to 2 clean cards, zero leakage (efficacy ${after.map((t) => t.efficacy_pct).join('/')})`);
+    pass(`AFTER: curated IPF parses to 2 clean cards, zero leakage (safety ${after.map((t) => t.safety_pct).join('/')})`);
   } else {
     fail(`AFTER: curated IPF regression (leaks=${afterLeaks.length} structured=${structured} n=${after.length})`);
   }
@@ -459,7 +462,7 @@ head('4b — PROVIDER-only card recovers a name / drops if empty (unnamed-treatm
   const after = parseTreatments(raw);
   const noUnnamed = after.every((t) => t.treatment && !/^\(unnamed/i.test(t.treatment));
   const interstim = after.find((t) => /interstim/i.test(t.treatment || ''));
-  const emptyDropped = !after.some((t) => !t.treatment && t.efficacy_pct == null && t.safety_pct == null && !t.risks);
+  const emptyDropped = !after.some((t) => !t.treatment && !t.efficacy && t.safety_pct == null && !t.risks);
   if (after.length === 2 && noUnnamed && interstim && interstim.treatment === 'Medtronic InterStim' && emptyDropped) {
     pass(`AFTER: nameless device card recovered ("${interstim.treatment}"), empty PROVIDER-only card dropped, zero "(unnamed treatment)"`);
   } else {

@@ -319,14 +319,15 @@ const parseCandidates = (text) => {
     }
     if (!cur) return;
     cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
-    if (field === 'efficacy_hypothesis' || field === 'safety' || field === 'confidence') {
+    // EFFICACY_HYPOTHESIS is now an honest sourced statement, not a % score
+    // (mirror of index.html) — only SAFETY and CONFIDENCE are % meters.
+    if (field === 'safety' || field === 'confidence') {
       cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
     }
   });
   if (cur) out.push(cur);
   const sorted = out.sort((a, b) =>
-    (b.confidence_pct || b.efficacy_hypothesis_pct || 0) -
-    (a.confidence_pct || a.efficacy_hypothesis_pct || 0)
+    (b.confidence_pct || 0) - (a.confidence_pct || 0)
   );
   const seen = new Set();
   const deduped = [];

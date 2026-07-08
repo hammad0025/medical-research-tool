@@ -711,7 +711,11 @@
           if (!cur) return;
           const field = key.replace(':', '').toLowerCase();
           cur[field] = clampToCompleteSentence(collectBlock(text, i, TREATMENT_KEYS));
-          if (field === 'efficacy' || field === 'safety') {
+          // EFFICACY is no longer a fabricated 0-100 rating — it is the real,
+          // sourced outcome sentence (Dorothy: "those %s are made-up; show the
+          // real study result"). It renders as prose, so we do NOT parse a
+          // headline percent from it. SAFETY is still a relative % meter.
+          if (field === 'safety') {
             cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
             // Note is the justification WITHOUT the redundant leading "NN% —"
             // (the bar already shows the %). Any inline [source](url) at the end
@@ -733,10 +737,12 @@
             && !/^\+?[\d().\s-]{7,}$/.test(s)
             && !/^https?:|\.(com|org|gov|net|edu)\b/i.test(s)
             && !/^(ask|call|available|implanted|administered|contact|by )/i.test(s)) || '';
+        // Preserve the model's intended ranking (prompt lists approved /
+        // newest-mechanism drugs first). We no longer re-sort by a fabricated
+        // efficacy %, since that number is gone.
         return blocks
           .map((b) => (b.treatment ? b : { ...b, treatment: deriveTreatmentName(b) }))
-          .filter((b) => b.treatment || b.efficacy_pct != null || b.safety_pct != null || b.risks)
-          .sort((a, b) => (b.efficacy_pct || 0) - (a.efficacy_pct || 0));
+          .filter((b) => b.treatment || b.efficacy || b.safety_pct != null || b.risks);
       };
 
       const REPURPOSE_KEYS = [
@@ -838,7 +844,11 @@
           }
           if (!cur) return;
           cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
-          if (field === 'efficacy_hypothesis' || field === 'safety' || field === 'confidence') {
+          // EFFICACY_HYPOTHESIS is now an honest, sourced statement of expected
+          // benefit (or "no human efficacy data yet") — NOT a fabricated %. It
+          // renders as prose, so we do not parse a headline percent from it.
+          // SAFETY and CONFIDENCE remain relative % meters.
+          if (field === 'safety' || field === 'confidence') {
             cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
             // Split out the "why" prose so the UI can show it under
             // each meter bar. Without this, users see "40% / 75% / 70%"
@@ -851,8 +861,7 @@
         // same drug can occasionally appear twice. De-duplicate by name,
         // keeping the higher-confidence copy.
         const sorted = out.sort((a, b) =>
-          (b.confidence_pct || b.efficacy_hypothesis_pct || 0) -
-          (a.confidence_pct || a.efficacy_hypothesis_pct || 0)
+          (b.confidence_pct || 0) - (a.confidence_pct || 0)
         );
         const seenNames = new Set();
         const deduped = [];
@@ -4668,6 +4677,27 @@
         );
       };
 
+      // OutcomeRow — replaces the old efficacy MeterBar. Efficacy is no longer a
+      // fabricated 0-100 score; it is the REAL, sourced study outcome in plain
+      // English (Dorothy: "those percentages are made-up — show the actual
+      // result"). We render it as a labelled prose row (same label column as
+      // MeterBar so treatment/candidate cards stay visually aligned) instead of
+      // a meter bar, because a real outcome like "slowed decline by ~110 mL/year"
+      // is not a percentage and must not be forced onto a 0-100 bar.
+      const OutcomeRow = ({ label, icon, text }) => {
+        if (!text) return null;
+        return (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+            <div style={{ width: 92, flexShrink: 0, paddingTop: 1, fontSize: '0.72rem', color: theme.textDim, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              {icon}{label}
+            </div>
+            <div style={{ flex: 1, minWidth: 0, fontSize: '0.82rem', color: theme.text, lineHeight: 1.5 }}>
+              <InlineMD text={text} />
+            </div>
+          </div>
+        );
+      };
+
       // Evidence strength ladder. Matches the EVIDENCE_STRENGTH enum Claude
       // is asked to emit (MECHANISTIC_ONLY → LARGE_RCT). Color scales from
       // red (pure hypothesis) to bright green (RCT data).
@@ -7485,7 +7515,7 @@
       );
 
       // Individual repurposing-candidate card. One per drug/supplement.
-      const TREATMENT_LEAK_FIELDS = ['treatment', 'fda_status', 'provider', 'references', 'risks', 'efficacy_note', 'safety_note'];
+      const TREATMENT_LEAK_FIELDS = ['treatment', 'fda_status', 'provider', 'references', 'risks', 'efficacy', 'safety_note'];
       const TreatmentCard = ({ t: rawT, rank }) => {
         const { card: t, leaks } = useMemo(
           () => auditAndScrubCard(rawT, TREATMENT_LEAK_FIELDS, { kind: 'approved-treatment', label: rawT?.treatment }),
@@ -7537,8 +7567,8 @@
                 ) : null}
               </div>
             </div>
-            <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
-              <MeterBar label="How well it works" value={t.efficacy_pct} icon={<TrendingUp size={11} />} note={t.efficacy_note} />
+            <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.6rem' }}>
+              <OutcomeRow label="How well it works" text={t.efficacy} icon={<TrendingUp size={11} />} />
               <MeterBar label="Safety" value={t.safety_pct} icon={<Shield size={11} />} note={t.safety_note} />
             </div>
             {t.risks && (
@@ -7751,11 +7781,10 @@
             </div>
 
             <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.75rem' }}>
-              <MeterBar
+              <OutcomeRow
                 label="How well it works"
-                value={c.efficacy_hypothesis_pct}
+                text={c.efficacy_hypothesis}
                 icon={<TrendingUp size={11} />}
-                note={c.efficacy_hypothesis_note}
               />
               <MeterBar
                 label="Safety"
@@ -8145,11 +8174,11 @@
       const ChartTab = ({ treatments, candidates }) => {
         const exportCsv = () => {
           const rows = [
-            ['Provider','Treatment','FDA Status','Length/Frequency','How well it works %','How safe %','Risks','Interactions','Cost']
+            ['Provider','Treatment','FDA Status','Length/Frequency','How well it works','How safe %','Risks','Interactions','Cost']
           ];
           treatments.forEach(t => rows.push([
             t.provider||'', t.treatment||'', t.fda_status||'', t.length_frequency||'',
-            t.efficacy_pct||'', t.safety_pct||'', t.risks||'', t.interactions||'', t.cost||''
+            t.efficacy||'', t.safety_pct||'', t.risks||'', t.interactions||'', t.cost||''
           ]));
           const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
           const blob = new Blob([csv], { type: 'text/csv' });
@@ -8202,7 +8231,7 @@
               { k: 'treatment',         h: 'Treatment description', w: 260 },
               { k: 'fda_status',        h: 'FDA status',          w: 120 },
               { k: 'length_frequency',  h: 'Length / Freq',       w: 140 },
-              { k: 'efficacy_pct',      h: 'How well it works',   w: 110, bar: true },
+              { k: 'efficacy',          h: 'How well it works',   w: 220 },
               { k: 'safety_pct',        h: 'How safe',            w: 110, bar: true },
               { k: 'risks',             h: 'Risks',               w: 220 },
               { k: 'interactions',      h: 'Drug interactions',   w: 180 },
@@ -8215,7 +8244,7 @@
               { k: 'class',                     h: 'Type of drug',    w: 140 },
               { k: 'approved_for',              h: 'Normally used for',    w: 180 },
               { k: 'repurpose_rationale',       h: 'Why it might help', w: 280 },
-              { k: 'efficacy_hypothesis_pct',   h: 'Likely to work', w: 110, bar: true },
+              { k: 'efficacy_hypothesis',       h: 'Likely to work', w: 220 },
               { k: 'safety_pct',                h: 'How safe',          w: 110, bar: true },
               { k: 'patient_specific_risks',    h: 'Risks for you', w: 220 },
               { k: 'supporting_evidence',       h: 'Sources',             w: 200, links: true }
@@ -8246,11 +8275,11 @@
                       if (c.bar) {
                         const n = typeof v === 'number' ? v : null;
                         const col = ratingColor(n);
-                        // Surface the model's one-line "why" for each %.
-                        // The parser stores it on `<field>_note` for both
-                        // treatments (efficacy_note/safety_note) and
-                        // repurpose candidates (efficacy_hypothesis_note,
-                        // safety_note, confidence_note).
+                        // Surface the model's one-line "why" for each %. The
+                        // parser stores it on `<field>_note` for the remaining
+                        // meters — treatments (safety_note) and repurpose
+                        // candidates (safety_note, confidence_note). Efficacy is
+                        // now a prose outcome column, not a bar.
                         const noteKey = c.k.replace(/_pct$/, '_note');
                         const note = r[noteKey];
                         return (

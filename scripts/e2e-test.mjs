@@ -840,7 +840,9 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   const researchText = (research.body.content || []).filter(b => b.type==='text').map(b=>b.text).join('\n');
   pass(`research returned ${researchText.length} chars`);
   const hasProvider = /PROVIDER:/i.test(researchText);
-  const hasEfficacy = /EFFICACY:\s*\d{1,3}\s*%/i.test(researchText);
+  // EFFICACY is now a real, sourced outcome sentence (not a fabricated %) —
+  // just require the field is present with content.
+  const hasEfficacy = /EFFICACY:\s*\S/i.test(researchText);
   const hasSafety = /SAFETY:\s*\d{1,3}\s*%/i.test(researchText);
   const hasInteractions = /INTERACTIONS:/i.test(researchText);
   const hasReferences = /REFERENCES:/i.test(researchText);
@@ -848,7 +850,7 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   const hasNonDrug = /non[- ]drug|lifestyle|reflux|feather|oxygen|pulmonary rehab/i.test(researchText);
   const hasStem = /stem cell/i.test(researchText);
   hasProvider ? pass('structured PROVIDER blocks present') : fail('no PROVIDER blocks');
-  hasEfficacy ? pass('EFFICACY 1-100 present') : fail('no EFFICACY %');
+  hasEfficacy ? pass('EFFICACY outcome present') : fail('no EFFICACY field');
   hasSafety ? pass('SAFETY 1-100 present') : fail('no SAFETY %');
   hasInteractions ? pass('INTERACTIONS field present (drug-drug check)') : fail('no INTERACTIONS field');
   hasReferences ? pass('REFERENCES field present') : fail('no REFERENCES field');
@@ -909,11 +911,12 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   refLinkHits >= Math.min(3, candidateCount)
     ? pass(`${refLinkHits} candidate(s) include REFERENCES with clickable markdown links`)
     : fail(`expected REFERENCES with markdown links on at least ${Math.min(3, candidateCount)} candidates, got ${refLinkHits}`);
-  // Every candidate should have at least one quantified score (efficacy/safety/confidence %)
-  const pctHits = (repText.match(/(EFFICACY_HYPOTHESIS|SAFETY|CONFIDENCE):\s*\d{1,3}\s*%/g) || []).length;
+  // SAFETY and CONFIDENCE remain 0-100 meters; EFFICACY_HYPOTHESIS is now an
+  // honest sourced statement (no fabricated %), so it is not counted here.
+  const pctHits = (repText.match(/(SAFETY|CONFIDENCE):\s*\d{1,3}\s*%/g) || []).length;
   pctHits >= candidateCount * 2
-    ? pass(`${pctHits} quantified 0-100 scores across candidates (avg >= 2 per candidate)`)
-    : fail(`only ${pctHits} quantified scores across ${candidateCount} candidates — cards need at least efficacy+safety+confidence each`);
+    ? pass(`${pctHits} quantified 0-100 scores across candidates (safety + confidence per candidate)`)
+    : fail(`only ${pctHits} quantified scores across ${candidateCount} candidates — cards need at least safety+confidence each`);
   // Evidence strength must come from the defined ladder — the UI has color
   // coding for each rung, and a free-form value breaks the badge.
   const evidenceLadder = ['MECHANISTIC_ONLY', 'PRECLINICAL', 'CASE_REPORT', 'OBSERVATIONAL', 'SMALL_RCT', 'LARGE_RCT'];
