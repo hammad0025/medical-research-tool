@@ -26,6 +26,13 @@ import { checkProfileCoherence, checkDossierProfileCoherence } from '../lib/prof
 import { resolveCondition } from '../lib/condition-resolver.js';
 import { getInfraStatus } from '../lib/infra-status.js';
 import {
+  recordConditionErrors,
+  getConditionErrors,
+  _resetErrorStoreForTests
+} from '../lib/error-store.js';
+import { verdictToErrorRecords } from '../lib/validate.js';
+import { buildLearnedErrorsBlock, MAX_LEARNED_ERRORS } from '../api/research.js';
+import {
   applyValidationFixes,
   injectApprovedTreatmentStubs,
   allApprovedDrugsRendered,
@@ -1011,6 +1018,101 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
   } else {
     fail('Layer 3: eligibility checks still scattered — applyPatientPromiseAdjustment does not use assessTrialEligibility');
   }
+}
+
+// 36. ERROR MEMORY (Dorothy: "remember the errors it catches and not repeat
+//     them"). Three checks: (a) error-store insert/dedupe/cap/round-trip on the
+//     in-memory fallback, (b) the prompt-block builder renders stored errors +
+//     the do-not-repeat instruction and stays capped, (c) validate.js turns a
+//     verdict's disputed/unsupported/hallucinated findings into store records.
+{
+  // (a) insert / dedupe / cap / round-trip
+  _resetErrorStoreForTests();
+  const cond = 'Test Memory Condition';
+  await recordConditionErrors(cond, [
+    { type: 'disputed', quote: 'Drug X cures this', reason: 'not supported', correction: 'Drug X may help some patients', source: 'validator' },
+    { type: 'unsupported', claim: 'Supplement Y reverses fibrosis', reason: 'no evidence', source: 'validator' }
+  ]);
+  // Re-insert the SAME disputed quote (different case/whitespace) → must dedupe.
+  await recordConditionErrors(cond, [
+    { type: 'disputed', quote: '  drug x CURES this  ', reason: 'still not supported', source: 'validator' }
+  ]);
+  const stored = await getConditionErrors(cond);
+  const dedupeOk = stored.length === 2;
+  const roundTripOk = stored.some((e) => /Supplement Y reverses fibrosis/.test(e.claim || '')) &&
+                      stored.some((e) => /cures this/i.test(e.quote || ''));
+
+  // Cap: push well past MAX (50) and confirm the newest are kept.
+  _resetErrorStoreForTests();
+  const many = [];
+  for (let i = 0; i < 60; i++) {
+    many.push({ type: 'unsupported', claim: `bogus claim number ${i}`, ts: 1000 + i, source: 'validator' });
+  }
+  await recordConditionErrors(cond, many);
+  const capped = await getConditionErrors(cond);
+  const capOk = capped.length === 50 &&
+                capped.some((e) => /number 59/.test(e.claim)) &&
+                !capped.some((e) => /number 0\b/.test(e.claim));
+
+  // Empty / textless records are dropped, and an empty condition is a no-op.
+  const noText = await recordConditionErrors(cond, [{ type: 'disputed', reason: 'no claim or quote' }]);
+  const emptyCond = await recordConditionErrors('', [{ type: 'disputed', quote: 'x' }]);
+  const guardOk = noText === 50 && emptyCond === 0;
+
+  if (dedupeOk && roundTripOk && capOk && guardOk) {
+    pass('Error memory (a): insert/dedupe/cap(50, newest)/round-trip on in-memory fallback');
+  } else {
+    fail(`Error memory (a): store regression (dedupe=${dedupeOk} roundTrip=${roundTripOk} cap=${capOk} guard=${guardOk})`);
+  }
+
+  // (b) prompt-block builder
+  const emptyBlock = buildLearnedErrorsBlock([]);
+  const block = buildLearnedErrorsBlock([
+    { type: 'disputed', quote: 'Drug X cures this condition', reason: 'contradicted by pack', correction: 'Drug X modestly slows progression' },
+    { type: 'hallucinated_citation', url: 'https://example.com/fake', reason: 'URL 404s' }
+  ]);
+  const blockOk =
+    emptyBlock === '' &&
+    /PREVIOUSLY CAUGHT ERRORS FOR THIS CONDITION/.test(block) &&
+    /do NOT repeat/i.test(block) &&
+    /Drug X cures this condition/.test(block) &&
+    /CORRECTION: Drug X modestly slows progression/.test(block) &&
+    /None of the wrong claims above may appear/.test(block) &&
+    /NEVER echo this header/.test(block);
+  // Cap: builder must never emit more than MAX_LEARNED_ERRORS numbered items.
+  const big = [];
+  for (let i = 0; i < 40; i++) big.push({ type: 'unsupported', claim: `wrong thing ${i}` });
+  const bigBlock = buildLearnedErrorsBlock(big);
+  const numbered = (bigBlock.match(/^\d+\. WRONG:/gm) || []).length;
+  const blockCapOk = numbered === MAX_LEARNED_ERRORS;
+  if (blockOk && blockCapOk) {
+    pass(`Error memory (b): buildLearnedErrorsBlock renders errors + do-not-repeat instruction, internal-only, capped at ${MAX_LEARNED_ERRORS}`);
+  } else {
+    fail(`Error memory (b): prompt-block regression (block=${blockOk} cap=${blockCapOk} numbered=${numbered})`);
+  }
+
+  // (c) validate.js maps a verdict's findings into store records
+  const records = verdictToErrorRecords({
+    disputed: [{ claim: 'c1', quote: 'q1', reason: 'r1', correction: 'fix1' }],
+    unsupported: [{ claim: 'c2', reason: 'r2' }],
+    hallucinatedCitations: [{ url: 'https://x/y', issue: '404' }]
+  });
+  const mapOk =
+    records.length === 3 &&
+    records.some((r) => r.type === 'disputed' && r.quote === 'q1' && r.correction === 'fix1' && r.source === 'validator') &&
+    records.some((r) => r.type === 'unsupported' && r.claim === 'c2') &&
+    records.some((r) => r.type === 'hallucinated_citation' && r.url === 'https://x/y' && r.reason === '404');
+  // End-to-end: those records persist and come back for the condition.
+  _resetErrorStoreForTests();
+  await recordConditionErrors('IPF', records);
+  const back = await getConditionErrors('IPF');
+  const persistOk = back.length === 3 && back.some((r) => r.quote === 'q1');
+  if (mapOk && persistOk) {
+    pass('Error memory (c): validate.js verdictToErrorRecords → store persists disputed/unsupported/hallucinated findings');
+  } else {
+    fail(`Error memory (c): validate persistence regression (map=${mapOk} persist=${persistOk})`);
+  }
+  _resetErrorStoreForTests();
 }
 
 console.log(process.exitCode ? '\n\x1b[31mPlatform regression FAILED\x1b[0m\n' : '\n\x1b[32mPlatform regression passed\x1b[0m\n');

@@ -6300,7 +6300,96 @@
         return theme.textDim;
       };
 
-      const ValidatorPanel = ({ validation, onAudit, canAudit }) => {
+      // "Dorothy can teach it": a small, unobtrusive way for the user to flag
+      // an error they spotted in the current report. On submit it POSTs to the
+      // research API's flag-error mode, which saves the mistake against this
+      // condition so future reports are told not to repeat it.
+      const FlagErrorBox = ({ condition }) => {
+        const [open, setOpen] = useState(false);
+        const [text, setText] = useState('');
+        const [status, setStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
+        const cond = String(condition || '').trim();
+        if (!cond) return null;
+
+        const submit = async () => {
+          const claim = text.trim();
+          if (!claim) return;
+          setStatus('saving');
+          try {
+            const r = await fetch('/api/research', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode: 'flag-error', condition: cond, claim })
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok || !d.ok) throw new Error(d.error || `HTTP ${r.status}`);
+            setStatus('saved');
+            setText('');
+          } catch (_) {
+            setStatus('error');
+          }
+        };
+
+        return (
+          <div style={{ marginTop: '0.9rem', paddingTop: '0.75rem', borderTop: `1px solid ${theme.border}` }}>
+            {!open ? (
+              <button
+                type="button"
+                onClick={() => { setOpen(true); setStatus(null); }}
+                style={{
+                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                  color: theme.textDim, fontSize: '0.82rem', fontFamily: 'inherit',
+                  textDecoration: 'underline'
+                }}
+              >
+                Flag an error in this report
+              </button>
+            ) : status === 'saved' ? (
+              <p style={{ margin: 0, color: theme.green, fontSize: '0.85rem' }}>
+                Saved — future reports for this condition will be told not to repeat this.
+              </p>
+            ) : (
+              <div>
+                <p style={{ margin: '0 0 0.4rem', color: theme.textDim, fontSize: '0.82rem' }}>
+                  Spotted something wrong? Tell us what it got wrong and we'll make sure the next
+                  report for this condition doesn't repeat it.
+                </p>
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. It said Drug X is FDA-approved for this condition, but it is not."
+                  style={{ ...inputStyle, resize: 'vertical', marginBottom: '0.5rem' }}
+                />
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={submit}
+                    disabled={!text.trim() || status === 'saving'}
+                    style={btn('primary', !text.trim() || status === 'saving')}
+                  >
+                    {status === 'saving' ? 'Saving…' : 'Save this correction'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOpen(false); setStatus(null); }}
+                    style={btn('ghost')}
+                  >
+                    Cancel
+                  </button>
+                  {status === 'error' && (
+                    <span style={{ color: theme.red, fontSize: '0.82rem' }}>
+                      Couldn't save — please try again.
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const ValidatorPanel = ({ validation, onAudit, canAudit, condition }) => {
         // The second-AI check runs automatically after every report, so there
         // is no manual "re-check" button — a re-check is simply a new search.
         if (!validation) return null;
@@ -6424,6 +6513,8 @@
                 </div>
               </details>
             )}
+
+            <FlagErrorBox condition={condition} />
           </div>
         );
       };
@@ -6666,7 +6757,7 @@
               onDismiss={onDismissMismatch}
             />
 
-            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!researchText} />
+            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!researchText} condition={patient.condition} />
 
             {treatments.length > 0 && (
               <div style={panelStyle}>
@@ -6995,7 +7086,7 @@
 
             {trialBlocks.length > 0 && <RankedTrialsForPatient blocks={trialBlocks} />}
 
-            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!trialsText} />
+            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!trialsText} condition={patient.condition} />
 
             {trialsText && (
               <div id="mrt-trials-export-target" style={{ ...panelStyle, borderColor: `${theme.accent}55` }}>
@@ -8003,7 +8094,7 @@
               onDismiss={onDismissMismatch}
             />
 
-            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!repurposeText} />
+            <ValidatorPanel validation={validation} onAudit={onAudit} canAudit={!!repurposeText} condition={patient.condition} />
 
             {candidates.length > 0 && (
               <div style={panelStyle}>

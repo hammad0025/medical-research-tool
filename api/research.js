@@ -36,6 +36,7 @@ import { removeDeadLinks } from '../lib/link-check.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb, matchKb } from '../lib/kb.js';
 import { ensureDynamicKb } from '../lib/kb-bootstrap.js';
+import { getConditionErrors, recordConditionErrors } from '../lib/error-store.js';
 import {
   consumeResearchCredit,
   limits as usageLimits,
@@ -802,6 +803,40 @@ REPURPOSING RULE: Drugs listed under EXCLUDED AGENTS have already been studied f
 
 === END REQUIRED MENTIONS ===
 `;
+};
+
+// LEARN block (Dorothy: "remember the errors it catches and not repeat them").
+// Renders the errors previously caught for THIS condition — by the second-AI
+// validator on past reports, or flagged by the user — as a list of known
+// failure modes the model must not reproduce. `errors` comes from the error
+// store (getConditionErrors); the store already returns them newest-first, and
+// we cap at ~15 here so the block can't blow up the prompt. Internal-only: like
+// the GROUNDED EVIDENCE PACK header, we instruct the model to never echo the
+// block header or the phrase "previously caught errors" to the reader.
+export const MAX_LEARNED_ERRORS = 15;
+export const buildLearnedErrorsBlock = (errors) => {
+  const list = Array.isArray(errors) ? errors.slice(0, MAX_LEARNED_ERRORS) : [];
+  if (!list.length) return '';
+
+  const lines = list.map((e, i) => {
+    // What was wrong: the verbatim quote if we have it, else the claim/URL.
+    const wrong = e.quote || e.claim || e.url || '(unspecified claim)';
+    const parts = [`${i + 1}. WRONG: ${wrong}`];
+    if (e.reason) parts.push(`   WHY IT WAS WRONG: ${e.reason}`);
+    if (e.correction) parts.push(`   CORRECTION: ${e.correction}`);
+    if (e.url && e.type === 'hallucinated_citation') parts.push(`   (bad/hallucinated link: ${e.url})`);
+    return parts.join('\n');
+  }).join('\n\n');
+
+  return `=== PREVIOUSLY CAUGHT ERRORS FOR THIS CONDITION (learned from past reports — do NOT repeat any of these) ===
+Internal instruction — NEVER echo this header, this list, or the phrase "previously caught errors" to the reader.
+
+These are mistakes that a fact-checker or the user flagged in earlier reports for THIS condition. Each is a known failure mode. Do NOT restate any of these wrong claims, do NOT cite any bad link listed here, and where a correction is given, make sure your report is consistent with it.
+
+${lines}
+
+None of the wrong claims above may appear in the new report.
+=== END PREVIOUSLY CAUGHT ERRORS ===`;
 };
 
 // Investigational-only list for Section 5 Pipeline Watch (back half).
@@ -1720,6 +1755,31 @@ export default async function handler(req, res) {
       return res.status(200).json(listing);
     }
 
+    // USER FLAG (Dorothy: "Dorothy can teach it"). A lightweight way for the
+    // user to record an error they spotted in a report. Folded into this
+    // function (instead of a new serverless function) to stay under Vercel's
+    // 12-function cap. Records a user_flagged error against the condition so
+    // future reports for it are told not to repeat it. No spend, no API keys.
+    if (mode === 'flag-error') {
+      const condition = String(req.body?.condition || '').trim();
+      const claim = String(req.body?.claim || '').trim();
+      const reason = String(req.body?.reason || '').trim();
+      if (!condition) return res.status(400).json({ error: 'condition is required' });
+      if (!claim) return res.status(400).json({ error: 'claim is required' });
+      try {
+        const saved = await recordConditionErrors(condition, [{
+          type: 'user_flagged',
+          claim,
+          reason: reason || undefined,
+          source: 'user'
+        }]);
+        return res.status(200).json({ ok: true, saved });
+      } catch (e) {
+        console.error('[research] flag-error store failed:', e?.message || e);
+        return res.status(500).json({ ok: false, error: 'Could not save the flag. Please try again.' });
+      }
+    }
+
     // Spend kill — blocks paid API before any Anthropic/Perplexity calls.
     const pipelineMode = mode === 'research' || mode === 'repurpose' || mode === 'trials';
     if (pipelineMode && !isResearchPipelineEnabled()) {
@@ -2300,6 +2360,19 @@ export default async function handler(req, res) {
     // Anti-omission guardrail: inject the KB's pipelineDrugs +
     // excludedAgents as REQUIRED MENTIONS. See buildRequiredMentionsBlock.
     const requiredMentionsBlock = evidence ? buildRequiredMentionsBlock(evidence) : '';
+    // LEARN: pull the errors previously caught for this condition (validator
+    // findings + user flags) and render them as known failure modes the model
+    // must not repeat. Only for the synthesis modes; wrapped so a store failure
+    // can never break report generation.
+    let learnedErrorsBlock = '';
+    if ((mode === 'research' || mode === 'repurpose') && effectiveCondition) {
+      try {
+        const learned = await getConditionErrors(effectiveCondition, MAX_LEARNED_ERRORS);
+        learnedErrorsBlock = buildLearnedErrorsBlock(learned);
+      } catch (e) {
+        console.warn('[research] learned-errors fetch failed (non-fatal):', e?.message || e);
+      }
+    }
     const pipelineWatchBlock =
       mode === 'research' && half === 'back' && evidence
         ? buildPipelineWatchBlock(evidence)
@@ -2333,7 +2406,7 @@ export default async function handler(req, res) {
     // access), then repurpose drug library (open curated drug list),
     // then the REQUIRED MENTIONS list last so Claude sees the
     // anti-omission constraint immediately before starting to write.
-    const extraContext = [evidenceGradeBlock, dossierBlock, groundingBlock, trialsBlock, repurposeLibraryBlock, requiredMentionsBlock, pipelineWatchBlock, supplementDiscoveryBlock]
+    const extraContext = [evidenceGradeBlock, dossierBlock, groundingBlock, trialsBlock, repurposeLibraryBlock, requiredMentionsBlock, learnedErrorsBlock, pipelineWatchBlock, supplementDiscoveryBlock]
       .filter(Boolean)
       .join('\n\n');
 
