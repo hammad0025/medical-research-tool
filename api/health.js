@@ -7,7 +7,9 @@ import {
   REPURPOSE_LANE_COUNT,
   REPURPOSE_PER_LANE,
   REPURPOSE_SOFT_CAP,
-  REPURPOSE_MIN_TOTAL
+  REPURPOSE_MIN_TOTAL,
+  REPURPOSE_BACKFILL_THRESHOLD,
+  REPURPOSE_TARGET_TOTAL
 } from '../lib/repurpose-quality.js';
 
 export default async function handler(req, res) {
@@ -38,8 +40,11 @@ export default async function handler(req, res) {
         perLane: REPURPOSE_PER_LANE,
         softCapCandidates: REPURPOSE_SOFT_CAP,
         minCandidates: REPURPOSE_MIN_TOTAL,
+        hardFloorLinked: REPURPOSE_TARGET_TOTAL,
+        backfillThreshold: REPURPOSE_BACKFILL_THRESHOLD,
         batchMaxTokensSonnet: 7200,
-        groundingGated: true
+        groundingGated: true,
+        realLinksOnly: true
       },
       gather: {
         repurposeSupplementQueries: true,

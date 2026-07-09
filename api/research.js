@@ -853,19 +853,44 @@ None of the wrong claims above may appear in the new report.
 const buildPipelineWatchBlock = (evidence) => {
   const pipelineDrugs = Array.isArray(evidence?.pipelineDrugs) ? evidence.pipelineDrugs : [];
   const approved = (d) => /^approved/i.test(String(d.approvalStatus || ''));
-  const investigational = pipelineDrugs.filter((d) => !approved(d));
-  if (!investigational.length) return '';
+  // Prefer investigational / discontinued programs that carry a REAL link
+  // (NCT or pack URL). Cap at 25 — never invent programs beyond this list.
+  const withLink = (d) => {
+    if (d?.nct && /^NCT\d{8}$/i.test(String(d.nct))) return true;
+    if (d?.url && /^https?:\/\//i.test(String(d.url))) return true;
+    if (d?.pmid) return true;
+    return false;
+  };
+  const investigational = pipelineDrugs
+    .filter((d) => !approved(d))
+    .filter(withLink)
+    .slice(0, 25);
+  // Also allow investigational rows without a link but warn the model to omit
+  // them rather than invent a URL — keep them out of the table list.
+  if (!investigational.length) {
+    return `=== PIPELINE WATCH — INVESTIGATIONAL ONLY (Section 5 table) ===
+No investigational programs with a real NCT / pack URL were available in this run's knowledge base.
+Write ONE honest sentence in Section 5 saying fewer (or zero) linked pipeline programs were found — do NOT invent programs, NCT IDs, or paper URLs to pad the table.
+=== END PIPELINE WATCH ===`;
+  }
 
   const lines = investigational.map((d) => {
     const aliases = Array.isArray(d.aliases) && d.aliases.length ? ` (${d.aliases.join(' / ')})` : '';
-    const bits = [d.status, d.mechanism, d.nct ? `NCT ${d.nct}` : null, d.pmid ? `PMID ${d.pmid}` : null]
-      .filter(Boolean)
-      .join(' · ');
-    return `- **${d.name}**${aliases}: ${bits || d.whyItMatters || 'investigational'}`;
+    const nct = d.nct && /^NCT\d{8}$/i.test(String(d.nct))
+      ? `[${String(d.nct).toUpperCase()}](https://clinicaltrials.gov/study/${String(d.nct).toUpperCase()})`
+      : null;
+    const pmidLink = d.pmid
+      ? `[PMID ${d.pmid}](https://pubmed.ncbi.nlm.nih.gov/${String(d.pmid).replace(/\D/g, '')}/)`
+      : null;
+    const packUrl = d.url && /^https?:\/\//i.test(String(d.url)) ? `[source](${d.url})` : null;
+    const link = nct || packUrl || pmidLink || '(no link — OMIT this row rather than invent a URL)';
+    const bits = [d.status, d.mechanism].filter(Boolean).join(' · ');
+    return `- **${d.name}**${aliases}: ${bits || d.whyItMatters || 'investigational'} · Link: ${link}`;
   }).join('\n');
 
   return `=== PIPELINE WATCH — INVESTIGATIONAL ONLY (Section 5 table) ===
-Put ONLY these agents in the "Pipeline Watch" table. Every drug already FDA-approved for this condition (including olanzapine, quetiapine, lithium, cariprazine/Vraylar, aripiprazole LAI, Lybalvi, lumateperone/Caplyta, lurasidone, etc.) belongs in Section 3 Approved Treatments — NEVER repeat them here. ECT is an approved procedure → Section 6, not Pipeline Watch.
+Put ONLY these agents in the "Pipeline Watch" table (up to ${investigational.length} rows — list as many as fit, max 25). Every drug already FDA-approved for this condition belongs in Section 3 Approved Treatments — NEVER repeat them here. ECT is an approved procedure → Section 6, not Pipeline Watch.
+Use the Link provided (NCT or pack/PubMed URL). NEVER invent an NCT ID or paper URL. If fewer than 25 have real links, that is the honest count — do not pad.
 
 ${lines}
 
@@ -1180,10 +1205,12 @@ CITATION RULES (absolute — the single biggest failure mode of AI in medical re
 - EVERY named entity MUST be a clickable markdown link — no exceptions. This includes treatments, drugs, trials, papers, guidelines, AND non-paper entities: hospitals/centers, clinics, advocacy organizations, patient registries, government bodies (FDA, NIH), and named physicians/experts. The client's hard requirement is "links to everything" — a named entity rendered as plain or bold-only text is a failure.
 - LINK SOURCE PRIORITY (use the first that applies, never invent a deep link to fake a citation):
   1. If a URL for the entity exists in the evidence pack or trials pull, use that exact URL.
-  2. Trials → [NCT… ](https://clinicaltrials.gov/study/NCT01234567); if no NCT, link a ClinicalTrials.gov search: https://clinicaltrials.gov/search?term=<url-encoded terms>.
-  3. Drugs → FDA label on DailyMed search (https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=<drug>) or a PubMed search; guidelines → the issuing society's guideline page if you are certain of it, else a PubMed search (https://pubmed.ncbi.nlm.nih.gov/?term=<url-encoded>).
-  4. Centers/clinics/advocacy orgs/registries/experts → the entity's official website ONLY if you are confident of the exact URL; otherwise link a Google search (https://www.google.com/search?q=<url-encoded name>). A search link is always acceptable and is preferred over guessing a specific page.
-- NEVER fabricate a specific paper URL, DOI, PMID, or deep link to manufacture a citation. For grounded CLAIMS the link must come from the evidence pack (rule above); the search-URL fallback is ONLY for naming/navigation of non-claim entities.
+  2. Trials → [NCT… ](https://clinicaltrials.gov/study/NCT01234567) ONLY for NCT IDs that appear in the live trials pull — never invent an NCT ID; if no NCT, link a ClinicalTrials.gov search: https://clinicaltrials.gov/search?term=<url-encoded terms>.
+  3. Drugs → FDA label on DailyMed search for THAT drug name (https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=<drug>). Prefer DailyMed over a PubMed search when you lack a pack URL for a drug card.
+  4. Guidelines → the issuing society's guideline page if you are certain of it, else a PubMed search (https://pubmed.ncbi.nlm.nih.gov/?term=<url-encoded>).
+  5. Centers/clinics/advocacy orgs/registries/experts → the entity's official website ONLY if you are confident of the exact URL; otherwise link a Google search (https://www.google.com/search?q=<url-encoded name>). A search link is a navigational aid for places/people — NEVER put a Google search URL in REFERENCES or SUPPORTING_EVIDENCE as if it were the paper.
+- NEVER invent a paper URL, DOI, PMID, PubMed ID, journal deep link, or NCT ID. If you lack a pack URL for a claim, use DailyMed search for the drug or OMIT the claim — never fabricate a DOI/PMID to look cited.
+- A Google search URL must NEVER be the sole REFERENCES entry for a drug/paper card and must NEVER be presented as "the paper."
 - Bare URLs are acceptable only if markdown link syntax is impossible; prefer [title](url) always.
 - If the evidence pack does not support a claim, OMIT it or use plain English ("Published figures vary — ask your doctor for local rates."). NEVER write "No grounded evidence in pack" or other internal pipeline phrases.
 - Prefer A+ and A tier journals (NEJM, Lancet, JAMA, BMJ, Nature Medicine, Cochrane, ERJ, AJRCCM, Thorax, Chest) over B/C.
@@ -1196,9 +1223,9 @@ ACCESS-LEVEL HONESTY (critical — many high-impact medical journals are paywall
 - If a claim cannot be supported without overreaching past abstract content, state the limitation in plain English: "Based on the study summary; the full methods/results were not accessible."
 
 NO-INVENTED-PATIENT-FACTS (critical — the second AI flags violations, and a hallucinated clinical detail is the most damaging failure mode):
-- Use ONLY the patient facts explicitly provided in the patient context. Do NOT infer, assume, or invent disease stage, severity, fibrosis/lesion location or extent (e.g. "mild honeycombing in one lobe"), imaging findings, or lab values that were not given. If a detail is not in the profile, do not state it.
+- Use ONLY the patient facts explicitly provided in the patient context. Do NOT infer, assume, or invent disease stage, severity, fibrosis/lesion location or extent (e.g. "mild honeycombing in one lobe"), imaging findings, HRCT pattern, "ground-glass," "traction bronchiectasis," scan dates, or lab values that were not given. If stage / scans / imaging fields are empty or say "unknown / not provided," you MUST NOT invent them — say the information was not provided.
 - GENETIC RESULTS — distinguish three cases and treat them differently: (a) a PROVIDED POSITIVE variant is a fact you state and use to gate gene therapies; (b) a PROVIDED NEGATIVE result (e.g. "genetic testing done, no known pathogenic variant," "no genetic component") is ALSO a legitimate patient-reported fact — you MAY and SHOULD state it plainly (e.g. "Genetic testing did not find a known disease-causing variant"), and you must NOT delete it or inflate it into a specific variant; (c) when NO genetic testing was reported, do NOT convert "not tested" into "tested negative" and do NOT assert any result — only say testing was not reported. The ban is on ASSERTING a negative that was never reported, NOT on stating a negative the patient actually provided.
-- Do NOT invent the identity, drug class, or definition of a medication you do not recognize. If a listed medication (e.g. an abbreviation like "NAD") is ambiguous, write "identity unclear from the information provided — confirm with the prescriber" instead of guessing a definition (never label it a "sunscreen," "supplement," etc. without support).
+- Do NOT invent the identity, drug class, brand name, or definition of a medication you do not recognize. If a listed medication is an ambiguous abbreviation (e.g. "NAD", "NAD+", "TUDCA" only if unclear in context), write "identity unclear from the information provided — confirm with the prescriber" instead of guessing (never invent "sunscreen," "antibiotic," "vitamin," etc. without pack support or an unambiguous known expansion).
 - When you lack a patient-specific fact needed for a statement, either omit the statement or explicitly say the information was not provided — never fabricate to fill the gap.
 - NEVER invent an efficacy or "how well it works" percentage. A percent may appear ONLY when it is the exact statistic reported in a cited study. For a drug's effectiveness, report the REAL measured outcome from the evidence pack (e.g. "slowed decline by ~110 mL/year", "cut flares roughly in half") — do NOT convert a study result into a made-up 0-100 score. If no measured outcome is available, say so plainly rather than inventing a number.
 
@@ -1341,11 +1368,12 @@ Your output MUST include the following 5 sections IN THIS ORDER, and nothing els
 
 **This single section MUST cover ALL FOUR access pathways.** Pull directly from the LIVE CLINICAL TRIALS PULL block below. Do NOT list FDA-approved standard-of-care drugs here — Section 3 owns those.
 
-**A. Recruiting trials (top 3 only):** Markdown table —
+**A. Recruiting trials:** Prefer up to **25** rows from the LIVE CLINICAL TRIALS PULL when that many real NCTs exist. If fewer recruiting trials have working NCT links, that is the honest count — never invent NCT IDs. Markdown table —
 | NCT ID | Phase | Title | Top Center? | Accepting? | URL |
 |---|---|---|---|---|---|
+Every URL cell MUST be https://clinicaltrials.gov/study/NCT######## from the pull.
 
-**B. Open-Label Extension (OLE):** Up to 3 lines — NCT, sponsor, status. Plain English first: "After the main trial ends, participants may keep the study drug." If none: one sentence + suggest asking trial PI about OLE. DO NOT repeat an NCT here that you already listed in the Recruiting trials table above — each trial appears in ONE pathway only. If a recruiting study is itself an OLE, keep it in the recruiting table and note "(open-label extension)" there instead of re-listing it here.
+**B. Open-Label Extension (OLE):** Up to 5 lines — NCT, sponsor, status. Plain English first: "After the main trial ends, participants may keep the study drug." If none: one sentence + suggest asking trial PI about OLE. DO NOT repeat an NCT here that you already listed in the Recruiting trials table above — each trial appears in ONE pathway only. If a recruiting study is itself an OLE, keep it in the recruiting table and note "(open-label extension)" there instead of re-listing it here.
 
 **C. Expanded Access:** One bullet per EA record, or ONE sentence if zero.
 
@@ -1354,7 +1382,7 @@ Your output MUST include the following 5 sections IN THIS ORDER, and nothing els
 ## 5. Pipeline Watch (Investigational Programs Only)
 **Do NOT write drug-repurposing candidates or COMBO blocks here** — detailed drug cards appear below this report.
 
-Table only — **max 5 rows**, best match to this patient:
+Table — up to **25 rows** from the PIPELINE WATCH block (real KB / evidence programs with NCT or pack URL). If fewer programs have real links, say so honestly — NEVER invent programs or NCT IDs to pad to 25:
 | Drug / Program | Phase / Status | Plain-English Summary | Link |
 
 Rules:
@@ -1362,7 +1390,7 @@ Rules:
 - **NEVER list already-approved standard-of-care** (olanzapine, quetiapine, lithium, cariprazine/Vraylar, aripiprazole LAI, Lybalvi, lurasidone, lumateperone, etc.) — Section 3 owns those.
 - **NEVER list ECT here** — Section 6 owns neuromodulation (ECT, TMS).
 - Pediatric-only trials on an adult patient: note age exclusion in the Summary column.
-- Every Link cell MUST be a clickable markdown link [NCT01234567](https://clinicaltrials.gov/study/NCT01234567) — never bare "NCT…" text or label-only "DailyMed".
+- Every Link cell MUST be a clickable markdown link [NCT01234567](https://clinicaltrials.gov/study/NCT01234567) or a pack/PubMed URL from the PIPELINE WATCH block — never bare "NCT…" text, never a Google search, never an invented DOI.
 - Use the PIPELINE WATCH block below when present.
 
 
@@ -1566,7 +1594,7 @@ ABSOLUTE RULES (violations are failures):
 
 STRUCTURE (use these exact headings):
 ## Recruiting trials for you
-Rank the most promising 5-8 interventional trials. For each, use the TRIAL block format below.
+List up to **25** interventional trials from the pull that have a working NCT URL (aim for as many as the pull honestly supports — if fewer than 25 exist, that is fine; never invent NCTs). For each, use the TRIAL block format below.
 
 ## Expanded Access / Compassionate Use
 ${eaCount > 0
@@ -2546,7 +2574,7 @@ ${SHARED_GUARDRAILS}
         const avoidBlock = avoidList.length
           ? `\n\nDO NOT REPEAT any of these already-suggested candidates (propose only NEW, different drugs/supplements): ${avoidList.slice(0, 60).join(', ')}.`
           : '';
-        return `Produce UP TO ${count} CANDIDATE blocks, and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nEVIDENCE BAR: prefer candidates you can back with a real paper from the evidence pack (a working markdown link in REFERENCES) — quality over quantity, and NEVER invent a citation. BUT a compelling, mechanistically sound idea with no published trial for this condition is still valuable (e.g. an unpatentable supplement like magnesium L-threonate that no one will fund a trial for) — include it, set EVIDENCE_STRENGTH: MECHANISTIC_ONLY, and state plainly there is no human data for this condition yet. Cite the mechanism/pathway paper if one exists. Aim for ${count}; do not pad with weak duplicates.${avoidBlock}\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the CANDIDATE blocks.`;
+        return `Produce UP TO ${count} CANDIDATE blocks, and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nEVIDENCE BAR (Hard 25 — REAL links only): every CANDIDATE MUST end REFERENCES with at least one REAL clickable link — an exact URL from the evidence pack, a ClinicalTrials.gov /study/NCT######## that appears in the trials pull, OR a DailyMed search for THAT drug (https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=<drug>). NEVER invent a DOI, PMID, PubMed URL, journal deep link, or NCT ID. A Google search URL must NEVER appear in REFERENCES as "the paper." Prefer pack citations; if none exist for a mechanistically sound idea, set EVIDENCE_STRENGTH: MECHANISTIC_ONLY, say plainly there is no human data yet, and use DailyMed for the drug. Aim for ${count}; do not pad with weak duplicates or fake links.${avoidBlock}\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the CANDIDATE blocks.`;
       }
       if (mode === 'repurpose' && phase === 'synthesize' && half === 'front') {
         return 'Produce Part 1 only: ranked CANDIDATE blocks (mechanistic/preclinical first, then published-support). No combinations or summary.';
