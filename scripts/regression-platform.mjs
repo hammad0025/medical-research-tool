@@ -13,7 +13,14 @@ import {
   REPURPOSE_LANE_COUNT,
   REPURPOSE_PER_LANE,
   countCandidateBlocks,
-  assessRepurposeQuality
+  assessRepurposeQuality,
+  isRealCitationUrl,
+  candidateHasRealCitation,
+  distinctLinkedCandidateCount,
+  appendRegistryFill,
+  dailyMedSearchUrl,
+  buildRegistryFillCandidate,
+  REPURPOSE_BACKFILL_MAX_PASSES
 } from '../lib/repurpose-quality.js';
 import {
   buildGatherFingerprint,
@@ -49,7 +56,12 @@ import {
   assertNoForeignEntities,
   detectStructuralLeak,
   auditCardFields,
-  reattachEntityLinks
+  reattachEntityLinks,
+  sanitizeFabricatedEfficacyScores,
+  demoteGoogleAsPaperCitations,
+  isFabricatedEfficacyScore,
+  sanitizeMarkdownLinks,
+  collectAllowedUrls
 } from '../lib/report-polish.js';
 import {
   buildGroundingIndex,
@@ -210,11 +222,25 @@ const slugs = await listKbs();
 if (slugs.length >= 11) pass(`${slugs.length} curated KB conditions registered`);
 else fail(`Only ${slugs.length} KBs — expected ≥11`);
 
-// 11. Quality assessor sanity
-const q = assessRepurposeQuality(['CANDIDATE: a\n', 'CANDIDATE: b\nCANDIDATE: c\n', 'CANDIDATE: d\n'.repeat(5)]);
-if (q.total >= 8 && !q.ok) pass(`Quality assessor: ${q.total} candidates flagged below floor (${REPURPOSE_MIN_TOTAL})`);
-else if (q.ok) pass(`Quality assessor OK at ${q.total} candidates`);
-else fail('Quality assessor broken');
+// 11. Quality assessor sanity — Hard 25 requires ≥25 REAL-linked cards
+{
+  const short = assessRepurposeQuality([
+    'CANDIDATE: a\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=a)\n',
+    'CANDIDATE: b\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=b)\n'
+  ]);
+  if (!short.ok && short.linked === 2 && short.shortfall === 23) {
+    pass(`Quality assessor: ${short.linked} REAL-linked candidates flagged below Hard-25 floor`);
+  } else {
+    fail(`Quality assessor broken (ok=${short.ok} linked=${short.linked} shortfall=${short.shortfall})`);
+  }
+  const blocks = Array.from({ length: 25 }, (_, i) => {
+    const name = `Candidate${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + (i % 26))}`;
+    return `CANDIDATE: ${name}\nREFERENCES: [DailyMed](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=${name})`;
+  }).join('\n\n');
+  const full = assessRepurposeQuality([blocks]);
+  if (full.ok && full.linked >= 25) pass(`Quality assessor OK at ${full.linked} REAL-linked candidates`);
+  else fail(`Quality assessor should pass Hard 25 (ok=${full.ok} linked=${full.linked})`);
+}
 
 // 12. Infra (local env — warn only)
 const infra = getInfraStatus();
@@ -1186,17 +1212,16 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
 }
 
 // ===========================================================================
-// FIX 2 — repurpose count is a floor, not a ceiling. Retry floor raised to 7;
-// bounded backfill tops up a short list toward target without duplicates; a
-// genuinely full list does not trigger backfill (honesty: no padding).
+// FIX 2 — Hard 25 REAL-link floor. Retry floor 7; backfill threshold 25;
+// multi-pass + registry fill; Google alone does not count as a citation.
 // ===========================================================================
 {
-  const floorOk = REPURPOSE_MIN_PER_LANE === 7 && REPURPOSE_BACKFILL_THRESHOLD === 22;
+  const floorOk = REPURPOSE_MIN_PER_LANE === 7 && REPURPOSE_BACKFILL_THRESHOLD === 25;
   const lane5 = Array.from({ length: 5 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + i)}`).join('\n');
   const lane8 = Array.from({ length: 8 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + i)}`).join('\n');
   const retry5 = countCandidateBlocks(lane5) < REPURPOSE_MIN_PER_LANE;
   const retry8 = countCandidateBlocks(lane8) < REPURPOSE_MIN_PER_LANE;
-  if (floorOk && retry5 && !retry8) pass('Fix 2: retry floor is 7 (a 5-candidate lane retries, an 8-candidate lane does not); backfill threshold 22');
+  if (floorOk && retry5 && !retry8) pass('Fix 2: retry floor is 7; Hard-25 backfill threshold is 25');
   else fail(`Fix 2: retry-floor regression (floor=${floorOk} retry5=${retry5} retry8=${retry8})`);
 
   const mk = (n) => Array.from({ length: n }, (_, i) =>
@@ -1205,12 +1230,53 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
   const distinct = distinctCandidateCount(dupSome);
   const namesOk = candidateNamesFromText(dupSome).length === 21;
   const backfillNeeded = needsBackfill(distinct);
-  if (distinct === 20 && namesOk && backfillNeeded) pass('Fix 2: distinctCandidateCount ignores a duplicate (20), needsBackfill fires below the 22 target');
+  if (distinct === 20 && namesOk && backfillNeeded) pass('Fix 2: distinctCandidateCount ignores a duplicate (20), needsBackfill fires below the 25 target');
   else fail(`Fix 2: distinct/backfill regression (distinct=${distinct} names=${namesOk} needBackfill=${backfillNeeded})`);
 
   const fullList = mk(25);
-  if (!needsBackfill(distinctCandidateCount(fullList))) pass('Fix 2: a genuinely full list (25 distinct) does NOT trigger backfill — a truthful count beats padding');
+  if (!needsBackfill(distinctCandidateCount(fullList))) pass('Fix 2: a genuinely full list (25 distinct) does NOT trigger backfill');
   else fail('Fix 2: full list wrongly triggered backfill');
+
+  if (REPURPOSE_BACKFILL_MAX_PASSES >= 3) pass(`Fix 2: multi-pass backfill cap is ${REPURPOSE_BACKFILL_MAX_PASSES}`);
+  else fail('Fix 2: BACKFILL_MAX_PASSES should be ≥3');
+
+  // Google alone never counts toward Hard 25
+  const googleOnly = `CANDIDATE: MagicalPill
+REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
+  if (distinctLinkedCandidateCount(googleOnly) === 0 && !isRealCitationUrl('https://www.google.com/search?q=x')) {
+    pass('Hard 25: Google-search-only does NOT count as a REAL citation');
+  } else {
+    fail('Hard 25: Google-search incorrectly counted as real citation');
+  }
+
+  const dailyOk = isRealCitationUrl(dailyMedSearchUrl('pirfenidone'));
+  const nctOk = isRealCitationUrl('https://clinicaltrials.gov/study/NCT05321069');
+  if (dailyOk && nctOk) pass('Hard 25: DailyMed + CT.gov study URLs count as REAL citations');
+  else fail('Hard 25: DailyMed/CT.gov should be real citations');
+
+  // Registry fill uses DailyMed only — never invents a paper URL
+  const shortText = ['AlphaDrug', 'BetaDrug', 'GammaDrug'].map((name) =>
+    `CANDIDATE: ${name}\nREFERENCES: [d](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=${name})`
+  ).join('\n\n');
+  const filled = appendRegistryFill(shortText, [
+    { name: 'Metformin', mechanism: 'AMPK' },
+    { name: 'Spironolactone', mechanism: 'MR antagonist' }
+  ], { condition: 'IPF', target: 5 });
+  if (
+    filled.filled === 2 &&
+    filled.linked === 5 &&
+    /dailymed\.nlm\.nih\.gov/.test(filled.text) &&
+    !/pubmed\.ncbi|doi\.org\/10\./i.test(buildRegistryFillCandidate({ name: 'Metformin' }))
+  ) {
+    pass('Hard 25: registry fill reaches target with DailyMed-only citations (no invented paper URL)');
+  } else {
+    fail(`Hard 25: registry fill regression (filled=${filled.filled} linked=${filled.linked})`);
+  }
+
+  const clientHasMultiPass = /BACKFILL_MAX_PASSES\s*=\s*3/.test(html) && /registryFilled/.test(html);
+  const clientHasRealGate = /isGoogleSearchCitation|isGoogleUrl/.test(html) && /!isGoogle/.test(html);
+  if (clientHasMultiPass && clientHasRealGate) pass('Hard 25: index.html multi-pass backfill + Google-excluded citation gate present');
+  else fail(`Hard 25: client wiring missing (multi=${clientHasMultiPass} gate=${clientHasRealGate})`);
 }
 
 // ===========================================================================
@@ -1231,8 +1297,9 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
 
 // ===========================================================================
 // FIX 4 — post-finalize link audit re-attaches a fallback link to a named
-// entity whose line lost every link, ignores percentages/doses, and preserves
-// (but logs) center-table rows per the CENTER-LINK RULE.
+// entity whose line lost every link. Prefers DailyMed for drug-like names
+// (never Google-as-paper for Hard 25); ignores percentages/doses; preserves
+// center-table rows per the CENTER-LINK RULE.
 // ===========================================================================
 {
   const text = [
@@ -1241,10 +1308,13 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
     '- See [the trial](https://clinicaltrials.gov/study/NCT05321069) for details.'
   ].join('\n');
   const { text: relinked, reattached } = reattachEntityLinks(text);
-  const gotLink = /\[\*\*BI 1015550\*\*\]\(https:\/\/www\.google\.com\/search/.test(relinked);
+  const gotDailyMed = /\[\*\*BI 1015550\*\*\]\(https:\/\/dailymed\.nlm\.nih\.gov\/dailymed\/search/.test(relinked);
   const keptLinkedLine = relinked.includes('[the trial](https://clinicaltrials.gov/study/NCT05321069)');
-  if (gotLink && reattached.includes('BI 1015550') && keptLinkedLine) pass('Fix 4: link audit re-attaches a fallback search link to a bolded entity that lost its link; leaves already-linked lines untouched');
-  else fail(`Fix 4: link audit regression (gotLink=${gotLink} kept=${keptLinkedLine})`);
+  if (gotDailyMed && reattached.includes('BI 1015550') && keptLinkedLine) {
+    pass('Fix 4: link audit re-attaches DailyMed (not Google-as-paper) to a bolded drug left without a link');
+  } else {
+    fail(`Fix 4: link audit regression (gotDailyMed=${gotDailyMed} kept=${keptLinkedLine})`);
+  }
 
   const noise = '- How well it works was **70%**, at a **150 mg** dose.';
   const noiseOut = reattachEntityLinks(noise).text;
@@ -1254,6 +1324,95 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
   const tableUntouched = tableOut === tableRow && skipped.includes('Mayo Clinic');
   if (noiseUntouched && tableUntouched) pass('Fix 4: link audit ignores percentages/doses and does NOT auto-link center-table rows (CENTER-LINK RULE) but logs them');
   else fail(`Fix 4: link-audit conservatism regression (noise=${noiseUntouched} table=${tableUntouched})`);
+}
+
+// ===========================================================================
+// Hard 25 extras — fabricated efficacy strip; Google-as-paper demote;
+// invented deep links stripped by sanitize; Pipeline Watch up to 25.
+// ===========================================================================
+{
+  if (isFabricatedEfficacyScore('48%') && isFabricatedEfficacyScore('45% — slows decline')) {
+    pass('Efficacy sanitize: lone NN% / short-fluff scores are detected as fabricated');
+  } else {
+    fail('Efficacy sanitize: fabricated score detection failed');
+  }
+  if (!isFabricatedEfficacyScore('Slowed FVC decline by about 110 mL/year versus placebo [ASCEND](https://pubmed.ncbi.nlm.nih.gov/24836310/)')) {
+    pass('Efficacy sanitize: real endpoint + source link is kept');
+  } else {
+    fail('Efficacy sanitize: wrongly flagged a real outcome');
+  }
+  const dirty = [
+    'EFFICACY: 48%',
+    'EFFICACY: **50**% — works well',
+    'EFFICACY: Slowed FVC decline by about 110 mL/year versus placebo'
+  ].join('\n');
+  const cleaned = sanitizeFabricatedEfficacyScores(dirty);
+  if (
+    /No measured efficacy number/.test(cleaned) &&
+    /110 mL\/year/.test(cleaned) &&
+    !/^EFFICACY:\s*48%/m.test(cleaned)
+  ) {
+    pass('Efficacy sanitize: fabricated scores rewritten; real endpoints preserved');
+  } else {
+    fail('Efficacy sanitize: rewrite regression');
+  }
+
+  const googlePaper = 'REFERENCES: [the paper](https://www.google.com/search?q=fake+doi)\nSUPPORTING_EVIDENCE: only [g](https://www.google.com/search?q=x)';
+  const demoted = demoteGoogleAsPaperCitations(googlePaper);
+  if (!/\]\(https:\/\/www\.google\.com\/search/.test(demoted)) {
+    pass('Google-as-paper: REFERENCES-only Google links demoted to plain text');
+  } else {
+    fail('Google-as-paper demote failed');
+  }
+
+  const invented = 'See [Hallucinated paper](https://pubmed.ncbi.nlm.nih.gov/99999999/) and [fake doi](https://doi.org/10.1234/fake.doi) for proof.';
+  const allowed = collectAllowedUrls({ groundedForPrompt: [{ url: 'https://pubmed.ncbi.nlm.nih.gov/24836310/' }] }, null);
+  const sanitized = sanitizeMarkdownLinks(invented, allowed);
+  const keptReal = sanitizeMarkdownLinks(
+    'See [ASCEND](https://pubmed.ncbi.nlm.nih.gov/24836310/) kept.',
+    allowed
+  );
+  if (
+    !/\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/99999999/.test(sanitized) &&
+    !/\]\(https:\/\/doi\.org\/10\.1234\/fake\.doi/.test(sanitized) &&
+    /\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/24836310/.test(keptReal)
+  ) {
+    pass('Invented PubMed/DOI deep links stripped when not in evidence pack; pack PMID kept');
+  } else {
+    fail('Invented URL sanitize failed');
+  }
+
+  if (/up to \*\*25\*\* rows|max 25|up to \$\{investigational\.length\}/.test(researchSrc) ||
+      /up to \*\*25\*\* rows from the PIPELINE WATCH/.test(researchSrc)) {
+    pass('Pipeline Watch prompt raised toward 25 real linked rows');
+  } else {
+    fail('Pipeline Watch still capped at max 5');
+  }
+  if (/List up to \*\*25\*\* interventional trials/.test(researchSrc)) {
+    pass('Trials prompt asks for up to 25 real NCT-linked trials');
+  } else {
+    fail('Trials prompt still limited to 5-8');
+  }
+  if (/NEVER invent a paper URL|NEVER invent a DOI|Google search URL must NEVER/.test(researchSrc)) {
+    pass('Prompts ban invented paper URLs / Google-as-paper citations');
+  } else {
+    fail('Prompt invent-URL ban missing');
+  }
+  if (/honeycombing|identity unclear|NAD/.test(researchSrc)) {
+    pass('NAD / imaging NO-INVENTED-PATIENT-FACTS guardrails present');
+  } else {
+    fail('NAD/imaging guardrails missing');
+  }
+  if (/DEMO_TALKING_POINTS|talking points/i.test(readFileSync(new URL('../docs/DEMO_TALKING_POINTS.md', import.meta.url), 'utf8'))) {
+    pass('docs/DEMO_TALKING_POINTS.md present for operator demo notes');
+  } else {
+    fail('DEMO_TALKING_POINTS.md missing');
+  }
+  if (/Links removed|already removed from this report|isUrl:\s*false/.test(html)) {
+    pass('Validator panel softens copy and never clickifies stripped fake URLs');
+  } else {
+    fail('Validator panel still clickifies hallucinated URLs');
+  }
 }
 
 // ===========================================================================
