@@ -711,6 +711,24 @@
           if (!cur) return;
           const field = key.replace(':', '').toLowerCase();
           cur[field] = clampToCompleteSentence(collectBlock(text, i, TREATMENT_KEYS));
+          // Post-parse: strip lone fabricated EFFICACY "NN%" scores without a
+          // real endpoint / source link (leftover 45%/48%/50% meter residue).
+          if (field === 'efficacy') {
+            const v = String(cur.efficacy || '').replace(/\*/g, '').trim();
+            const hasLink = /\[[^\]]+\]\(https?:\/\/[^)]+\)/i.test(v);
+            const realEndpoint = /\b(mL\/?(?:year|yr)|FVC|FEV1|relapses?|episodes?|vs\.?\s*placebo|slowed\s+|reduced\s+by\s+\d)/i.test(v);
+            const studyish = /\b(patients?|weeks?|months?|study|trial|placebo|cohort)\b/i.test(v);
+            const lone = /^\s*\d{1,3}\s*%\s*$/.test(v);
+            const shortFluff = (() => {
+              const m = v.match(/^\s*\d{1,3}\s*%\s*[—–-]\s*(.+)$/i);
+              if (!m) return false;
+              const rest = m[1].trim();
+              return rest.length > 0 && rest.length < 70 && !/\d/.test(rest) && !studyish;
+            })();
+            if (!hasLink && !realEndpoint && (lone || shortFluff)) {
+              cur.efficacy = 'No measured efficacy number in the sources gathered here — ask your doctor or see the linked guideline. Do not treat a made-up percentage as a study result.';
+            }
+          }
           // EFFICACY is no longer a fabricated 0-100 rating — it is the real,
           // sourced outcome sentence (Dorothy: "those %s are made-up; show the
           // real study result"). It renders as prose, so we do NOT parse a
@@ -2103,20 +2121,27 @@
         const candidates = useMemo(() => {
           const cond = (patient.condition || '').trim().toLowerCase();
           if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) return [];
-          // Mirror of REPURPOSE_SOFT_CAP in lib/repurpose-quality.js. index.html
-          // is a no-build static page and cannot import the module.
+          // Soft cap mirrors REPURPOSE_SOFT_CAP / Hard-25 floor in
+          // lib/repurpose-quality.js. index.html is a no-build static page.
           const SOFT_CAP = 25;
-          // A candidate is "evidence-cited" if it carries at least one real
-          // citation (a URL in REFERENCES or SUPPORTING_EVIDENCE; server-side
-          // sanitization already stripped any link not in the evidence pack /
-          // trials pull). We do NOT drop uncited candidates: a mechanistically
-          // promising but never-trialed idea — e.g. an unpatentable supplement
-          // like magnesium L-threonate that no one will fund a trial for — is
-          // exactly what repurposing should surface. Instead we KEEP them, tag
-          // them `_uncited`, and partitionCandidates routes them into the
-          // clearly-labeled "logic-based" (mechanistic hypothesis) section.
+          // REAL citation gate (Hard 25): Google-search-only does NOT count.
+          // Accept pack/CT.gov/DailyMed/any non-Google http(s) URL that survived
+          // server-side sanitize + dead-link probe.
+          const isGoogleSearchCitation = (url) =>
+            /^https?:\/\/(www\.)?google\.[a-z.]+\/search\b/i.test(String(url || ''));
+          const extractCitationUrls = (blob) => {
+            const urls = [];
+            const s = String(blob || '');
+            const mdRe = /\[[^\]]*\]\((https?:\/\/[^)]+)\)/g;
+            let m;
+            while ((m = mdRe.exec(s)) !== null) urls.push(m[1].trim().replace(/[.,;)]+$/, ''));
+            const bareRe = /(?<![(\[])(https?:\/\/[^\s)\]"'<>]+)/g;
+            while ((m = bareRe.exec(s)) !== null) urls.push(m[1].trim().replace(/[.,;)]+$/, ''));
+            return urls;
+          };
           const hasCitation = (c) =>
-            /https?:\/\//i.test(`${c.references || ''} ${c.supporting_evidence || ''}`);
+            extractCitationUrls(`${c.references || ''} ${c.supporting_evidence || ''}`)
+              .some((u) => /^https?:\/\//i.test(u) && !isGoogleSearchCitation(u));
           let parsed = parseCandidates(repurposeText)
             .map((c) => ({ ...c, _uncited: !hasCitation(c) }));
           const excluded = evidenceSummary?.excludedAgents || [];
@@ -2129,9 +2154,8 @@
               return !blockNames.some((ex) => name.includes(ex) || ex.includes(name.replace(/[^a-z0-9]/g, '')));
             });
           }
-          // Cited candidates rank ahead of uncited hypotheses so the latter
-          // never crowd evidence-backed ideas out of the soft cap. (Stable:
-          // parseCandidates already de-duped and ranked by confidence.)
+          // Cited (REAL-linked) candidates rank ahead of uncited hypotheses so
+          // the latter never crowd evidence-backed ideas out of the soft cap.
           const ranked = [
             ...parsed.filter((c) => !c._uncited),
             ...parsed.filter((c) => c._uncited)
@@ -2619,15 +2643,12 @@
                   });
                 }
 
-                // Backfill/top-up (Fix 2). Rare conditions (e.g. "cerebellar
-                // ataxia variant 34" with only a thin dynamic KB) reliably land
-                // at ~20 candidates. After cross-lane dedup + excluded-agent
-                // filtering, if the DISTINCT grounded count is short of target,
-                // make ONE more attempt for NON-DUPLICATE grounded candidates,
-                // passing the already-used names so the model can't repeat them.
-                // HONESTY: we never pad — if genuine grounded ideas run out the
-                // count simply stays low and the "fewer drug ideas" banner shows.
-                const BACKFILL_THRESHOLD = 22;
+                // Hard-25 REAL-link floor. Rare / thin-KB conditions used to
+                // land at ~20–21. Multi-pass AI backfill (up to 3 extra calls
+                // with avoidCandidates), then registry fill with MECHANISTIC_ONLY
+                // + DailyMed-only citations (never invent paper URLs).
+                const BACKFILL_THRESHOLD = 25;
+                const BACKFILL_MAX_PASSES = 3;
                 const candNamesOf = (txt) =>
                   (String(txt || '').match(/^CANDIDATE:\s*(.+)$/gim) || [])
                     .map((l) => l.replace(/^CANDIDATE:\s*/i, '').replace(/\*/g, '').trim())
@@ -2636,6 +2657,60 @@
                   .replace(/\(.*?\)/g, ' ')
                   .split(/[—–\-:|/]|\d/)[0]
                   .toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+                const isGoogleUrl = (url) =>
+                  /^https?:\/\/(www\.)?google\.[a-z.]+\/search\b/i.test(String(url || ''));
+                const urlsInBlob = (blob) => {
+                  const out = [];
+                  const s = String(blob || '');
+                  const mdRe = /\[[^\]]*\]\((https?:\/\/[^)]+)\)/g;
+                  let m;
+                  while ((m = mdRe.exec(s)) !== null) out.push(m[1]);
+                  const bareRe = /(?<![(\[])(https?:\/\/[^\s)\]"'<>]+)/g;
+                  while ((m = bareRe.exec(s)) !== null) out.push(m[1]);
+                  return out;
+                };
+                const blockHasRealLink = (block) =>
+                  urlsInBlob(block).some((u) => /^https?:\/\//i.test(u) && !isGoogleUrl(u));
+                const splitCandBlocks = (txt) =>
+                  String(txt || '').split(/(?=^CANDIDATE:\s)/gim)
+                    .map((p) => p.trim()).filter((p) => /^CANDIDATE:/im.test(p));
+                const distinctLinkedCount = (txt) => {
+                  const keys = new Set();
+                  for (const block of splitCandBlocks(txt)) {
+                    if (!blockHasRealLink(block)) continue;
+                    const nm = (block.match(/^CANDIDATE:\s*(.+)$/im) || [])[1];
+                    const k = dedupKey(nm);
+                    if (k) keys.add(k);
+                  }
+                  return keys.size;
+                };
+                const dailyMedFor = (drugName) =>
+                  `https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=${encodeURIComponent(String(drugName || '').trim())}`;
+                const buildRegistryFillBlock = (drug, conditionLabel) => {
+                  const name = String(drug?.name || drug || '').trim();
+                  if (!name) return '';
+                  const mechanism = String(drug?.mechanism || '').trim();
+                  const cond = conditionLabel || 'this condition';
+                  const dm = dailyMedFor(name);
+                  return `CANDIDATE: ${name}
+CLASS: FDA-tracked medication (library fill)
+APPROVED_FOR: Other FDA-listed uses (see DailyMed) — not established for ${cond}
+WHAT_IT_DOES: An already-marketed medicine from the curated drug library; see DailyMed for its labeled uses.
+WHY_FOR_THIS_CONDITION: Library fill for a thin evidence pack — pathway overlap is a hypothesis only.
+MECHANISM_TARGET: ${mechanism || 'See DailyMed label for named targets'}
+REPURPOSE_RATIONALE:
+• FDA-tracked medication from the open drug library${mechanism ? ` (${mechanism})` : ''}.
+• No published trial for ${cond} in this run's evidence pack — labeled MECHANISTIC_ONLY on purpose.
+• Discuss with a physician; this is an educational hypothesis, not a recommendation.
+EVIDENCE_STRENGTH: MECHANISTIC_ONLY
+SUPPORTING_EVIDENCE: No human study for ${cond} was available in the grounded pack for this run. The only source attached is the FDA DailyMed search for this drug name — not a fabricated paper.
+REFERENCES: [DailyMed label search — ${name}](${dm})
+EFFICACY_HYPOTHESIS: No human efficacy results yet for this condition — the reason to list it is library/pathway overlap, not a measured benefit.
+SAFETY: 50% — labeled safety is on DailyMed; condition-specific safety is unknown without studies
+CONFIDENCE: 25% — mechanistic library fill only; not backed by a trial for this condition
+PATIENT_SPECIFIC_RISKS: Confirm identity, dose, and interactions with the prescribing physician before considering any change.
+HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this drug worth watching in the literature — do not start it based on this list alone.`;
+                };
                 const excludedForBackfill = (gathered.evidence?.excludedAgents || [])
                   .flatMap((x) => [x.name, ...(x.aliases || [])]
                     .map((n) => String(n || '').toLowerCase().trim()).filter(Boolean));
@@ -2647,25 +2722,32 @@
                 const laneTextNow = () => laneResults
                   .filter((s) => s.status === 'fulfilled' && s.value)
                   .map((s) => textOf(s.value)).join('\n\n');
-                const usedNames = candNamesOf(laneTextNow());
-                const distinctGrounded = new Set(
-                  usedNames.filter((n) => !isExcludedName(n)).map(dedupKey).filter(Boolean)
-                );
-                let backfilled = false;
-                if (distinctGrounded.size > 0 && distinctGrounded.size < BACKFILL_THRESHOLD) {
-                  updateStep('synth', { status: 'running', detail: 'Looking for a few more drug ideas…' });
+                let backfillPasses = 0;
+                let registryFilled = 0;
+                for (let pass = 0; pass < BACKFILL_MAX_PASSES; pass++) {
+                  const usedNames = candNamesOf(laneTextNow()).filter((n) => !isExcludedName(n));
+                  const linkedNow = distinctLinkedCount(laneTextNow());
+                  if (linkedNow <= 0 || linkedNow >= BACKFILL_THRESHOLD) break;
+                  updateStep('synth', {
+                    status: 'running',
+                    detail: pass === 0
+                      ? 'Looking for more drug ideas with real source links…'
+                      : `Still short of 25 linked ideas — searching again (${pass + 1}/${BACKFILL_MAX_PASSES})…`
+                  });
                   const laneCounts = laneResults.map((s) =>
                     s.status === 'fulfilled' && s.value ? countCandidateBlocks(textOf(s.value)) : 0);
                   const weakestLane = laneCounts.indexOf(Math.min(...laneCounts));
                   const backfill = await callResearch({
                     ...synthBase, half: 'front',
-                    batchLane: weakestLane >= 0 ? weakestLane : 0,
+                    batchLane: weakestLane >= 0 ? weakestLane : (pass % LANE_COUNT),
                     batchSize: PER_LANE,
                     avoidCandidates: usedNames
                   }).catch(() => null);
                   if (backfill && countCandidateBlocks(textOf(backfill)) > 0) {
                     laneResults = [...laneResults, { status: 'fulfilled', value: backfill }];
-                    backfilled = true;
+                    backfillPasses += 1;
+                  } else {
+                    break;
                   }
                 }
 
@@ -2679,9 +2761,40 @@
                   throw new Error(firstErr?.reason?.message || 'Drug idea generation failed — please run it again.');
                 }
 
-                const frontText = okFronts.map(textOf).join('\n\n');
+                let frontText = okFronts.map(textOf).join('\n\n');
+                // Registry fill (last resort): unused FDA-tracked drugs with
+                // DailyMed-only REAL links — never invent a paper URL.
+                if (distinctLinkedCount(frontText) < BACKFILL_THRESHOLD) {
+                  const usedKeys = new Set(
+                    candNamesOf(frontText).map(dedupKey).filter(Boolean)
+                  );
+                  const screen = gathered.evidence?.repurposeDrugScreen || {};
+                  const pool = [
+                    ...(screen.fillPool || []),
+                    ...((gathered.evidence?.repurposeDrugPool || []).map((d) =>
+                      typeof d === 'string' ? { name: d } : d
+                    )),
+                    ...(screen.selectedNames || []).map((n) => ({ name: n }))
+                  ];
+                  const conditionLabel = runPatient.condition.trim() || screen.condition || 'this condition';
+                  const seenPool = new Set();
+                  for (const drug of pool) {
+                    if (distinctLinkedCount(frontText) >= BACKFILL_THRESHOLD) break;
+                    const name = String(drug?.name || '').trim();
+                    const k = dedupKey(name);
+                    if (!k || usedKeys.has(k) || seenPool.has(k) || isExcludedName(name)) continue;
+                    seenPool.add(k);
+                    const block = buildRegistryFillBlock(drug, conditionLabel);
+                    if (!block || !blockHasRealLink(block)) continue;
+                    frontText = frontText ? `${frontText.trim()}\n\n${block}` : block;
+                    usedKeys.add(k);
+                    registryFilled += 1;
+                  }
+                }
+
                 const backText = back ? textOf(back) : '';
                 const totalCandidates = countCandidateBlocks(frontText);
+                const linkedCandidates = distinctLinkedCount(frontText);
                 const sumTok = (key) =>
                   okFronts.reduce((n, r) => n + (r.usage?.[key] || 0), 0) + (back?.usage?.[key] || 0);
                 data = {
@@ -2695,14 +2808,14 @@
                   validationMismatch: back?.validationMismatch || okFronts[0]?.validationMismatch || null,
                   repurposeQuality: {
                     totalCandidates,
+                    linkedCandidates,
                     target: TARGET_TOTAL,
                     lanesRetried: retryLanes.length,
-                    backfilled,
-                    ok: totalCandidates >= 12
+                    backfilled: backfillPasses > 0,
+                    backfillPasses,
+                    registryFilled,
+                    ok: linkedCandidates >= TARGET_TOTAL
                   }
-                  // NB: `totalCandidates` is the RAW lane output; the displayed
-                  // set is gated to grounded candidates and capped at the soft
-                  // cap in the `candidates` memo below.
                 };
               } else {
                 data = await callResearch({ mode, patient, audience, phase: 'synthesize', ...extra });
@@ -6509,6 +6622,12 @@
         const hallucinated = p.hallucinatedCitations || [];
         const confirmed = p.confirmed || [];
         const missing = p.missingPerspectives || [];
+        // Soften copy when the second AI flagged bad URLs that the pipeline
+        // already stripped (sanitize + dead-link probe). Never render those
+        // fake URLs as clickable anchors in the panel.
+        const strippedNote = hallucinated.length > 0
+          ? 'Any made-up or broken citation links the second AI flagged were removed from the report before you see it — they are listed below as plain text only (not clickable).'
+          : null;
         return (
           <div style={{ ...panelStyle, borderLeft: `4px solid ${agreementColor(p.agreement)}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
@@ -6557,12 +6676,22 @@
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '0.5rem', marginTop: '0.9rem' }}>
               <ValidatorStat label="Backed up"     n={confirmed.length}   color={theme.green}  Icon={CheckCircle} />
-              <ValidatorStat label="Made-up sources" n={hallucinated.length} color={theme.red} Icon={XCircle} />
+              <ValidatorStat label="Links removed" n={hallucinated.length} color={theme.yellow} Icon={XCircle} />
             </div>
 
+            {strippedNote && (
+              <p style={{ margin: '0.75rem 0 0', color: theme.textDim, fontSize: '0.85rem', lineHeight: 1.5 }}>
+                {strippedNote}
+              </p>
+            )}
+
             {hallucinated.length > 0 && (
-              <ValidatorList title="Made-up or broken links" color={theme.red}
-                items={hallucinated.map((d) => ({ primary: d.url, reason: d.issue, isUrl: true }))} />
+              <ValidatorList title="Citation links already removed from this report" color={theme.yellow}
+                items={hallucinated.map((d) => ({
+                  primary: d.url || d.issue || 'Unknown URL',
+                  reason: d.issue || 'Flagged as made-up or broken — stripped from the report',
+                  isUrl: false
+                }))} />
             )}
             {missing.length > 0 && (
               <ValidatorList title="Things the second AI says are missing" color={theme.accent}
@@ -6814,9 +6943,15 @@
                   ✓ Found {candidates.length} drug & supplement idea{candidates.length === 1 ? '' : 's'} (includes OTC supplements with literature + logic-based prescription ideas; studied/failed drugs excluded).
                 </p>
               )}
-              {runMeta?.repurposeQuality && runMeta.repurposeQuality.totalCandidates < 8 && (
+              {runMeta?.repurposeQuality && (
+                (runMeta.repurposeQuality.linkedCandidates != null
+                  ? runMeta.repurposeQuality.linkedCandidates
+                  : runMeta.repurposeQuality.totalCandidates) < 25
+              ) && (
                 <p style={{ color: theme.yellow, fontSize: '0.85rem' }}>
-                  ⚠ This run returned fewer drug ideas than usual. Tap <strong>Find drug ideas</strong> again — your search is saved.
+                  ⚠ Found {runMeta.repurposeQuality.linkedCandidates != null
+                    ? runMeta.repurposeQuality.linkedCandidates
+                    : runMeta.repurposeQuality.totalCandidates} drug ideas with a real source link (target 25). Tap <strong>Find drug ideas</strong> again — your search is saved.
                 </p>
               )}
             </div>
@@ -8107,13 +8242,21 @@
             <AdSlot runtimeConfig={runtimeConfig} slotKey="repurposeTop" />
             <RepurposeHero patient={patient} busy={busy} runResearch={runResearch} />
 
-            {hasRun && runMeta?.repurposeQuality && runMeta.repurposeQuality.totalCandidates < 8 && (
+            {hasRun && runMeta?.repurposeQuality && (
+              (runMeta.repurposeQuality.linkedCandidates != null
+                ? runMeta.repurposeQuality.linkedCandidates
+                : runMeta.repurposeQuality.totalCandidates) < 25
+            ) && (
               <div style={{
                 ...panelStyle, padding: '0.75rem 1rem',
                 borderLeft: `3px solid ${theme.yellow}`,
                 background: `${theme.yellow}12`, fontSize: '0.86rem', color: theme.text, lineHeight: 1.5
               }}>
-                <strong>Fewer ideas than usual.</strong> Tap <strong>Find drug ideas</strong> again — your search is saved and the retry is usually faster.
+                <strong>Under 25 linked ideas.</strong> This run found{' '}
+                {runMeta.repurposeQuality.linkedCandidates != null
+                  ? runMeta.repurposeQuality.linkedCandidates
+                  : runMeta.repurposeQuality.totalCandidates}{' '}
+                drug/supplement ideas with a real source link (not a Google search). Tap <strong>Find drug ideas</strong> again — your search is saved.
               </div>
             )}
 
