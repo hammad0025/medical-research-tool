@@ -734,11 +734,18 @@
           // real study result"). It renders as prose, so we do NOT parse a
           // headline percent from it. SAFETY is still a relative % meter.
           if (field === 'safety') {
-            cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
-            // Note is the justification WITHOUT the redundant leading "NN% —"
-            // (the bar already shows the %). Any inline [source](url) at the end
-            // of the justification is preserved for InlineMD to render.
-            cur[field + '_note'] = splitMeterJustification(cur[field]);
+            // Safety is now a code-computed, evidence-backed Low/Moderate/High
+            // band with FDA-sourced factor links (injected server-side). Prefer
+            // the band; fall back to the legacy % meter for older cached reports.
+            const band = parseBandRating(cur[field]);
+            if (band) {
+              cur.safety_band = band.band;
+              cur.safety_note = band.note;
+              cur.safety_pct = null;
+            } else {
+              cur.safety_pct = parseHeadlinePercent(cur[field]);
+              cur.safety_note = splitMeterJustification(cur[field]);
+            }
           }
         });
         if (cur) blocks.push(cur);
@@ -760,7 +767,7 @@
         // efficacy %, since that number is gone.
         return blocks
           .map((b) => (b.treatment ? b : { ...b, treatment: deriveTreatmentName(b) }))
-          .filter((b) => b.treatment || b.efficacy || b.safety_pct != null || b.risks);
+          .filter((b) => b.treatment || b.efficacy || b.safety_band || b.safety_pct != null || b.risks);
       };
 
       const REPURPOSE_KEYS = [
@@ -833,6 +840,7 @@
             if (hit) {
               delete cand[field];
               delete cand[field + '_pct'];
+              delete cand[field + '_band'];
               delete cand[field + '_note'];
             }
           });
@@ -866,21 +874,42 @@
           // benefit (or "no human efficacy data yet") — NOT a fabricated %. It
           // renders as prose, so we do not parse a headline percent from it.
           // SAFETY and CONFIDENCE remain relative % meters.
-          if (field === 'safety' || field === 'confidence') {
-            cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
-            // Split out the "why" prose so the UI can show it under
-            // each meter bar. Without this, users see "40% / 75% / 70%"
-            // floating with no rationale.
-            cur[field + '_note'] = splitMeterJustification(cur[field]);
+          if (field === 'safety') {
+            // Evidence-backed band (server-injected) with % fallback for older
+            // cached reports.
+            const band = parseBandRating(cur[field]);
+            if (band) {
+              cur.safety_band = band.band;
+              cur.safety_note = band.note;
+              cur.safety_pct = null;
+            } else {
+              cur.safety_pct = parseHeadlinePercent(cur[field]);
+              cur.safety_note = splitMeterJustification(cur[field]);
+            }
+          } else if (field === 'confidence') {
+            // Confidence is a Low/Moderate/High band that MUST carry citable
+            // evidence. With no clickable [source](url), the rating is pure
+            // opinion — drop it entirely rather than render an unsourced meter.
+            const band = parseBandRating(cur[field]);
+            if (hasCitableLink(cur[field])) {
+              if (band) {
+                cur.confidence_band = band.band;
+                cur.confidence_note = band.note;
+              } else {
+                cur.confidence_pct = parseHeadlinePercent(cur[field]);
+                cur.confidence_note = splitMeterJustification(cur[field]);
+              }
+            }
           }
         });
         if (cur) out.push(cur);
         // Candidates now come from several parallel "lane" batches, so the
         // same drug can occasionally appear twice. De-duplicate by name,
         // keeping the higher-confidence copy.
-        const sorted = out.sort((a, b) =>
-          (b.confidence_pct || 0) - (a.confidence_pct || 0)
-        );
+        const confRank = (c) => c.confidence_band
+          ? SAFETY_BAND_LEVEL[c.confidence_band.toLowerCase()] * 33
+          : (c.confidence_pct || 0);
+        const sorted = out.sort((a, b) => confRank(b) - confRank(a));
         const seenNames = new Set();
         const deduped = [];
         for (const cand of sorted) {
@@ -983,8 +1012,18 @@
           if (!cur) return;
           cur[field] = collectComboValue(lines, i);
           if (field === 'confidence') {
-            const num = cur[field].match(/(\d{1,3})\s*%/);
-            cur.confidence_pct = num ? parseInt(num[1]) : null;
+            // Band + citable-evidence requirement (mirror of parseCandidates).
+            const band = parseBandRating(cur[field]);
+            if (hasCitableLink(cur[field])) {
+              if (band) {
+                cur.confidence_band = band.band;
+                cur.confidence_note = band.note;
+              } else {
+                const num = cur[field].match(/(\d{1,3})\s*%/);
+                cur.confidence_pct = num ? parseInt(num[1]) : null;
+                cur.confidence_note = splitMeterJustification(cur[field]);
+              }
+            }
           }
         });
         if (cur) out.push(cur);
@@ -1425,6 +1464,38 @@
         if (n >= 40) return theme.yellow;
         return theme.red;
       };
+
+      // Safety / Confidence are now evidence-backed Low/Moderate/High bands, not
+      // fabricated percentages. bandColor buckets the existing gradient to the
+      // three levels (High = safest = green); bandFillPct maps the band onto the
+      // same 0-100 meter bar so the visual stays aligned with the old %-meter.
+      const SAFETY_BAND_LEVEL = { low: 1, moderate: 2, high: 3 };
+      const bandColor = (band) => {
+        const b = String(band || '').toLowerCase();
+        if (b === 'high') return theme.green;
+        if (b === 'moderate') return theme.yellow;
+        if (b === 'low') return theme.red;
+        return theme.textDim;
+      };
+      const bandFillPct = (band) => {
+        const b = String(band || '').toLowerCase();
+        if (b === 'high') return 100;
+        if (b === 'moderate') return 60;
+        if (b === 'low') return 30;
+        return 0;
+      };
+      // Parse a "Low|Moderate|High — <justification>" rating. Returns
+      // { band, note } or null when the value is not a band (legacy % meters).
+      const parseBandRating = (raw) => {
+        const s = String(raw == null ? '' : raw).replace(/\*/g, '').trim();
+        const m = s.match(/^(Low|Moderate|High)\b\s*[—\-–:]?\s*([\s\S]*)$/i);
+        if (!m) return null;
+        return {
+          band: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(),
+          note: m[2].trim()
+        };
+      };
+      const hasCitableLink = (s) => /\[[^\]]+\]\(https?:\/\/[^)]+\)/i.test(String(s == null ? '' : s));
 
       /* ==================== Storage ==================== */
       const loadLS = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
@@ -2706,8 +2777,6 @@ EVIDENCE_STRENGTH: MECHANISTIC_ONLY
 SUPPORTING_EVIDENCE: No human study for ${cond} was available in the grounded pack for this run. The only source attached is the FDA DailyMed search for this drug name — not a fabricated paper.
 REFERENCES: [DailyMed label search — ${name}](${dm})
 EFFICACY_HYPOTHESIS: No human efficacy results yet for this condition — the reason to list it is library/pathway overlap, not a measured benefit.
-SAFETY: 50% — labeled safety is on DailyMed; condition-specific safety is unknown without studies
-CONFIDENCE: 25% — mechanistic library fill only; not backed by a trial for this condition
 PATIENT_SPECIFIC_RISKS: Confirm identity, dose, and interactions with the prescribing physician before considering any change.
 HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this drug worth watching in the literature — do not start it based on this list alone.`;
                 };
@@ -4822,9 +4891,16 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
       // those percentage things we do need a bit of a justification").
       // The note is also surfaced as a tooltip on the % so power users
       // who collapse the prose can still hover.
-      const MeterBar = ({ label, value, icon, note }) => {
-        const color = ratingColor(value);
-        const pct = typeof value === 'number' ? Math.max(0, Math.min(100, value)) : 0;
+      const MeterBar = ({ label, value, band, icon, note }) => {
+        // Band mode (Safety/Confidence, evidence-backed): show Low/Moderate/High
+        // with the gradient bucketed to three levels. Legacy % mode is kept for
+        // any older cached report that still carries a numeric value.
+        const isBand = !!band;
+        const color = isBand ? bandColor(band) : ratingColor(value);
+        const pct = isBand
+          ? bandFillPct(band)
+          : (typeof value === 'number' ? Math.max(0, Math.min(100, value)) : 0);
+        const readout = isBand ? band : (typeof value === 'number' ? `${pct}%` : '—');
         return (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -4843,9 +4919,9 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               </div>
               <div
                 title={note || ''}
-                style={{ width: 46, textAlign: 'right', fontSize: '0.85rem', fontWeight: 700, color, fontVariantNumeric: 'tabular-nums', cursor: note ? 'help' : 'default' }}
+                style={{ width: isBand ? 74 : 46, textAlign: 'right', fontSize: isBand ? '0.78rem' : '0.85rem', fontWeight: 700, color, fontVariantNumeric: 'tabular-nums', cursor: note ? 'help' : 'default' }}
               >
-                {typeof value === 'number' ? `${pct}%` : '—'}
+                {readout}
               </div>
             </div>
             {note && (
@@ -7869,7 +7945,9 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
             </div>
             <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.6rem' }}>
               <OutcomeRow label="How well it works" text={t.efficacy} icon={<TrendingUp size={11} />} />
-              <MeterBar label="Safety" value={t.safety_pct} icon={<Shield size={11} />} note={t.safety_note} />
+              {(t.safety_band || t.safety_pct != null) && (
+                <MeterBar label="Safety" value={t.safety_pct} band={t.safety_band} icon={<Shield size={11} />} note={t.safety_note} />
+              )}
             </div>
             {t.risks && (
               <div style={{ marginTop: '0.6rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.5 }}>
@@ -7904,9 +7982,9 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                   </div>
                 )}
                 {c.rationale && <div style={{ marginTop: 8, fontSize: '0.88rem', lineHeight: 1.55 }}><InlineMD text={c.rationale} /></div>}
-                {c.confidence_pct != null && (
+                {(c.confidence_band || c.confidence_pct != null) && (
                   <div style={{ marginTop: 8 }}>
-                    <MeterBar label="Confidence" value={c.confidence_pct} icon={<Award size={11} />} note={c.confidence} />
+                    <MeterBar label="Confidence" value={c.confidence_pct} band={c.confidence_band} icon={<Award size={11} />} note={c.confidence_note || c.confidence} />
                   </div>
                 )}
                 {c.interaction_risk && (
@@ -7973,7 +8051,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
           }}>
             <div style={{
               position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-              background: `linear-gradient(90deg, ${theme.accent}, ${ratingColor(c.confidence_pct)})`
+              background: `linear-gradient(90deg, ${theme.accent}, ${c.confidence_band ? bandColor(c.confidence_band) : ratingColor(c.confidence_pct)})`
             }} />
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.9rem' }}>
               <RankBadge rank={rank} />
@@ -8086,18 +8164,24 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                 text={c.efficacy_hypothesis}
                 icon={<TrendingUp size={11} />}
               />
-              <MeterBar
-                label="Safety"
-                value={c.safety_pct}
-                icon={<Shield size={11} />}
-                note={c.safety_note}
-              />
-              <MeterBar
-                label="Confidence"
-                value={c.confidence_pct}
-                icon={<Award size={11} />}
-                note={c.confidence_note}
-              />
+              {(c.safety_band || c.safety_pct != null) && (
+                <MeterBar
+                  label="Safety"
+                  value={c.safety_pct}
+                  band={c.safety_band}
+                  icon={<Shield size={11} />}
+                  note={c.safety_note}
+                />
+              )}
+              {(c.confidence_band || c.confidence_pct != null) && (
+                <MeterBar
+                  label="Confidence"
+                  value={c.confidence_pct}
+                  band={c.confidence_band}
+                  icon={<Award size={11} />}
+                  note={c.confidence_note}
+                />
+              )}
             </div>
 
             {c.repurpose_rationale && c.why_for_this_condition && (
@@ -8125,7 +8209,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                 title="Risks for this patient specifically"
                 icon={<AlertTriangle size={13} />}
                 color={theme.yellow}
-                defaultOpen={(c.safety_pct != null && c.safety_pct < 70) || /high|moderate|interaction|sedat|fall/i.test(String(c.patient_specific_risks))}
+                defaultOpen={/^(low|moderate)$/i.test(String(c.safety_band)) || (c.safety_pct != null && c.safety_pct < 70) || /high|moderate|interaction|sedat|fall/i.test(String(c.patient_specific_risks))}
               >
                 <InlineMD text={c.patient_specific_risks} />
               </Disclosure>
@@ -8482,11 +8566,11 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
       const ChartTab = ({ treatments, candidates }) => {
         const exportCsv = () => {
           const rows = [
-            ['Provider','Treatment','FDA Status','Length/Frequency','How well it works','How safe %','Risks','Interactions','Cost']
+            ['Provider','Treatment','FDA Status','Length/Frequency','How well it works','How safe','Risks','Interactions','Cost']
           ];
           treatments.forEach(t => rows.push([
             t.provider||'', t.treatment||'', t.fda_status||'', t.length_frequency||'',
-            t.efficacy||'', t.safety_pct||'', t.risks||'', t.interactions||'', t.cost||''
+            t.efficacy||'', t.safety_band || (t.safety_pct != null ? t.safety_pct + '%' : ''), t.risks||'', t.interactions||'', t.cost||''
           ]));
           const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
           const blob = new Blob([csv], { type: 'text/csv' });
@@ -8506,7 +8590,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               </button>
             </div>
             <p style={{ color: theme.textDim, fontSize: '0.85rem' }}>
-              How well it works and how safe it is are both scored 1 to 100 (higher is better for both). Sorted by how well it works.
+              "How well it works" shows the real, cited study outcome. "How safe" is an evidence-backed Low / Moderate / High band (High = safest) derived from the FDA label and this patient's medicines — hover it to see the specific facts and sources behind the band.
             </p>
             {treatments.length === 0 && candidates.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: theme.textDim }}>
@@ -8581,13 +8665,17 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                         );
                       }
                       if (c.bar) {
+                        // Safety/Confidence are now evidence-backed bands; fall
+                        // back to a legacy numeric % for older cached reports.
+                        const bandKey = c.k.replace(/_pct$/, '_band');
+                        const band = r[bandKey];
                         const n = typeof v === 'number' ? v : null;
-                        const col = ratingColor(n);
-                        // Surface the model's one-line "why" for each %. The
-                        // parser stores it on `<field>_note` for the remaining
-                        // meters — treatments (safety_note) and repurpose
-                        // candidates (safety_note, confidence_note). Efficacy is
-                        // now a prose outcome column, not a bar.
+                        const col = band ? bandColor(band) : ratingColor(n);
+                        const fill = band ? bandFillPct(band) : n;
+                        const readout = band ? band : (n != null ? n + '%' : '—');
+                        // Surface the one-line "why" for each rating. The parser
+                        // stores it on `<field>_note` — treatments (safety_note)
+                        // and repurpose candidates (safety_note, confidence_note).
                         const noteKey = c.k.replace(/_pct$/, '_note');
                         const note = r[noteKey];
                         return (
@@ -8596,12 +8684,12 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                             style={{ padding: '0.6rem', textAlign: 'center', cursor: note ? 'help' : 'default' }}
                             title={note || ''}
                           >
-                            <div style={{ color: col, fontWeight: 700 }}>{n != null ? n + '%' : '—'}</div>
-                            {n != null && (
+                            <div style={{ color: col, fontWeight: 700 }}>{readout}</div>
+                            {fill != null && (
                               <div style={{ width: 70, height: 5, background: theme.panel,
                                 border: `1px solid ${theme.border}`,
                                 borderRadius: 3, margin: '4px auto 0', overflow: 'hidden' }}>
-                                <div style={{ width: `${n}%`, height: '100%', background: col }} />
+                                <div style={{ width: `${fill}%`, height: '100%', background: col }} />
                               </div>
                             )}
                             {note && (

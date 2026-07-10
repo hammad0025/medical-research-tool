@@ -11,6 +11,7 @@ import {
   REPURPOSE_BACKFILL_THRESHOLD,
   REPURPOSE_TARGET_TOTAL
 } from '../lib/repurpose-quality.js';
+import { FAERS_SERIOUS_MIN_REPORTS } from '../lib/safety-score.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -49,6 +50,22 @@ export default async function handler(req, res) {
       gather: {
         repurposeSupplementQueries: true,
         supplementDiscoveryBlock: true
+      },
+      ratings: {
+        efficacy: 'cited-outcome',
+        safety: {
+          representation: 'band',
+          bands: ['Low', 'Moderate', 'High'],
+          source: 'evidence-derived',
+          deterministic: true,
+          faersSeriousMinReports: FAERS_SERIOUS_MIN_REPORTS
+        },
+        confidence: {
+          representation: 'band',
+          bands: ['Low', 'Moderate', 'High'],
+          requiresCitableEvidence: true,
+          droppedWhenUnsourced: true
+        }
       }
     },
     kb: { curatedConditions: kbCount },

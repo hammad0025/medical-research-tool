@@ -83,6 +83,12 @@ import {
 } from '../lib/genetics.js';
 import { drugKeyFromName } from '../lib/kb-builder.js';
 import {
+  scoreSafety,
+  injectSafetyBands,
+  normalizePatientMeds,
+  FAERS_SERIOUS_MIN_REPORTS
+} from '../lib/safety-score.js';
+import {
   normalizePromise,
   applyPatientPromiseAdjustment,
   assessTrialEligibility,
@@ -1443,6 +1449,149 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
   const posLine = buildPatientContext({ condition: 'RP', geneticVariant: 'USH2A compound heterozygous' });
   if (/CONFIRMED GENETIC MUTATION/.test(posLine) && /USH2A/.test(posLine)) pass('Fix 5: a positive variant still gates gene-targeted therapy (CONFIRMED GENETIC MUTATION block preserved)');
   else fail('Fix 5: positive-variant gene-gating regression');
+}
+
+// ===========================================================================
+// FIX 6 — evidence-derived, deterministic SAFETY band (replaces the fabricated
+// "SAFETY: NN%" the model used to eyeball). Every band is traceable: it is
+// computed from REAL FDA facts + this patient's meds, and each contributing
+// fact carries a clickable FDA source link. Confidence becomes a band too and
+// is DROPPED when it has no citable evidence.
+// ===========================================================================
+{
+  const url = 'https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&drugname=Test';
+
+  // (a) Boxed warning → capped at Moderate (cannot be High).
+  const boxed = scoreSafety({
+    drugName: 'DrugA', patientMeds: '',
+    fdaLabel: { url, boxedWarning: 'WARNING: serious liver injury' }, faers: []
+  });
+  const boxedOk = boxed.band === 'Moderate' &&
+    boxed.factors.some((f) => /boxed/i.test(f.text) && f.url === url);
+  if (boxedOk) pass('Fix 6(a): boxed warning caps the safety band at Moderate with a cited FDA factor');
+  else fail(`Fix 6(a): boxed-warning cap regression (band=${boxed.band} factors=${JSON.stringify(boxed.factors)})`);
+
+  // (b) A patient-med interaction/contraindication → drops a level.
+  const clean = scoreSafety({ drugName: 'DrugB', patientMeds: 'Metformin', fdaLabel: { url, warnings: 'mild nausea' }, faers: [] });
+  const interact = scoreSafety({
+    drugName: 'DrugB', patientMeds: 'Warfarin 5 mg',
+    fdaLabel: { url, drugInteractions: 'Concomitant warfarin increases bleeding risk.' }, faers: []
+  });
+  const dropsOk = clean.band === 'High' && interact.band === 'Moderate' &&
+    interact.factors.some((f) => /warfarin/i.test(f.text) && f.url === url);
+  if (dropsOk) pass('Fix 6(b): a patient-med interaction drops the band one level (High → Moderate) with a cited factor');
+  else fail(`Fix 6(b): interaction-drop regression (clean=${clean.band} interact=${interact.band})`);
+
+  // (c) High-frequency serious FAERS reactions → floor (≥1 Moderate, ≥3 Low).
+  const oneSerious = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
+    { reaction: 'Hepatic failure', reports: FAERS_SERIOUS_MIN_REPORTS + 10 }, { reaction: 'Nausea', reports: 99999 }
+  ] });
+  const threeSerious = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
+    { reaction: 'Death', reports: 5000 }, { reaction: 'Sepsis', reports: 2000 }, { reaction: 'Cardiac arrest', reports: 1500 }
+  ] });
+  const belowThreshold = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
+    { reaction: 'Death', reports: FAERS_SERIOUS_MIN_REPORTS - 1 }
+  ] });
+  const faersOk = oneSerious.band === 'Moderate' && threeSerious.band === 'Low' && belowThreshold.band === 'High';
+  if (faersOk) pass(`Fix 6(c): serious FAERS signal floors the band (1≥${FAERS_SERIOUS_MIN_REPORTS}→Moderate, ≥3→Low; below threshold→High)`);
+  else fail(`Fix 6(c): FAERS-floor regression (one=${oneSerious.band} three=${threeSerious.band} below=${belowThreshold.band})`);
+
+  // (d) No negative signal → High, still with a clickable FDA factor.
+  const high = scoreSafety({ drugName: 'DrugD', patientMeds: 'Metformin', fdaLabel: { url, warnings: 'headache' }, faers: [{ reaction: 'Headache', reports: 40 }] });
+  if (high.band === 'High' && high.factors.length === 1 && high.factors[0].url === url) {
+    pass('Fix 6(d): no negative FDA signal → High band, still carrying a clickable FDA source');
+  } else {
+    fail(`Fix 6(d): no-signal High regression (band=${high.band} factors=${JSON.stringify(high.factors)})`);
+  }
+
+  // (e) No FDA label → null band (caller drops the meter — no unsourced rating).
+  const nolabel = scoreSafety({ drugName: 'DrugE', patientMeds: '', fdaLabel: null, faers: [] });
+  if (nolabel.band === null && !nolabel.factors.length) {
+    pass('Fix 6(e): a drug with no FDA label yields no band (graceful degrade → meter dropped)');
+  } else {
+    fail(`Fix 6(e): no-label degrade regression (band=${nolabel.band})`);
+  }
+
+  // (f) Determinism — identical inputs → identical band + factors every run.
+  const args = { drugName: 'DrugF', patientMeds: 'Warfarin', fdaLabel: { url, boxedWarning: 'x', contraindications: 'warfarin' }, faers: [] };
+  if (JSON.stringify(scoreSafety(args)) === JSON.stringify(scoreSafety(args))) {
+    pass('Fix 6(f): scoreSafety is deterministic (same inputs → same band + factors)');
+  } else {
+    fail('Fix 6(f): scoreSafety is non-deterministic');
+  }
+
+  // (g) injectSafetyBands rewrites a card's SAFETY line with the computed band
+  //     + FDA links, and DROPS the SAFETY line for a card with no FDA label.
+  const report = [
+    'CANDIDATE: Nintedanib (Ofev) — 150 mg',
+    'SAFETY: High — model eyeballed 90%',
+    'CONFIDENCE: Moderate — some evidence [PMID 1](https://pubmed.ncbi.nlm.nih.gov/1/)',
+    '',
+    'CANDIDATE: UnmatchedDrugXYZ',
+    'SAFETY: 80% — model eyeballed'
+  ].join('\n');
+  const fdaLabels = [{ drug: 'Nintedanib', label: { url, genericName: ['nintedanib'], drugInteractions: 'aspirin' }, topAdverseEvents: [] }];
+  const injected = injectSafetyBands(report, { fdaLabels, patientMeds: 'Aspirin 81 mg' });
+  const nintBand = /SAFETY: Moderate — FDA label lists a drug interaction with your Aspirin \[FDA label\]\(https:\/\/www\.accessdata\.fda\.gov/i.test(injected);
+  const droppedUnmatched = !/UnmatchedDrugXYZ[\s\S]*SAFETY:/i.test(injected);
+  const confUntouched = /CONFIDENCE: Moderate — some evidence/.test(injected);
+  if (nintBand && droppedUnmatched && confUntouched) {
+    pass('Fix 6(g): injectSafetyBands writes the computed band + FDA links, drops safety for an unmatched drug, leaves confidence alone');
+  } else {
+    fail(`Fix 6(g): injection regression (nintBand=${nintBand} dropped=${droppedUnmatched} confUntouched=${confUntouched})`);
+  }
+
+  // (h) No FDA labels at all → every SAFETY line dropped (no eyeballed % ships).
+  const stripped = injectSafetyBands('CANDIDATE: X\nSAFETY: 70% — guess\nRISKS: none', { fdaLabels: [], patientMeds: '' });
+  if (!/SAFETY:/.test(stripped) && /RISKS: none/.test(stripped)) {
+    pass('Fix 6(h): with no FDA labels, all SAFETY lines are dropped (no fabricated % survives)');
+  } else {
+    fail(`Fix 6(h): no-label strip regression (out=${JSON.stringify(stripped)})`);
+  }
+
+  // (i) The FDA drug-lookup link is navigational and survives link sanitization.
+  const safetyLine = injected.split('\n').find((l) => /^SAFETY:/.test(l));
+  const keptFdaLink = sanitizeMarkdownLinks(safetyLine, collectAllowedUrls({}, null));
+  if (/\[FDA label\]\(https:\/\/www\.accessdata\.fda\.gov/i.test(keptFdaLink)) {
+    pass('Fix 6(i): the FDA drug-lookup source link survives sanitizeMarkdownLinks (navigational exemption)');
+  } else {
+    fail(`Fix 6(i): FDA source link stripped by sanitizer (out=${JSON.stringify(keptFdaLink)})`);
+  }
+
+  // (j) Health endpoint advertises the evidence-derived safety config.
+  const healthSrc = readFileSync(new URL('../api/health.js', import.meta.url), 'utf8');
+  if (/ratings:/.test(healthSrc) && /evidence-derived/.test(healthSrc) && /faersSeriousMinReports/.test(healthSrc)) {
+    pass('Fix 6(j): /api/health advertises evidence-derived, deterministic safety scoring config');
+  } else {
+    fail('Fix 6(j): /api/health missing safety-scoring config flags');
+  }
+
+  // (k) The synthesis prompt no longer asks the model for a "SAFETY: NN%".
+  if (!/SAFETY: <1-100>%/.test(researchSrc) &&
+      /SAFETY: <Low \| Moderate \| High>/.test(researchSrc) &&
+      /OMIT this entire CONFIDENCE line/.test(researchSrc)) {
+    pass('Fix 6(k): prompt emits SAFETY/CONFIDENCE bands (no fabricated percent) and drops unsourced confidence');
+  } else {
+    fail('Fix 6(k): prompt still asks for a safety/confidence percent, or missing confidence-drop instruction');
+  }
+
+  // (l) normalizePatientMeds strips doses and de-dupes.
+  const meds = normalizePatientMeds('Aspirin 81 mg, Warfarin 5mg; aspirin');
+  if (meds.length === 2 && meds[0] === 'Aspirin' && meds[1] === 'Warfarin') {
+    pass('Fix 6(l): normalizePatientMeds strips doses + de-dupes patient medications');
+  } else {
+    fail(`Fix 6(l): normalizePatientMeds regression (${JSON.stringify(meds)})`);
+  }
+
+  // (m) index.html renders bands (MeterBar band prop) and drops unsourced meters.
+  if (/const MeterBar = \(\{ label, value, band, icon, note \}\)/.test(indexSrc) &&
+      /bandColor/.test(indexSrc) && /parseBandRating/.test(indexSrc) &&
+      /\(c\.confidence_band \|\| c\.confidence_pct != null\)/.test(indexSrc) &&
+      /\(t\.safety_band \|\| t\.safety_pct != null\)/.test(indexSrc)) {
+    pass('Fix 6(m): index.html MeterBar renders bands and only shows safety/confidence meters when present');
+  } else {
+    fail('Fix 6(m): index.html band rendering / conditional meter wiring missing');
+  }
 }
 
 console.log(process.exitCode ? '\n\x1b[31mPlatform regression FAILED\x1b[0m\n' : '\n\x1b[32mPlatform regression passed\x1b[0m\n');

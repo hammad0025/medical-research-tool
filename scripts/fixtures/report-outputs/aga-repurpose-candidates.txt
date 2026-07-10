@@ -11,8 +11,8 @@ EVIDENCE_STRENGTH: SMALL_RCT
 SUPPORTING_EVIDENCE: Retrospective cohorts report meaningful regrowth at 0.25–1.25 mg daily.
 REFERENCES: [PMID 33639033](https://pubmed.ncbi.nlm.nih.gov/33639033/)
 EFFICACY_HYPOTHESIS: 65% — comparable to topical minoxidil with better adherence
-SAFETY: 80% — hypertrichosis and mild fluid retention are the main issues
-CONFIDENCE: 60% — growing but mostly observational evidence
+SAFETY: Moderate — hypertrichosis and mild fluid retention are the main issues [FDA label](https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&drugname=Minoxidil)
+CONFIDENCE: Moderate — growing but mostly observational evidence [PMID 33639033](https://pubmed.ncbi.nlm.nih.gov/33639033/)
 PATIENT_SPECIFIC_RISKS: Monitor blood pressure and ankle swelling in this patient.
 HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether a 1.25 mg starting dose with blood-pressure monitoring is appropriate.
 
@@ -27,7 +27,7 @@ EVIDENCE_STRENGTH: OBSERVATIONAL
 SUPPORTING_EVIDENCE: Cohort data support stabilization of hair loss in women.
 REFERENCES: [PMID 25522096](https://pubmed.ncbi.nlm.nih.gov/25522096/)
 EFFICACY_HYPOTHESIS: 50% — stabilizes more than it regrows
-SAFETY: 75% — hyperkalemia risk; not used in men due to feminizing effects
-CONFIDENCE: 45% — limited to specific patient groups
+SAFETY: Low — hyperkalemia risk; not used in men due to feminizing effects [FDA label](https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&drugname=Spironolactone)
+CONFIDENCE: Low — limited to specific patient groups [PMID 25522096](https://pubmed.ncbi.nlm.nih.gov/25522096/)
 PATIENT_SPECIFIC_RISKS: Not appropriate for this male patient given feminizing effects.
 HOW_TO_DISCUSS_WITH_DOCTOR: Discuss why this is generally reserved for female patients.

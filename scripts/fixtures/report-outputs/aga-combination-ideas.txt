@@ -6,7 +6,7 @@ EVIDENCETIER: SMALL_RCT
 SUPPORTINGEVIDENCE: A 12-month randomized study found combined therapy outperformed either agent used alone on total hair count.
 INTERACTIONRISK: Low — no meaningful pharmacokinetic interaction is expected between the two.
 PATIENTSPECIFICRISKS: The sexual side effects associated with finasteride still apply when it is combined with minoxidil.
-CONFIDENCE: 70% — consistent observational and trial support
+CONFIDENCE: High — consistent observational and trial support [PMID 17092697](https://pubmed.ncbi.nlm.nih.gov/17092697/)
 HOWTODISCUSSWITHDOCTOR: Ask whether starting both agents at once, or staggering them, is the better approach for you.
 REFERENCES: [PMID 17092697](https://pubmed.ncbi.nlm.nih.gov/17092697/)
 

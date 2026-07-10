@@ -41,6 +41,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIX_DIR = path.join(__dirname, 'fixtures', 'report-outputs');
 const fx = (name) => readFileSync(path.join(FIX_DIR, name), 'utf8');
 
+// Mirror of the index.html band helpers — Safety/Confidence are now
+// Low/Moderate/High bands, and Confidence requires citable evidence or is
+// dropped. Kept in lockstep with the static-page parsers below.
+const parseBandRating = (raw) => {
+  const s = String(raw == null ? '' : raw).replace(/\*/g, '').trim();
+  const m = s.match(/^(Low|Moderate|High)\b\s*[—\-–:]?\s*([\s\S]*)$/i);
+  if (!m) return null;
+  return { band: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(), note: m[2].trim() };
+};
+const hasCitableLink = (s) => /\[[^\]]+\]\(https?:\/\/[^)]+\)/i.test(String(s == null ? '' : s));
+
 console.log('\n=== Report-parser golden-output regression (Layer 1 + 2) ===');
 
 // ---------------------------------------------------------------------------
@@ -99,10 +110,13 @@ const parseTreatmentsWith = (text, collector) => {
     if (!cur) return;
     const field = key.replace(':', '').toLowerCase();
     cur[field] = clampToCompleteSentence(collector(text, i, TREATMENT_KEYS));
-    // EFFICACY is now a real sourced outcome sentence, not a % score — only
-    // SAFETY is a headline-percent meter (mirror of index.html).
+    // EFFICACY is a real sourced outcome sentence. SAFETY is now an
+    // evidence-backed Low/Moderate/High band (server-injected), with a legacy
+    // % fallback for older cached reports (mirror of index.html).
     if (field === 'safety') {
-      cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
+      const band = parseBandRating(cur[field]);
+      if (band) { cur.safety_band = band.band; cur.safety_note = band.note; cur.safety_pct = null; }
+      else { cur.safety_pct = parseHeadlinePercent(cur[field]); }
     }
   });
   if (cur) blocks.push(cur);
@@ -118,7 +132,7 @@ const parseTreatmentsWith = (text, collector) => {
       && !/^(ask|call|available|implanted|administered|contact|by )/i.test(s)) || '';
   return blocks
     .map((b) => (b.treatment ? b : { ...b, treatment: deriveTreatmentName(b) }))
-    .filter((b) => b.treatment || b.efficacy || b.safety_pct != null || b.risks);
+    .filter((b) => b.treatment || b.efficacy || b.safety_band || b.safety_pct != null || b.risks);
 };
 const parseTreatments = (text) => parseTreatmentsWith(text, collectBlock);
 const parseTreatmentsLegacy = (text) => parseTreatmentsWith(text, collectBlockLegacy);
@@ -183,15 +197,26 @@ const parseCandidates = (text) => {
     if (key === 'CANDIDATE:' || (cur && cur[field] !== undefined)) { if (cur) out.push(cur); cur = {}; }
     if (!cur) return;
     cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
-    // EFFICACY_HYPOTHESIS is now an honest sourced statement, not a % score —
-    // only SAFETY and CONFIDENCE are headline-percent meters (mirror of index.html).
-    if (field === 'safety' || field === 'confidence') {
-      cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
+    // SAFETY is an evidence-backed band (server-injected). CONFIDENCE is a band
+    // that MUST carry citable evidence — with no clickable link it is dropped
+    // entirely rather than shown as unsourced opinion (mirror of index.html).
+    if (field === 'safety') {
+      const band = parseBandRating(cur[field]);
+      if (band) { cur.safety_band = band.band; cur.safety_note = band.note; cur.safety_pct = null; }
+      else { cur.safety_pct = parseHeadlinePercent(cur[field]); }
+    } else if (field === 'confidence') {
+      const band = parseBandRating(cur[field]);
+      if (hasCitableLink(cur[field])) {
+        if (band) { cur.confidence_band = band.band; cur.confidence_note = band.note; }
+        else { cur.confidence_pct = parseHeadlinePercent(cur[field]); }
+      }
     }
   });
   if (cur) out.push(cur);
-  const sorted = out.sort((a, b) =>
-    (b.confidence_pct || 0) - (a.confidence_pct || 0));
+  const confRank = (c) => c.confidence_band
+    ? ({ low: 1, moderate: 2, high: 3 }[c.confidence_band.toLowerCase()] * 33)
+    : (c.confidence_pct || 0);
+  const sorted = out.sort((a, b) => confRank(b) - confRank(a));
   const seen = new Set();
   const deduped = [];
   for (const cand of sorted) {
@@ -252,8 +277,14 @@ const parseCombos = (text) => {
     if (!cur) return;
     cur[field] = collectComboValue(lines, i);
     if (field === 'confidence') {
-      const num = cur[field].match(/(\d{1,3})\s*%/);
-      cur.confidence_pct = num ? parseInt(num[1], 10) : null;
+      const band = parseBandRating(cur[field]);
+      if (hasCitableLink(cur[field])) {
+        if (band) { cur.confidence_band = band.band; cur.confidence_note = band.note; }
+        else {
+          const num = cur[field].match(/(\d{1,3})\s*%/);
+          cur.confidence_pct = num ? parseInt(num[1], 10) : null;
+        }
+      }
     }
   });
   if (cur) out.push(cur);
@@ -393,10 +424,10 @@ head('2 — combination-ideas underscore-less + truncated fixture (defects 2+3)'
   }
   const droppedTruncated = after.length === 1; // 2nd combo truncated → dropped
   const structured = droppedTruncated &&
-    after[0].evidence_tier && after[0].confidence_pct != null &&
+    after[0].evidence_tier && after[0].confidence_band &&
     after[0].how_to_discuss_with_doctor && after[0].supporting_evidence;
   if (!afterLeaks.length && structured) {
-    pass(`AFTER: 1 structured combo (truncated final dropped), zero leakage, fields split cleanly (tier="${after[0].evidence_tier}", confidence=${after[0].confidence_pct})`);
+    pass(`AFTER: 1 structured combo (truncated final dropped), zero leakage, fields split cleanly (tier="${after[0].evidence_tier}", confidence=${after[0].confidence_band})`);
   } else {
     fail(`AFTER: regression (leaks=${afterLeaks.length} structured=${structured} n=${after.length})`);
   }
@@ -411,11 +442,47 @@ head('3 — repurposing-candidates fixture');
   const after = parseCandidates(raw);
   const afterLeaks = leaksFor(after, CANDIDATE_FIELDS);
   const structured = after.length === 2 &&
-    after.every((c) => c.candidate && c.what_it_does && c.confidence_pct != null);
+    after.every((c) => c.candidate && c.what_it_does && c.confidence_band && c.safety_band);
   if (!afterLeaks.length && structured) {
-    pass(`AFTER: 2 structured candidates, zero leakage (${after.map((c) => c.candidate.split(/[—(]/)[0].trim()).join(', ')})`);
+    pass(`AFTER: 2 structured candidates, zero leakage, evidence-backed safety/confidence bands (${after.map((c) => `${c.candidate.split(/[—(]/)[0].trim()}: safety ${c.safety_band}/conf ${c.confidence_band}`).join('; ')})`);
   } else {
     fail(`AFTER: regression (leaks=${afterLeaks.length} structured=${structured} n=${after.length})`);
+  }
+}
+
+// ===========================================================================
+// 3b. Evidence-backed rating bands: SAFETY renders a Low/Moderate/High band;
+//     CONFIDENCE renders a band ONLY when it carries a citable [source](url) —
+//     otherwise the meter is DROPPED (no unsourced opinion). Determinism: the
+//     same card text parses to the same bands every run.
+// ===========================================================================
+head('3b — safety/confidence bands + confidence-drop-without-evidence');
+{
+  const withEvidence = [
+    'CANDIDATE: Drug With Evidence',
+    'WHAT_IT_DOES: does a thing',
+    'SAFETY: Moderate — FDA boxed warning [FDA label](https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&drugname=x)',
+    'CONFIDENCE: High — two positive RCTs [PMID 12345678](https://pubmed.ncbi.nlm.nih.gov/12345678/)'
+  ].join('\n');
+  const noEvidence = [
+    'CANDIDATE: Drug Without Evidence',
+    'WHAT_IT_DOES: does a thing',
+    'SAFETY: High — no negative FDA signal [FDA label](https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&drugname=y)',
+    'CONFIDENCE: Moderate — my own hunch, no citation'
+  ].join('\n');
+  const [withCard] = parseCandidates(withEvidence);
+  const [noCard] = parseCandidates(noEvidence);
+  const bandsOk = withCard.safety_band === 'Moderate' && withCard.confidence_band === 'High';
+  const droppedOk = noCard.safety_band === 'High' &&
+    noCard.confidence_band == null && noCard.confidence_pct == null;
+  // Determinism — identical inputs → identical parsed bands.
+  const again = parseCandidates(withEvidence)[0];
+  const deterministic = again.safety_band === withCard.safety_band &&
+    again.confidence_band === withCard.confidence_band;
+  if (bandsOk && droppedOk && deterministic) {
+    pass('bands parse (safety Moderate / confidence High); unsourced confidence dropped; deterministic');
+  } else {
+    fail(`band/drop regression (bandsOk=${bandsOk} droppedOk=${droppedOk} deterministic=${deterministic} noConf=${JSON.stringify(noCard.confidence_band)})`);
   }
 }
 

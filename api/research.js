@@ -25,7 +25,9 @@
 import evidenceHandler from '../lib/evidence.js';
 import validateHandler from '../lib/validate.js';
 import perplexitySearchHandler from '../lib/perplexity-search.js';
+import openfdaHandler from '../lib/openfda.js';
 import trialsHandler from './trials.js';
+import { injectSafetyBands, buildFdaLabelIndex, safetyDrugKey } from '../lib/safety-score.js';
 import {
   finalizeReportText,
   filterExcludedAgentMentions,
@@ -230,6 +232,50 @@ const invokeEvidence = (body) => invokeInProcess(evidenceHandler, body);
 const invokeValidate = (body) => invokeInProcess(validateHandler, body);
 const invokeTrials = (body) => invokeInProcess(trialsHandler, body);
 const invokePerplexitySearch = (body) => invokeInProcess(perplexitySearchHandler, body);
+const invokeOpenfda = (body) => invokeInProcess(openfdaHandler, body);
+
+// Leading drug phrase from a TREATMENT:/CANDIDATE: card name, for an FDA-label
+// lookup (parenthetical brand + dose suffix dropped; hyphenated generics kept).
+const cardDrugQueryName = (name) => {
+  let s = String(name || '').replace(/\*/g, '');
+  s = s.replace(/\(.*?\)/g, ' ');
+  s = s.split(/[—–|:]|\s-\s/)[0];
+  return s.replace(/\s+\d.*$/, '').trim();
+};
+
+// Safety scoring needs the FDA label of the drug being RATED. The gather only
+// fetches labels for the patient's current meds + KB approved drugs, so for
+// model-generated cards (repurpose candidates especially) we top up with a
+// bounded, best-effort openFDA fan-out for card drugs we don't already have.
+// A drug with no FDA label degrades gracefully (its safety meter is dropped).
+const MAX_CARD_FDA_FETCH = 14;
+const enrichFdaLabelsForCards = async (text, existing) => {
+  const covered = new Set(buildFdaLabelIndex(existing).flatMap((x) => x.keys));
+  const wanted = [];
+  const seen = new Set();
+  const re = /^\s*(?:TREATMENT|CANDIDATE):\s*(.+)$/gim;
+  let m;
+  while ((m = re.exec(String(text))) !== null) {
+    const query = cardDrugQueryName(m[1]);
+    const key = safetyDrugKey(m[1]);
+    if (!key || key.length < 3 || seen.has(key) || covered.has(key)) continue;
+    if (!/^[A-Za-z][A-Za-z0-9 .'-]{2,}$/.test(query)) continue;
+    seen.add(key);
+    wanted.push({ query, key });
+    if (wanted.length >= MAX_CARD_FDA_FETCH) break;
+  }
+  if (!wanted.length) return Array.isArray(existing) ? existing : [];
+  const fetched = await Promise.all(wanted.map(async ({ query, key }) => {
+    try {
+      const body = await Promise.race([
+        invokeOpenfda({ drug: query }),
+        new Promise((resolve) => setTimeout(() => resolve(null), 6000))
+      ]);
+      return body && body.label ? { drug: key, ...body } : null;
+    } catch { return null; }
+  }));
+  return [...(Array.isArray(existing) ? existing : []), ...fetched.filter(Boolean)];
+};
 
 // Map a raw article (KB item or Perplexity web hit) into the groundedForPrompt
 // shape the synthesis prompt expects.
@@ -1337,7 +1383,7 @@ TREATMENT: <drug / biologic / device / surgery; include dose, strength, route>
 FDA_STATUS: <approved | off-label | investigational | expanded access | compassionate use | not FDA regulated>
 LENGTH_FREQUENCY: <duration + frequency>
 EFFICACY: <the REAL, measured outcome for THIS drug in THIS condition, taken from the grounded evidence pack — NEVER an invented 0-100 rating or a made-up percentage. State the actual study result in plain 7th-grade English with the real numbers, e.g. "Slowed lung-function decline by about 110 mL per year versus placebo" or "Cut yearly flare-ups by roughly half". A "%" may appear ONLY when that exact percent is the real statistic reported in a cited study (e.g. "reduced relapses by 54%"); do NOT convert or summarize a study result into a fabricated percentage score. END the line with an inline clickable source link [source](url) from the evidence pack supporting THIS outcome. If the evidence pack contains no measured outcome for this drug, write "No efficacy number in the sources gathered here — ask your doctor or see the linked guideline" and still end with a [source](url) link; do NOT invent a number.>
-SAFETY: <1-100>% — <higher = safer, one-line justification that ENDS WITH an inline clickable source link [source](url) from the evidence pack (FDA label / FAERS / paper) supporting THIS number>  (same rule: plain "NN%" at the start, never bold, never a different incidental percent first)
+SAFETY: <Low | Moderate | High> — <higher band = safer. Do NOT invent a percentage. Justify the band ONLY with cited FDA label / FAERS facts and END the line with an inline clickable source link [source](url) from the evidence pack. NOTE: the system replaces this line with a deterministic band computed from the FDA label + this patient's current medicines, so base any band you write strictly on listed evidence, never a guess.>
 RISKS: <serious AEs + THIS patient's risk given meds/comorbidities>
 INTERACTIONS: <named interactions vs this patient's meds, or "None identified">
 COST: <USD range, US insurance coverage note>
@@ -1429,8 +1475,8 @@ EVIDENCE_STRENGTH: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSER
 SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. STATE THE EVIDENCE LEVEL IN PLAIN WORDS and name the species/study type — e.g. "tested in rats and large animals, not yet in humans" for preclinical work, or "human observational study (n=…)". If the human evidence is for a RELATED condition rather than THIS exact one, say so plainly (e.g. "human trials in retinal degeneration broadly, not RP specifically"). If no study of any kind exists, say "Mechanistic hypothesis only — no human or animal data yet".>
 REFERENCES: <REQUIRED — 1-3 clickable markdown links [short title](url) from the evidence pack or trials pull. Every candidate MUST have at least one link here even if SUPPORTING_EVIDENCE repeats them.>
 EFFICACY_HYPOTHESIS: <an HONEST, plain-English statement of what benefit (if any) the evidence actually suggests for THIS condition — NEVER an invented 0-100 rating or a made-up percentage. If real human efficacy data exists, state the actual result with its real numbers and end with a [source](url) link. If the evidence is only mechanistic, animal, or observational, say so plainly instead of giving a number, e.g. "No human efficacy results yet for this condition — the reason to consider it is how it works in the body, not a measured benefit." A "%" may appear ONLY if it is the real statistic from a cited study.>
-SAFETY: <1-100>% — <higher = safer; reference FDA label / FAERS reactions if available, ending with an inline clickable source link [source](url) from the evidence pack>
-CONFIDENCE: <1-100>% — <overall confidence that this is worth physician discussion — no source link needed (this is your own synthesis)>
+SAFETY: <Low | Moderate | High> — <higher band = safer. Do NOT invent a percentage. Justify the band ONLY with cited FDA label / FAERS facts and END the line with an inline clickable source link [source](url). NOTE: the system replaces this line with a deterministic band computed from the FDA label + this patient's current medicines, so base any band you write strictly on listed evidence.>
+CONFIDENCE: <Low | Moderate | High> — <overall confidence that this is worth physician discussion. You MUST justify the band with cited evidence and END the line with an inline clickable source link [source](url). If you have NO citable evidence to support a confidence rating for this candidate, OMIT this entire CONFIDENCE line — never give an opinion with no source to click.>
 PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's meds, age, comorbidities>
 HOW_TO_DISCUSS_WITH_DOCTOR: <practical script / questions the patient should ask a physician>`;
 
@@ -1499,11 +1545,11 @@ EVIDENCE_TIER: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATI
 SUPPORTING_EVIDENCE: <verbatim quotes + clickable markdown links [title](url) from the evidence pack, or "Mechanistic hypothesis only — no human combo data yet" if there is no supporting literature.>
 INTERACTION_RISK: <severity LOW | MODERATE | HIGH plus the specific pharmacokinetic / pharmacodynamic interaction; reference FDA label drug-interaction text when available>
 PATIENT_SPECIFIC_RISKS: <interactions with THIS patient's current medications + comorbidities; if none, write "None identified">
-CONFIDENCE: <1-100>% — <overall confidence that this combo is worth physician discussion>
+CONFIDENCE: <Low | Moderate | High> — <overall confidence that this combo is worth physician discussion. You MUST justify the band with cited evidence and END the line with an inline clickable source link [source](url). If you have NO citable evidence for a confidence rating, OMIT this entire CONFIDENCE line — never give an opinion with no source to click.>
 HOW_TO_DISCUSS_WITH_DOCTOR: <practical script — "I read about combining X and Y for [condition] because [pathway]; can we discuss whether monitoring [labs/AEs] would let us trial it?">
 REFERENCES: <REQUIRED — 1-2 clickable markdown links [short title](url) from the evidence pack>
 
-Combinations are HYPOTHESIS-GENERATION ONLY. When interaction risk may dominate benefit, report honestly — confidence < 25% and INTERACTION_RISK: HIGH. Skip combos built on EXCLUDED AGENTS or on any agent that already failed a completed trial for THIS condition (see FAILED-TRIAL DISQUALIFIER) — a single completed failure does not become a "new idea" by being paired with something else, unless the combo rationale explicitly and credibly addresses why the combination changes the biology.
+Combinations are HYPOTHESIS-GENERATION ONLY. When interaction risk may dominate benefit, report honestly — CONFIDENCE: Low and INTERACTION_RISK: HIGH. Skip combos built on EXCLUDED AGENTS or on any agent that already failed a completed trial for THIS condition (see FAILED-TRIAL DISQUALIFIER) — a single completed failure does not become a "new idea" by being paired with something else, unless the combo rationale explicitly and credibly addresses why the combination changes the biology.
 
 ## Reasoning Summary
 Two sentences: (1) best single-agent idea and why; (2) best combo idea and why. No recap of the full list.
@@ -2639,6 +2685,20 @@ ${SHARED_GUARDRAILS}
             i === 0 && c?.type === 'text' ? { ...c, text: filtered } : c
           );
         }
+      }
+      // Evidence-derived safety bands: rewrite each card's SAFETY: line with a
+      // deterministic Low/Moderate/High band + its FDA-sourced factor links,
+      // instead of a model-eyeballed percent. A card whose drug has no FDA
+      // label degrades gracefully (safety meter dropped). Runs BEFORE finalize
+      // so the FDA source links pass through the normal link sanitizer.
+      try {
+        const fdaForCards = await enrichFdaLabelsForCards(claudeText, evidence?.fdaLabels);
+        claudeText = injectSafetyBands(claudeText, {
+          fdaLabels: fdaForCards,
+          patientMeds: patient?.medications
+        });
+      } catch (err) {
+        console.warn('[research] safety-band injection skipped:', err.message);
       }
       claudeText = finalizeReportText(claudeText, { evidence, trials, evidenceGrade });
       if (isLinkCheckEnabled()) {
