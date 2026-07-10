@@ -53,6 +53,7 @@ import {
   parseHeadlinePercent,
   clampToCompleteSentence,
   finalizeReportText,
+  stripUnsupportedEligibilityClaims,
   assertNoForeignEntities,
   detectStructuralLeak,
   auditCardFields,
@@ -61,7 +62,8 @@ import {
   demoteGoogleAsPaperCitations,
   isFabricatedEfficacyScore,
   sanitizeMarkdownLinks,
-  collectAllowedUrls
+  collectAllowedUrls,
+  preferVerifiableUrl
 } from '../lib/report-polish.js';
 import {
   buildGroundingIndex,
@@ -1218,6 +1220,192 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
 }
 
 // ===========================================================================
+// FIX — unsupported gene-eligibility / "gene-agnostic — <GENE>-eligible"
+// qualifier stripping (NAC / CERKL leak). The cited source supports the
+// finding, NOT the appended patient-specific eligibility claim. Strip the
+// qualifier surgically, keep the cited finding + [#N] reference. A genuinely
+// evidence-supported gene-eligibility claim is preserved. The validator prompt
+// treats a live-cited-but-unsupported eligibility qualifier as flaggable.
+// ===========================================================================
+{
+  // (a) UNSUPPORTED: NAC antioxidant pack never names CERKL → strip qualifier,
+  //     keep the genuinely-cited phase-1 finding and its [#6] reference + link.
+  const nacEvidence = {
+    groundedForPrompt: [{
+      title: 'N-acetylcysteine Phase 1 in Retinitis Pigmentosa (FIGHT-RP1)',
+      journal: 'American Journal of Ophthalmology',
+      year: 2019,
+      url: 'https://www.sciencedirect.com/science/article/abs/pii/S0002939419305732',
+      summary: 'Oral N-acetylcysteine was safe over 24 weeks and associated with improved visual acuity and retinal sensitivity in retinitis pigmentosa. Phase 1, open-label.'
+    }]
+  };
+  const nacCard = [
+    'CANDIDATE: N-acetylcysteine (NAC)',
+    'CLASS: Cheap oral antioxidant pill',
+    'EFFICACY_HYPOTHESIS: Phase 1 showed improved vision sharpness and retinal sensitivity over 24 weeks [#6]. Gene-agnostic — CERKL-eligible.',
+    'REFERENCES: [FIGHT-RP1 Phase 1, Am J Ophthalmol 2019](https://www.sciencedirect.com/science/article/abs/pii/S0002939419305732)'
+  ].join('\n');
+  const nacRes = stripUnsupportedEligibilityClaims(nacCard, nacEvidence);
+  const qualifierGone = !/gene-agnostic/i.test(nacRes.text) && !/CERKL-eligible/i.test(nacRes.text);
+  const findingKept = /Phase 1 showed improved vision sharpness and retinal sensitivity over 24 weeks \[#6\]/.test(nacRes.text);
+  const refKept = /S0002939419305732/.test(nacRes.text);
+  if (qualifierGone && findingKept && refKept && nacRes.stripped.length >= 1) {
+    pass('Eligibility: strips "gene-agnostic — CERKL-eligible" while KEEPING the cited phase-1 finding + [#6] reference');
+  } else {
+    fail(`Eligibility strip regression (qualifierGone=${qualifierGone} findingKept=${findingKept} refKept=${refKept} stripped=${nacRes.stripped.length})`);
+  }
+
+  // finalizeReportText wires the stripper into the real render path.
+  const finalized = finalizeReportText(nacCard, { evidence: nacEvidence, trials: null });
+  if (!/CERKL-eligible/i.test(finalized) && /retinal sensitivity/i.test(finalized)) {
+    pass('Eligibility: finalizeReportText applies the qualifier stripper end-to-end (qualifier gone, finding kept)');
+  } else {
+    fail('Eligibility: finalizeReportText did not strip the unsupported qualifier');
+  }
+
+  // (b) SUPPORTED: pack explicitly names the gene in an eligibility context →
+  //     the gene-eligibility claim is PRESERVED (no over-stripping).
+  const rpe65Evidence = {
+    groundedForPrompt: [{
+      title: 'Voretigene neparvovec (Luxturna)',
+      summary: 'Gene therapy indicated for patients with confirmed biallelic RPE65 mutation-associated inherited retinal dystrophy.',
+      url: 'https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=voretigene'
+    }]
+  };
+  const rpe65Card = 'WHY_FOR_THIS_CONDITION: Approved gene therapy — RPE65-eligible for patients with biallelic RPE65 variants [#2].';
+  const rpe65Res = stripUnsupportedEligibilityClaims(rpe65Card, rpe65Evidence);
+  if (/RPE65-eligible/i.test(rpe65Res.text) && rpe65Res.stripped.length === 0) {
+    pass('Eligibility: a pack-supported gene-eligibility claim (RPE65 named + eligibility context) is PRESERVED');
+  } else {
+    fail(`Eligibility: over-stripped a supported gene-eligibility claim (stripped=${rpe65Res.stripped.length})`);
+  }
+
+  // (b2) SUPPORTED gene-agnostic: the source itself asserts genotype-independent
+  //      benefit → the "gene-agnostic" claim is PRESERVED.
+  const agnosticEvidence = {
+    groundedForPrompt: [{
+      title: 'Optogenetic therapy',
+      summary: 'Restores light sensitivity independent of genotype and is therefore gene-agnostic across all genotypes.',
+      url: 'https://clinicaltrials.gov/study/NCT03326336'
+    }]
+  };
+  const agnosticCard = 'WHAT_IT_DOES: Restores light response — gene-agnostic across RP subtypes [#3].';
+  const agnosticRes = stripUnsupportedEligibilityClaims(agnosticCard, agnosticEvidence);
+  if (/gene-agnostic/i.test(agnosticRes.text) && agnosticRes.stripped.length === 0) {
+    pass('Eligibility: a pack-supported gene-agnostic claim (source asserts genotype-independent) is PRESERVED');
+  } else {
+    fail(`Eligibility: over-stripped a supported gene-agnostic claim (stripped=${agnosticRes.stripped.length})`);
+  }
+
+  // (c) The IPF ~87% GERD canonical fact carries no eligibility marker and must
+  //     be left completely untouched (do not weaken the grounding gate's fact
+  //     protection or nuke unrelated lines).
+  const gerdCard = 'About 87% of people with IPF have acid reflux (GERD), and antacid medicines may help [#1].';
+  const gerdRes = stripUnsupportedEligibilityClaims(gerdCard, { canonicalFacts: [{ claim: '~87% of IPF patients have abnormal acid GERD.' }] });
+  if (gerdRes.text === gerdCard && gerdRes.stripped.length === 0) {
+    pass('Eligibility: the IPF ~87% GERD fact (no eligibility qualifier) is untouched');
+  } else {
+    fail('Eligibility: stripper wrongly altered the IPF GERD fact');
+  }
+
+  // (d) A benign "-eligible" that is NOT a gene symbol (lowercase) is untouched.
+  const benign = 'HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether you are trial-eligible for local studies.';
+  const benignRes = stripUnsupportedEligibilityClaims(benign, nacEvidence);
+  if (benignRes.text === benign && benignRes.stripped.length === 0) {
+    pass('Eligibility: a benign non-gene "trial-eligible" phrase is not stripped');
+  } else {
+    fail('Eligibility: stripper over-matched a benign "-eligible" phrase');
+  }
+
+  // (e) Validator prompt treats a live-cited-but-unsupported eligibility
+  //     qualifier as a flaggable finding (defense-in-depth beside the
+  //     deterministic stripper).
+  const validateSrc = readFileSync(new URL('../lib/validate.js', import.meta.url), 'utf8');
+  if (/CITED-BUT-UNSUPPORTED ELIGIBILITY/.test(validateSrc) && /gene-agnostic/i.test(validateSrc) && /even when the cited URL is REAL/i.test(validateSrc)) {
+    pass('Eligibility: validator prompt flags a live-cited-but-unsupported gene-eligibility qualifier');
+  } else {
+    fail('Eligibility: validator prompt missing the cited-but-unsupported eligibility check');
+  }
+
+  // (f) Prompt hardening: the generator guardrails forbid asserting therapy
+  //     gene-eligibility unless the evidence pack explicitly supports it.
+  if (/THERAPY GENE-ELIGIBILITY/.test(researchSrc) && /gene-agnostic/i.test(researchSrc)) {
+    pass('Eligibility: SHARED_GUARDRAILS forbid unsupported therapy gene-eligibility claims');
+  } else {
+    fail('Eligibility: SHARED_GUARDRAILS missing the therapy gene-eligibility rule');
+  }
+
+  // (g) Fix-7b — Section-4 trial-annotation line: an appended
+  //     "· Gene-agnostic — relevant to CERKL patients" is stripped while the
+  //     NCT id, sponsor, and status survive (these lines flow through
+  //     finalizeReportText along with the rest of the report text).
+  const trialLine = 'NCT03999021 — FIGHT-RP 1 Extension Study (oral NAC effervescent tablets) · Sponsor: Johns Hopkins · Status: Active, not recruiting · Gene-agnostic — relevant to CERKL patients';
+  const trialRes = stripUnsupportedEligibilityClaims(trialLine, nacEvidence);
+  const trialOk = /NCT03999021/.test(trialRes.text) && /Active, not recruiting/.test(trialRes.text)
+    && /Johns Hopkins/.test(trialRes.text)
+    && !/gene-agnostic/i.test(trialRes.text) && !/CERKL/i.test(trialRes.text);
+  if (trialOk && trialRes.stripped.length >= 1) {
+    pass('Eligibility: a Section-4 trial-annotation "Gene-agnostic — relevant to CERKL patients" is stripped; NCT id + sponsor + status kept');
+  } else {
+    fail(`Eligibility: trial-annotation strip regression (ok=${trialOk} stripped=${trialRes.stripped.length}) → "${trialRes.text}"`);
+  }
+
+  // (h) "Priority picks" line: gene-agnostic labels woven into a parenthetical
+  //     list are removed IN PLACE while BOTH NCT ids (siblings) survive.
+  const picks = 'Priority picks for this CERKL patient: NCT06789445 (OpCT-001, gene-agnostic cell therapy at Bascom Palmer) and NCT06319872 (disulfiram, gene-agnostic). Also see the NAC Attack phase 3 (NCT05537220)';
+  const picksRes = stripUnsupportedEligibilityClaims(picks, nacEvidence);
+  const picksOk = /NCT06789445/.test(picksRes.text) && /NCT06319872/.test(picksRes.text)
+    && /NCT05537220/.test(picksRes.text) && !/gene-agnostic/i.test(picksRes.text);
+  if (picksOk) {
+    pass('Eligibility: "priority picks" gene-agnostic labels removed in place; both NCT siblings preserved');
+  } else {
+    fail(`Eligibility: priority-picks regression → "${picksRes.text}"`);
+  }
+
+  // (i) A mechanistic "— making NAC a potentially gene-agnostic approach" clause
+  //     is dropped, keeping the disease-mechanism statement before the dash.
+  const mech = 'REPURPOSE_RATIONALE: oxidative stress drives cone cell death in RP regardless of which gene is faulty — making NAC a potentially gene-agnostic approach.';
+  const mechRes = stripUnsupportedEligibilityClaims(mech, nacEvidence);
+  if (!/gene-agnostic/i.test(mechRes.text) && /oxidative stress drives cone cell death/.test(mechRes.text)) {
+    pass('Eligibility: a trailing "making … gene-agnostic approach" clause is dropped, cited mechanism kept');
+  } else {
+    fail(`Eligibility: mechanism-clause regression → "${mechRes.text}"`);
+  }
+
+  // (j) A CERKL-naming disease-mechanism paper in the pack must NOT ground an
+  //     eligibility claim (per-item check): the gene + eligibility language must
+  //     co-occur in ONE source, not merely across the pack.
+  const packWithCerkl = { groundedForPrompt: [
+    { title: 'NAC Phase 1 in RP', summary: 'Oral N-acetylcysteine improved retinal sensitivity over 24 weeks.' },
+    { title: 'CERKL mutations in RP', summary: 'Biallelic CERKL mutations cause autosomal recessive retinitis pigmentosa; patients qualify for registry enrollment.' }
+  ] };
+  const stillStrip = stripUnsupportedEligibilityClaims('EFFICACY_HYPOTHESIS: Phase 1 improved retinal sensitivity [#6]. Gene-agnostic — CERKL-eligible.', packWithCerkl);
+  if (!/CERKL-eligible/i.test(stillStrip.text) && /retinal sensitivity \[#6\]/.test(stillStrip.text)) {
+    pass('Eligibility: a CERKL disease-mechanism paper in the pack does NOT ground a CERKL-eligibility claim (per-item adjacency)');
+  } else {
+    fail(`Eligibility: per-item grounding regression → "${stillStrip.text}"`);
+  }
+
+  // (k) Condition abbreviation is not mistaken for a gene: "relevant to RP
+  //     patients" (RP = the condition) is left completely untouched.
+  const condFrame = 'These trials are relevant to RP patients broadly.';
+  const condRes = stripUnsupportedEligibilityClaims(condFrame, nacEvidence);
+  if (condRes.text === condFrame && condRes.stripped.length === 0) {
+    pass('Eligibility: a condition abbreviation ("relevant to RP patients") is not treated as a gene');
+  } else {
+    fail(`Eligibility: condition-abbrev false positive → "${condRes.text}"`);
+  }
+
+  // (l) Validator prompt flags a citation whose stated year/journal disagrees
+  //     with the linked source (the "Campochiaro AJO 2020" → 2019 PII mismatch).
+  if (/CITATION METADATA-MISMATCH/.test(validateSrc) && /S00029394193|encodes the year/i.test(validateSrc)) {
+    pass('Eligibility: validator prompt flags a citation year/journal metadata mismatch vs. the linked source');
+  } else {
+    fail('Eligibility: validator prompt missing the citation metadata-mismatch check');
+  }
+}
+
+// ===========================================================================
 // FIX 2 — Hard 25 REAL-link floor. Retry floor 7; backfill threshold 25;
 // multi-pass + registry fill; Google alone does not count as a citation.
 // ===========================================================================
@@ -1591,6 +1779,103 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     pass('Fix 6(m): index.html MeterBar renders bands and only shows safety/confidence meters when present');
   } else {
     fail('Fix 6(m): index.html band rendering / conditional meter wiring missing');
+  }
+}
+
+// ===========================================================================
+// FIX 7 — Option B: prefer a reader-verifiable link. When an evidence-pack item
+// carries both a paywalled publisher URL and an open-access alternative for the
+// SAME source, the cited `url` becomes the reader-accessible one (PMC > PubMed >
+// DOI > ClinicalTrials.gov > publisher). We ONLY reorder URLs that already exist
+// on the item — never fabricate one — and a publisher-only item is untouched.
+// ===========================================================================
+{
+  // (a) Publisher URL alongside a PMC full-text link → cite PMC.
+  const withPmc = preferVerifiableUrl({
+    url: 'https://www.nature.com/articles/s41586-020-1234-5',
+    pmcUrl: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7654321/',
+    pubmedUrl: 'https://pubmed.ncbi.nlm.nih.gov/32000001/',
+    doiUrl: 'https://doi.org/10.1038/s41586-020-1234-5'
+  });
+  if (withPmc === 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7654321/') {
+    pass('Fix 7(a): a paywalled publisher URL with a PMC alternative cites the PMC full-text link');
+  } else {
+    fail(`Fix 7(a): PMC promotion regression (got ${withPmc})`);
+  }
+
+  // (b) Publisher + PubMed + DOI (no PMC) → cite PubMed over DOI over publisher.
+  const withPubmed = preferVerifiableUrl({
+    url: 'https://www.sciencedirect.com/science/article/pii/S0000000000',
+    pubmedUrl: 'https://pubmed.ncbi.nlm.nih.gov/32000002/',
+    doiUrl: 'https://doi.org/10.1016/j.example.2021.01.001'
+  });
+  if (withPubmed === 'https://pubmed.ncbi.nlm.nih.gov/32000002/') {
+    pass('Fix 7(b): with no PMC copy, the PubMed record is preferred over DOI and the publisher URL');
+  } else {
+    fail(`Fix 7(b): PubMed promotion regression (got ${withPubmed})`);
+  }
+
+  // (c) Publisher + DOI only → cite the DOI (doi.org) over the publisher page.
+  const withDoi = preferVerifiableUrl({
+    url: 'https://link.springer.com/article/10.1007/s00000-000-0000-0',
+    doiUrl: 'https://doi.org/10.1007/s00000-000-0000-0'
+  });
+  if (withDoi === 'https://doi.org/10.1007/s00000-000-0000-0') {
+    pass('Fix 7(c): with only a DOI alternative, doi.org is preferred over the publisher URL');
+  } else {
+    fail(`Fix 7(c): DOI promotion regression (got ${withDoi})`);
+  }
+
+  // (d) Only a publisher URL exists → keep it unchanged (never dropped/fabricated).
+  const only = 'https://www.wiley.com/en-us/some-article';
+  const publisherOnly = preferVerifiableUrl({ url: only });
+  if (publisherOnly === only) {
+    pass('Fix 7(d): a publisher-only item keeps its URL unchanged (no fabrication, no drop)');
+  } else {
+    fail(`Fix 7(d): publisher-only regression (got ${publisherOnly})`);
+  }
+
+  // (e) No URL at all → empty string (nothing invented), honors the fallback arg.
+  const none = preferVerifiableUrl({ title: 'no links here' });
+  const fb = preferVerifiableUrl({ title: 'x' }, 'https://doi.org/10.1/fallback');
+  if (none === '' && fb === 'https://doi.org/10.1/fallback') {
+    pass('Fix 7(e): an item with no URLs yields empty (never fabricates); a caller fallback is honored');
+  } else {
+    fail(`Fix 7(e): empty-item regression (none=${JSON.stringify(none)} fb=${fb})`);
+  }
+
+  // (f) An open-access (Unpaywall) copy is preferred over the publisher page even
+  //     when both resolve to the "other-host" tier (oaUrl beats url on a tie).
+  const withOa = preferVerifiableUrl({
+    url: 'https://www.tandfonline.com/doi/full/10.1080/x',
+    oaUrl: 'https://repository.university.edu/bitstream/handle/paper.pdf'
+  });
+  if (withOa === 'https://repository.university.edu/bitstream/handle/paper.pdf') {
+    pass('Fix 7(f): an open-access copy is cited over the publisher page on a same-tier tie');
+  } else {
+    fail(`Fix 7(f): OA-over-publisher tie regression (got ${withOa})`);
+  }
+
+  // (g) Determinism — identical input → identical chosen URL every run.
+  const item = {
+    url: 'https://www.nature.com/articles/x',
+    pmcUrl: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC1/',
+    pubmedUrl: 'https://pubmed.ncbi.nlm.nih.gov/1/',
+    doiUrl: 'https://doi.org/10.1/x'
+  };
+  if (preferVerifiableUrl(item) === preferVerifiableUrl(item)) {
+    pass('Fix 7(g): preferVerifiableUrl is deterministic (same item → same chosen URL)');
+  } else {
+    fail('Fix 7(g): preferVerifiableUrl is non-deterministic');
+  }
+
+  // (h) The promoted URL survives the report-polish allowlist / link sanitizer.
+  const allow = collectAllowedUrls({ groundedForPrompt: [item] }, null);
+  const line = `See the trial [source](${preferVerifiableUrl(item)}).`;
+  if (/\[source\]\(https:\/\/pmc\.ncbi\.nlm\.nih\.gov\/articles\/PMC1\/\)/.test(sanitizeMarkdownLinks(line, allow))) {
+    pass('Fix 7(h): the promoted reader-verifiable URL is on the allowlist and survives sanitizeMarkdownLinks');
+  } else {
+    fail('Fix 7(h): promoted URL stripped by the link sanitizer');
   }
 }
 

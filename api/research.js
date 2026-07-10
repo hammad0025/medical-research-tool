@@ -33,7 +33,8 @@ import {
   filterExcludedAgentMentions,
   applyValidationFixes,
   collectAllowedUrls,
-  reattachEntityLinks
+  reattachEntityLinks,
+  preferVerifiableUrl
 } from '../lib/report-polish.js';
 import { removeDeadLinks } from '../lib/link-check.js';
 import { geneticContextLine } from '../lib/genetics.js';
@@ -301,7 +302,9 @@ const toGroundedItem = (a, { isCuratedKB = false, kbCategory = null, conditionSl
   isRCT: !!a.isRCT,
   isMetaAnalysis: !!a.isMetaAnalysis,
   isSystematicReview: !!a.isSystematicReview,
-  url: a.url || a.pubmedUrl || a.doiUrl || '',
+  // Option B: prefer a reader-verifiable link (PMC/PubMed/DOI/OA) over a
+  // paywalled publisher page among the URLs the item already carries.
+  url: preferVerifiableUrl(a),
   text: (a.abstract || a.fullText || a.summary || '').slice(0, 3500)
 });
 
@@ -605,7 +608,7 @@ const trimSynthPools = (pools = {}) => {
           title: a.title,
           journal: a.journal,
           year: a.year,
-          url: a.url || a.pmcUrl || a.pubmedUrl || a.doiUrl,
+          url: preferVerifiableUrl(a),
           accessLevel: a.accessLevel,
           abstract: (a.abstract || '').slice(0, 800)
         }))
@@ -1256,6 +1259,7 @@ CITATION RULES (absolute — the single biggest failure mode of AI in medical re
   4. Guidelines → the issuing society's guideline page if you are certain of it, else a PubMed search (https://pubmed.ncbi.nlm.nih.gov/?term=<url-encoded>).
   5. Centers/clinics/advocacy orgs/registries/experts → the entity's official website ONLY if you are confident of the exact URL; otherwise link a Google search (https://www.google.com/search?q=<url-encoded name>). A search link is a navigational aid for places/people — NEVER put a Google search URL in REFERENCES or SUPPORTING_EVIDENCE as if it were the paper.
 - NEVER invent a paper URL, DOI, PMID, PubMed ID, journal deep link, or NCT ID. If you lack a pack URL for a claim, use DailyMed search for the drug or OMIT the claim — never fabricate a DOI/PMID to look cited.
+- CITATION METADATA MUST MATCH THE LINK: only state a specific publication YEAR, JOURNAL, or first AUTHOR for a citation when it matches the evidence-pack item you are linking. Do NOT guess or "round" a year (e.g. do not label a 2019 paper "2020"). If you are unsure of the exact year/journal, cite the source by title + link WITHOUT a fabricated year rather than attaching one that disagrees with the linked article.
 - A Google search URL must NEVER be the sole REFERENCES entry for a drug/paper card and must NEVER be presented as "the paper."
 - Bare URLs are acceptable only if markdown link syntax is impossible; prefer [title](url) always.
 - If the evidence pack does not support a claim, OMIT it or use plain English ("Published figures vary — ask your doctor for local rates."). NEVER write "No grounded evidence in pack" or other internal pipeline phrases.
@@ -1273,6 +1277,7 @@ NO-INVENTED-PATIENT-FACTS (critical — the second AI flags violations, and a ha
 - GENETIC RESULTS — distinguish three cases and treat them differently: (a) a PROVIDED POSITIVE variant is a fact you state and use to gate gene therapies; (b) a PROVIDED NEGATIVE result (e.g. "genetic testing done, no known pathogenic variant," "no genetic component") is ALSO a legitimate patient-reported fact — you MAY and SHOULD state it plainly (e.g. "Genetic testing did not find a known disease-causing variant"), and you must NOT delete it or inflate it into a specific variant; (c) when NO genetic testing was reported, do NOT convert "not tested" into "tested negative" and do NOT assert any result — only say testing was not reported. The ban is on ASSERTING a negative that was never reported, NOT on stating a negative the patient actually provided.
 - Do NOT invent the identity, drug class, brand name, or definition of a medication you do not recognize. If a listed medication is an ambiguous abbreviation (e.g. "NAD", "NAD+", "TUDCA" only if unclear in context), write "identity unclear from the information provided — confirm with the prescriber" instead of guessing (never invent "sunscreen," "antibiotic," "vitamin," etc. without pack support or an unambiguous known expansion).
 - When you lack a patient-specific fact needed for a statement, either omit the statement or explicitly say the information was not provided — never fabricate to fill the gap.
+- THERAPY GENE-ELIGIBILITY / GENE-COVERAGE (critical patient-safety + citation-integrity rule — the second AI flags violations): NEVER assert that a therapy is "gene-agnostic", "<GENE>-eligible", "eligible for <GENE>", "covers <GENE>", "works regardless of mutation/genotype", or applies to "all genetic forms" of the disease UNLESS an evidence-pack item EXPLICITLY establishes that gene-coverage / eligibility (e.g. an approved gene therapy indicated for that specific gene, or a study reporting benefit was genotype-independent). A drug's mechanism being non-gene-specific (e.g. a general antioxidant) does NOT license claiming the patient's specific gene is "eligible" — that is an unsupported inference about THIS patient and MUST be dropped, not stated. In particular, do NOT append an eligibility qualifier ("Gene-agnostic — <GENE>-eligible") onto an otherwise-cited finding: the citation supports the finding, not the eligibility claim. State only what the cited source establishes; if the source does not address the patient's gene or eligibility, say nothing about it.
 - NEVER invent an efficacy or "how well it works" percentage. A percent may appear ONLY when it is the exact statistic reported in a cited study. For a drug's effectiveness, report the REAL measured outcome from the evidence pack (e.g. "slowed decline by ~110 mL/year", "cut flares roughly in half") — do NOT convert a study result into a made-up 0-100 score. If no measured outcome is available, say so plainly rather than inventing a number.
 
 READER-FACING LANGUAGE (critical — demo / lawyer audience):
