@@ -103,7 +103,8 @@ import {
   isTrustedLiveHost,
   buildFallbackSearchUrl,
   stripDeadLinksFromText,
-  extractReportUrls
+  extractReportUrls,
+  findDeadLinks
 } from '../lib/link-check.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
@@ -1994,6 +1995,25 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     pass('Fix 8(g): fallback search URL is deterministic and extractable');
   } else {
     fail('Fix 8(g): fallback search URL non-deterministic or unextractable');
+  }
+
+  // (h) Budget guard: findDeadLinks skips always-live hosts (PubMed/PMC/DOI/
+  //     CT.gov/EuropePMC) WITHOUT a network probe, so a link-heavy report spends
+  //     its time budget on risky publisher links. An all-always-live input
+  //     resolves instantly to an empty dead set (no fetch). fda.gov is
+  //     deliberately NOT skipped here — its deep label PDFs rotate and 404.
+  const t0 = Date.now();
+  const deadFast = await findDeadLinks([
+    'https://pubmed.ncbi.nlm.nih.gov/1/',
+    'https://pmc.ncbi.nlm.nih.gov/articles/PMC1/',
+    'https://doi.org/10.1/x',
+    'https://clinicaltrials.gov/study/NCT01234567',
+    'https://europepmc.org/article/MED/1'
+  ]);
+  if (deadFast.size === 0 && Date.now() - t0 < 500) {
+    pass('Fix 8(h): always-live hosts are skipped without a network probe (time budget preserved)');
+  } else {
+    fail(`Fix 8(h): always-live hosts were probed (size=${deadFast.size}, ms=${Date.now() - t0})`);
   }
 }
 
