@@ -1884,6 +1884,26 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
   } else {
     fail('Fix 7(h): promoted URL stripped by the link sanitizer');
   }
+
+  // (i) A curated-KB item carries a paywalled publisher `url` plus BARE
+  //     `pmid` / `doi` identifiers (not pre-built *Url fields). The derived
+  //     PubMed record must win over the ScienceDirect 403 — this is the exact
+  //     NAC / retinitis-pigmentosa dud Dorothy clicked.
+  const kbNac = {
+    url: 'https://www.sciencedirect.com/science/article/pii/S0002939419305732',
+    pmid: '31734129',
+    doi: '10.1016/j.ajo.2019.11.008'
+  };
+  const kbDoiOnly = { url: 'https://www.nature.com/articles/x', doi: '10.1038/x' };
+  if (
+    preferVerifiableUrl(kbNac) === 'https://pubmed.ncbi.nlm.nih.gov/31734129/' &&
+    preferVerifiableUrl(kbDoiOnly) === 'https://doi.org/10.1038/x' &&
+    preferVerifiableUrl({ url: 'https://www.wiley.com/x' }) === 'https://www.wiley.com/x'
+  ) {
+    pass('Fix 7(i): a KB item with bare pmid/doi cites the derived PubMed/DOI over the paywalled publisher URL');
+  } else {
+    fail(`Fix 7(i): bare pmid/doi derivation regression (nac=${preferVerifiableUrl(kbNac)})`);
+  }
 }
 
 // ===========================================================================
