@@ -98,6 +98,13 @@ import {
   accessDesignationBonus,
   programIsAvailable
 } from '../api/trials.js';
+import {
+  classifyProbeStatus,
+  isTrustedLiveHost,
+  buildFallbackSearchUrl,
+  stripDeadLinksFromText,
+  extractReportUrls
+} from '../lib/link-check.js';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
 const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
@@ -1876,6 +1883,97 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     pass('Fix 7(h): the promoted reader-verifiable URL is on the allowlist and survives sanitizeMarkdownLinks');
   } else {
     fail('Fix 7(h): promoted URL stripped by the link sanitizer');
+  }
+}
+
+// ===========================================================================
+// Fix 8: hard dead-link gate — a "dud" (paywalled / bot-blocked 401/403/451)
+// on an untrusted host is treated as dead, trusted reader-accessible hosts
+// fail open, and a stripped citation is replaced with a scoped search link
+// instead of leaving a bare claim (Dorothy's dead-link complaint).
+// ===========================================================================
+{
+  // (a) 404/410 are always dead, on any host.
+  if (
+    classifyProbeStatus('https://www.sciencedirect.com/x', 404) === 'dead' &&
+    classifyProbeStatus('https://pubmed.ncbi.nlm.nih.gov/1/', 410) === 'dead'
+  ) {
+    pass('Fix 8(a): 404/410 classify as dead on any host');
+  } else {
+    fail('Fix 8(a): 404/410 no longer classify as dead');
+  }
+
+  // (b) A 403 on an untrusted publisher (paywall/bot-block) is a dud → dead.
+  if (
+    classifyProbeStatus('https://www.sciencedirect.com/science/article/abs/pii/S0002939419305732', 403) === 'dead' &&
+    classifyProbeStatus('https://www.nature.com/articles/x', 401) === 'dead' &&
+    classifyProbeStatus('https://link.springer.com/x', 451) === 'dead'
+  ) {
+    pass('Fix 8(b): 401/403/451 on an untrusted publisher classify as a dead dud');
+  } else {
+    fail('Fix 8(b): paywalled 403 dud no longer treated as dead');
+  }
+
+  // (c) The same blocked status on a trusted reader-accessible host fails OPEN
+  //     (bot-block, not a wall for humans) so real citations are never stripped.
+  const trustedBlocked = [
+    'https://pubmed.ncbi.nlm.nih.gov/32000001/',
+    'https://pmc.ncbi.nlm.nih.gov/articles/PMC1/',
+    'https://doi.org/10.1/x',
+    'https://clinicaltrials.gov/study/NCT01234567',
+    'https://accessdata.fda.gov/scripts/cder/daf/',
+    'https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=x',
+    'https://europepmc.org/article/MED/1'
+  ];
+  if (trustedBlocked.every((u) => classifyProbeStatus(u, 403) === 'alive' && isTrustedLiveHost(u))) {
+    pass('Fix 8(c): a 403 from a trusted host (PubMed/PMC/DOI/CT.gov/FDA/DailyMed/EuropePMC) fails open');
+  } else {
+    fail('Fix 8(c): a trusted host 403 was wrongly treated as dead');
+  }
+
+  // (d) Transient statuses (429/5xx) and 2xx/3xx always stay alive.
+  if (
+    classifyProbeStatus('https://www.sciencedirect.com/x', 429) === 'alive' &&
+    classifyProbeStatus('https://www.sciencedirect.com/x', 503) === 'alive' &&
+    classifyProbeStatus('https://www.sciencedirect.com/x', 200) === 'alive'
+  ) {
+    pass('Fix 8(d): transient 429/5xx and healthy 2xx stay alive (fail-open on flaky network)');
+  } else {
+    fail('Fix 8(d): a transient/healthy status was wrongly treated as dead');
+  }
+
+  // (e) A dead markdown citation is REPLACED with a condition-scoped PubMed
+  //     search of the same label, not just demoted to a bare claim.
+  const dud = 'https://www.sciencedirect.com/science/article/abs/pii/S0002939419305732';
+  const body = `NAC in RP — Johns Hopkins phase 1, AJO 2020 [source](${dud}) improved vision.`;
+  const fixed = stripDeadLinksFromText(body, new Set([dud]), { condition: 'retinitis pigmentosa' });
+  if (
+    !fixed.includes(dud) &&
+    /\[source\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/\?term=[^)]+\)/.test(fixed)
+  ) {
+    pass('Fix 8(e): a stripped dud citation is replaced with a scoped PubMed search link');
+  } else {
+    fail(`Fix 8(e): dud citation not replaced with a working search link (got: ${fixed})`);
+  }
+
+  // (f) An NCT-labelled dead link is repointed at the exact ClinicalTrials.gov
+  //     study, and a bare dead URL is removed entirely.
+  const nctUrl = buildFallbackSearchUrl('Phase 3 trial NCT04148833 of drug X', 'IPF');
+  const bareBody = `See ${dud} for details.`;
+  const bareFixed = stripDeadLinksFromText(bareBody, new Set([dud]), {});
+  if (nctUrl === 'https://clinicaltrials.gov/study/NCT04148833' && !bareFixed.includes(dud)) {
+    pass('Fix 8(f): an NCT label repoints to the exact CT.gov study; a bare dead URL is removed');
+  } else {
+    fail(`Fix 8(f): NCT/bare-URL handling regression (nct=${nctUrl}, bare="${bareFixed}")`);
+  }
+
+  // (g) The replacement search links are navigational, so they survive the
+  //     dead-link extractor's own skip list (never re-stripped) and are stable.
+  const replUrl = buildFallbackSearchUrl('some paper title', 'IPF');
+  if (replUrl === buildFallbackSearchUrl('some paper title', 'IPF') && extractReportUrls(`[x](${replUrl})`).includes(replUrl)) {
+    pass('Fix 8(g): fallback search URL is deterministic and extractable');
+  } else {
+    fail('Fix 8(g): fallback search URL non-deterministic or unextractable');
   }
 }
 

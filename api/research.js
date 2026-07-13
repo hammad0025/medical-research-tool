@@ -2146,7 +2146,9 @@ export default async function handler(req, res) {
       // render as clickable (Dorothy's demo failure). Non-fatal + budgeted.
       if (isLinkCheckEnabled()) {
         try {
-          const { text: deadStripped, deadUrls } = await removeDeadLinks(polished);
+          const { text: deadStripped, deadUrls } = await removeDeadLinks(polished, {
+            condition: req.body?.condition || req.body?.patient?.condition || ''
+          });
           if (deadUrls.size) {
             console.warn(`[research] polish-report stripped ${deadUrls.size} dead link(s)`);
             polished = deadStripped;
@@ -2708,7 +2710,9 @@ ${SHARED_GUARDRAILS}
       claudeText = finalizeReportText(claudeText, { evidence, trials, evidenceGrade });
       if (isLinkCheckEnabled()) {
         try {
-          const { text: deadStripped, deadUrls } = await removeDeadLinks(claudeText);
+          const { text: deadStripped, deadUrls } = await removeDeadLinks(claudeText, {
+            condition: effectiveCondition || ''
+          });
           if (deadUrls.size) {
             console.warn(`[research] synthesis stripped ${deadUrls.size} dead link(s)`);
             claudeText = deadStripped;
