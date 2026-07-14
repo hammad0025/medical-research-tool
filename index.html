@@ -2494,7 +2494,7 @@
                   status: 'running' },
                 { id: 'synth', label: mode === 'repurpose' ? 'Look at drug ideas' : 'Write your full report',
                   desc: mode === 'repurpose'
-                    ? 'Several groups of drug ideas at once, then combinations (about 1 to 2 minutes).'
+                    ? 'Several groups of drug ideas at once, then combinations (often about 5 to 6 minutes).'
                     : 'A full report made just for you, in two parts. Deep research, not a quick answer.',
                   status: 'pending' }
               ]
@@ -7064,7 +7064,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                     <Brain size={22} /> Detailed Condition Report
                   </h2>
                   <p style={{ margin: '0.25rem 0 0', color: theme.textDim, fontSize: '0.82rem', fontStyle: 'italic' }}>
-                    A careful search of journals, trials, treatments, and experts (takes 1 to 2 minutes — not a quick answer)
+                    A careful search of journals, trials, treatments, and experts (<strong>often about 5 to 6 minutes</strong> — not a quick answer)
                   </p>
                 </div>
                 <button style={btn('primary', !!busy || !profileCoherenceIssue.ok)} disabled={!!busy || !profileCoherenceIssue.ok}
