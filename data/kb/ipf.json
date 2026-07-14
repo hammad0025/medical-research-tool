@@ -502,14 +502,15 @@
       "id": "ipf-antacid-cochrane-2023",
       "category": "review",
       "tier": "A",
-      "title": "Antacid therapy for idiopathic pulmonary fibrosis",
-      "authors": "Pokharel A, Al-Halawani M, Khan MQ, Kasi AS",
-      "journal": "Cochrane / Literature review context",
-      "year": 2023,
-      "doi": "10.1002/14651858.CD013710.pub2",
-      "url": "https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD013710.pub2/full",
-      "accessLevel": "metadata-only",
-      "summary": "Cochrane review on antacid therapy (PPI, H2 blockers) for IPF. Evidence is low-to-moderate quality, post-hoc analyses from pirfenidone trials suggest possible benefit but no definitive RCT. Guidelines give conditional recommendation. Treat GERD when symptomatic; GERD treatment should not be withheld in IPF.",
+      "title": "Treatment of Gastroesophageal Reflux in Patients With Idiopathic Pulmonary Fibrosis: A Systematic Review and Meta-Analysis",
+      "authors": "Fidler L, Sitzer N, Shapera S, Shah PS",
+      "journal": "Chest",
+      "year": 2018,
+      "doi": "10.1016/j.chest.2018.03.008",
+      "pmid": "29559309",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29559309/",
+      "accessLevel": "abstract",
+      "summary": "Systematic review and meta-analysis of antireflux therapy (PPIs, H2 blockers, fundoplication) in IPF. Evidence is low-to-moderate quality: earlier post-hoc analyses suggested possible benefit, but pooled data did not show a significant effect on FVC decline, and some analyses raised infection concerns. Guidelines give only a conditional recommendation. Treat GERD when symptomatic; antireflux treatment should not be withheld in IPF, but it is not a proven disease-modifying therapy.",
       "keyPassages": []
     },
     {
@@ -564,19 +565,19 @@
       "id": "ipf-combination-trail-2023",
       "category": "rct",
       "tier": "A",
-      "title": "Combination nintedanib + pirfenidone — INJOURNEY and subsequent safety/tolerability studies",
-      "authors": "Flaherty KR, Fell CD, Huggins JT, et al. (INJOURNEY investigators)",
-      "journal": "European Respiratory Journal",
+      "title": "Nintedanib with Add-on Pirfenidone in Idiopathic Pulmonary Fibrosis: Results of the INJOURNEY Trial",
+      "authors": "Vancheri C, Kreuter M, Richeldi L, Ryerson CJ, et al.",
+      "journal": "American Journal of Respiratory and Critical Care Medicine",
       "year": 2018,
-      "doi": "10.1183/13993003.01060-2017",
-      "pmid": "29269574",
-      "url": "https://erj.ersjournals.com/content/early/2017/12/21/13993003.01060-2017",
+      "doi": "10.1164/rccm.201706-1301OC",
+      "pmid": "28889759",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/28889759/",
       "accessLevel": "abstract",
-      "summary": "Open-label trial of adding pirfenidone to background nintedanib. Primary objective was safety/tolerability, not efficacy. Combination was tolerable in most patients (GI adverse events were the main issue). Combination therapy is NOT standard of care — current guidelines do not recommend routine combination, but it is used case-by-case when one drug alone is insufficient and the patient tolerates both. Expect higher GI and hepatic monitoring burden.",
+      "summary": "INJOURNEY: open-label trial of adding pirfenidone to background nintedanib in IPF. Primary objective was safety/tolerability, not efficacy. The combination was manageable in most patients over 12 weeks, with gastrointestinal adverse events (diarrhea, nausea, vomiting) the main issue. Combination therapy is NOT standard of care — current guidelines do not recommend routine combination, but it is used case-by-case when one drug alone is insufficient and the patient tolerates both. Expect higher GI and hepatic monitoring burden.",
       "keyPassages": [
         {
           "topic": "tolerability",
-          "quote": "The combination of nintedanib 150 mg twice daily and pirfenidone 801 mg three times daily was manageable in most patients over 12 weeks."
+          "quote": "Nintedanib with add-on pirfenidone had a manageable safety and tolerability profile in patients with IPF, with gastrointestinal events the most frequent adverse events."
         }
       ]
     },
