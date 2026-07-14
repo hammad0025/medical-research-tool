@@ -20,6 +20,9 @@ import {
   appendRegistryFill,
   dailyMedSearchUrl,
   buildRegistryFillCandidate,
+  textHasRealCitation,
+  isDailyMedSearchUrl,
+  isDailyMedLabelUrl,
   REPURPOSE_BACKFILL_MAX_PASSES
 } from '../lib/repurpose-quality.js';
 import {
@@ -63,7 +66,11 @@ import {
   isFabricatedEfficacyScore,
   sanitizeMarkdownLinks,
   collectAllowedUrls,
-  preferVerifiableUrl
+  preferVerifiableUrl,
+  resolveInlineReferenceMarkers,
+  buildReferenceUrlMap,
+  stripDailyMedSearchLinks,
+  isNamedEntityBold
 } from '../lib/report-polish.js';
 import {
   buildGroundingIndex,
@@ -240,9 +247,11 @@ else fail(`Only ${slugs.length} KBs — expected ≥11`);
 
 // 11. Quality assessor sanity — Hard 25 requires ≥25 REAL-linked cards
 {
+  // REAL citations only (client mandate): a DailyMed SEARCH page no longer
+  // counts — use specific setid label monographs (drugInfo.cfm?setid=…) which do.
   const short = assessRepurposeQuality([
-    'CANDIDATE: a\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=a)\n',
-    'CANDIDATE: b\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=b)\n'
+    'CANDIDATE: a\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=aa-1)\n',
+    'CANDIDATE: b\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=bb-2)\n'
   ]);
   if (!short.ok && short.linked === 2 && short.shortfall === 23) {
     pass(`Quality assessor: ${short.linked} REAL-linked candidates flagged below Hard-25 floor`);
@@ -251,7 +260,7 @@ else fail(`Only ${slugs.length} KBs — expected ≥11`);
   }
   const blocks = Array.from({ length: 25 }, (_, i) => {
     const name = `Candidate${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + (i % 26))}`;
-    return `CANDIDATE: ${name}\nREFERENCES: [DailyMed](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=${name})`;
+    return `CANDIDATE: ${name}\nREFERENCES: [DailyMed label](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=${name.toLowerCase()}-x)`;
   }).join('\n\n');
   const full = assessRepurposeQuality([blocks]);
   if (full.ok && full.linked >= 25) pass(`Quality assessor OK at ${full.linked} REAL-linked candidates`);
@@ -1451,28 +1460,35 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     fail('Hard 25: Google-search incorrectly counted as real citation');
   }
 
-  const dailyOk = isRealCitationUrl(dailyMedSearchUrl('pirfenidone'));
+  // DailyMed SEARCH pages are NO LONGER real citations (client mandate:
+  // query=minoxidil → 1,576 mostly third-party results, not a label). Only a
+  // specific label monograph (drugInfo.cfm?setid=…) counts.
+  const dailySearchNotReal = !isRealCitationUrl(dailyMedSearchUrl('pirfenidone'));
+  const dailyLabelReal = isRealCitationUrl('https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=abc-123');
   const nctOk = isRealCitationUrl('https://clinicaltrials.gov/study/NCT05321069');
-  if (dailyOk && nctOk) pass('Hard 25: DailyMed + CT.gov study URLs count as REAL citations');
-  else fail('Hard 25: DailyMed/CT.gov should be real citations');
-
-  // Registry fill uses DailyMed only — never invents a paper URL
-  const shortText = ['AlphaDrug', 'BetaDrug', 'GammaDrug'].map((name) =>
-    `CANDIDATE: ${name}\nREFERENCES: [d](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=${name})`
-  ).join('\n\n');
-  const filled = appendRegistryFill(shortText, [
-    { name: 'Metformin', mechanism: 'AMPK' },
-    { name: 'Spironolactone', mechanism: 'MR antagonist' }
-  ], { condition: 'IPF', target: 5 });
-  if (
-    filled.filled === 2 &&
-    filled.linked === 5 &&
-    /dailymed\.nlm\.nih\.gov/.test(filled.text) &&
-    !/pubmed\.ncbi|doi\.org\/10\./i.test(buildRegistryFillCandidate({ name: 'Metformin' }))
-  ) {
-    pass('Hard 25: registry fill reaches target with DailyMed-only citations (no invented paper URL)');
+  if (dailySearchNotReal && dailyLabelReal && nctOk) {
+    pass('Hard 25: DailyMed SEARCH is NOT a real citation; specific setid label + CT.gov study ARE');
   } else {
-    fail(`Hard 25: registry fill regression (filled=${filled.filled} linked=${filled.linked})`);
+    fail(`Hard 25: DailyMed citation rule regression (searchNotReal=${dailySearchNotReal} labelReal=${dailyLabelReal})`);
+  }
+
+  // Registry fill must NOT fabricate a DailyMed search citation. With no real
+  // link available, a registry-fill candidate carries NO citation link and does
+  // NOT count toward Hard 25 (honest "real specific URL or none").
+  const fillBlock = buildRegistryFillCandidate({ name: 'Metformin', mechanism: 'AMPK' }, { condition: 'IPF' });
+  const fillNoSearchLink = !/dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(fillBlock);
+  const fillNoInventedPaper = !/pubmed\.ncbi|doi\.org\/10\./i.test(fillBlock);
+  const fillNotCounted = !textHasRealCitation(fillBlock);
+  // A registry-fill candidate WITH a resolved specific setid label DOES count.
+  const fillWithLabel = buildRegistryFillCandidate(
+    { name: 'Metformin' },
+    { condition: 'IPF', labelUrl: 'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=xyz-1' }
+  );
+  const fillLabelCounted = textHasRealCitation(fillWithLabel);
+  if (fillNoSearchLink && fillNoInventedPaper && fillNotCounted && fillLabelCounted) {
+    pass('Hard 25: registry fill never fabricates a DailyMed search link (no citation w/o a real setid label; counts only with one)');
+  } else {
+    fail(`Hard 25: registry fill DailyMed-search regression (noSearch=${fillNoSearchLink} notCounted=${fillNotCounted} labelCounted=${fillLabelCounted})`);
   }
 
   const clientHasMultiPass = /BACKFILL_MAX_PASSES\s*=\s*3/.test(html) && /registryFilled/.test(html);
@@ -1510,12 +1526,24 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     '- See [the trial](https://clinicaltrials.gov/study/NCT05321069) for details.'
   ].join('\n');
   const { text: relinked, reattached } = reattachEntityLinks(text);
-  const gotDailyMed = /\[\*\*BI 1015550\*\*\]\(https:\/\/dailymed\.nlm\.nih\.gov\/dailymed\/search/.test(relinked);
+  // Client mandate "real specific URL or none": a bolded drug with no
+  // resolvable SPECIFIC record must NOT get a fabricated DailyMed/Google search
+  // link — it stays plain bold text. Only NCT ids get a synthesized CT.gov link.
+  const noFabricatedLink = !/\[\*\*BI 1015550\*\*\]\(/.test(relinked) && /\*\*BI 1015550\*\*/.test(relinked);
+  const noDailyMedSearch = !/dailymed\.nlm\.nih\.gov\/dailymed\/search/.test(relinked);
   const keptLinkedLine = relinked.includes('[the trial](https://clinicaltrials.gov/study/NCT05321069)');
-  if (gotDailyMed && reattached.includes('BI 1015550') && keptLinkedLine) {
-    pass('Fix 4: link audit re-attaches DailyMed (not Google-as-paper) to a bolded drug left without a link');
+  if (noFabricatedLink && noDailyMedSearch && !reattached.includes('BI 1015550') && keptLinkedLine) {
+    pass('Fix 4: link audit leaves a bolded drug as plain text (no fabricated DailyMed/Google search link)');
   } else {
-    fail(`Fix 4: link audit regression (gotDailyMed=${gotDailyMed} kept=${keptLinkedLine})`);
+    fail(`Fix 4: link audit regression (noFabricated=${noFabricatedLink} noSearch=${noDailyMedSearch} kept=${keptLinkedLine})`);
+  }
+  // An NCT id still gets a synthesized specific CT.gov study link.
+  const nctText = '- **NCT05888922** is enrolling now.';
+  const { text: nctRelinked, reattached: nctReattached } = reattachEntityLinks(nctText);
+  if (/\[\*\*NCT05888922\*\*\]\(https:\/\/clinicaltrials\.gov\/study\/NCT05888922\)/.test(nctRelinked) && nctReattached.includes('NCT05888922')) {
+    pass('Fix 4: link audit re-attaches a SPECIFIC CT.gov study link to a bare NCT id');
+  } else {
+    fail('Fix 4: NCT re-attach regression');
   }
 
   const noise = '- How well it works was **70%**, at a **150 mg** dose.';
@@ -1526,6 +1554,134 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
   const tableUntouched = tableOut === tableRow && skipped.includes('Mayo Clinic');
   if (noiseUntouched && tableUntouched) pass('Fix 4: link audit ignores percentages/doses and does NOT auto-link center-table rows (CENTER-LINK RULE) but logs them');
   else fail(`Fix 4: link-audit conservatism regression (noise=${noiseUntouched} table=${tableUntouched})`);
+}
+
+// ===========================================================================
+// INLINE CITATIONS (client's #1 requirement) — in-text reference markers must
+// become inline clickable links at the claim, resolved against the evidence
+// pack; unresolvable markers drop to plain text (no dangling marker, no fake).
+// ===========================================================================
+{
+  const evidence = {
+    groundedForPrompt: [
+      { pmid: '11111111', url: 'https://pubmed.ncbi.nlm.nih.gov/11111111/' },      // #1
+      { doi: '10.1000/abc', url: 'https://doi.org/10.1000/abc' },                   // #2
+      { url: 'https://clinicaltrials.gov/study/NCT05321069' }                        // #3
+    ]
+  };
+  const map = buildReferenceUrlMap(evidence);
+  const mapOk = map.get(1) === 'https://pubmed.ncbi.nlm.nih.gov/11111111/' &&
+                map.get(2) === 'https://doi.org/10.1000/abc' &&
+                map.get(3) === 'https://clinicaltrials.gov/study/NCT05321069';
+  if (mapOk) pass('Inline citations: reference-URL map mirrors the [#N] evidence-pack numbering');
+  else fail('Inline citations: reference-URL map regression');
+
+  const body = 'Minoxidil is effective and safe for male AGA before starting. [#3]';
+  const resolved = resolveInlineReferenceMarkers(body, evidence);
+  if (
+    /\[source ↗\]\(https:\/\/clinicaltrials\.gov\/study\/NCT05321069\)/.test(resolved) &&
+    !/\[#3\]/.test(resolved)
+  ) {
+    pass('Inline citations: a resolvable [#3] becomes an inline clickable link at the claim (not a bare marker)');
+  } else {
+    fail(`Inline citations: [#3] not inlined → ${JSON.stringify(resolved)}`);
+  }
+
+  const multi = 'Two sources agree. [#1, #2]';
+  const resolvedMulti = resolveInlineReferenceMarkers(multi, evidence);
+  if (
+    /pubmed\.ncbi\.nlm\.nih\.gov\/11111111/.test(resolvedMulti) &&
+    /doi\.org\/10\.1000\/abc/.test(resolvedMulti) &&
+    !/\[#1/.test(resolvedMulti)
+  ) {
+    pass('Inline citations: a combined [#1, #2] marker resolves BOTH to inline links');
+  } else {
+    fail(`Inline citations: combined marker regression → ${JSON.stringify(resolvedMulti)}`);
+  }
+
+  const unresolvable = 'Hair regrows within months. [#9]';
+  const droppedMarker = resolveInlineReferenceMarkers(unresolvable, evidence);
+  if (!/\[#9\]/.test(droppedMarker) && !/dailymed|google\.com\/search/i.test(droppedMarker) && /Hair regrows within months\./.test(droppedMarker)) {
+    pass('Inline citations: an unresolvable [#9] is removed to plain text (no dangling marker, no fabricated link)');
+  } else {
+    fail(`Inline citations: unresolvable marker not dropped → ${JSON.stringify(droppedMarker)}`);
+  }
+
+  const textMarker = 'Topical works well. [JAMA Dermatology / Clinical Review]';
+  const droppedText = resolveInlineReferenceMarkers(textMarker, evidence);
+  if (!/\[JAMA/.test(droppedText) && /Topical works well\./.test(droppedText)) {
+    pass('Inline citations: an unresolvable free-text marker is removed to plain text');
+  } else {
+    fail(`Inline citations: text marker not dropped → ${JSON.stringify(droppedText)}`);
+  }
+
+  // finalizeReportText wires the resolver into the real render path.
+  const finalized = finalizeReportText('Finasteride slows loss. [#1]', { evidence, trials: null });
+  if (/\[source ↗\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/11111111\/\)/.test(finalized) && !/\[#1\]/.test(finalized)) {
+    pass('Inline citations: finalizeReportText inlines [#N] markers end-to-end');
+  } else {
+    fail(`Inline citations: finalize end-to-end regression → ${JSON.stringify(finalized)}`);
+  }
+}
+
+// ===========================================================================
+// DailyMed SEARCH ban (client mandate) — a search.cfm?query=… page is NEVER a
+// citation regardless of how clean the query is; only a specific label
+// monograph (drugInfo.cfm?setid=…) may remain.
+// ===========================================================================
+{
+  const cases = [
+    ['finasteride 1mg', 'https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=finasteride+1mg'],
+    ['Initial shedding', 'https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=Initial%20shedding'],
+    ['effective and safe for male AGA', 'https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=effective%20and%20safe%20for%20male%20AGA'],
+    ['minoxidil', 'https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=minoxidil'],
+    ['finasteride', 'https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=finasteride']
+  ];
+  let allStripped = true;
+  for (const [label, url] of cases) {
+    const md = `See the label ([${label}](${url})) for details.`;
+    const out = stripDailyMedSearchLinks(md);
+    if (new RegExp('\\]\\(https?://[^)]*dailymed[^)]*search\\.cfm').test(out) || /search\.cfm/.test(out)) allStripped = false;
+    if (!out.includes(label)) allStripped = false;  // anchor text kept
+  }
+  if (allStripped) pass('DailyMed ban: every search.cfm?query=… link (incl. clean "minoxidil"/"finasteride") is stripped to plain text, anchor text kept');
+  else fail('DailyMed ban: a search.cfm link survived stripping');
+
+  const labelUrl = 'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=abcd-1234';
+  const labelMd = `See the [FDA label](${labelUrl}).`;
+  const labelOut = stripDailyMedSearchLinks(labelMd);
+  if (labelOut.includes(labelUrl) && isDailyMedLabelUrl(labelUrl) && isDailyMedSearchUrl(cases[0][1])) {
+    pass('DailyMed ban: a specific drugInfo.cfm?setid=… label link is PRESERVED');
+  } else {
+    fail('DailyMed ban: specific setid label link was wrongly stripped');
+  }
+
+  // Belt-and-suspenders: finalizeReportText strips an authored DailyMed search
+  // even when the pack allows nothing.
+  const finalizedSearch = finalizeReportText(
+    'Finasteride is first-line ([finasteride 1mg](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=finasteride+1mg)).',
+    { evidence: null, trials: null }
+  );
+  if (!/search\.cfm/.test(finalizedSearch) && /finasteride 1mg/.test(finalizedSearch)) {
+    pass('DailyMed ban: finalizeReportText strips an authored search link end-to-end (keeps anchor text)');
+  } else {
+    fail(`DailyMed ban: finalize did not strip search link → ${JSON.stringify(finalizedSearch)}`);
+  }
+}
+
+// ===========================================================================
+// isNamedEntityBold — rejects prose phrases, accepts real named entities.
+// ===========================================================================
+{
+  const prose = ['Initial shedding', 'Start treatment early', 'Sudden or patchy hair loss', 'Finasteride sexual side effects'];
+  const entities = ['Pulmonary Fibrosis Foundation', 'Esbriet', 'NCT05888922', 'BI 1015550', 'American Academy of Dermatology'];
+  const proseRejected = prose.every((p) => !isNamedEntityBold(p));
+  const entitiesAccepted = entities.every((e) => isNamedEntityBold(e));
+  if (proseRejected && entitiesAccepted) {
+    pass('isNamedEntityBold: rejects prose phrases; accepts drugs / orgs / NCT ids / drug codes');
+  } else {
+    fail(`isNamedEntityBold regression (proseRejected=${proseRejected} entitiesAccepted=${entitiesAccepted})`);
+  }
 }
 
 // ===========================================================================
@@ -1610,10 +1766,15 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
   } else {
     fail('DEMO_TALKING_POINTS.md missing');
   }
-  if (/Links removed|already removed from this report|isUrl:\s*false/.test(html)) {
-    pass('Validator panel softens copy and never clickifies stripped fake URLs');
+  // Post-343e1b7 the ValidatorPanel no longer surfaces a "links removed" list at
+  // all — hallucinated/dead citation links are stripped server-side and never
+  // rendered. Assert that intentional behavior: the panel keeps the "never
+  // surface a links-removed list" guard AND only feeds plain missing-perspective
+  // strings to ValidatorList (no clickable stripped/hallucinated URLs).
+  if (/never surface a "links removed"/.test(html) && /items=\{missing\.map/.test(html)) {
+    pass('Validator panel never surfaces stripped/hallucinated citation links (removed, never clickified)');
   } else {
-    fail('Validator panel still clickifies hallucinated URLs');
+    fail('Validator panel hallucinated-link handling regression');
   }
 }
 

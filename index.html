@@ -1208,6 +1208,27 @@
       // centers/orgs that have no canonical page — api/research.js).
       const isGoogleSearchUrl = (url) =>
         /^https?:\/\/(www\.)?google\.[a-z.]+\/search\b/i.test(String(url || ''));
+
+      // A DailyMed SEARCH results page is NEVER a citation (client mandate) —
+      // only a specific label monograph (drugInfo.cfm?setid=…) is. Strip any
+      // DailyMed search link to plain text (keep the anchor label), matching
+      // lib/report-polish.js stripDailyMedSearchLinks so client render + exports
+      // never surface one even if it slips past the server.
+      const isDailyMedSearchUrl = (url) =>
+        /^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(String(url || ''));
+      const stripDailyMedSearchLinks = (text) => {
+        if (!text) return text;
+        let s = String(text);
+        s = s.replace(
+          /\[([^\]]+)\]\((https?:\/\/(?:www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm[^)]*)\)/gi,
+          '$1'
+        );
+        s = s.replace(
+          /(?<![(\[])https?:\/\/(?:www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm[^\s)\]"'<>]*/gi,
+          ''
+        );
+        return s;
+      };
       // Display label for an anchor: strip markdown emphasis markers and, for a
       // bare "Google search" anchor, relabel to a clean "Search ↗" so the words
       // "Google search" never render as a user-facing link label.
@@ -1224,8 +1245,12 @@
       // text and SILENTLY drop the dead link — never surface an internal
       // "removed link" scaffolding note to users.
       const sanitizeMarkdownLinks = (text, allowedUrls) => {
-        if (!text || !allowedUrls?.size) return text;
-        let s = String(text);
+        if (!text) return text;
+        // DailyMed search pages are stripped unconditionally (not a citation),
+        // even when we have no allowlist to check against.
+        let base = stripDailyMedSearchLinks(text);
+        if (!allowedUrls?.size) return base;
+        let s = String(base);
         s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, (m, label, url) =>
           // Keep Google-search fallback links: they're an intentional, safe
           // fallback (api/research.js) and the link renderer relabels the bare
@@ -1405,9 +1430,9 @@
         };
         const mdRe = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
         let m;
-        while ((m = mdRe.exec(text)) !== null) add(m[2], m[1]);
+        while ((m = mdRe.exec(text)) !== null) { if (!isDailyMedSearchUrl(m[2])) add(m[2], m[1]); }
         const urlRe = /(https?:\/\/[^\s)\]"']+)/g;
-        while ((m = urlRe.exec(text)) !== null) add(m[1].replace(/[.,;)]+$/, ''));
+        while ((m = urlRe.exec(text)) !== null) { const u = m[1].replace(/[.,;)]+$/, ''); if (!isDailyMedSearchUrl(u)) add(u); }
         const nctRe = /\b(NCT\d{8})\b/gi;
         while ((m = nctRe.exec(text)) !== null) {
           const id = m[1].toUpperCase();
@@ -2730,6 +2755,10 @@
                   .toLowerCase().replace(/[^a-z0-9]/g, '').trim();
                 const isGoogleUrl = (url) =>
                   /^https?:\/\/(www\.)?google\.[a-z.]+\/search\b/i.test(String(url || ''));
+                // A DailyMed SEARCH page is not a citation (client mandate); only
+                // a specific label monograph (drugInfo.cfm?setid=…) counts.
+                const isDailyMedSearchUrlC = (url) =>
+                  /^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(String(url || ''));
                 const urlsInBlob = (blob) => {
                   const out = [];
                   const s = String(blob || '');
@@ -2741,7 +2770,7 @@
                   return out;
                 };
                 const blockHasRealLink = (block) =>
-                  urlsInBlob(block).some((u) => /^https?:\/\//i.test(u) && !isGoogleUrl(u));
+                  urlsInBlob(block).some((u) => /^https?:\/\//i.test(u) && !isGoogleUrl(u) && !isDailyMedSearchUrlC(u));
                 const splitCandBlocks = (txt) =>
                   String(txt || '').split(/(?=^CANDIDATE:\s)/gim)
                     .map((p) => p.trim()).filter((p) => /^CANDIDATE:/im.test(p));
@@ -2755,14 +2784,16 @@
                   }
                   return keys.size;
                 };
-                const dailyMedFor = (drugName) =>
-                  `https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=${encodeURIComponent(String(drugName || '').trim())}`;
+                // Client mandate: a DailyMed SEARCH page is NOT a citation, so a
+                // registry-fill candidate carries NO fabricated link — its
+                // REFERENCES line is plain text. (It therefore will not count as
+                // a real-linked candidate below; that is the intended, honest
+                // behavior — "real specific URL or none".)
                 const buildRegistryFillBlock = (drug, conditionLabel) => {
                   const name = String(drug?.name || drug || '').trim();
                   if (!name) return '';
                   const mechanism = String(drug?.mechanism || '').trim();
                   const cond = conditionLabel || 'this condition';
-                  const dm = dailyMedFor(name);
                   return `CANDIDATE: ${name}
 CLASS: FDA-tracked medication (library fill)
 APPROVED_FOR: Other FDA-listed uses (see DailyMed) — not established for ${cond}
@@ -2774,8 +2805,8 @@ REPURPOSE_RATIONALE:
 • No published trial for ${cond} in this run's evidence pack — labeled MECHANISTIC_ONLY on purpose.
 • Discuss with a physician; this is an educational hypothesis, not a recommendation.
 EVIDENCE_STRENGTH: MECHANISTIC_ONLY
-SUPPORTING_EVIDENCE: No human study for ${cond} was available in the grounded pack for this run. The only source attached is the FDA DailyMed search for this drug name — not a fabricated paper.
-REFERENCES: [DailyMed label search — ${name}](${dm})
+SUPPORTING_EVIDENCE: No human study for ${cond} was available in the grounded pack for this run — and a DailyMed search page is not a source, so no citation link is attached.
+REFERENCES: FDA DailyMed label for ${name} — look it up by name on DailyMed. No specific study for ${cond} was available in this run, so no citation link is attached.
 EFFICACY_HYPOTHESIS: No human efficacy results yet for this condition — the reason to list it is library/pathway overlap, not a measured benefit.
 PATIENT_SPECIFIC_RISKS: Confirm identity, dose, and interactions with the prescribing physician before considering any change.
 HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this drug worth watching in the literature — do not start it based on this list alone.`;
@@ -5077,6 +5108,9 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               displayLabel = 'Search ↗';
             }
             const out = origLink(href, title, displayLabel);
+            // In-page anchor jumps (e.g. the Section 4 "jump to trials" link)
+            // must scroll within the page, NOT open a new tab.
+            if (/^#/.test(String(href || ''))) return out;
             return out.replace('<a ', '<a target="_blank" rel="noopener noreferrer" ');
           };
           // Models sometimes wrap NOT-approved flags in ~~strikethrough~~ — show plain text.
@@ -5131,7 +5165,9 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
       // {field} text node they showed as raw characters (the defect this fixes).
       // Always render the SCRUBBED value (callers pass auditAndScrubCard output).
       const InlineMD = ({ text }) => {
-        const raw = String(text == null ? '' : text);
+        // Strip DailyMed SEARCH links (not citations) to plain text before
+        // rendering any card field inline (references, risks, rationale, …).
+        const raw = stripDailyMedSearchLinks(String(text == null ? '' : text));
         if (!raw) return null;
         const linkRe = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
         const renderBold = (s, keyBase) => {
@@ -5237,7 +5273,8 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
       // link forced to open in a new tab. Used to upgrade any pre-wrap text
       // block that contains bare URLs / PMIDs / NCT IDs into real anchors.
       const renderMarkdownForExport = (text) => {
-        const linked = linkifyMedicalIds(text || '');
+        // Never carry a DailyMed SEARCH link into an export (not a citation).
+        const linked = linkifyMedicalIds(stripDailyMedSearchLinks(text || ''));
         if (typeof window !== 'undefined' && window.marked) {
           window.marked.setOptions({ gfm: true, breaks: false });
           const renderer = new window.marked.Renderer();
@@ -6923,12 +6960,34 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
         const realTreatments = useMemo(() => treatments.filter((t) => !t._approvedStub), [treatments]);
         const stubTreatments = useMemo(() => treatments.filter((t) => t._approvedStub), [treatments]);
         const keepHedges = !!evidenceGrade && evidenceGrade.tier && evidenceGrade.tier !== 'strong';
-        const renderedResearchText = polishReportForDisplay(
+        const renderedResearchTextBase = polishReportForDisplay(
           (treatments.length > 0 && allApprovedDrugsRendered(evidenceSummary?.pipelineDrugs, treatments))
             ? stripApprovedTreatmentsSection(translatedText || researchText)
             : (translatedText || researchText),
           { keepHedges }
         );
+        // Trials flow (Bug 3): Section 4 states "no recruiting trials" near the
+        // top, but the full "Live clinical trials" table renders far below —
+        // forcing a blind scroll. Inject an honest one-line recruiting summary +
+        // an anchor jump to the table right after the Section 4 heading, so the
+        // reader is told the reality and can jump straight to the list. Minimal,
+        // non-destructive (only adds a line after the heading; no anchors moved).
+        const renderedResearchText = useMemo(() => {
+          const txt = renderedResearchTextBase;
+          const studies = trialsData?.studies || [];
+          if (!txt || !studies.length) return txt;
+          const totalTrials = trialsData.total || studies.length;
+          const recruitingCount = studies.filter(
+            (s) => s.isRecruiting || s.acceptingNewPatients === true
+          ).length;
+          const summary = recruitingCount > 0
+            ? `**${recruitingCount} of ${totalTrials}** matched ${recruitingCount === 1 ? 'study is' : 'studies are'} currently recruiting patients like you.`
+            : `**0 of ${totalTrials}** matched studies are currently recruiting patients like you.`;
+          const jumpLine = `\n\n${summary} [Jump to the full live clinical trials table ↓](#live-clinical-trials)\n`;
+          const headingRe = /^(#{2,3}\s*4\.[^\n]*)$/m;
+          if (headingRe.test(txt)) return txt.replace(headingRe, `$1${jumpLine}`);
+          return txt;
+        }, [renderedResearchTextBase, trialsData]);
         const profileCoherenceIssue = useMemo(() => checkProfileCoherence(patient), [patient]);
         const baseQuickPrompts = [
           `Why did you rank the top treatment #1 over the others? Walk me through the tradeoff.`,
@@ -7129,7 +7188,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
             )}
 
             {trialsData?.studies?.length > 0 && (
-              <div style={panelStyle}>
+              <div id="live-clinical-trials" style={panelStyle}>
                 <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
                   Live clinical trials ({trialsData.returned || trialsData.studies.length})
                 </h3>
