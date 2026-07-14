@@ -8,10 +8,10 @@
     "usual interstitial pneumonia",
     "idiopathic interstitial pneumonia"
   ],
-  "version": "2026-06a",
+  "version": "2026-07a",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-06-14",
-  "editorialNote": "Landmark references for IPF decision-support. All items below are pinned into every IPF query's evidence pack. Editorial summaries are written by the curator; keyPassages are verbatim from the source where available.",
+  "lastUpdated": "2026-07-14",
+  "editorialNote": "Landmark references for IPF decision-support. All items below are pinned into every IPF query's evidence pack. Editorial summaries are written by the curator; keyPassages are verbatim from the source where available. FIBRONEER-IPF phase 3 efficacy numbers are pinned so the model cannot invent alternate mL/year figures.",
   "subspecialty": "Pulmonology / Interstitial Lung Disease",
   "icd10": "J84.112",
   "meshTerms": [
@@ -148,7 +148,7 @@
     {
       "acronym": "FIBRONEER-IPF",
       "name": "Nerandomilast (BI 1015550 / Jascayd) vs placebo",
-      "topic": "Phase 3 positive readout Sept 2024; led to FDA approval of nerandomilast (Jascayd) for IPF on Oct 7, 2025 — first novel-mechanism IPF drug in a decade."
+      "topic": "Phase 3 NEJM 2025 (Richeldi et al.): 18 mg BID slowed FVC decline vs placebo by 68.8 mL at week 52 (−114.7 vs −183.5 mL). FDA approved Jascayd for IPF Oct 7, 2025 — first novel-mechanism IPF drug in a decade."
     },
     {
       "acronym": "INCREASE",
@@ -613,11 +613,36 @@
       "pmid": "35569036",
       "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa2201737",
       "accessLevel": "abstract",
-      "summary": "Landmark phase 2 RCT of BI 1015550 (Nerandomilast), a preferential PDE4B inhibitor from Boehringer Ingelheim, in IPF. Dose-ranging study at 12 weeks demonstrated preservation of FVC vs placebo — a mechanistically novel anti-fibrotic beyond pirfenidone and nintedanib. This readout triggered the FIBRONEER-IPF phase 3 program (NCT05321069) and the companion FIBRONEER-ILD program for progressive pulmonary fibrosis (NCT05321082). FIBRONEER-IPF reported a positive primary endpoint in September 2024; FDA filing is anticipated. Nerandomilast is currently the most important new-mechanism IPF agent in development.",
+      "summary": "Phase 2 RCT of BI 1015550 (nerandomilast / Jascayd), a preferential PDE4B inhibitor, in IPF. At 12 weeks, treatment prevented FVC decline vs placebo — the readout that launched FIBRONEER-IPF / FIBRONEER-ILD. HISTORICAL context only: nerandomilast is now FDA-approved (Oct 7, 2025). Prefer the phase 3 FIBRONEER-IPF paper (ipf-fibroneer-ipf-2025) for efficacy numbers.",
       "keyPassages": [
         {
           "topic": "primary endpoint",
           "quote": "Treatment with BI 1015550, either alone or with background antifibrotic therapy, prevented a decrease in lung function in patients with idiopathic pulmonary fibrosis."
+        }
+      ]
+    },
+    {
+      "id": "ipf-fibroneer-ipf-2025",
+      "category": "rct",
+      "tier": "A+",
+      "title": "Nerandomilast in Patients with Idiopathic Pulmonary Fibrosis (FIBRONEER-IPF)",
+      "authors": "Richeldi L, Azuma A, Cottin V, et al.",
+      "journal": "New England Journal of Medicine",
+      "year": 2025,
+      "doi": "10.1056/NEJMoa2414108",
+      "pmid": "40387033",
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa2414108",
+      "pubmedUrl": "https://pubmed.ncbi.nlm.nih.gov/40387033/",
+      "accessLevel": "abstract",
+      "summary": "PIVOTAL phase 3 RCT that secured FDA approval of nerandomilast (Jascayd) for IPF. 1,177 patients; 77.7% on background nintedanib or pirfenidone. Primary endpoint: absolute FVC change at week 52. Adjusted mean FVC changes: −114.7 mL (18 mg BID), −138.6 mL (9 mg BID), −183.5 mL (placebo). Adjusted difference vs placebo for the approved 18 mg dose: 68.8 mL (95% CI 30.3–107.4; P<0.001) — i.e. about 69 mL less FVC lost over 52 weeks, NOT 80 mL/year. Most common AE: diarrhea. This is the number to cite for nerandomilast efficacy.",
+      "keyPassages": [
+        {
+          "topic": "primary endpoint 18 mg",
+          "quote": "Adjusted mean changes in FVC at week 52 were −114.7 ml in the nerandomilast 18-mg group, −138.6 ml in the nerandomilast 9-mg group, and −183.5 ml in the placebo group. The adjusted difference between the nerandomilast 18-mg group and the placebo group was 68.8 ml (95% CI, 30.3 to 107.4; P<0.001)."
+        },
+        {
+          "topic": "background therapy",
+          "quote": "A total of 1177 patients underwent randomization, of whom 77.7% were taking nintedanib or pirfenidone at enrollment."
         }
       ]
     },
@@ -631,7 +656,7 @@
       "year": 2026,
       "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/218764s001lbl.pdf",
       "accessLevel": "full-text",
-      "summary": "FDA-approved label for nerandomilast (Jascayd), a preferential PDE4B inhibitor and the FIRST new-mechanism IPF drug in over a decade. FDA approved it for idiopathic pulmonary fibrosis on October 7, 2025, and for progressive pulmonary fibrosis in December 2025, based on the FIBRONEER-IPF phase 3 trial (1,177 patients, treated with or without background nintedanib or pirfenidone). Recommended dose: 18 mg orally twice daily (9 mg twice daily with strong CYP3A inhibitors). This is the newest FDA-approved antifibrotic and a leading current treatment option; because it was approved in late 2025 it may be missing from older training data and older guideline documents.",
+      "summary": "FDA-approved label for nerandomilast (Jascayd), a preferential PDE4B inhibitor and the FIRST new-mechanism IPF drug in over a decade. FDA approved it for idiopathic pulmonary fibrosis on October 7, 2025, and for progressive pulmonary fibrosis in December 2025, based on FIBRONEER-IPF (NEJM 2025; 1,177 patients; approved 18 mg BID slowed FVC loss by 68.8 mL vs placebo at week 52). Recommended dose: 18 mg orally twice daily (9 mg twice daily with strong CYP3A inhibitors). Newest FDA-approved antifibrotic — list FIRST among approved IPF treatments. Never describe as investigational.",
       "keyPassages": [
         {
           "topic": "indication",
@@ -640,6 +665,10 @@
         {
           "topic": "dose",
           "quote": "Recommended Dosage: 18 mg orally twice daily, approximately 12 hours apart, with or without food."
+        },
+        {
+          "topic": "efficacy (FIBRONEER-IPF)",
+          "quote": "In FIBRONEER-IPF, the adjusted difference in FVC change at week 52 between nerandomilast 18 mg twice daily and placebo was 68.8 mL (patients lost less lung function on nerandomilast)."
         },
         {
           "topic": "trial basis",
@@ -694,18 +723,27 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Nerandomilast (brand name Jascayd) is FDA-approved for IPF (October 7, 2025) and for progressive pulmonary fibrosis (December 2025). It is the newest approved antifibrotic, taken by mouth at 18 mg twice daily, and can be used alone or added to nintedanib or pirfenidone. Treat it as an approved, leading current option — not as investigational.",
+      "claim": "Nerandomilast (brand name Jascayd) is FDA-approved for IPF (October 7, 2025) and for progressive pulmonary fibrosis (December 2025). It is the newest approved antifibrotic, taken by mouth at 18 mg twice daily, and can be used alone or added to nintedanib or pirfenidone. Treat it as an approved, leading current option — not as investigational. List it FIRST among approved IPF treatments.",
       "evidenceRefs": [
         "ipf-fda-label-nerandomilast",
+        "ipf-fibroneer-ipf-2025",
         "ipf-nerandomilast-richeldi-2022"
       ]
     },
     {
-      "claim": "For IPF, the FDA-approved disease-modifying treatments (standard medical care) are pirfenidone (Esbriet), nintedanib (Ofev), and nerandomilast (Jascayd). CAR-T, CAR cell therapy, and stem-cell / MSC clinic treatments are NOT FDA-approved for IPF, are NOT gold standard, and must never be described as standard of care. Early human stem-cell trials (e.g. AETHER phase 1) showed safety signals but no proven efficacy; offshore stem-cell clinics are warned against in the literature.",
+      "claim": "FIBRONEER-IPF (NEJM 2025): nerandomilast 18 mg twice daily slowed FVC decline vs placebo by an adjusted 68.8 mL at week 52 (mean change −114.7 mL vs −183.5 mL). Cite ~69 mL less FVC lost over 52 weeks — do NOT invent alternate figures such as 80 mL/year.",
+      "evidenceRefs": [
+        "ipf-fibroneer-ipf-2025",
+        "ipf-fda-label-nerandomilast"
+      ]
+    },
+    {
+      "claim": "For IPF, the FDA-approved disease-modifying treatments (standard medical care) are pirfenidone (Esbriet), nintedanib (Ofev), and nerandomilast (Jascayd). CAR-T, CAR cell therapy, and stem-cell / MSC clinic treatments are NOT FDA-approved for IPF, are NOT gold standard, and must never be described as standard of care. Early human stem-cell trials (e.g. AETHER phase 1) showed safety signals but no proven efficacy; offshore stem-cell clinics are warned against in the literature. Already-approved antifibrotics must NEVER appear as drug-repurposing CANDIDATE ideas — they belong only in Approved Treatments.",
       "evidenceRefs": [
         "ipf-stemcells-review-2020",
         "ipf-fda-label-pirfenidone",
-        "ipf-fda-label-nintedanib"
+        "ipf-fda-label-nintedanib",
+        "ipf-fda-label-nerandomilast"
       ]
     },
     {
@@ -856,12 +894,12 @@
       ],
       "mechanism": "Preferential PDE4B inhibitor — anti-inflammatory and anti-fibrotic",
       "sponsor": "Boehringer Ingelheim",
-      "status": "FDA-APPROVED for IPF on October 7, 2025 (brand name Jascayd); also approved for progressive pulmonary fibrosis December 2025. Oral, 18 mg twice daily. Based on the FIBRONEER-IPF phase 3 trial.",
+      "status": "FDA-APPROVED for IPF on October 7, 2025 (brand name Jascayd); also approved for progressive pulmonary fibrosis December 2025. Oral, 18 mg twice daily. FIBRONEER-IPF: 18 mg BID slowed FVC decline by 68.8 mL vs placebo at week 52.",
       "approvalStatus": "approved",
-      "pmid": "35569036",
-      "doi": "10.1056/NEJMoa2201737",
+      "pmid": "40387033",
+      "doi": "10.1056/NEJMoa2414108",
       "nct": "NCT05321069",
-      "whyItMatters": "The newest FDA-approved IPF drug and the first with a new mechanism in over a decade. It is taken by mouth and can be used on its own OR added on top of the older antifibrotics (nintedanib or pirfenidone). Because it was approved in late 2025, it is often missing from older AI training data and older guideline PDFs — but it is approved and is a leading current treatment choice. Do NOT describe it as investigational or unapproved."
+      "whyItMatters": "The newest FDA-approved IPF drug and the first with a new mechanism in over a decade. Cite FIBRONEER-IPF as ~69 mL less FVC lost at week 52 vs placebo (68.8 mL adjusted difference) — never invent 80 mL/year. List FIRST in Approved Treatments. Do NOT describe as investigational. Do NOT list as a repurposing candidate."
     },
     {
       "name": "Pirfenidone",
@@ -875,7 +913,7 @@
       "approvalStatus": "approved",
       "pmid": "24836310",
       "doi": "10.1056/NEJMoa1402582",
-      "whyItMatters": "One of two FDA-approved first-line antifibrotics. Reduces ≥10% FVC decline or death by ~48% over 52 weeks (ASCEND)."
+      "whyItMatters": "FDA-approved first-line antifibrotic (with nintedanib and nerandomilast). Reduces ≥10% FVC decline or death by ~48% over 52 weeks (ASCEND). Do NOT list as a repurposing candidate — Section 3 only."
     },
     {
       "name": "Nintedanib",
@@ -889,7 +927,7 @@
       "approvalStatus": "approved",
       "pmid": "24836312",
       "doi": "10.1056/NEJMoa1402584",
-      "whyItMatters": "The other FDA-approved first-line antifibrotic. Reduces annual FVC decline by ~100-125 mL/year vs placebo. Also approved for progressive pulmonary fibrosis and SSc-ILD."
+      "whyItMatters": "FDA-approved first-line antifibrotic. Reduces annual FVC decline by ~100-125 mL/year vs placebo. Also approved for progressive pulmonary fibrosis and SSc-ILD. Do NOT list as a repurposing candidate — Section 3 only."
     },
     {
       "name": "BMS-986278",

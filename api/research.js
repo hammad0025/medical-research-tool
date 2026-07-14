@@ -34,6 +34,7 @@ import {
   applyValidationFixes,
   collectAllowedUrls,
   reattachEntityLinks,
+  buildEntityUrlIndex,
   preferVerifiableUrl
 } from '../lib/report-polish.js';
 import { removeDeadLinks } from '../lib/link-check.js';
@@ -195,7 +196,13 @@ const groundingPlan = (mode, phase, half) => {
     return { limit: 8, excerpt: 950 };
   }
   if (mode === 'repurpose') return { limit: 12, excerpt: 2000 };
-  return { limit: 6, excerpt: 2000 };
+  // Research front/back: denser pack so every significant claim can carry an
+  // inline pack URL (client mandate). Was 6 — too thin; markers [#7]+ dropped.
+  if (mode === 'research' && phase === 'synthesize') {
+    if (half === 'back') return { limit: 12, excerpt: 700 };
+    return { limit: 16, excerpt: 900 };
+  }
+  return { limit: 14, excerpt: 1800 };
 };
 
 // Dead-link gate toggle. On by default; set MRT_LINKCHECK_ENABLED=0 to skip
@@ -1250,7 +1257,9 @@ ${buildPatientContext(patient)}`;
 const SHARED_GUARDRAILS = `
 CITATION RULES (absolute — the single biggest failure mode of AI in medical research is hallucinated citations):
 - CITE ONLY FROM THE GROUNDED EVIDENCE PACK provided below. Do not invent, paraphrase-without-URL, or cite from general knowledge.
-- INLINE CLICKABLE CITATIONS (client's #1 requirement): every significant claim MUST carry its supporting citation as an INLINE CLICKABLE markdown link placed IMMEDIATELY at/after the claim — NOT a bare numbered marker deferred to a bottom bibliography. Do NOT write bare "[#3]" or "[JAMA Dermatology / Clinical Review]" markers next to a claim. Instead write the real link right there, e.g. "…before starting antifibrotics ([source ↗](https://pubmed.ncbi.nlm.nih.gov/24836310/))." Use the exact pack URL for the item you are citing. A trailing "([source ↗](url))" or a linked short title both work; the point is the reader can click the citation at the claim without scrolling.
+- INLINE CLICKABLE CITATIONS (NON-NEGOTIABLE — client's #1 product requirement): EVERY factual claim sentence MUST end with an INLINE clickable markdown link to the exact supporting pack URL, placed IMMEDIATELY after that claim — e.g. "…before starting antifibrotics ([source ↗](https://pubmed.ncbi.nlm.nih.gov/24836310/))." This is not optional, not "prefer", not "when convenient." One claim → one inline link on that same sentence. Do NOT write bare "[#3]" or "[JAMA Dermatology / Clinical Review]" markers. Do NOT batch citations only at the end of a paragraph or section. Do NOT leave a factual sentence without a clickable link.
+- CLAIM = any sentence that states a concrete medical fact: a number, rate, %, dose, named drug/trial/NCT, phase, prevalence, safety warning, efficacy/outcome, "Research suggests / Studies report / Literature reports / Evidence suggests / Guidelines…", or a named mechanism tied to this condition. If you cannot attach a REAL pack URL that supports that exact claim, OMIT the claim — never leave it unsourced and never invent a URL.
+- DENSITY RULE (absolute): read your draft sentence-by-sentence before finishing. If any claim sentence lacks an inline ([source ↗](url)) or [title](url) markdown link, add the pack link or delete the sentence. A report full of unlinked claims is a FAILURE.
 - Every factual claim about efficacy, safety, interactions, or outcomes MUST cite at least one evidence-pack item with a verbatim quoted passage from that item's Content AND that item's clickable markdown link inline: [short title](url). If you cannot attach a REAL supporting URL from the pack to a claim, drop the specific detail or omit the claim — never leave a dangling marker and never attach an unrelated or search-page link.
 - CITATION MUST MATCH THE CARD/CLAIM (relevance — a live link that is off-topic is still wrong): only attach a source to a specific drug/candidate card, or to a specific claim, when that SOURCE ACTUALLY MENTIONS that drug / mechanism / claim. Do NOT attach a generic condition overview or review that never names the drug to that drug's card (e.g. do not link a broad "Treatment of Androgenetic Alopecia" review on a Clascoterone card unless that review discusses clascoterone). If the pack has no source that genuinely references THIS card's drug or THIS claim, leave the card/claim with NO link (plain text) or drop the card — never a mismatched link. This is condition-agnostic and applies even when the knowledge base is thin or empty.
 - EVERY named entity MUST be a clickable markdown link — no exceptions. This includes treatments, drugs, trials, papers, guidelines, AND non-paper entities: hospitals/centers, clinics, advocacy organizations, patient registries, government bodies (FDA, NIH), and named physicians/experts. The client's hard requirement is "links to everything" — a named entity rendered as plain or bold-only text is a failure.
@@ -1293,7 +1302,7 @@ LANGUAGE TONE (critical — legal/educational framing):
 - NEVER use imperative directives to patients: "do not take", "avoid", "stop", "DO NOT DO THIS", "you must not".
 - Instead use literature-framed language: "Research suggests…", "Studies report…", "Literature reports…", "Physicians often caution against…", "Evidence suggests caution regarding…", "Discuss with your physician before considering…", "Guidelines generally do not recommend…".
 - Safety information must be preserved and cited — reframe it, do not delete it.
-- SOURCED-CLAIM RULE (critical — the second AI will flag violations): any sentence that uses "Research suggests / Studies report / Research estimates" AND states a SPECIFIC number, named trial, or named protocol (e.g. "the SPARX trial", "reduces off time by 2 hours", "10–20 years", "1 million people") MUST end with an inline [source](url) drawn from the evidence pack that actually contains that fact. If no pack item supports the specific detail, either (a) drop the specific number/trial name and make a general statement, or (b) omit the claim. Do NOT attach an unrelated link just to satisfy this rule — a link must genuinely support the sentence it sits on.
+- SOURCED-CLAIM RULE (absolute — the second AI will flag violations): ANY claim sentence (see CLAIM definition above) MUST end with an inline [source](url) / ([source ↗](url)) drawn from the evidence pack that actually contains that fact. This applies to EVERY "Research suggests / Studies report / Research estimates / Literature reports / Evidence suggests" sentence AND every sentence with a specific number, named trial, NCT, dose, or outcome. If no pack item supports the specific detail, either (a) drop the specific number/trial name and make a general statement that still cites a supporting pack item, or (b) omit the claim entirely. Do NOT attach an unrelated link just to satisfy this rule — a link must genuinely support the sentence it sits on. An unsourced claim sentence is a hard failure.
 
 PATIENT-SPECIFIC SAFETY (critical):
 - When discussing any drug, check the patient's current medication list for interactions and contraindications. Name the specific interaction and severity.
@@ -1321,7 +1330,7 @@ OUTPUT FORMATTING RULES (enforce strictly — the user has explicitly complained
 - No filler words ("Furthermore", "Additionally", "It is worth noting that", "In conclusion"). Every sentence either gives a fact, a number, a name, or an action the patient can take.
 - STRATEGIC BREVITY (critical): Lead with the decision-relevant fact. One sentence beats three. Cut repetition across sections — if a drug appears in Section 3, do not re-explain it in Section 5. Prefer tables and bullets over prose. When in doubt, shorter.
 - Every URL MUST be a real clickable markdown link: [PANTHER-IPF trial (NEJM 2012)](https://pubmed.ncbi.nlm.nih.gov/...) or [NCT01234567](https://clinicaltrials.gov/study/NCT01234567).
-- LINKS TO EVERYTHING (client's hard requirement, with "real specific URL or none"): every significant claim and named entity in prose, bullets, AND tables should carry an INLINE clickable link right at the claim — drugs, trials, papers, guidelines, AND centers/hospitals, clinics, advocacy orgs, registries, FDA/NIH, and named experts. Follow the LINK SOURCE PRIORITY in the citation rules (pack URL first; ClinicalTrials.gov study/search or PubMed canonical/search URLs; a SPECIFIC DailyMed label setid page; official site or a Google search ONLY for centers/orgs/experts). A DailyMed/Google SEARCH page is NEVER a citation for a claim. If no real specific supporting link exists, leave the text PLAIN — a fabricated or search-page link is worse than plain text.
+- LINKS AFTER EVERY CLAIM (absolute product rule): every claim sentence in prose, bullets, AND tables must carry an INLINE clickable link right at the claim. Named entities (drugs, trials, papers, guidelines, centers/hospitals, clinics, advocacy orgs, registries, FDA/NIH, named experts) must also be clickable when a real URL exists. Follow LINK SOURCE PRIORITY (pack URL first; ClinicalTrials.gov study/search or PubMed; SPECIFIC DailyMed setid label; official site or Google search ONLY for centers/orgs/experts as navigation). A DailyMed/Google SEARCH page is NEVER a citation for a claim. If no real specific supporting link exists for a claim, DELETE the claim — do not leave unsourced factual prose.
 - In markdown tables, the entity cell must contain the link itself, e.g. | [Pirfenidone](url) | … |.
 - For every card (treatment / trial / candidate), use the exact fixed-field structure. Do not add prose between fields.
 `;
@@ -1350,13 +1359,15 @@ LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens across 3 section
 Your output MUST include the following 3 sections IN THIS ORDER, and nothing else. Do NOT add sections 4-8 — a separate call handles those.
 
 ## 1. Condition Snapshot
-- One-sentence definition.
-- Prevalence / incidence: state a specific number (e.g. "~1 million people in the US") ONLY if you attach an inline [source](url) from the evidence pack that contains that number. If the pack has no such number, do NOT invent one and do NOT prefix with "Research estimates/shows" — write one qualitative sentence instead ("A common neurodegenerative disorder" / "Relatively rare — exact rates vary by region"). Never write "no grounded prevalence".
-- Typical trajectory if untreated.
+HARD RULE FOR THIS SECTION (non-negotiable): EVERY sentence and EVERY bullet that states a fact — definition, prevalence, typical path, genetics note, lifestyle bullet, safety flag — MUST end with an inline clickable ([source ↗](url)) from the evidence pack. "Research suggests…", "Studies report…", and "Literature…" lines without a pack URL are forbidden. If you cannot cite a pack URL for a lifestyle or safety bullet, OMIT that bullet.
+
+- One-sentence definition — end with ([source ↗](url)).
+- Prevalence / incidence: state a specific number (e.g. "~1 million people in the US") ONLY if you attach an inline [source](url) from the evidence pack that contains that number. If the pack has no such number, do NOT invent one and do NOT prefix with "Research estimates/shows" — write one qualitative sentence instead ("A common neurodegenerative disorder" / "Relatively rare — exact rates vary by region") and STILL end with a pack ([source ↗](url)). Never write "no grounded prevalence".
+- Typical trajectory if untreated — each claim sentence ends with ([source ↗](url)).
 - Primary medical specialty + one or two named top experts (with links). These are the report's headline experts — do NOT repeat the same people in Section 2's named-experts list; Section 2 should name DIFFERENT experts.
-- **If patient geneticVariant / gene is provided:** name the gene, inheritance pattern if known, and whether approved gene therapies (e.g. Luxturna for RPE65, CRISPR trials) apply ONLY to that mutation — never imply one drug covers all genetic forms of the disease.
-- **Lifestyle & environment (from dossier lifestyleCategories + KB lifestyleRecommendations):** 3-6 bullets framed as "Research suggests…" / "Studies report…" (e.g. IPF → GERD management, feather pillows/bird exposure, pulm rehab; RP → UV protection). Every bullet needs a clickable link from the evidence pack when possible.
-- **Key safety flags (top 3 redFlags from dossier/KB):** literature-framed cautions with links — NOT patient directives.
+- **If patient geneticVariant / gene is provided:** name the gene, inheritance pattern if known, and whether approved gene therapies (e.g. Luxturna for RPE65, CRISPR trials) apply ONLY to that mutation — never imply one drug covers all genetic forms of the disease. Cite pack URLs.
+- **Lifestyle & environment (from dossier lifestyleCategories + KB lifestyleRecommendations):** 3-6 bullets framed as "Research suggests…" / "Studies report…". EVERY bullet MUST end with ([source ↗](url)) from the evidence pack. No unlinked lifestyle bullets.
+- **Key safety flags (top 3 redFlags from dossier/KB):** literature-framed cautions — each flag sentence MUST end with ([source ↗](url)). NOT patient directives.
 
 ## 2. Top Centers & Experts Worldwide
 Use the intake context and evidence below as your starting list; add or correct from peer-reviewed sources. Present as a markdown table (no internal labels like "dossier" or "confirmed against grounded evidence"):
@@ -1376,6 +1387,7 @@ DRUG-APPROVAL RECENCY RULE (critical — your training data may be out of date):
 - ORDER: list the MOST RECENTLY APPROVED / newest-mechanism drug FIRST when the evidence shows it is approved and effective, then the older approved drugs. Do not bury a newer approved drug beneath older ones.
 - Every drug the KB marks "approved" for this condition MUST appear here as its own card.
 - When you include an OLDER drug, be honest about why a newer option may be preferred (e.g. more side effects, older mechanism) in its RISKS/EFFICACY lines — do not present an older drug as the single best choice if a newer approved drug exists.
+- EFFICACY NUMBERS: copy the REAL endpoint numbers from the grounded pack / FDA-label / RCT items VERBATIM (e.g. IPF nerandomilast FIBRONEER-IPF: 68.8 mL less FVC decline at week 52 vs placebo). NEVER invent alternate mL/year or "% efficacy" figures that are not in the pack.
 
 FDA-STATUS HONESTY RULE (critical — NEVER imply a drug is approved when it is not):
 - This section is titled "Approved Treatments." A treatment counts as APPROVED only if it is FDA-approved FOR THIS CONDITION (or the KB marks it approved for this condition). Approved drugs MUST be listed FIRST.
@@ -1512,6 +1524,11 @@ SUPPLEMENT / OTC HANDLING:
 BACKSTOP (not your primary safeguard): Some conditions also ship a curated EXCLUDED AGENTS list — skip anything on it entirely. But that list is a belt-and-suspenders backstop; the FAILED-TRIAL DISQUALIFIER above is the PRIMARY safeguard, and you must catch failed/negative agents yourself from the evidence even when they are not on any list.
 
 NO DUPLICATE CANDIDATE NAMES across batches (an agent must appear once, not twice under different spellings).
+
+ALREADY-APPROVED-FOR-THIS-CONDITION BAN (critical — Dorothy demo failure mode):
+- Do NOT emit a CANDIDATE block for any drug the KB / REQUIRED MENTIONS marks as **approved** for THIS condition (e.g. IPF: nerandomilast/Jascayd, pirfenidone/Esbriet, nintedanib/Ofev). Those are standard-of-care — they belong in Approved Treatments (Section 3), NEVER in drug-repurposing "ideas."
+- Re-listing an approved antifibrotic as a "new idea" looks incompetent. Skip them entirely in repurpose output.
+- Combinations of ONLY approved SOC agents are also banned. A combo may include an approved antifibrotic ONLY when paired with a truly novel / off-label partner.
 
 CARD INTEGRITY (every CANDIDATE block):
 - REFERENCES must cite papers about THAT drug only — never paste an unrelated NCT or guideline link.
@@ -2164,9 +2181,11 @@ export default async function handler(req, res) {
           console.warn('[research] polish-report dead-link check skipped:', err.message);
         }
       }
-      // Fix 4: re-attach fallback links after dead-link demotion (see synthesis path).
+      // Re-attach entity links after dead-link demotion using the real
+      // evidence/trials URL index (pipeline drugs, NCT, FDA labels).
       {
-        const relinked = reattachEntityLinks(polished);
+        const entityIndex = buildEntityUrlIndex(evidence, trials);
+        const relinked = reattachEntityLinks(polished, entityIndex);
         if (relinked.reattached.length) {
           console.warn(`[research] polish-report re-attached ${relinked.reattached.length} fallback entity link(s)`);
           polished = relinked.text;
@@ -2370,12 +2389,13 @@ export default async function handler(req, res) {
         ? withDeadline(invokeEvidence({
             condition: gatherCondition,
             mode,
+            includeRepurposeExtras: !!req.body?.includeRepurposeExtras || mode === 'repurpose',
             // Trimmed fan-out: 2 treatment cross-products instead of 4.
             // The dossier's synonyms + KB cover the specificity loss.
             treatments: ['treatment', 'systematic review'],
             drugs,
             manufacturers: [],
-            limitPerSource: mode === 'repurpose' ? 6 : 3,
+            limitPerSource: (mode === 'repurpose' || req.body?.includeRepurposeExtras) ? 6 : 3,
             includeFullText: true
             // NB: dossier intentionally NOT passed — evidence.js will
             // fetch it via getDossier() and hit the in-flight cache so
@@ -2728,10 +2748,11 @@ ${SHARED_GUARDRAILS}
           console.warn('[research] synthesis dead-link check skipped:', err.message);
         }
       }
-      // Fix 4: re-attach a fallback link to any named entity a dead-link
-      // demotion just stripped, so "links on everything" still holds.
+      // Re-attach entity links after dead-link demotion using the real
+      // evidence/trials URL index (pipeline drugs, NCT, FDA labels).
       {
-        const relinked = reattachEntityLinks(claudeText);
+        const entityIndex = buildEntityUrlIndex(evidence, trials);
+        const relinked = reattachEntityLinks(claudeText, entityIndex);
         if (relinked.reattached.length) {
           console.warn(`[research] synthesis re-attached ${relinked.reattached.length} fallback entity link(s)`);
           claudeText = relinked.text;

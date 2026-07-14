@@ -71,7 +71,11 @@ import {
   buildReferenceUrlMap,
   stripDailyMedSearchLinks,
   isNamedEntityBold,
-  enforceCandidateCitationRelevance
+  enforceCandidateCitationRelevance,
+  attachMissingClaimCitations,
+  linkBareNctIds,
+  filterApprovedSocFromRepurpose,
+  approvedSocNames
 } from '../lib/report-polish.js';
 import {
   buildGroundingIndex,
@@ -1456,8 +1460,9 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
   if (!needsBackfill(distinctCandidateCount(fullList))) pass('Fix 2: a genuinely full list (25 distinct) does NOT trigger backfill');
   else fail('Fix 2: full list wrongly triggered backfill');
 
-  if (REPURPOSE_BACKFILL_MAX_PASSES >= 3) pass(`Fix 2: multi-pass backfill cap is ${REPURPOSE_BACKFILL_MAX_PASSES}`);
-  else fail('Fix 2: BACKFILL_MAX_PASSES should be ≥3');
+  if (REPURPOSE_BACKFILL_MAX_PASSES >= 1 && REPURPOSE_BACKFILL_MAX_PASSES <= 2) {
+    pass(`Fix 2: backfill cap is ${REPURPOSE_BACKFILL_MAX_PASSES} (registry fill finishes Hard-25)`);
+  } else fail(`Fix 2: BACKFILL_MAX_PASSES should be 1–2 (got ${REPURPOSE_BACKFILL_MAX_PASSES})`);
 
   // Google alone never counts toward Hard 25
   const googleOnly = `CANDIDATE: MagicalPill
@@ -1499,9 +1504,9 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     fail(`Hard 25: registry fill DailyMed-search regression (noSearch=${fillNoSearchLink} notCounted=${fillNotCounted} labelCounted=${fillLabelCounted})`);
   }
 
-  const clientHasMultiPass = /BACKFILL_MAX_PASSES\s*=\s*3/.test(html) && /registryFilled/.test(html);
+  const clientHasMultiPass = /BACKFILL_MAX_PASSES\s*=\s*1/.test(html) && /registryFilled/.test(html);
   const clientHasRealGate = /isGoogleSearchCitation|isGoogleUrl/.test(html) && /!isGoogle/.test(html);
-  if (clientHasMultiPass && clientHasRealGate) pass('Hard 25: index.html multi-pass backfill + Google-excluded citation gate present');
+  if (clientHasMultiPass && clientHasRealGate) pass('Hard 25: index.html backfill + Google-excluded citation gate present');
   else fail(`Hard 25: client wiring missing (multi=${clientHasMultiPass} gate=${clientHasRealGate})`);
 }
 
@@ -1629,6 +1634,72 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     pass('Inline citations: finalizeReportText inlines [#N] markers end-to-end');
   } else {
     fail(`Inline citations: finalize end-to-end regression → ${JSON.stringify(finalized)}`);
+  }
+
+  // Bare NCT → ClinicalTrials.gov study link (specific record).
+  const nctLinked = linkBareNctIds('See **NCT05537220** for enrollment.');
+  if (/\[NCT05537220\]\(https:\/\/clinicaltrials\.gov\/study\/NCT05537220\)/.test(nctLinked)) {
+    pass('Inline citations: bare NCT IDs become ClinicalTrials.gov study links');
+  } else {
+    fail(`Inline citations: bare NCT not linked → ${JSON.stringify(nctLinked)}`);
+  }
+  const nctAlready = linkBareNctIds('See [NCT05537220](https://clinicaltrials.gov/study/NCT05537220).');
+  if ((nctAlready.match(/clinicaltrials\.gov\/study\/NCT05537220/g) || []).length === 1) {
+    pass('Inline citations: already-linked NCT is not double-wrapped');
+  } else {
+    fail(`Inline citations: NCT double-wrap regression → ${JSON.stringify(nctAlready)}`);
+  }
+
+  // Significant / hard claim sentences without links get a pack citation;
+  // unsourced hard claims are stripped (fundamental: link after every claim).
+  const claimPack = {
+    groundedForPrompt: [{
+      title: 'N-acetylcysteine improves retinal sensitivity in retinitis pigmentosa',
+      text: 'Oral NAC improved visual acuity and retinal sensitivity over 24 weeks in RP patients. Night blindness progresses as rod cells die.',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/22222222/',
+      isCuratedKB: true,
+      category: 'clinical-guideline'
+    }, {
+      title: 'Effect of High-Intensity Treadmill Exercise (SPARX) in Parkinson Disease',
+      text: 'SPARX phase 2 RCT high-intensity treadmill exercise may slow motor decline in Parkinson disease.',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/29228079/',
+      isCuratedKB: true
+    }],
+    pipelineDrugs: [
+      { name: 'OCU400', nct: 'NCT06388200', summary: 'gene therapy phase 3 for retinitis pigmentosa' }
+    ]
+  };
+  const claimTrials = {
+    studies: [{ nctId: 'NCT05537220', title: 'NAC Attack', url: 'https://clinicaltrials.gov/study/NCT05537220' }]
+  };
+  const claimIn = [
+    'Research suggests oral NAC improved retinal sensitivity over 24 weeks in RP.',
+    'Night blindness usually comes first as rod cells die.',
+    'Research suggests weather varies by season and has nothing to do with eyes.',
+    'OCU400 is in phase 3 enrolling patients now.',
+    'Parkinson Disease (PD) is a brain disorder where nerve cells that make dopamine slowly die off, causing tremors and stiffness.',
+    '- Exercise: Research suggests structured aerobic exercise as studied in the SPARX protocol may slow motor decline.'
+  ].join('\n');
+  const claimOut = attachMissingClaimCitations(claimIn, claimPack, claimTrials);
+  if (
+    claimOut.attached >= 4 &&
+    /pubmed\.ncbi\.nlm\.nih\.gov\/22222222/.test(claimOut.text) &&
+    /NCT06388200/.test(claimOut.text) &&
+    /29228079/.test(claimOut.text) &&
+    !/weather varies/.test(claimOut.text)
+  ) {
+    pass('Inline citations FUNDAMENTAL: every matching claim sentence gets a pack link; unsourced hard claims are stripped');
+  } else {
+    fail(`Inline citations fundamental regression (attached=${claimOut.attached} stripped=${claimOut.stripped}) → ${JSON.stringify(claimOut.text)}`);
+  }
+  const weakClaim = attachMissingClaimCitations(
+    'Please discuss options with your physician before changing anything.',
+    claimPack
+  );
+  if (weakClaim.attached === 0 && /discuss options/.test(weakClaim.text)) {
+    pass('Inline citations FUNDAMENTAL: soft non-claim guidance lines are left alone');
+  } else {
+    fail(`Inline citations soft-line regression → ${JSON.stringify(weakClaim.text)}`);
   }
 }
 
@@ -1774,15 +1845,59 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
   } else {
     fail('DEMO_TALKING_POINTS.md missing');
   }
-  // Post-343e1b7 the ValidatorPanel no longer surfaces a "links removed" list at
-  // all — hallucinated/dead citation links are stripped server-side and never
-  // rendered. Assert that intentional behavior: the panel keeps the "never
-  // surface a links-removed list" guard AND only feeds plain missing-perspective
-  // strings to ValidatorList (no clickable stripped/hallucinated URLs).
-  if (/never surface a "links removed"/.test(html) && /items=\{missing\.map/.test(html)) {
-    pass('Validator panel never surfaces stripped/hallucinated citation links (removed, never clickified)');
+  // Client mandate: the second-AI score panel is NOT shown to readers.
+  // Validation may still run server-side; the UI must not surface scores.
+  if (/do NOT surface the second-AI score panel/.test(html) && /const ValidatorPanel = \(\) =>/.test(html)) {
+    pass('Validator panel hidden from readers (no second-AI score / Backed up UI)');
   } else {
-    fail('Validator panel hallucinated-link handling regression');
+    fail('Validator panel should return null and not surface second-AI scores');
+  }
+}
+
+// Dorothy: newest approved treatments must be pinned with REAL efficacy numbers;
+ // already-approved SOC must never reappear as "drug ideas".
+{
+  const ipf = JSON.parse(readFileSync(new URL('../data/kb/ipf.json', import.meta.url), 'utf8'));
+  const fib = (ipf.items || []).find((e) => e.id === 'ipf-fibroneer-ipf-2025');
+  const claim = (ipf.canonicalFacts || []).some((c) => /68\.8/.test(c.claim || ''));
+  if (fib && /68\.8/.test(fib.summary || '') && claim) {
+    pass('IPF KB pins FIBRONEER-IPF 68.8 mL week-52 efficacy (no invented 80 mL/year)');
+  } else {
+    fail('IPF KB missing FIBRONEER-IPF 68.8 mL pin');
+  }
+
+  const evidence = {
+    pipelineDrugs: (ipf.pipelineDrugs || []).filter((d) => d.approvalStatus === 'approved')
+  };
+  const soc = approvedSocNames(evidence);
+  const dirty = [
+    'CANDIDATE: Nerandomilast (Jascayd)',
+    'REFERENCES: [x](https://example.com/a)',
+    '',
+    'CANDIDATE: Losartan (ARB)',
+    'REFERENCES: [y](https://example.com/b)',
+    '',
+    'CANDIDATE: Pirfenidone (Esbriet)',
+    'REFERENCES: [z](https://example.com/c)',
+    '',
+    'CANDIDATE: Nintedanib (Ofev)',
+    'REFERENCES: [w](https://example.com/d)'
+  ].join('\n');
+  const cleaned = filterApprovedSocFromRepurpose(dirty, evidence);
+  const kept = (cleaned.match(/^CANDIDATE:/gm) || []).length;
+  const droppedSoc = !/nerandomilast|pirfenidone|nintedanib|jascayd|esbriet|ofev/i.test(cleaned)
+    && /Losartan/i.test(cleaned);
+  if (soc.length >= 3 && kept === 1 && droppedSoc) {
+    pass('Approved IPF SOC stripped from repurpose CANDIDATE list (keep novel ideas only)');
+  } else {
+    fail(`SOC strip regression (soc=${soc.length} kept=${kept} cleaned=${cleaned.slice(0, 200)})`);
+  }
+
+  const researchSrc = readFileSync(new URL('../api/research.js', import.meta.url), 'utf8');
+  if (/ALREADY-APPROVED-FOR-THIS-CONDITION BAN/.test(researchSrc) && /68\.8 mL/.test(researchSrc)) {
+    pass('Repurpose + Section 3 prompts ban SOC-as-candidate and require pack-exact efficacy numbers');
+  } else {
+    fail('Missing SOC-ban / pack-exact efficacy prompt rules');
   }
 }
 
@@ -1852,14 +1967,19 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     { reaction: 'Hepatic failure', reports: FAERS_SERIOUS_MIN_REPORTS + 10 }, { reaction: 'Nausea', reports: 99999 }
   ] });
   const threeSerious = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
-    { reaction: 'Death', reports: 5000 }, { reaction: 'Sepsis', reports: 2000 }, { reaction: 'Cardiac arrest', reports: 1500 }
+    { reaction: 'Hepatic failure', reports: 5000 }, { reaction: 'Sepsis', reports: 2000 }, { reaction: 'Cardiac arrest', reports: 1500 }
   ] });
   const belowThreshold = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
-    { reaction: 'Death', reports: FAERS_SERIOUS_MIN_REPORTS - 1 }
+    { reaction: 'Hepatic failure', reports: FAERS_SERIOUS_MIN_REPORTS - 1 }
   ] });
-  const faersOk = oneSerious.band === 'Moderate' && threeSerious.band === 'Low' && belowThreshold.band === 'High';
-  if (faersOk) pass(`Fix 6(c): serious FAERS signal floors the band (1≥${FAERS_SERIOUS_MIN_REPORTS}→Moderate, ≥3→Low; below threshold→High)`);
-  else fail(`Fix 6(c): FAERS-floor regression (one=${oneSerious.band} three=${threeSerious.band} below=${belowThreshold.band})`);
+  const deathIgnored = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
+    { reaction: 'Death', reports: 99999 }
+  ] });
+  const faersOk = oneSerious.band === 'Moderate' && threeSerious.band === 'Low' && belowThreshold.band === 'High'
+    && deathIgnored.band === 'High'
+    && !(deathIgnored.factors || []).some((f) => /DEATH|Death/i.test(f.text));
+  if (faersOk) pass(`Fix 6(c): serious FAERS signal floors the band (1≥${FAERS_SERIOUS_MIN_REPORTS}→Moderate, ≥3→Low; bare Death counts ignored)`);
+  else fail(`Fix 6(c): FAERS-floor regression (one=${oneSerious.band} three=${threeSerious.band} below=${belowThreshold.band} death=${deathIgnored.band})`);
 
   // (d) No negative signal → High, still with a clickable FDA factor.
   const high = scoreSafety({ drugName: 'DrugD', patientMeds: 'Metformin', fdaLabel: { url, warnings: 'headache' }, faers: [{ reaction: 'Headache', reports: 40 }] });
@@ -1948,14 +2068,13 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     fail(`Fix 6(l): normalizePatientMeds regression (${JSON.stringify(meds)})`);
   }
 
-  // (m) index.html renders bands (MeterBar band prop) and drops unsourced meters.
-  if (/const MeterBar = \(\{ label, value, band, icon, note \}\)/.test(indexSrc) &&
-      /bandColor/.test(indexSrc) && /parseBandRating/.test(indexSrc) &&
-      /\(c\.confidence_band \|\| c\.confidence_pct != null\)/.test(indexSrc) &&
-      /\(t\.safety_band \|\| t\.safety_pct != null\)/.test(indexSrc)) {
-    pass('Fix 6(m): index.html MeterBar renders bands and only shows safety/confidence meters when present');
+  // (m) Client mandate: Safety/Confidence meters are NOT shown on cards —
+  // there was no reliable backing link for the band. MeterBar may still exist
+  // as dead code; cards must not render it.
+  if (!/<MeterBar[\s>]/.test(indexSrc) && !/label="Safety"/.test(indexSrc) && !/label="Confidence"/.test(indexSrc)) {
+    pass('Fix 6(m): index.html does not render Safety/Confidence meters on cards (no unsourced band UI)');
   } else {
-    fail('Fix 6(m): index.html band rendering / conditional meter wiring missing');
+    fail('Fix 6(m): Safety/Confidence MeterBar still rendered on cards');
   }
 }
 

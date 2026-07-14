@@ -176,7 +176,7 @@
       .mrt-markdown li { margin: 0.3rem 0; }
       .mrt-markdown strong { color: var(--mrt-md-strong); font-weight: 700; }
       .mrt-markdown em { color: var(--mrt-md-em); }
-      .mrt-markdown a { color: var(--mrt-link); text-decoration: none; border-bottom: 1px dashed var(--mrt-accent-edge); }
+      .mrt-markdown a { color: var(--mrt-link); text-decoration: none; border-bottom: 1px solid var(--mrt-accent-edge); font-weight: 600; }
       .mrt-markdown a:hover { color: var(--mrt-link-hover); border-bottom-color: var(--mrt-link-hover); }
       .mrt-markdown code { background: var(--mrt-code-bg); color: var(--mrt-code-text); padding: 0.08em 0.35em; border-radius: 3px; font-size: 0.88em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
       .mrt-markdown pre { background: var(--mrt-md-pre-bg); border: 1px solid var(--mrt-md-pre-border); padding: 0.75rem 0.9rem; border-radius: 6px; overflow-x: auto; }
@@ -1161,8 +1161,18 @@
         const addArticle = (a) => {
           if (!a) return;
           [a.url, a.pmcUrl, a.pubmedUrl, a.doiUrl, a.oaUrl, a.landingUrl, a.europePmcUrl].forEach(add);
-          if (a.pmid) add(`https://pubmed.ncbi.nlm.nih.gov/${String(a.pmid).replace(/\D/g, '')}/`);
-          if (a.doi) add(`https://doi.org/${String(a.doi).replace(/^https?:\/\/doi\.org\//i, '')}`);
+          if (a.pmid) {
+            const id = String(a.pmid).replace(/\D/g, '');
+            add(`https://pubmed.ncbi.nlm.nih.gov/${id}`);
+            add(`https://pubmed.ncbi.nlm.nih.gov/${id}/`);
+          }
+          if (a.doi) {
+            const d = String(a.doi).replace(/^https?:\/\/doi\.org\//i, '');
+            add(`https://doi.org/${d}`);
+          }
+          if (a.nct || a.nctId) {
+            add(`https://clinicaltrials.gov/study/${String(a.nct || a.nctId).toUpperCase()}`);
+          }
         };
         (trialsData?.studies || []).forEach((s) => {
           add(s.url);
@@ -1193,6 +1203,22 @@
         if (!allowedUrls || !allowedUrls.size || !href) return true;
         const h = String(href).replace(/\/$/, '');
         if (allowedUrls.has(h)) return true;
+        // PubMed / DOI / PMC / CT.gov: allow any URL that carries an ID we
+        // already have in the evidence/trials allowlist (form may differ:
+        // pubmed.org/123 vs pubmed.org/123/ vs doi.org/…).
+        const pmid = h.match(/pubmed\.ncbi\.nlm\.nih\.gov\/(\d{5,9})/i);
+        if (pmid) {
+          const pu = `https://pubmed.ncbi.nlm.nih.gov/${pmid[1]}`;
+          if (allowedUrls.has(pu) || allowedUrls.has(`${pu}/`)) return true;
+          for (const a of allowedUrls) {
+            if (String(a).includes(`/pubmed.ncbi.nlm.nih.gov/${pmid[1]}`)) return true;
+          }
+        }
+        const doi = h.match(/doi\.org\/(10\.\d{4,9}\/\S+)/i);
+        if (doi) {
+          const du = `https://doi.org/${doi[1].replace(/\/$/, '')}`;
+          if (allowedUrls.has(du) || allowedUrls.has(du.replace(/\/$/, ''))) return true;
+        }
         const nct = h.match(/NCT\d{8}/i);
         if (nct) {
           const ct = `https://clinicaltrials.gov/study/${nct[0].toUpperCase()}`;
@@ -1264,6 +1290,97 @@
             : clean.replace(/^https?:\/\//, '');
         });
         return s;
+      };
+
+      // FUNDAMENTAL (client mandate): embed an inline ([source ↗](url)) after
+      // every significant claim that still lacks a link — using the evidence
+      // pack / trials URLs only. Never invents URLs. Runs at DISPLAY time so
+      // links sit next to the claim in the report body (not a bottom bibliography).
+      const embedInlineClaimCitations = (text, evidenceOrPack, trialsData) => {
+        if (!text) return text;
+        const items = [];
+        const seen = new Set();
+        const push = (it) => {
+          if (!it) return;
+          let url = String(it.url || it.pmcUrl || it.pubmedUrl || it.doiUrl || it.oaUrl || '').trim();
+          if (!url && it.pmid) url = `https://pubmed.ncbi.nlm.nih.gov/${String(it.pmid).replace(/\D/g, '')}/`;
+          if (!url && it.doi) url = `https://doi.org/${String(it.doi).replace(/^https?:\/\/doi\.org\//i, '')}`;
+          if (!url && (it.nct || it.nctId)) {
+            url = `https://clinicaltrials.gov/study/${String(it.nct || it.nctId).toUpperCase()}`;
+          }
+          if (!/^https?:\/\//i.test(url)) return;
+          if (/dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(url)) return;
+          const key = url.toLowerCase().replace(/\/$/, '');
+          if (seen.has(key)) return;
+          seen.add(key);
+          items.push({
+            url,
+            blob: `${it.title || ''} ${it.text || it.summary || it.abstract || ''} ${it.name || ''}`.toLowerCase()
+          });
+        };
+        const ev = evidenceOrPack;
+        if (Array.isArray(ev)) ev.forEach(push);
+        else if (ev) {
+          (ev.groundedForPrompt || []).forEach(push);
+          (ev.topRanked || []).forEach(push);
+          (ev.evidencePack || []).forEach(push);
+          (ev.pipelineDrugs || []).forEach(push);
+        }
+        (trialsData?.studies || []).forEach((s) => push({
+          title: s.title, name: s.nctId, nctId: s.nctId, url: s.url
+        }));
+        if (!items.length) return text;
+
+        const STOP = new Set([
+          'that', 'this', 'with', 'from', 'have', 'been', 'were', 'their', 'about', 'into',
+          'also', 'only', 'than', 'then', 'when', 'which', 'while', 'after', 'before',
+          'under', 'over', 'your', 'you', 'will', 'would', 'could', 'should', 'must',
+          'and', 'the', 'for', 'are', 'was', 'not', 'but', 'can', 'may', 'its', 'any',
+          'all', 'has', 'had', 'research', 'suggests', 'studies', 'report', 'literature',
+          'evidence', 'guidelines', 'patient', 'patients', 'doctor', 'physician', 'condition'
+        ]);
+        const tokens = (s) => String(s || '').toLowerCase().replace(/https?:\/\/\S+/g, ' ')
+          .replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/)
+          .filter((w) => w.length >= 4 && !STOP.has(w));
+        const MUST = /\b(research suggests|studies (?:report|show|found|estimate)|literature (?:reports|cautions|notes|warns|supports)|evidence suggests|guidelines?\b|physicians? (?:generally |often )?(?:caution|advise|recommend)|prevalence|incidence|typical path|without treatment|primary specialty|falls? risk|neurodegenerat|dopamine|tremor|stiffness|impulse control|sparx|lsvt|mds\b|is a |disorder|nerve cells|brain disorder)\b/i;
+        const hasLink = (s) => /\[[^\]]+\]\(https?:\/\/[^)]+\)|(?<![(\[])https?:\/\/\S+/i.test(s);
+        const score = (toks, item) => {
+          if (!toks.length || !item.blob) return 0;
+          let hits = 0;
+          for (const t of toks) if (item.blob.includes(t)) hits += t.length >= 6 ? 1.4 : 1;
+          return hits / toks.length;
+        };
+        const overview = items.find((it) =>
+          /guideline|review|evidence-based|overview|epidemiolog|pathophysiol|parkinson|fibrosis|retinitis|disease/.test(it.blob)
+        ) || items[0];
+
+        return String(text).split('\n').map((line) => {
+          const trimmed = line.trim();
+          if (!trimmed || /^#{1,6}\s/.test(trimmed) || /^CANDIDATE:/i.test(trimmed)) return line;
+          if (hasLink(line)) return line;
+          // Whole bullet / sentence as one claim unit
+          const claim = trimmed.replace(/^[-*•]\s+/, '').replace(/^\*\*[^*]+\*\*[:\s]*/, '');
+          if (claim.length < 28 || !MUST.test(claim)) return line;
+          const toks = tokens(claim);
+          if (toks.length < 2) return line;
+          let best = null;
+          let bestScore = 0;
+          for (const it of items) {
+            const sc = score(toks, it);
+            if (sc > bestScore) { bestScore = sc; best = it; }
+          }
+          let url = null;
+          if (best && bestScore >= 0.10) url = best.url;
+          else if (/\b(is a |disorder|nerve cells|brain disorder|prevalence|typical path)\b/i.test(claim) && overview) {
+            url = overview.url;
+          } else if (best && bestScore >= 0.14) url = best.url;
+          if (!url) return line;
+          const cite = ` ([source ↗](${url}))`;
+          if (/[.!?]["']?\s*$/.test(trimmed)) {
+            return line.replace(/([.!?]["']?)(\s*)$/, `${cite}$1$2`);
+          }
+          return `${line.replace(/\s+$/, '')}${cite}`;
+        }).join('\n');
       };
 
       // Strip internal pipeline jargon before showing or exporting a report.
@@ -2237,7 +2354,11 @@
           };
           const hasCitation = (c) =>
             extractCitationUrls(`${c.references || ''} ${c.supporting_evidence || ''}`)
-              .some((u) => /^https?:\/\//i.test(u) && !isGoogleSearchCitation(u));
+              .some((u) =>
+                /^https?:\/\//i.test(u) &&
+                !isGoogleSearchCitation(u) &&
+                !/^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(u)
+              );
           let parsed = parseCandidates(repurposeText)
             .map((c) => ({ ...c, _uncited: !hasCitation(c) }));
           const excluded = evidenceSummary?.excludedAgents || [];
@@ -2629,10 +2750,10 @@
               if (gathered.trials) setTrialsData(gathered.trials);
               if (gathered.dossier) setDossier(gathered.dossier);
               if (gathered.conditionResolution) setConditionResolution(gathered.conditionResolution);
-              if (gathered.evidence) {
+                if (gathered.evidence) {
                 setEvidenceSummary(gathered.evidence);
                 setEvidencePack(gathered.evidence.topRanked || []);
-                if (mode === 'repurpose' && gathered.evidence.repurposeDrugScreen) {
+                if (gathered.evidence.repurposeDrugScreen) {
                   setRepurposeDrugScreen(gathered.evidence.repurposeDrugScreen);
                 }
               }
@@ -2740,11 +2861,11 @@
                 }
 
                 // Hard-25 REAL-link floor. Rare / thin-KB conditions used to
-                // land at ~20–21. Multi-pass AI backfill (up to 3 extra calls
-                // with avoidCandidates), then registry fill with MECHANISTIC_ONLY
-                // + DailyMed-only citations (never invent paper URLs).
+                // land at ~20–21. One AI backfill pass, then registry fill with
+                // MECHANISTIC_ONLY + specific DailyMed setid citations (never
+                // invent paper URLs or DailyMed search pages).
                 const BACKFILL_THRESHOLD = 25;
-                const BACKFILL_MAX_PASSES = 3;
+                const BACKFILL_MAX_PASSES = 1;
                 const candNamesOf = (txt) =>
                   (String(txt || '').match(/^CANDIDATE:\s*(.+)$/gim) || [])
                     .map((l) => l.replace(/^CANDIDATE:\s*/i, '').replace(/\*/g, '').trim())
@@ -2759,6 +2880,8 @@
                 // a specific label monograph (drugInfo.cfm?setid=…) counts.
                 const isDailyMedSearchUrlC = (url) =>
                   /^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(String(url || ''));
+                const isDailyMedLabelUrlC = (url) =>
+                  /^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/drugInfo\.cfm\?setid=[^&\s)]+/i.test(String(url || ''));
                 const urlsInBlob = (blob) => {
                   const out = [];
                   const s = String(blob || '');
@@ -2784,16 +2907,38 @@
                   }
                   return keys.size;
                 };
-                // Client mandate: a DailyMed SEARCH page is NOT a citation, so a
-                // registry-fill candidate carries NO fabricated link — its
-                // REFERENCES line is plain text. (It therefore will not count as
-                // a real-linked candidate below; that is the intended, honest
-                // behavior — "real specific URL or none".)
+                // Resolve a specific DailyMed setid label for registry fill.
+                // Prefer fillPool.dailyMedUrl (enriched at gather); fall back to
+                // evidence.fdaLabels. Never invent a search.cfm link.
+                const resolveDailyMedLabel = (drug) => {
+                  const direct = drug?.dailyMedUrl || drug?.labelUrl || '';
+                  if (isDailyMedLabelUrlC(direct)) return String(direct).trim();
+                  const name = String(drug?.name || '').toLowerCase().trim();
+                  if (!name) return '';
+                  const labels = gathered.evidence?.fdaLabels || [];
+                  for (const f of labels) {
+                    const lbl = f?.label || f;
+                    const g = String(lbl?.genericName?.[0] || lbl?.genericName || f?.drug || '').toLowerCase();
+                    const b = String(lbl?.brandName?.[0] || lbl?.brandName || '').toLowerCase();
+                    if ((g && (g.includes(name) || name.includes(g))) ||
+                        (b && (b.includes(name) || name.includes(b)))) {
+                      const u = lbl?.dailyMedUrl || f?.dailyMedUrl || '';
+                      if (isDailyMedLabelUrlC(u)) return String(u).trim();
+                    }
+                  }
+                  return '';
+                };
+                // Client mandate: only a resolved specific label monograph may
+                // be linked; otherwise REFERENCES is plain text (no fabricated link).
                 const buildRegistryFillBlock = (drug, conditionLabel) => {
                   const name = String(drug?.name || drug || '').trim();
                   if (!name) return '';
                   const mechanism = String(drug?.mechanism || '').trim();
                   const cond = conditionLabel || 'this condition';
+                  const specificLabel = resolveDailyMedLabel(typeof drug === 'string' ? { name } : drug);
+                  const referencesLine = specificLabel
+                    ? `REFERENCES: [FDA label for ${name} (DailyMed)](${specificLabel})`
+                    : `REFERENCES: FDA DailyMed label for ${name} — look it up by name on DailyMed. No specific study for ${cond} was available in this run, so no citation link is attached.`;
                   return `CANDIDATE: ${name}
 CLASS: FDA-tracked medication (library fill)
 APPROVED_FOR: Other FDA-listed uses (see DailyMed) — not established for ${cond}
@@ -2805,8 +2950,8 @@ REPURPOSE_RATIONALE:
 • No published trial for ${cond} in this run's evidence pack — labeled MECHANISTIC_ONLY on purpose.
 • Discuss with a physician; this is an educational hypothesis, not a recommendation.
 EVIDENCE_STRENGTH: MECHANISTIC_ONLY
-SUPPORTING_EVIDENCE: No human study for ${cond} was available in the grounded pack for this run — and a DailyMed search page is not a source, so no citation link is attached.
-REFERENCES: FDA DailyMed label for ${name} — look it up by name on DailyMed. No specific study for ${cond} was available in this run, so no citation link is attached.
+SUPPORTING_EVIDENCE: No human study for ${cond} was available in the grounded pack for this run — and a DailyMed search page is not a source, so no citation link is fabricated.
+${referencesLine}
 EFFICACY_HYPOTHESIS: No human efficacy results yet for this condition — the reason to list it is library/pathway overlap, not a measured benefit.
 PATIENT_SPECIFIC_RISKS: Confirm identity, dose, and interactions with the prescribing physician before considering any change.
 HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this drug worth watching in the literature — do not start it based on this list alone.`;
@@ -2822,6 +2967,17 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                 const laneTextNow = () => laneResults
                   .filter((s) => s.status === 'fulfilled' && s.value)
                   .map((s) => textOf(s.value)).join('\n\n');
+
+                // Show drug cards as soon as the parallel lanes finish — do not
+                // wait for backfill/polish (that is what left RP stuck at
+                // "Looking for more drug ideas…" with zero cards for 7+ minutes).
+                const publishInterimCandidates = (txt) => {
+                  if (!txt || countCandidateBlocks(txt) <= 0) return;
+                  setRepurposeText(txt);
+                  setRepurposeForCondition(runPatient.condition.trim());
+                };
+                publishInterimCandidates(laneTextNow());
+
                 let backfillPasses = 0;
                 let registryFilled = 0;
                 for (let pass = 0; pass < BACKFILL_MAX_PASSES; pass++) {
@@ -2846,6 +3002,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                   if (backfill && countCandidateBlocks(textOf(backfill)) > 0) {
                     laneResults = [...laneResults, { status: 'fulfilled', value: backfill }];
                     backfillPasses += 1;
+                    publishInterimCandidates(laneTextNow());
                   } else {
                     break;
                   }
@@ -2863,8 +3020,12 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
 
                 let frontText = okFronts.map(textOf).join('\n\n');
                 // Registry fill (last resort): unused FDA-tracked drugs with
-                // DailyMed-only REAL links — never invent a paper URL.
+                // specific DailyMed setid labels — never invent a paper URL.
                 if (distinctLinkedCount(frontText) < BACKFILL_THRESHOLD) {
+                  updateStep('synth', {
+                    status: 'running',
+                    detail: 'Filling remaining drug ideas from the FDA library with real label links…'
+                  });
                   const usedKeys = new Set(
                     candNamesOf(frontText).map(dedupKey).filter(Boolean)
                   );
@@ -2890,6 +3051,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                     usedKeys.add(k);
                     registryFilled += 1;
                   }
+                  if (registryFilled) publishInterimCandidates(frontText);
                 }
 
                 const backText = back ? textOf(back) : '';
@@ -2933,7 +3095,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               setValidations((v) => ({ ...v, [mode]: { _auditing: true } }));
               updateStep('synth', {
                 status: 'running',
-                detail: 'Cross-checking with a second AI (Perplexity)…'
+                detail: 'Checking facts and cleaning up the report…'
               });
               const polished = await polishMergedReport(text, data);
               text = polished.text;
@@ -3029,7 +3191,10 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
         };
 
         const runFullAnalysis = async () => {
-          await runResearch('research', { chainRepurpose: true });
+          // Gather once with repurpose extras (supplement seeds + DailyMed-enriched
+          // fillPool) so the chained drug-ideas pass can hit Hard-25 without a
+          // second multi-minute gather — and so registry fill has real setid links.
+          await runResearch('research', { chainRepurpose: true, includeRepurposeExtras: true });
         };
 
         const runTrialsFetch = async (opts) => {
@@ -4971,25 +5136,11 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
         );
       };
 
-      // OutcomeRow — replaces the old efficacy MeterBar. Efficacy is no longer a
-      // fabricated 0-100 score; it is the REAL, sourced study outcome in plain
-      // English (Dorothy: "those percentages are made-up — show the actual
-      // result"). We render it as a labelled prose row (same label column as
-      // MeterBar so treatment/candidate cards stay visually aligned) instead of
-      // a meter bar, because a real outcome like "slowed decline by ~110 mL/year"
-      // is not a percentage and must not be forced onto a 0-100 bar.
+      // OutcomeRow retained unused — "How well it works" efficacy display was
+      // removed from cards (dead/mismatched source links). Do not reintroduce.
       const OutcomeRow = ({ label, icon, text }) => {
         if (!text) return null;
-        return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
-            <div style={{ width: 92, flexShrink: 0, paddingTop: 1, fontSize: '0.72rem', color: theme.textDim, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              {icon}{label}
-            </div>
-            <div style={{ flex: 1, minWidth: 0, fontSize: '0.82rem', color: theme.text, lineHeight: 1.5 }}>
-              <InlineMD text={text} />
-            </div>
-          </div>
-        );
+        return null;
       };
 
       // Evidence strength ladder. Matches the EVIDENCE_STRENGTH enum Claude
@@ -5578,14 +5729,14 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
           parts.push(renderMarkdownForExport(trialsText));
         }
         const treatRows = (treatments || []).filter(t => t.treatment).map(t =>
-          `<tr><td>${renderMarkdownForExport(t.treatment)}</td><td>${escapeHtmlForExport(t.efficacy || t.fda_status || '')}</td><td>${renderMarkdownForExport(t.references || '')}</td></tr>`
+          `<tr><td>${renderMarkdownForExport(t.treatment)}</td><td>${renderMarkdownForExport(t.references || '')}</td></tr>`
         ).join('');
         const candRows = (candidates || []).filter(c => c.candidate).map(c =>
           `<tr><td>${renderMarkdownForExport(c.candidate)}</td><td>${escapeHtmlForExport(c.why_for_this_condition || c.repurpose_rationale || '')}</td><td>${renderMarkdownForExport(c.references || '')}</td></tr>`
         ).join('');
         if (treatRows || candRows) {
           parts.push('<h2>4. Comparison</h2>');
-          if (treatRows) parts.push(`<h3>Approved treatments (backed by research)</h3><table><thead><tr><th>Treatment</th><th>How well it works</th><th>Sources</th></tr></thead><tbody>${treatRows}</tbody></table>`);
+          if (treatRows) parts.push(`<h3>Approved treatments (backed by research)</h3><table><thead><tr><th>Treatment</th><th>Sources</th></tr></thead><tbody>${treatRows}</tbody></table>`);
           if (candRows) parts.push(`<h3>Repurposing ideas</h3><table><thead><tr><th>Drug</th><th>Why it might help</th><th>Sources</th></tr></thead><tbody>${candRows}</tbody></table>`);
         }
         if (references && references.length) {
@@ -6689,130 +6840,11 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
         );
       };
 
-      const ValidatorPanel = ({ validation, onAudit, canAudit, condition }) => {
-        // The second-AI check runs automatically after every report, so there
-        // is no manual "re-check" button — a re-check is simply a new search.
-        if (!validation) return null;
-        if (validation._auditing) {
-          return (
-            <div style={panelStyle}>
-              <h3 style={{ marginTop: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Scales size={18} /> Second AI is checking…
-              </h3>
-              <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: 0 }}>
-                A second, separate AI is checking every fact. This usually takes 5 to 10 seconds.
-              </p>
-            </div>
-          );
-        }
-        if (validation.error) {
-          return (
-            <div style={panelStyle}>
-              <h3 style={{ marginTop: 0, color: theme.yellow, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Scales size={18} /> Second AI check — not available
-              </h3>
-              <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: 0 }}>
-                {validation.error}{validation.hint ? ` — ${validation.hint}` : ''}
-              </p>
-            </div>
-          );
-        }
-        const p = validation.primary;
-        if (!p) {
-          return (
-            <div style={panelStyle}>
-              <h3 style={{ marginTop: 0, color: theme.yellow, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Scales size={18} /> Second AI check — no answer
-              </h3>
-              <p style={{ color: theme.textDim, fontSize: '0.9rem', margin: 0 }}>
-                We tried {(validation.validators || []).length || 'no'} second AI{(validation.validators || []).length === 1 ? '' : 's'}, but none sent back results.
-              </p>
-            </div>
-          );
-        }
-        const confirmed = p.confirmed || [];
-        const missing = p.missingPerspectives || [];
-        // Bad/broken citation links the second AI flags are silently stripped
-        // from the report server-side (sanitize + dead-link probe). Per Dorothy
-        // and the client: never surface a "links removed" tile, note, or list —
-        // the reader should only see what they can act on.
-        return (
-          <div style={{ ...panelStyle, borderLeft: `4px solid ${agreementColor(p.agreement)}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-              <div>
-                <h3 style={{ margin: 0, color: theme.accent, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Scales size={20} /> Checked by a second AI
-                </h3>
-                <p style={{ margin: '0.25rem 0 0', color: theme.textDim, fontSize: '0.85rem' }}>
-                  A second, separate AI checked every fact in this report against the same research we found.
-                  {validation.consensus && validation.consensus.totalValidators > 1 && (
-                    <> Across {validation.consensus.totalValidators} separate AIs, they showed <strong>{validation.consensus.level}</strong> agreement ({validation.consensus.validatorsAgreeing} of {validation.consensus.totalValidators} agreed).</>
-                  )}
-                </p>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{
-                  fontSize: '2.5rem', fontWeight: 700, lineHeight: 1,
-                  color: agreementColor(p.agreement)
-                }}>
-                  {p.overallScore ?? '?'}<span style={{ fontSize: '1rem' }}>/100</span>
-                </div>
-                <div style={{
-                  fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.08em',
-                  color: agreementColor(p.agreement), fontWeight: 700
-                }}>
-                  {p.agreement || 'n/a'} agreement
-                </div>
-              </div>
-            </div>
-
-            {p.overall && (
-              <div style={{
-                marginTop: '0.9rem', padding: '0.8rem 1rem',
-                background: theme.panel, borderRadius: 8,
-                fontSize: '0.92rem', lineHeight: 1.55
-              }}>
-                {p.overall}
-              </div>
-            )}
-
-            {/* Disputed and unsupported claims are now silently removed from the
-                report server-side (applyValidationFixes) rather than shown to the
-                reader — Dorothy: "if it's not backed up it should be removed."
-                So we no longer surface "Disagreed with" / "Not backed by sources"
-                tiles or lists; only what the reader can act on remains. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '0.5rem', marginTop: '0.9rem' }}>
-              <ValidatorStat label="Backed up"     n={confirmed.length}   color={theme.green}  Icon={CheckCircle} />
-            </div>
-
-            {missing.length > 0 && (
-              <ValidatorList title="Things the second AI says are missing" color={theme.accent}
-                items={missing.map((m) => ({ primary: m }))} />
-            )}
-
-            {validation.validators && validation.validators.length > 1 && (
-              <details style={{ marginTop: '0.75rem' }}>
-                <summary style={{ cursor: 'pointer', color: theme.textDim, fontSize: '0.85rem' }}>
-                  Details ({validation.validators.length} second AI{validation.validators.length === 1 ? '' : 's'})
-                </summary>
-                <div style={{ display: 'grid', gap: '0.4rem', marginTop: '0.5rem' }}>
-                  {validation.validators.map((v, i) => (
-                    <div key={i} style={{ fontSize: '0.8rem', color: theme.textDim, padding: '0.4rem 0.6rem',
-                      background: theme.panel, borderRadius: 6 }}>
-                      <strong style={{ color: theme.text }}>Second AI {i + 1}</strong>
-                      {v.error ? <> — <span style={{ color: theme.red }}>error: {v.error}</span></>
-                              : v.parsed ? <> — agreement: {v.parsed.agreement || '?'} · score: {v.parsed.overallScore ?? '?'}</>
-                              : <> — no result</>}
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-
-            <FlagErrorBox condition={condition} />
-          </div>
-        );
+      const ValidatorPanel = () => {
+        // Client mandate: do NOT surface the second-AI score panel
+        // ("Checked by a second AI" / 72/100 / Backed up). Validation may
+        // still run server-side to strip bad claims; the reader never sees it.
+        return null;
       };
 
       const ValidatorStat = ({ label, n, color, Icon }) => (
@@ -6973,7 +7005,14 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
         // reader is told the reality and can jump straight to the list. Minimal,
         // non-destructive (only adds a line after the heading; no anchors moved).
         const renderedResearchText = useMemo(() => {
-          const txt = renderedResearchTextBase;
+          let txt = renderedResearchTextBase;
+          // Embed pack citations next to each claim BEFORE Markdown render —
+          // never rely on a bottom "All sources" dump.
+          txt = embedInlineClaimCitations(
+            txt,
+            evidenceSummary || { topRanked: evidencePack },
+            trialsData
+          );
           const studies = trialsData?.studies || [];
           if (!txt || !studies.length) return txt;
           const totalTrials = trialsData.total || studies.length;
@@ -6987,7 +7026,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
           const headingRe = /^(#{2,3}\s*4\.[^\n]*)$/m;
           if (headingRe.test(txt)) return txt.replace(headingRe, `$1${jumpLine}`);
           return txt;
-        }, [renderedResearchTextBase, trialsData]);
+        }, [renderedResearchTextBase, trialsData, evidenceSummary, evidencePack]);
         const profileCoherenceIssue = useMemo(() => checkProfileCoherence(patient), [patient]);
         const baseQuickPrompts = [
           `Why did you rank the top treatment #1 over the others? Walk me through the tradeoff.`,
@@ -7183,7 +7222,6 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                   </div>
                 )}
                 <Markdown text={renderedResearchText} allowedUrls={reportAllowedUrls} />
-                <SourceLinks text={renderedResearchText} label="All sources & links in this report" />
               </div>
             )}
 
@@ -7982,12 +8020,6 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                 ) : null}
               </div>
             </div>
-            <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.6rem' }}>
-              <OutcomeRow label="How well it works" text={t.efficacy} icon={<TrendingUp size={11} />} />
-              {(t.safety_band || t.safety_pct != null) && (
-                <MeterBar label="Safety" value={t.safety_pct} band={t.safety_band} icon={<Shield size={11} />} note={t.safety_note} />
-              )}
-            </div>
             {t.risks && (
               <div style={{ marginTop: '0.6rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.5 }}>
                 <strong style={{ color: theme.text }}>Risks: </strong><InlineMD text={t.risks} />
@@ -8021,11 +8053,6 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                   </div>
                 )}
                 {c.rationale && <div style={{ marginTop: 8, fontSize: '0.88rem', lineHeight: 1.55 }}><InlineMD text={c.rationale} /></div>}
-                {(c.confidence_band || c.confidence_pct != null) && (
-                  <div style={{ marginTop: 8 }}>
-                    <MeterBar label="Confidence" value={c.confidence_pct} band={c.confidence_band} icon={<Award size={11} />} note={c.confidence_note || c.confidence} />
-                  </div>
-                )}
                 {c.interaction_risk && (
                   <div style={{ marginTop: 8, fontSize: '0.82rem', color: theme.yellow }}>
                     <strong>Interaction risk: </strong><InlineMD text={c.interaction_risk} />
@@ -8197,30 +8224,6 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               </div>
             </div>
 
-            <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.75rem' }}>
-              <OutcomeRow
-                label="How well it works"
-                text={c.efficacy_hypothesis}
-                icon={<TrendingUp size={11} />}
-              />
-              {(c.safety_band || c.safety_pct != null) && (
-                <MeterBar
-                  label="Safety"
-                  value={c.safety_pct}
-                  band={c.safety_band}
-                  icon={<Shield size={11} />}
-                  note={c.safety_note}
-                />
-              )}
-              {(c.confidence_band || c.confidence_pct != null) && (
-                <MeterBar
-                  label="Confidence"
-                  value={c.confidence_pct}
-                  band={c.confidence_band}
-                  icon={<Award size={11} />}
-                  note={c.confidence_note}
-                />
-              )}
             </div>
 
             {c.repurpose_rationale && c.why_for_this_condition && (
@@ -8248,7 +8251,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                 title="Risks for this patient specifically"
                 icon={<AlertTriangle size={13} />}
                 color={theme.yellow}
-                defaultOpen={/^(low|moderate)$/i.test(String(c.safety_band)) || (c.safety_pct != null && c.safety_pct < 70) || /high|moderate|interaction|sedat|fall/i.test(String(c.patient_specific_risks))}
+                defaultOpen={/high|moderate|interaction|sedat|fall/i.test(String(c.patient_specific_risks))}
               >
                 <InlineMD text={c.patient_specific_risks} />
               </Disclosure>
@@ -8605,11 +8608,11 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
       const ChartTab = ({ treatments, candidates }) => {
         const exportCsv = () => {
           const rows = [
-            ['Provider','Treatment','FDA Status','Length/Frequency','How well it works','How safe','Risks','Interactions','Cost']
+            ['Provider','Treatment','FDA Status','Length/Frequency','Risks','Interactions','Cost']
           ];
           treatments.forEach(t => rows.push([
             t.provider||'', t.treatment||'', t.fda_status||'', t.length_frequency||'',
-            t.efficacy||'', t.safety_band || (t.safety_pct != null ? t.safety_pct + '%' : ''), t.risks||'', t.interactions||'', t.cost||''
+            t.risks||'', t.interactions||'', t.cost||''
           ]));
           const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
           const blob = new Blob([csv], { type: 'text/csv' });
@@ -8629,7 +8632,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               </button>
             </div>
             <p style={{ color: theme.textDim, fontSize: '0.85rem' }}>
-              "How well it works" shows the real, cited study outcome. "How safe" is an evidence-backed Low / Moderate / High band (High = safest) derived from the FDA label and this patient's medicines — hover it to see the specific facts and sources behind the band.
+              Compare approved options and drug ideas side by side — risks and sources on each row.
             </p>
             {treatments.length === 0 && candidates.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem', color: theme.textDim }}>
@@ -8662,8 +8665,6 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               { k: 'treatment',         h: 'Treatment description', w: 260 },
               { k: 'fda_status',        h: 'FDA status',          w: 120 },
               { k: 'length_frequency',  h: 'Length / Freq',       w: 140 },
-              { k: 'efficacy',          h: 'How well it works',   w: 220 },
-              { k: 'safety_pct',        h: 'How safe',            w: 110, bar: true },
               { k: 'risks',             h: 'Risks',               w: 220 },
               { k: 'interactions',      h: 'Drug interactions',   w: 180 },
               { k: 'cost',              h: 'Cost / Insurance',    w: 140 },
@@ -8675,8 +8676,6 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               { k: 'class',                     h: 'Type of drug',    w: 140 },
               { k: 'approved_for',              h: 'Normally used for',    w: 180 },
               { k: 'repurpose_rationale',       h: 'Why it might help', w: 280 },
-              { k: 'efficacy_hypothesis',       h: 'Likely to work', w: 220 },
-              { k: 'safety_pct',                h: 'How safe',          w: 110, bar: true },
               { k: 'patient_specific_risks',    h: 'Risks for you', w: 220 },
               { k: 'supporting_evidence',       h: 'Sources',             w: 200, links: true }
             ];
@@ -8955,8 +8954,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               <strong>Where the facts come from:</strong> ClinicalTrials.gov · NCBI PubMed · Europe PMC ·
               OpenAlex · openFDA · Unpaywall · Cochrane Library · our trusted, hand-picked sources.
               <br />
-              <strong>How it's made:</strong> An AI writes the report, and a second, separate AI can
-              re-check every claim against the same research (when set up).
+              <strong>How it's made:</strong> An AI writes the report from the research sources above.
             </div>
           </div>
         </footer>

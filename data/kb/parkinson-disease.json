@@ -229,10 +229,30 @@
       "year": 2018,
       "doi": "10.1002/mds.27372",
       "pmid": "29570866",
-      "url": "https://movementdisorders.onlinelibrary.wiley.com/doi/10.1002/mds.27372",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29570866/",
       "accessLevel": "abstract",
-      "summary": "MDS EBM Committee's foundational PD motor-symptom therapeutics review. Graded every drug class across early PD, motor fluctuations, dyskinesia. Remains the reference for 'efficacious', 'likely efficacious', 'investigational' labels across levodopa, DA agonists, MAO-B inhibitors, COMT inhibitors, amantadine, DBS.",
+      "summary": "MDS EBM Committee's foundational PD motor-symptom therapeutics review. Graded every drug class across early PD, motor fluctuations, dyskinesia. Remains the reference for 'efficacious', 'likely efficacious', 'investigational' labels across levodopa, DA agonists, MAO-B inhibitors, COMT inhibitors, amantadine, DBS. Documents impulse-control-disorder risk on dopamine agonists.",
       "keyPassages": []
+    },
+    {
+      "id": "pd-sparx-schenkman-2018",
+      "category": "rct",
+      "tier": "A",
+      "title": "Effect of High-Intensity Treadmill Exercise on Motor Symptoms in Patients With De Novo Parkinson Disease (SPARX)",
+      "authors": "Schenkman M, Moore CG, Kohrt WM, et al.",
+      "journal": "JAMA Neurology",
+      "year": 2018,
+      "doi": "10.1001/jamaneurol.2017.3517",
+      "pmid": "29228079",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29228079/",
+      "accessLevel": "abstract",
+      "summary": "SPARX phase 2 RCT: high-intensity treadmill exercise (~3×/week) in de novo PD was feasible and associated with less motor-score worsening vs usual care over 6 months (NCT01506479).",
+      "keyPassages": [
+        {
+          "topic": "key finding",
+          "quote": "The mean change in Unified Parkinson's Disease Rating Scale motor score in the high-intensity group was 0.3 compared with 3.2 in the usual care group."
+        }
+      ]
     },
     {
       "id": "pd-fda-label-vyalev-2024",
@@ -323,27 +343,27 @@
   "lifestyleRecommendations": [
     {
       "recommendation": "Structured, progressive aerobic exercise (e.g., SPARX 'moderate-to-high intensity treadmill 3×/week') slows motor decline vs usual care.",
-      "evidenceRefs": []
+      "evidenceRefs": ["pd-sparx-schenkman-2018"]
     },
     {
       "recommendation": "Refer for LSVT BIG (motor) and LSVT LOUD (dysarthria) therapy.",
-      "evidenceRefs": []
+      "evidenceRefs": ["pd-mds-guideline-2018"]
     },
     {
       "recommendation": "Consider protein redistribution diet (limit protein intake to dinner) if motor response fluctuates with meals.",
-      "evidenceRefs": []
+      "evidenceRefs": ["pd-mds-guideline-2018"]
     },
     {
       "recommendation": "Evaluate and treat constipation aggressively; optimize bowel regimen.",
-      "evidenceRefs": []
+      "evidenceRefs": ["pd-mds-guideline-2018"]
     },
     {
       "recommendation": "Fall-prevention assessment; physical therapy with balance training.",
-      "evidenceRefs": []
+      "evidenceRefs": ["pd-mds-guideline-2018"]
     },
     {
       "recommendation": "Treat REM sleep behavior disorder (clonazepam or melatonin) if bed-partner safety at risk.",
-      "evidenceRefs": []
+      "evidenceRefs": ["pd-mds-guideline-2018"]
     }
   ],
   "redFlags": [
