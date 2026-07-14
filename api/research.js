@@ -1252,6 +1252,7 @@ CITATION RULES (absolute — the single biggest failure mode of AI in medical re
 - CITE ONLY FROM THE GROUNDED EVIDENCE PACK provided below. Do not invent, paraphrase-without-URL, or cite from general knowledge.
 - INLINE CLICKABLE CITATIONS (client's #1 requirement): every significant claim MUST carry its supporting citation as an INLINE CLICKABLE markdown link placed IMMEDIATELY at/after the claim — NOT a bare numbered marker deferred to a bottom bibliography. Do NOT write bare "[#3]" or "[JAMA Dermatology / Clinical Review]" markers next to a claim. Instead write the real link right there, e.g. "…before starting antifibrotics ([source ↗](https://pubmed.ncbi.nlm.nih.gov/24836310/))." Use the exact pack URL for the item you are citing. A trailing "([source ↗](url))" or a linked short title both work; the point is the reader can click the citation at the claim without scrolling.
 - Every factual claim about efficacy, safety, interactions, or outcomes MUST cite at least one evidence-pack item with a verbatim quoted passage from that item's Content AND that item's clickable markdown link inline: [short title](url). If you cannot attach a REAL supporting URL from the pack to a claim, drop the specific detail or omit the claim — never leave a dangling marker and never attach an unrelated or search-page link.
+- CITATION MUST MATCH THE CARD/CLAIM (relevance — a live link that is off-topic is still wrong): only attach a source to a specific drug/candidate card, or to a specific claim, when that SOURCE ACTUALLY MENTIONS that drug / mechanism / claim. Do NOT attach a generic condition overview or review that never names the drug to that drug's card (e.g. do not link a broad "Treatment of Androgenetic Alopecia" review on a Clascoterone card unless that review discusses clascoterone). If the pack has no source that genuinely references THIS card's drug or THIS claim, leave the card/claim with NO link (plain text) or drop the card — never a mismatched link. This is condition-agnostic and applies even when the knowledge base is thin or empty.
 - EVERY named entity MUST be a clickable markdown link — no exceptions. This includes treatments, drugs, trials, papers, guidelines, AND non-paper entities: hospitals/centers, clinics, advocacy organizations, patient registries, government bodies (FDA, NIH), and named physicians/experts. The client's hard requirement is "links to everything" — a named entity rendered as plain or bold-only text is a failure.
 - LINK SOURCE PRIORITY (use the first that applies, never invent a deep link to fake a citation):
   1. If a URL for the entity exists in the evidence pack or trials pull, use that exact URL.
@@ -2094,7 +2095,8 @@ export default async function handler(req, res) {
         }
       };
       const trials = req.body?.trials || null;
-      let polished = finalizeReportText(analysisText, { evidence, trials });
+      const patientProfile = req.body?.patient || null;
+      let polished = finalizeReportText(analysisText, { evidence, trials, patient: patientProfile });
       let validation = req.body?.validation || null;
       const hasAnyValidatorKey =
         !!process.env.PERPLEXITY_API_KEY ||
@@ -2127,7 +2129,9 @@ export default async function handler(req, res) {
                 polished,
                 vResult,
                 evidence,
-                collectAllowedUrls(evidence, trials)
+                collectAllowedUrls(evidence, trials),
+                false,
+                { patient: patientProfile }
               );
             }
           }
@@ -2139,7 +2143,9 @@ export default async function handler(req, res) {
           polished,
           validation,
           evidence,
-          collectAllowedUrls(evidence, trials)
+          collectAllowedUrls(evidence, trials),
+          false,
+          { patient: patientProfile }
         );
       }
       // Dead-link gate: open every remaining link and demote any that 404/410
@@ -2708,7 +2714,7 @@ ${SHARED_GUARDRAILS}
       } catch (err) {
         console.warn('[research] safety-band injection skipped:', err.message);
       }
-      claudeText = finalizeReportText(claudeText, { evidence, trials, evidenceGrade });
+      claudeText = finalizeReportText(claudeText, { evidence, trials, evidenceGrade, patient });
       if (isLinkCheckEnabled()) {
         try {
           const { text: deadStripped, deadUrls } = await removeDeadLinks(claudeText, {

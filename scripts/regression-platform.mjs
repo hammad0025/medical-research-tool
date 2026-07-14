@@ -70,13 +70,19 @@ import {
   resolveInlineReferenceMarkers,
   buildReferenceUrlMap,
   stripDailyMedSearchLinks,
-  isNamedEntityBold
+  isNamedEntityBold,
+  enforceCandidateCitationRelevance
 } from '../lib/report-polish.js';
 import {
   buildGroundingIndex,
   isClaimGrounded,
-  partitionValidatorFindings
+  partitionValidatorFindings,
+  buildEvidenceUrlIndex,
+  citationRelevantToSubject,
+  sourceMentionsSubject,
+  subjectTokens
 } from '../lib/grounding-gate.js';
+import { stripDemographicMismatchLines } from '../lib/demographic-gate.js';
 import {
   REPURPOSE_MIN_PER_LANE,
   REPURPOSE_BACKFILL_THRESHOLD,
@@ -101,6 +107,8 @@ import {
   normalizePromise,
   applyPatientPromiseAdjustment,
   assessTrialEligibility,
+  patientSexIneligible,
+  patientAgeIneligible,
   NON_ENROLLING_PENALTY,
   accessDesignationBonus,
   programIsAvailable
@@ -2175,6 +2183,238 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     pass('Fix 8(h): always-live hosts are skipped without a network probe (time budget preserved)');
   } else {
     fail(`Fix 8(h): always-live hosts were probed (size=${deadFast.size}, ms=${Date.now() - t0})`);
+  }
+}
+
+// ===========================================================================
+// TASK A — validator ENFORCEMENT (catch-all): the second AI must FLAG and the
+// pipeline (applyValidationFixes) must REMOVE/repair, driven by patient profile.
+//   1. bad link (dead / search-page / non-specific) → link stripped
+//   2. citation-claim MISMATCH (real URL, wrong source) → link stripped
+//   3. demographic / eligibility MISMATCH study → line removed
+// Fail-safe: deterministic gates hold even when the validator returns nothing.
+// ===========================================================================
+{
+  // (1)+(2) BAD LINK / MISMATCH: validator flags the URL under
+  // hallucinatedCitations → applyValidationFixes strips the link to plain text
+  // (claim survives). Covers a dead link, a DailyMed search page, AND a live
+  // but off-topic (mismatched) source URL.
+  const report = [
+    'Finasteride slows hair loss ([review](https://pubmed.ncbi.nlm.nih.gov/dead123/)).',
+    'Clascoterone is topical ([AGA review](https://pubmed.ncbi.nlm.nih.gov/99999999/)).'
+  ].join('\n');
+  const validation = {
+    primary: {
+      hallucinatedCitations: [
+        { url: 'https://pubmed.ncbi.nlm.nih.gov/dead123/', issue: 'URL 404s / does not resolve' },
+        { url: 'https://pubmed.ncbi.nlm.nih.gov/99999999/', issue: 'URL resolves but source does not mention clascoterone' }
+      ]
+    }
+  };
+  const fixed = applyValidationFixes(report, validation, null, null);
+  const bothStripped =
+    !/\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/dead123\//.test(fixed) &&
+    !/\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/99999999\//.test(fixed) &&
+    /Finasteride slows hair loss/.test(fixed) &&
+    /Clascoterone is topical/.test(fixed);
+  if (bothStripped) {
+    pass('Task A(1/2): applyValidationFixes REMOVES a validator-flagged dead link AND a citation-claim-mismatch link (claims survive as plain text)');
+  } else {
+    fail(`Task A(1/2): flagged bad/mismatched links not stripped → ${JSON.stringify(fixed)}`);
+  }
+
+  // (3) DEMOGRAPHIC MISMATCH: a female-only study surfaced for a MALE patient is
+  // REMOVED (not labeled), driven by the patient profile — not a hardcoded
+  // condition. A grounded, on-topic line for the same patient is KEPT.
+  const male = { gender: 'Male', age: 45 };
+  const demoReport = [
+    'A female-only study of topical estrogen in women with hair loss showed benefit (NCT01234567).',
+    'Finasteride is a standard oral option studied in men and women (NCT07654321).'
+  ].join('\n');
+  const demoValidation = {
+    primary: {
+      demographicMismatches: [
+        { quote: 'A female-only study of topical estrogen in women with hair loss showed benefit (NCT01234567).', reason: 'female-only study, patient is male' }
+      ]
+    }
+  };
+  const demoFixed = applyValidationFixes(demoReport, demoValidation, null, null, false, { patient: male });
+  if (!/female-only study/.test(demoFixed) && /Finasteride is a standard oral option/.test(demoFixed)) {
+    pass('Task A(3): applyValidationFixes REMOVES a validator-flagged female-only study for a male patient; keeps the inclusive study');
+  } else {
+    fail(`Task A(3): demographic-mismatch line not removed / inclusive line lost → ${JSON.stringify(demoFixed)}`);
+  }
+
+  // Fail-safe: deterministic demographic gate removes an opposite-sex-only study
+  // line even with NO validator verdict at all (validator errored / returned
+  // nothing). Driven by patient sex; condition-agnostic.
+  const failsafe = stripDemographicMismatchLines(demoReport, male);
+  if (!/female-only study/.test(failsafe.text) && /Finasteride is a standard oral option/.test(failsafe.text) && failsafe.removed.length === 1) {
+    pass('Task A fail-safe: deterministic gate removes the female-only study for a male patient with no validator verdict');
+  } else {
+    fail(`Task A fail-safe: deterministic demographic strip regression → ${JSON.stringify(failsafe)}`);
+  }
+
+  // A female patient is NOT gated on the same female-only line (patient-driven).
+  const femaleKept = stripDemographicMismatchLines(demoReport, { gender: 'Female', age: 45 });
+  if (/female-only study/.test(femaleKept.text) && femaleKept.removed.length === 0) {
+    pass('Task A fail-safe: a female patient KEEPS the female-only study (gate is patient-profile driven, not hardcoded)');
+  } else {
+    fail(`Task A fail-safe: female patient wrongly gated → ${JSON.stringify(femaleKept)}`);
+  }
+
+  // Age band: a pediatric-only trial line is removed for an adult; kept for a child.
+  const pedLine = 'A pediatric trial enrolled children only with early disease (NCT02020202).';
+  const adultStrip = stripDemographicMismatchLines(pedLine, { age: 64 });
+  const childStrip = stripDemographicMismatchLines(pedLine, { age: 8 });
+  if (adultStrip.removed.length === 1 && childStrip.removed.length === 0) {
+    pass('Task A fail-safe: a pediatric-only trial is removed for a 64-year-old and kept for an 8-year-old');
+  } else {
+    fail(`Task A fail-safe: age-band gate regression (adult=${adultStrip.removed.length} child=${childStrip.removed.length})`);
+  }
+
+  // A non-study prose line that merely mentions a sex is NOT removed (only real
+  // study/trial mentions are gated — no false deletion of epidemiology prose).
+  const proseKept = stripDemographicMismatchLines('This condition is more common in women.', male);
+  if (proseKept.removed.length === 0) {
+    pass('Task A fail-safe: epidemiology prose ("more common in women") is NOT mistaken for a mismatched study');
+  } else {
+    fail(`Task A fail-safe: prose wrongly removed → ${JSON.stringify(proseKept)}`);
+  }
+
+  // finalizeReportText wires the deterministic demographic gate into the real
+  // render path (patient threaded through).
+  const finalizedDemo = finalizeReportText(demoReport, { evidence: null, trials: null, patient: male });
+  if (!/female-only study/.test(finalizedDemo) && /Finasteride is a standard oral option/.test(finalizedDemo)) {
+    pass('Task A: finalizeReportText applies the demographic gate end-to-end (male patient)');
+  } else {
+    fail(`Task A: finalize demographic gate regression → ${JSON.stringify(finalizedDemo)}`);
+  }
+}
+
+// ===========================================================================
+// TASK A — trials hard-gate: a study the patient is hard-INELIGIBLE for by sex
+// or age is REMOVED from the surfaced list (patient-driven, condition-agnostic),
+// not merely penalized. Uses the CT.gov eligibility fields directly.
+// ===========================================================================
+{
+  const femaleOnly = { nctId: 'NCT00000001', sex: 'FEMALE', briefTitle: 'X in women', conditions: [] };
+  const pediatric = { nctId: 'NCT00000002', sex: 'ALL', minimumAge: '2 Years', maximumAge: '17 Years', stdAges: ['CHILD'] };
+  const inclusive = { nctId: 'NCT00000003', sex: 'ALL', minimumAge: '18 Years', maximumAge: '80 Years', stdAges: ['ADULT', 'OLDER_ADULT'] };
+  const maleAdult = { patientSex: 'Male', patientAge: 45 };
+  if (
+    patientSexIneligible(femaleOnly, maleAdult.patientSex) &&
+    patientAgeIneligible(pediatric, maleAdult.patientAge) &&
+    !patientSexIneligible(inclusive, maleAdult.patientSex) &&
+    !patientAgeIneligible(inclusive, maleAdult.patientAge)
+  ) {
+    pass('Task A trials: sex/age hard-ineligibility is detected for a male adult (female-only + pediatric) and NOT for an inclusive adult study');
+  } else {
+    fail('Task A trials: eligibility detection regression');
+  }
+  // Unknown patient sex/age never gates (bias toward keeping).
+  if (!patientSexIneligible(femaleOnly, null) && !patientAgeIneligible(pediatric, null)) {
+    pass('Task A trials: a patient with no sex/age provided is never demographically gated');
+  } else {
+    fail('Task A trials: null patient profile wrongly gated a study');
+  }
+}
+
+// ===========================================================================
+// TASK B — citation-claim RELEVANCE (semantic grounding). A live, non-search,
+// specific link is still stripped when its SOURCE does not mention the card's
+// drug. A source that DOES mention the drug is kept. Unknown sources are kept.
+// ===========================================================================
+{
+  const evidence = {
+    groundedForPrompt: [
+      {
+        title: 'Treatment of Androgenetic Alopecia: a clinical review',
+        summary: 'A broad review of androgenetic alopecia covering only minoxidil and finasteride, with no mention of newer topical antiandrogens.',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/11110000/'
+      },
+      {
+        title: 'Clascoterone cream 1% for androgenetic alopecia: phase 2 trial',
+        summary: 'A randomized phase 2 trial of clascoterone topical solution in androgenetic alopecia.',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/22220000/'
+      }
+    ]
+  };
+  const urlIndex = buildEvidenceUrlIndex(evidence);
+
+  // sourceMentionsSubject / subjectTokens primitives.
+  const okTokens = subjectTokens('Clascoterone (Winlevi)').has('clascoterone');
+  const shortTokens = subjectTokens('NAC').size === 0; // too short to verify
+  if (okTokens && shortTokens) {
+    pass('Task B: subjectTokens extracts salient drug tokens; a too-short name (NAC) yields no tokens (unknown)');
+  } else {
+    fail(`Task B: subjectTokens regression (ok=${okTokens} short=${shortTokens})`);
+  }
+
+  const offTopic = citationRelevantToSubject('https://pubmed.ncbi.nlm.nih.gov/11110000/', 'Clascoterone', urlIndex);
+  const onTopic = citationRelevantToSubject('https://pubmed.ncbi.nlm.nih.gov/22220000/', 'Clascoterone', urlIndex);
+  const unknown = citationRelevantToSubject('https://pubmed.ncbi.nlm.nih.gov/33330000/', 'Clascoterone', urlIndex);
+  if (offTopic === false && onTopic === true && unknown === null) {
+    pass('Task B: citationRelevantToSubject rejects the off-topic AGA review, accepts the clascoterone trial, and returns null for an unknown URL');
+  } else {
+    fail(`Task B: relevance regression (offTopic=${offTopic} onTopic=${onTopic} unknown=${unknown})`);
+  }
+
+  // enforceCandidateCitationRelevance demotes the off-topic link on the card,
+  // keeps the on-topic one.
+  const cards = [
+    'CANDIDATE: Clascoterone',
+    'REFERENCES: [AGA review](https://pubmed.ncbi.nlm.nih.gov/11110000/) [Clascoterone trial](https://pubmed.ncbi.nlm.nih.gov/22220000/)',
+    '',
+    'CANDIDATE: Minoxidil',
+    'REFERENCES: [AGA review](https://pubmed.ncbi.nlm.nih.gov/11110000/)'
+  ].join('\n');
+  const enforced = enforceCandidateCitationRelevance(cards, evidence);
+  const clascoteroneOk =
+    !/\[AGA review\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/11110000\/\)[^\n]*Clascoterone trial/.test(enforced.text) &&
+    /\[Clascoterone trial\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/22220000\/\)/.test(enforced.text);
+  // The AGA review DOES mention minoxidil, so it stays on the Minoxidil card.
+  const minoxidilKept = /CANDIDATE: Minoxidil[\s\S]*\[AGA review\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/11110000\/\)/.test(enforced.text);
+  if (clascoteroneOk && minoxidilKept && enforced.demoted.length === 1) {
+    pass('Task B: enforceCandidateCitationRelevance demotes the off-topic review on the Clascoterone card, keeps it on the Minoxidil card (source mentions minoxidil)');
+  } else {
+    fail(`Task B: card relevance enforcement regression (demoted=${enforced.demoted.length}) → ${JSON.stringify(enforced.text)}`);
+  }
+
+  // distinctLinkedCandidateCount(text, evidence): the off-topic-only Clascoterone
+  // card would NOT count toward Hard-25 if its ONLY link were the AGA review.
+  const offOnly = [
+    'CANDIDATE: Clascoterone',
+    'REFERENCES: [AGA review](https://pubmed.ncbi.nlm.nih.gov/11110000/)'
+  ].join('\n');
+  const withoutIndex = distinctLinkedCandidateCount(offOnly);
+  const withIndex = distinctLinkedCandidateCount(offOnly, evidence);
+  if (withoutIndex === 1 && withIndex === 0) {
+    pass('Task B: distinctLinkedCandidateCount drops a card whose ONLY citation is off-topic once relevance (evidence) is supplied');
+  } else {
+    fail(`Task B: Hard-25 relevance counting regression (withoutIndex=${withoutIndex} withIndex=${withIndex})`);
+  }
+}
+
+// ===========================================================================
+// TASK C — IPF KB hygiene: no DailyMed search.cfm URLs remain, and the
+// pirfenidone/nintedanib entries carry a specific resolving label monograph.
+// ===========================================================================
+{
+  const ipf = JSON.parse(readFileSync(new URL('../data/kb/ipf.json', import.meta.url), 'utf8'));
+  const raw = JSON.stringify(ipf);
+  const noSearch = !/dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(raw);
+  const refs = ipf.items || ipf.references || ipf.evidence || [];
+  const findRef = (id) => (refs.find((r) => r.id === id) || {});
+  const pirf = findRef('ipf-fda-label-pirfenidone');
+  const nint = findRef('ipf-fda-label-nintedanib');
+  const isSpecific = (u) =>
+    /dailymed\.nlm\.nih\.gov\/dailymed\/drugInfo\.cfm\?setid=[0-9a-f-]{8,}/i.test(String(u || '')) ||
+    /^https?:\/\//i.test(String(u || '')) && /pubmed|doi|accessdata\.fda\.gov\/drugsatfda/i.test(String(u || ''));
+  if (noSearch && isSpecific(pirf.url) && isSpecific(nint.url)) {
+    pass('Task C: ipf.json has no search.cfm URLs; pirfenidone + nintedanib carry a specific resolving label / primary source');
+  } else {
+    fail(`Task C: ipf.json hygiene regression (noSearch=${noSearch} pirf=${pirf.url} nint=${nint.url})`);
   }
 }
 

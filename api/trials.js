@@ -873,7 +873,28 @@ export default async function handler(req, res) {
       s.promiseScore = normalizePromise(adjustedScore);
     });
 
+    // Demographic HARD-GATE (patient-safety + eligibility). A study the patient
+    // is hard-INELIGIBLE for by sex or age (a female-only study for a male
+    // patient, a pediatric trial for an adult) is REMOVED from the surfaced
+    // list — not merely penalized and shown "for completeness". Driven only by
+    // the patient profile (sex/age) + CT.gov's own eligibility fields, so it is
+    // condition-agnostic. Skipped entirely when the patient did not provide the
+    // relevant field (patientSex/AgeIneligible return false), so we never gate a
+    // patient we cannot assess.
+    let droppedDemographic = 0;
+    if (patientSex != null || patientAge != null) {
+      const demoKept = studies.filter((s) => {
+        if (patientSexIneligible(s, patientSex) || patientAgeIneligible(s, patientAge)) {
+          droppedDemographic += 1;
+          return false;
+        }
+        return true;
+      });
+      studies = demoKept;
+    }
+
     // Drop clear wrong-disease trials; keep weak cell/gene therapy trials when not hard-mismatched.
+    const beforeWrong = studies.length;
     const filtered = studies.filter((s) => {
       if ((s.relevanceScore || 0) <= -100) return false;
       const ivBlob = (s.interventions || []).map((i) => i.name).join(' ');
@@ -883,7 +904,7 @@ export default async function handler(req, res) {
       if (cellGene && (s.relevanceScore || 0) > -80) return true;
       return (s.relevanceScore || 0) > -50;
     });
-    const droppedWrong = studies.length - filtered.length;
+    const droppedWrong = beforeWrong - filtered.length;
     studies = filtered;
 
     studies.sort((a, b) => {
@@ -897,6 +918,7 @@ export default async function handler(req, res) {
     const breakdown = {
       total: studies.length,
       droppedWrongCondition: droppedWrong,
+      droppedDemographic,
       recruiting: studies.filter((s) => s.acceptingNewPatients).length,
       expandedAccess: studies.filter((s) => s.designations.hasExpandedAccess).length,
       openLabelExtension: studies.filter((s) => s.designations.hasOpenLabelExtension).length,
