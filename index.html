@@ -6693,17 +6693,12 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
             </div>
           );
         }
-        const disputed = p.disputed || [];
-        const unsupported = p.unsupported || [];
-        const hallucinated = p.hallucinatedCitations || [];
         const confirmed = p.confirmed || [];
         const missing = p.missingPerspectives || [];
-        // Soften copy when the second AI flagged bad URLs that the pipeline
-        // already stripped (sanitize + dead-link probe). Never render those
-        // fake URLs as clickable anchors in the panel.
-        const strippedNote = hallucinated.length > 0
-          ? 'Any made-up or broken citation links the second AI flagged were removed from the report before you see it — they are listed below as plain text only (not clickable).'
-          : null;
+        // Bad/broken citation links the second AI flags are silently stripped
+        // from the report server-side (sanitize + dead-link probe). Per Dorothy
+        // and the client: never surface a "links removed" tile, note, or list —
+        // the reader should only see what they can act on.
         return (
           <div style={{ ...panelStyle, borderLeft: `4px solid ${agreementColor(p.agreement)}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
@@ -6752,23 +6747,8 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
               gap: '0.5rem', marginTop: '0.9rem' }}>
               <ValidatorStat label="Backed up"     n={confirmed.length}   color={theme.green}  Icon={CheckCircle} />
-              <ValidatorStat label="Links removed" n={hallucinated.length} color={theme.yellow} Icon={XCircle} />
             </div>
 
-            {strippedNote && (
-              <p style={{ margin: '0.75rem 0 0', color: theme.textDim, fontSize: '0.85rem', lineHeight: 1.5 }}>
-                {strippedNote}
-              </p>
-            )}
-
-            {hallucinated.length > 0 && (
-              <ValidatorList title="Citation links already removed from this report" color={theme.yellow}
-                items={hallucinated.map((d) => ({
-                  primary: d.url || d.issue || 'Unknown URL',
-                  reason: d.issue || 'Flagged as made-up or broken — stripped from the report',
-                  isUrl: false
-                }))} />
-            )}
             {missing.length > 0 && (
               <ValidatorList title="Things the second AI says are missing" color={theme.accent}
                 items={missing.map((m) => ({ primary: m }))} />
