@@ -81,7 +81,13 @@ import {
   attachMissingClaimCitations,
   linkBareNctIds,
   filterApprovedSocFromRepurpose,
-  approvedSocNames
+  approvedSocNames,
+  isKnownDeadUrl,
+  stripInvalidMarkdownAnchors,
+  stripNegativeFindingCitations,
+  isNegativeOrEmptyFinding,
+  isMarkdownTableRow,
+  polishReportForDisplay
 } from '../lib/report-polish.js';
 import {
   buildGroundingIndex,
@@ -1820,6 +1826,146 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     pass('Inline citations: sourceMentionsCondition / conditionSubjectTokens ignore taxonomy fillers (disease) and reject cross-disease sources');
   } else {
     fail(`Condition mention primitives regression (sickleMentionsRp=${sickleMentionsRp} taxonomyOnly=${taxonomyOnly})`);
+  }
+}
+
+// ===========================================================================
+// RP/CERKL live-report citation defects (blank tabs, negative findings,
+// Pipeline Watch smash, dead RetNet, evidence-pack jargon).
+// ===========================================================================
+{
+  // Empty / bare-hash / whitespace source anchors must never stay clickable.
+  const emptyIn = [
+    'Claim A ([source ↗]()).',
+    'Claim B ([source ↗](#)).',
+    'Claim C ([source ↗]( )).',
+    'Keep ([source ↗](https://pubmed.ncbi.nlm.nih.gov/12345678/)).'
+  ].join('\n');
+  const emptyOut = stripInvalidMarkdownAnchors(emptyIn);
+  const emptyFinal = finalizeReportText(emptyIn, {
+    evidence: { groundedForPrompt: [{ title: 't', text: 'x', url: 'https://pubmed.ncbi.nlm.nih.gov/12345678/' }] },
+    trials: null
+  });
+  if (
+    !/\[source ↗\]\(\s*\)/.test(emptyOut) &&
+    !/\[source ↗\]\(#\)/.test(emptyOut) &&
+    !/\[source ↗\]\(\s*\)/.test(emptyFinal) &&
+    !/\[source ↗\]\(#\)/.test(emptyFinal) &&
+    /pubmed\.ncbi\.nlm\.nih\.gov\/12345678/.test(emptyOut)
+  ) {
+    pass('Empty/hash source anchors: stripInvalidMarkdownAnchors + finalize never leave blank-tab hrefs');
+  } else {
+    fail(`Empty source anchor regression → ${JSON.stringify({ emptyOut, emptyFinal })}`);
+  }
+
+  // Negative / empty findings must never get (or keep) a source cite — even with
+  // a full RP pack that includes an ABCA4 paper the token overlap would prefer.
+  const rpPack = {
+    condition: 'Retinitis Pigmentosa',
+    groundedForPrompt: [
+      {
+        title: 'Autosomal Recessive Retinitis Pigmentosa Due To ABCA4 Mutations',
+        text: 'ABCA4 mutations cause autosomal recessive retinitis pigmentosa.',
+        url: 'https://iovs.arvojournals.org/article.aspx?articleid=abca4',
+        isCuratedKB: true,
+        category: 'review'
+      },
+      {
+        title: 'GeneReviews Retinitis Pigmentosa Overview',
+        text: 'Retinitis pigmentosa genetics. CERKL is among genes associated with RP.',
+        url: 'https://www.ncbi.nlm.nih.gov/books/NBK1417/'
+      }
+    ]
+  };
+  const noneIn = 'None identified in this pull.';
+  const noneAttached = attachMissingClaimCitations(noneIn, rpPack, null, {
+    patient: { condition: 'Retinitis Pigmentosa' }
+  });
+  const noneWithCite = 'None identified in this pull ([source ↗](https://iovs.arvojournals.org/article.aspx?articleid=abca4)).';
+  const noneFinal = finalizeReportText(noneWithCite, {
+    evidence: rpPack, trials: null, patient: { condition: 'Retinitis Pigmentosa' }
+  });
+  if (
+    isNegativeOrEmptyFinding(noneIn) &&
+    noneAttached.attached === 0 &&
+    /None identified in this pull\.?\s*$/m.test(noneFinal) &&
+    !/None identified[^\n]*\[source/.test(noneFinal) &&
+    !/abca4/.test(noneFinal)
+  ) {
+    pass('Negative findings: "None identified in this pull" stays unlinked after attach + finalize (no ABCA4 cite)');
+  } else {
+    fail(`Negative finding cite regression → ${JSON.stringify({ noneAttached, noneFinal })}`);
+  }
+
+  // Pipeline Watch GFM tables must survive finalize intact (no source in header,
+  // no Drug) (alias)) corruption).
+  const pipeTable = [
+    '## 5. Pipeline Watch',
+    '| Drug / therapy | Phase | NCT | Notes |',
+    '|---|---|---|---|',
+    '| OCU400 (AAV5-NR2E3) | Phase 3 | NCT06388200 | Gene therapy |',
+    '| MCO-010 (sonpiretigene isteparvovec) | Phase 2 | NCT04945772 | Optogenetic |',
+    '| jCell | Phase 2 | NCT04604899 | Stem cells |',
+    '| NACA (NPI-001) | Phase 2 | NCT04305158 | Antioxidant |'
+  ].join('\n');
+  const pipeFinal = finalizeReportText(pipeTable, {
+    evidence: {
+      ...rpPack,
+      pipelineDrugs: [{ name: 'OCU400', nct: 'NCT06388200', summary: 'gene therapy retinitis pigmentosa' }]
+    },
+    trials: null,
+    patient: { condition: 'Retinitis Pigmentosa' }
+  });
+  const pipeRows = pipeFinal.split('\n').filter((l) => isMarkdownTableRow(l));
+  if (
+    /\| Drug \/ therapy \| Phase \| NCT \| Notes \|\s*$/m.test(pipeFinal) &&
+    /\|---\|---\|---\|---\|/.test(pipeFinal) &&
+    /\| OCU400 \(AAV5-NR2E3\) \|/.test(pipeFinal) &&
+    /\| MCO-010 \(sonpiretigene isteparvovec\) \|/.test(pipeFinal) &&
+    /\| NACA \(NPI-001\) \|/.test(pipeFinal) &&
+    !/OCU400\)/.test(pipeFinal) &&
+    !/Notes \| \(/.test(pipeFinal) &&
+    !/\| \(\[source/.test(pipeFinal) &&
+    pipeRows.length >= 6
+  ) {
+    pass('Pipeline Watch table: finalize preserves GFM rows; no header source / orphan paren corruption');
+  } else {
+    fail(`Pipeline Watch table regression → ${JSON.stringify(pipeFinal)}`);
+  }
+
+  // Dead RetNet host is known-dead: strip, never leave as clickable cite.
+  if (
+    isKnownDeadUrl('https://web.sph.uth.edu/RetNet/') &&
+    isKnownDeadUrl('https://sph.uth.edu/RetNet/sum-dis.htm')
+  ) {
+    pass('RetNet ban: web.sph.uth.edu/RetNet is known-dead');
+  } else {
+    fail('RetNet ban: isKnownDeadUrl missed SPH RetNet host');
+  }
+  const retnetIn = 'CERKL is one of the genes listed in the RetNet database ([source ↗](https://web.sph.uth.edu/RetNet/)).';
+  const retnetFinal = finalizeReportText(retnetIn, {
+    evidence: rpPack, trials: null, patient: { condition: 'Retinitis Pigmentosa', gene: 'CERKL' }
+  });
+  if (
+    !/web\.sph\.uth\.edu\/RetNet/i.test(retnetFinal) &&
+    /CERKL is one of the genes listed in the RetNet database/.test(retnetFinal)
+  ) {
+    pass('RetNet ban: finalize strips dead RetNet URL (claim may stay plain or use live pack URL)');
+  } else {
+    fail(`RetNet strip regression → ${JSON.stringify(retnetFinal)}`);
+  }
+
+  // evidence-pack jargon must not reach the reader.
+  const jargon = polishReportForDisplay(
+    'No evidence-pack item establishes any approved gene therapy for CERKL.'
+  );
+  if (
+    !/evidence[- ]pack/i.test(jargon) &&
+    /No published source gathered here establishes/.test(jargon)
+  ) {
+    pass('Evidence-pack jargon: rewritten to plain-English "published source gathered here"');
+  } else {
+    fail(`Evidence-pack jargon regression → ${JSON.stringify(jargon)}`);
   }
 }
 

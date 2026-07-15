@@ -934,15 +934,19 @@
       };
       // Dorothy two-section split. Prefer explicit REPURPOSE_SECTION; fall back
       // to EVIDENCE_STRENGTH (MECHANISTIC_ONLY → never-researched; any
-      // condition-linked tier → researched-not-approved).
+      // condition-linked tier → researched-not-approved). Untagged + unknown
+      // strength never dumps into a single researched pile — default never.
       const resolveRepurposeSection = (c) => {
         const tagged = String(c?.repurpose_section || '').toLowerCase().trim();
         if (tagged.includes('never')) return 'never-researched';
         if (tagged.includes('researched')) return 'researched-not-approved';
-        const v = String(c?.evidence_strength || '').toUpperCase();
+        const v = String(c?.evidence_strength || '').toUpperCase().trim();
+        if (v.includes('MECHANISTIC_ONLY')) return 'never-researched';
         if (/PRECLINICAL|CASE_REPORT|OBSERVATIONAL|SMALL_RCT|LARGE_RCT/.test(v)) {
           return 'researched-not-approved';
         }
+        // Missing tags / empty strength: keep section 1 so the UI still splits
+        // instead of flattening everything into one unlabeled pile.
         return 'never-researched';
       };
       const resolveItemKind = (c) => {
@@ -1383,10 +1387,14 @@
         return String(text).split('\n').map((line) => {
           const trimmed = line.trim();
           if (!trimmed || /^#{1,6}\s/.test(trimmed) || /^CANDIDATE:/i.test(trimmed)) return line;
+          // Never inject source cites into GFM tables (Pipeline Watch).
+          if (trimmed.includes('|') && trimmed.split('|').length >= 3) return line;
           if (hasLink(line)) return line;
           // Whole bullet / sentence as one claim unit
           const claim = trimmed.replace(/^[-*•]\s+/, '').replace(/^\*\*[^*]+\*\*[:\s]*/, '');
           if (claim.length < 28 || !MUST.test(claim)) return line;
+          // Negative / empty findings do not need a citation.
+          if (/\bnone\s+(?:identified|found)\b/i.test(claim) || /\bnot\s+identified\b/i.test(claim) || /\bno\s+published\s+source\b/i.test(claim) || /\bevidence[- ]pack\b/i.test(claim)) return line;
           const toks = tokens(claim);
           if (toks.length < 2) return line;
           let best = null;
@@ -1400,7 +1408,8 @@
           else if (/\b(is a |disorder|nerve cells|brain disorder|prevalence|typical path)\b/i.test(claim) && overview) {
             url = overview.url;
           } else if (best && bestScore >= 0.14) url = best.url;
-          if (!url) return line;
+          if (!url || !/^https?:\/\//i.test(url)) return line;
+          if (/web\.sph\.uth\.edu\/RetNet/i.test(url) || /sph\.uth\.edu\/RetNet/i.test(url)) return line;
           const cite = ` ([source ↗](${url}))`;
           if (/[.!?]["']?\s*$/.test(trimmed)) {
             return line.replace(/([.!?]["']?)(\s*)$/, `${cite}$1$2`);
@@ -1430,10 +1439,21 @@
         s = s.replace(/\bconfirmed against grounded evidence\b/gi, '');
         s = s.replace(/\bGROUNDED EVIDENCE PACK\b/gi, '');
         s = s.replace(/\bgrounded evidence pack\b/gi, '');
+        s = s.replace(/\b[Nn]o evidence[- ]pack items?\b/g, 'No published source gathered here');
+        s = s.replace(/\bevidence[- ]pack items?\b/gi, 'published source');
+        s = s.replace(/\bthe evidence[- ]pack\b/gi, 'the sources gathered here');
+        s = s.replace(/\bevidence[- ]pack\b/gi, 'sources');
         s = s.replace(/\bDisease-dossier uncertainty[^.\n]*/gi, '');
         s = s.replace(/\buncertainty score[^.\n]*/gi, '');
         s = s.replace(/\s*\(confirmed against grounded evidence[^)]*\)/gi, '');
         s = s.replace(/\s*\[(FULL-TEXT|ABSTRACT-ONLY|METADATA-ONLY|CURATED KB|PREPRINT[^\]]*)\]\s*/gi, ' ');
+        // Strip empty / bare-hash / dead-RetNet source anchors (blank-tab defect).
+        s = s.replace(/\s*\(\s*\[[^\]]*source[^\]]*\]\(\s*\)\s*\)/gi, '');
+        s = s.replace(/\s*\(\s*\[[^\]]*source[^\]]*\]\(#\)\s*\)/gi, '');
+        s = s.replace(/\[[^\]]*source[^\]]*\]\(\s*\)/gi, '');
+        s = s.replace(/\[[^\]]*source[^\]]*\]\(#\)/gi, '');
+        s = s.replace(/\[([^\]]+)\]\(https?:\/\/(?:www\.)?web\.sph\.uth\.edu\/RetNet[^)]*\)/gi, '$1');
+        s = s.replace(/\[([^\]]+)\]\(https?:\/\/(?:www\.)?sph\.uth\.edu\/RetNet[^)]*\)/gi, '$1');
         s = s.replace(/\n{3,}/g, '\n\n').trim();
         return s;
       };
@@ -7017,8 +7037,6 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
         const cond = patient.condition || 'this condition';
         const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
         const [translatedText, setTranslatedText] = useState('');
-        const [showAllDrugIdeas, setShowAllDrugIdeas] = useState(false);
-        const DRUG_IDEAS_INITIAL = 8;
         const reportAllowedUrls = useMemo(() => {
           return buildAllowedUrlSet(trialsData, evidenceSummary || { topRanked: evidencePack });
         }, [evidenceSummary, evidencePack, trialsData]);
@@ -7085,11 +7103,13 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
           `How should I interpret a ~5–10% FVC decline over 12 months — is it time to change therapy?`
         ];
         const quickPrompts = isIpf ? ipfQuickPrompts : baseQuickPrompts;
-        const { human: repurposeHuman, preclinical: repurposePreclinical, mechanistic: repurposeMechanistic } =
-          partitionCandidates(candidates);
-        const allDrugIdeas = [...repurposeHuman, ...repurposePreclinical, ...repurposeMechanistic];
-        const visibleDrugIdeas = showAllDrugIdeas ? allDrugIdeas : allDrugIdeas.slice(0, DRUG_IDEAS_INITIAL);
-        const hiddenDrugCount = Math.max(0, allDrugIdeas.length - DRUG_IDEAS_INITIAL);
+        // Dorothy non-negotiable: Research tab itself must show TWO labeled
+        // sections (~25 never-researched + ~25 researched-not-approved) — never
+        // one flat "Drug & supplement ideas (N)" pile with a tab pointer.
+        const { neverResearched, researchedNotApproved } = useMemo(
+          () => partitionCandidates(candidates),
+          [candidates]
+        );
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AdSlot runtimeConfig={runtimeConfig} slotKey="researchTop" />
@@ -7277,29 +7297,75 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
 
             {candidates.length > 0 && (
               <div style={panelStyle}>
-                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
-                  Drug &amp; supplement ideas ({candidates.length})
+                <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem' }}>
+                  {candidates.length} drug &amp; supplement idea{candidates.length === 1 ? '' : 's'}
+                  <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem', marginLeft: '0.5rem' }}>
+                    · {neverResearched.length} never researched for {cond} · {researchedNotApproved.length} researched, not FDA-approved
+                  </span>
                 </h3>
-                <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  Ideas from biology and early research — conversation starters with your doctor, not prescriptions. Open the Drug Repurposing tab for the full two-section list.
+                <p style={{ margin: '0.35rem 0 0', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  Conversation starters with your doctor, not prescriptions — split into Dorothy&rsquo;s two lists below.
+                </p>
+              </div>
+            )}
+
+            {/* SECTION 1 — never researched for this condition (Research tab mirror of RepurposeTab) */}
+            {neverResearched.length > 0 && (
+              <div style={{
+                ...panelStyle,
+                borderLeft: `4px solid ${theme.accent}`,
+                background: `linear-gradient(90deg, ${theme.accent}12 0%, ${theme.panel} 55%)`
+              }}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Brain size={18} />
+                  Drug &amp; Supplement Repurposing Ideas
+                  <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem' }}>({neverResearched.length})</span>
+                </h3>
+                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  These have <strong style={{ color: theme.text }}>never been researched for {cond}</strong>.
+                  The idea comes from how the drug or supplement works in <em>other</em> conditions.
+                  Each card says there is no research for {cond}, explains why it might still help, and asks you to discuss it with your doctor.
+                  Source links are about the drug in that other context — not studies of {cond}.
                 </p>
                 <div style={{ display: 'grid', gap: '0.85rem' }}>
-                  {visibleDrugIdeas.map((c, i) => (
+                  {neverResearched.map((c, i) => (
                     <CandidateCard
-                      key={`rd-${i}`}
+                      key={`rd-nr-${i}`}
                       c={c}
                       rank={i + 1}
-                      highlightMechanistic={resolveRepurposeSection(c) === 'never-researched'}
+                      highlightMechanistic={true}
                       audience={audience}
-                      conditionLabel={patient.condition || 'this condition'}
+                      conditionLabel={cond}
                     />
                   ))}
                 </div>
-                {hiddenDrugCount > 0 && !showAllDrugIdeas && (
-                  <button type="button" style={{ ...btn('ghost'), marginTop: '0.75rem' }} onClick={() => setShowAllDrugIdeas(true)}>
-                    Show {hiddenDrugCount} more idea{hiddenDrugCount === 1 ? '' : 's'}
-                  </button>
-                )}
+              </div>
+            )}
+
+            {/* SECTION 2 — researched for condition, not FDA-approved */}
+            {researchedNotApproved.length > 0 && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Flask size={18} />
+                  Researched, Not Yet FDA-Approved for {cond}
+                  <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem' }}>({researchedNotApproved.length})</span>
+                </h3>
+                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  These drugs and supplements <strong style={{ color: theme.text }}>have been researched for {cond}</strong>
+                  {' '}(lab, animal, or early human studies) but are <strong style={{ color: theme.text }}>not FDA-approved</strong> for it.
+                  Each card links to that research. Already-approved treatments appear only under Approved Treatments — not here.
+                </p>
+                <div style={{ display: 'grid', gap: '0.85rem' }}>
+                  {researchedNotApproved.map((c, i) => (
+                    <CandidateCard
+                      key={`rd-rna-${i}`}
+                      c={c}
+                      rank={i + 1}
+                      audience={audience}
+                      conditionLabel={cond}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 
