@@ -77,6 +77,7 @@ import {
   stripDailyMedSearchLinks,
   isNamedEntityBold,
   enforceCandidateCitationRelevance,
+  enforceConditionCitationRelevance,
   attachMissingClaimCitations,
   linkBareNctIds,
   filterApprovedSocFromRepurpose,
@@ -89,7 +90,9 @@ import {
   buildEvidenceUrlIndex,
   citationRelevantToSubject,
   sourceMentionsSubject,
-  subjectTokens
+  sourceMentionsCondition,
+  subjectTokens,
+  conditionSubjectTokens
 } from '../lib/grounding-gate.js';
 import { stripDemographicMismatchLines } from '../lib/demographic-gate.js';
 import {
@@ -1742,6 +1745,81 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     pass('Inline citations FUNDAMENTAL: soft non-claim guidance lines are left alone');
   } else {
     fail(`Inline citations soft-line regression → ${JSON.stringify(weakClaim.text)}`);
+  }
+
+  // Wrong-disease attach: a Condition Snapshot claim about disease A must NEVER
+  // receive a pack item about disease B (RP night-blindness ≠ sickle cell
+  // review), even when token-overlap / overview ranking prefers the wrong paper.
+  const sickleItem = {
+    title: 'Sickle Cell Disease and Retinal Complications: a clinical review',
+    text: 'Sickle cell disease causes progressive peripheral vision loss and retinal ischemia. Night blindness is uncommon. Genetic disorder of red blood cells.',
+    summary: 'Sickle cell disease ocular manifestations include peripheral vision loss.',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/99990001/',
+    isCuratedKB: true,
+    category: 'clinical-guideline'
+  };
+  const rpOverview = {
+    title: 'Retinitis Pigmentosa: overview and epidemiology',
+    text: 'Retinitis pigmentosa is an inherited retinal disease causing night blindness and progressive peripheral vision loss as rod cells die.',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/88880001/',
+    isCuratedKB: true,
+    category: 'clinical-guideline'
+  };
+  const wrongDiseasePack = { groundedForPrompt: [sickleItem, rpOverview] };
+  const snapshotIn = [
+    '## 1. Condition Snapshot',
+    '### What Is Retinitis Pigmentosa?',
+    'Retinitis pigmentosa is a genetic disorder where photoreceptor cells slowly die, typically causing night blindness first and progressive peripheral vision loss.',
+    'Without treatment, many patients progress over decades toward severe vision impairment.'
+  ].join('\n');
+  const snapped = attachMissingClaimCitations(snapshotIn, wrongDiseasePack, null, {
+    patient: { condition: 'Retinitis Pigmentosa' }
+  });
+  if (
+    !/99990001/.test(snapped.text) &&
+    /88880001/.test(snapped.text) &&
+    snapped.attached >= 1
+  ) {
+    pass('Inline citations: Condition Snapshot refuses wrong-disease pack attaches (RP claim ≠ sickle cell source)');
+  } else {
+    fail(`Wrong-disease condition attach regression → ${JSON.stringify(snapped.text)}`);
+  }
+
+  // Model-authored / [#N]-resolved wrong-disease link is demoted end-to-end.
+  const authoredWrong = [
+    'Night blindness usually comes first as rod cells die ([source ↗](https://pubmed.ncbi.nlm.nih.gov/99990001/)).',
+    'Retinitis pigmentosa overview ([source ↗](https://pubmed.ncbi.nlm.nih.gov/88880001/)).'
+  ].join('\n');
+  const demotedWrong = enforceConditionCitationRelevance(
+    authoredWrong,
+    wrongDiseasePack,
+    { condition: 'Retinitis Pigmentosa' }
+  );
+  const finalizedWrong = finalizeReportText(
+    'Without treatment, vision loss progresses over decades.',
+    { evidence: wrongDiseasePack, trials: null, patient: { condition: 'Retinitis Pigmentosa' } }
+  );
+  if (
+    demotedWrong.demoted.length === 1 &&
+    !/99990001/.test(demotedWrong.text) &&
+    /88880001/.test(demotedWrong.text) &&
+    !/99990001/.test(finalizedWrong)
+  ) {
+    pass('Inline citations: enforceConditionCitationRelevance + finalize demote wrong-disease links in research prose');
+  } else {
+    fail(`Wrong-disease demote regression (demoted=${demotedWrong.demoted.length}) → ${JSON.stringify({ demoted: demotedWrong.text, finalized: finalizedWrong })}`);
+  }
+
+  const sickleMentionsRp = sourceMentionsCondition(
+    `${sickleItem.title} ${sickleItem.text}`,
+    'Retinitis Pigmentosa'
+  );
+  const taxonomyOnly = conditionSubjectTokens("Parkinson's Disease").has('disease') === false
+    && conditionSubjectTokens("Parkinson's Disease").has('parkinson');
+  if (sickleMentionsRp === false && taxonomyOnly) {
+    pass('Inline citations: sourceMentionsCondition / conditionSubjectTokens ignore taxonomy fillers (disease) and reject cross-disease sources');
+  } else {
+    fail(`Condition mention primitives regression (sickleMentionsRp=${sickleMentionsRp} taxonomyOnly=${taxonomyOnly})`);
   }
 }
 
