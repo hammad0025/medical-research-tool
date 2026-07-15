@@ -251,10 +251,19 @@ const keepsUncited = /_uncited/.test(html) && /hasCitation/.test(html);
 const capsList = /SOFT_CAP\s*=\s*50/.test(html) && /SECTION_CAP\s*=\s*25/.test(html) && /combined\.slice\(0, SOFT_CAP\)/.test(html);
 const twoSections = /neverResearched/.test(html) && /researchedNotApproved/.test(html) && /resolveRepurposeSection/.test(html);
 const itemKindUi = /ItemKindBadge/.test(html) && /ITEM_KIND:/.test(html);
-if (keepsUncited && capsList && twoSections && itemKindUi) {
-  pass('Repurpose candidates: two Dorothy sections (~25 each), uncited kept, cited first, soft-capped to 50 (index.html)');
+// Dorothy: Research tab PRIMARY view must render both section headers itself —
+// never a single flat "Drug & supplement ideas (N)" pile that punts to the
+// Drug Repurposing tab.
+const researchTabTwoSection =
+  /Drug &amp; Supplement Repurposing Ideas/.test(html) &&
+  /Researched, Not Yet FDA-Approved for \{cond\}/.test(html) &&
+  !/Open the Drug Repurposing tab for the full two-section list/.test(html) &&
+  /rd-nr-/.test(html) &&
+  /rd-rna-/.test(html);
+if (keepsUncited && capsList && twoSections && itemKindUi && researchTabTwoSection) {
+  pass('Repurpose candidates: two Dorothy sections on Research + Repurpose tabs (~25 each), uncited kept, soft-capped to 50');
 } else {
-  fail(`Citation/section wiring missing in index.html (keepsUncited=${keepsUncited} caps=${capsList} twoSections=${twoSections} itemKind=${itemKindUi})`);
+  fail(`Citation/section wiring missing in index.html (keepsUncited=${keepsUncited} caps=${capsList} twoSections=${twoSections} itemKind=${itemKindUi} researchTab=${researchTabTwoSection})`);
 }
 
 // 9. Health endpoint
@@ -1556,8 +1565,11 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     /Researched, Not Yet FDA-Approved/.test(html) &&
     /resolveRepurposeSection/.test(html) &&
     /ItemKindBadge/.test(html) &&
-    /REPURPOSE_SECTION:/.test(researchSrc);
-  if (sectionOk && uiTwoSection) pass('Dorothy two-section: REPURPOSE_SECTION + ITEM_KIND resolve; UI renders both section headers');
+    /REPURPOSE_SECTION:/.test(researchSrc) &&
+    /rd-nr-/.test(html) &&
+    /rd-rna-/.test(html) &&
+    !/Open the Drug Repurposing tab for the full two-section list/.test(html);
+  if (sectionOk && uiTwoSection) pass('Dorothy two-section: REPURPOSE_SECTION + ITEM_KIND resolve; Research + Repurpose tabs both render section headers');
   else fail(`Dorothy two-section regression (sectionOk=${sectionOk} ui=${uiTwoSection})`);
 }
 
