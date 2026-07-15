@@ -43,7 +43,7 @@ export default async function handler(req, res) {
         minCandidates: REPURPOSE_MIN_TOTAL,
         hardFloorLinked: REPURPOSE_TARGET_TOTAL,
         backfillThreshold: REPURPOSE_BACKFILL_THRESHOLD,
-        batchMaxTokensSonnet: 7200,
+        batchMaxTokensSonnet: 12000,
         groundingGated: true,
         realLinksOnly: true
       },

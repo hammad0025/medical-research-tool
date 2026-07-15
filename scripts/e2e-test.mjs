@@ -898,8 +898,8 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   // stops emitting one of these fields, the cards silently lose data — so
   // lock in every structural field the UI reads.
   const requiredFields = [
-    'CLASS:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:', 'MECHANISM_TARGET:',
-    'REPURPOSE_RATIONALE:', 'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:', 'REFERENCES:',
+    'CLASS:', 'ITEM_KIND:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:', 'MECHANISM_TARGET:',
+    'REPURPOSE_RATIONALE:', 'REPURPOSE_SECTION:', 'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:', 'REFERENCES:',
     'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:', 'PATIENT_SPECIFIC_RISKS:',
     'HOW_TO_DISCUSS_WITH_DOCTOR:'
   ];

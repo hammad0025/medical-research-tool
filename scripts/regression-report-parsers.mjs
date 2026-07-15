@@ -142,10 +142,10 @@ const TREATMENT_FIELDS = ['treatment', 'fda_status', 'provider', 'references', '
 // Repurposing candidate cards.
 // ---------------------------------------------------------------------------
 const REPURPOSE_KEYS = [
-  'CANDIDATE:', 'CLASS:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:',
-  'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:', 'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:',
-  'REFERENCES:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:', 'PATIENT_SPECIFIC_RISKS:',
-  'HOW_TO_DISCUSS_WITH_DOCTOR:'
+  'CANDIDATE:', 'ITEM_KIND:', 'CLASS:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:',
+  'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:', 'REPURPOSE_SECTION:', 'EVIDENCE_STRENGTH:',
+  'SUPPORTING_EVIDENCE:', 'REFERENCES:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:',
+  'PATIENT_SPECIFIC_RISKS:', 'HOW_TO_DISCUSS_WITH_DOCTOR:'
 ];
 const candidateIdentityKey = (name) =>
   String(name || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '').trim();

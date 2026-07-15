@@ -771,10 +771,10 @@
       };
 
       const REPURPOSE_KEYS = [
-        'CANDIDATE:', 'CLASS:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:',
-        'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:', 'EVIDENCE_STRENGTH:', 'SUPPORTING_EVIDENCE:',
-        'REFERENCES:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:', 'PATIENT_SPECIFIC_RISKS:',
-        'HOW_TO_DISCUSS_WITH_DOCTOR:'
+        'CANDIDATE:', 'ITEM_KIND:', 'CLASS:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:',
+        'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:', 'REPURPOSE_SECTION:', 'EVIDENCE_STRENGTH:',
+        'SUPPORTING_EVIDENCE:', 'REFERENCES:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:',
+        'PATIENT_SPECIFIC_RISKS:', 'HOW_TO_DISCUSS_WITH_DOCTOR:'
       ];
       // Helper: strip the leading "<N>% — " prefix from a meter value so
       // we can show the % AND the prose justification separately. The
@@ -930,26 +930,52 @@
 
       const isMechanisticEvidence = (value) => {
         const v = String(value || '').toUpperCase().trim();
-        return v.includes('MECHANISTIC_ONLY') || v.includes('PRECLINICAL');
+        return v.includes('MECHANISTIC_ONLY');
       };
-      // Three evidence tiers, strongest → weakest:
-      //   human       — case report / observational / RCT (tested in PEOPLE)
-      //   preclinical — animal / lab studies only (e.g. goji berry in rats), no
-      //                 human trials yet
-      //   mechanistic — pure pathway reasoning, no studies at all (or uncited,
-      //                 since without a citation we cannot honor a higher tier)
+      // Dorothy two-section split. Prefer explicit REPURPOSE_SECTION; fall back
+      // to EVIDENCE_STRENGTH (MECHANISTIC_ONLY → never-researched; any
+      // condition-linked tier → researched-not-approved).
+      const resolveRepurposeSection = (c) => {
+        const tagged = String(c?.repurpose_section || '').toLowerCase().trim();
+        if (tagged.includes('never')) return 'never-researched';
+        if (tagged.includes('researched')) return 'researched-not-approved';
+        const v = String(c?.evidence_strength || '').toUpperCase();
+        if (/PRECLINICAL|CASE_REPORT|OBSERVATIONAL|SMALL_RCT|LARGE_RCT/.test(v)) {
+          return 'researched-not-approved';
+        }
+        return 'never-researched';
+      };
+      const resolveItemKind = (c) => {
+        const tagged = String(c?.item_kind || '').toUpperCase().trim();
+        if (tagged.includes('SUPPLEMENT')) return 'SUPPLEMENT';
+        if (tagged.includes('MEDICATION') || tagged.includes('DRUG')) return 'MEDICATION';
+        const cls = String(c?.class || '').toLowerCase();
+        if (/\b(supplement|vitamin|mineral|antioxidant|nutraceutical|herbal|otc|over[- ]the[- ]counter)\b/.test(cls)) {
+          return 'SUPPLEMENT';
+        }
+        return 'MEDICATION';
+      };
+      // Dorothy product sections (source of truth for RepurposeTab layout):
+      //   neverResearched     — no study of this drug for this condition
+      //   researchedNotApproved — researched for the condition, not FDA-approved
       const partitionCandidates = (candidates) => {
+        const neverResearched = [];
+        const researchedNotApproved = [];
+        // Legacy tier buckets kept for any lingering callers / strength chips.
         const human = [];
         const preclinical = [];
         const mechanistic = [];
         (candidates || []).forEach(c => {
-          if (c._uncited) { mechanistic.push(c); return; }
+          const section = resolveRepurposeSection(c);
+          const enriched = { ...c, _repurpose_section: section, _item_kind: resolveItemKind(c) };
+          if (section === 'researched-not-approved') researchedNotApproved.push(enriched);
+          else neverResearched.push(enriched);
           const v = String(c.evidence_strength || '').toUpperCase();
-          if (v.includes('PRECLINICAL')) preclinical.push(c);
-          else if (v.includes('MECHANISTIC_ONLY')) mechanistic.push(c);
-          else human.push(c);
+          if (v.includes('PRECLINICAL')) preclinical.push(enriched);
+          else if (v.includes('MECHANISTIC_ONLY') || c._uncited) mechanistic.push(enriched);
+          else human.push(enriched);
         });
-        return { human, preclinical, mechanistic };
+        return { neverResearched, researchedNotApproved, human, preclinical, mechanistic };
       };
 
       // Combination cards. The combo back-call sometimes emits field labels
@@ -1047,10 +1073,10 @@
       const STRUCTURAL_FIELD_LABELS = new Set([
         'PROVIDER', 'TREATMENT', 'FDASTATUS', 'LENGTHFREQUENCY', 'EFFICACY', 'SAFETY',
         'RISKS', 'INTERACTIONS', 'COST', 'REFERENCES',
-        'CANDIDATE', 'CLASS', 'APPROVEDFOR', 'WHATITDOES', 'WHYFORTHISCONDITION',
-        'WHYITMIGHTHELP', 'MECHANISMTARGET', 'REPURPOSERATIONALE', 'EVIDENCESTRENGTH',
-        'SUPPORTINGEVIDENCE', 'EFFICACYHYPOTHESIS', 'CONFIDENCE', 'PATIENTSPECIFICRISKS',
-        'HOWTODISCUSSWITHDOCTOR',
+        'CANDIDATE', 'ITEMKIND', 'CLASS', 'APPROVEDFOR', 'WHATITDOES', 'WHYFORTHISCONDITION',
+        'WHYITMIGHTHELP', 'MECHANISMTARGET', 'REPURPOSERATIONALE', 'REPURPOSESECTION',
+        'EVIDENCESTRENGTH', 'SUPPORTINGEVIDENCE', 'EFFICACYHYPOTHESIS', 'CONFIDENCE',
+        'PATIENTSPECIFICRISKS', 'HOWTODISCUSSWITHDOCTOR',
         'COMBO', 'RATIONALE', 'EVIDENCETIER', 'INTERACTIONRISK'
       ]);
       const CARD_BOUNDARY_LEAK_RE = /(?:#{1,6}\s*)?(?:💊\s*)?CARD\s+\d+\s*[—–:-]/i;
@@ -2334,10 +2360,11 @@
         const candidates = useMemo(() => {
           const cond = (patient.condition || '').trim().toLowerCase();
           if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) return [];
-          // Soft cap mirrors REPURPOSE_SOFT_CAP / Hard-25 floor in
-          // lib/repurpose-quality.js. index.html is a no-build static page.
-          const SOFT_CAP = 25;
-          // REAL citation gate (Hard 25): Google-search-only does NOT count.
+          // Soft cap mirrors REPURPOSE_SOFT_CAP / Hard-50 floor (~25 per Dorothy
+          // section) in lib/repurpose-quality.js. index.html is a no-build static page.
+          const SOFT_CAP = 50;
+          const SECTION_CAP = 25;
+          // REAL citation gate (Hard 50): Google-search-only does NOT count.
           // Accept pack/CT.gov/DailyMed/any non-Google http(s) URL that survived
           // server-side sanitize + dead-link probe.
           const isGoogleSearchCitation = (url) =>
@@ -2360,7 +2387,12 @@
                 !/^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(u)
               );
           let parsed = parseCandidates(repurposeText)
-            .map((c) => ({ ...c, _uncited: !hasCitation(c) }));
+            .map((c) => ({
+              ...c,
+              _uncited: !hasCitation(c),
+              _repurpose_section: resolveRepurposeSection(c),
+              _item_kind: resolveItemKind(c)
+            }));
           const excluded = evidenceSummary?.excludedAgents || [];
           if (excluded.length) {
             const blockNames = excluded.flatMap((x) =>
@@ -2371,13 +2403,17 @@
               return !blockNames.some((ex) => name.includes(ex) || ex.includes(name.replace(/[^a-z0-9]/g, '')));
             });
           }
-          // Cited (REAL-linked) candidates rank ahead of uncited hypotheses so
-          // the latter never crowd evidence-backed ideas out of the soft cap.
-          const ranked = [
-            ...parsed.filter((c) => !c._uncited),
-            ...parsed.filter((c) => c._uncited)
-          ];
-          return ranked.slice(0, SOFT_CAP);
+          // Prefer REAL-linked cards; keep ~SECTION_CAP per Dorothy section so
+          // one bucket cannot starve the other under the soft cap.
+          const takeSection = (list) => {
+            const cited = list.filter((c) => !c._uncited);
+            const uncited = list.filter((c) => c._uncited);
+            return [...cited, ...uncited].slice(0, SECTION_CAP);
+          };
+          const neverList = takeSection(parsed.filter((c) => c._repurpose_section === 'never-researched'));
+          const researchedList = takeSection(parsed.filter((c) => c._repurpose_section === 'researched-not-approved'));
+          const combined = [...neverList, ...researchedList];
+          return combined.slice(0, SOFT_CAP);
         }, [repurposeText, evidenceSummary, repurposeForCondition, patient.condition]);
         const trialBlocks = useMemo(() => parseTrialBlocks(trialsText), [trialsText]);
         const combos = useMemo(() => parseCombos(repurposeText), [repurposeText]);
@@ -2695,10 +2731,8 @@
             (String(text || '').match(/^CANDIDATE:/gm) || []).length;
           // Retry a lane that failed, truncated (max_tokens), or came back
           // mid-sized. Floor mirrors REPURPOSE_MIN_PER_LANE in
-          // lib/repurpose-quality.js (raised 3 → 7 in Fix 2): a lane returning
-          // 4-6 candidates used to be accepted, which is how the merged list
-          // kept getting stuck near ~20 for rare conditions.
-          const MIN_PER_LANE = 7;
+          // lib/repurpose-quality.js (12 for Hard-50 / ~18-per-lane ask).
+          const MIN_PER_LANE = 12;
           const laneNeedsRetry = (result, text) => {
             if (!result) return true;
             const stop = result.stop_reason || result.stopReason || '';
@@ -2827,8 +2861,8 @@
                 };
               } else if (mode === 'repurpose') {
                 const LANE_COUNT = 3;
-                const PER_LANE = 9;
-                const TARGET_TOTAL = 25;
+                const PER_LANE = 18;
+                const TARGET_TOTAL = 50;
                 const runLane = (lane) => callResearch({
                   ...synthBase, half: 'front', batchLane: lane, batchSize: PER_LANE
                 });
@@ -2860,11 +2894,11 @@
                   });
                 }
 
-                // Hard-25 REAL-link floor. Rare / thin-KB conditions used to
-                // land at ~20–21. One AI backfill pass, then registry fill with
+                // Hard-50 REAL-link floor (~25 per Dorothy section). One AI
+                // backfill pass, then registry fill with never-researched
                 // MECHANISTIC_ONLY + specific DailyMed setid citations (never
                 // invent paper URLs or DailyMed search pages).
-                const BACKFILL_THRESHOLD = 25;
+                const BACKFILL_THRESHOLD = 50;
                 const BACKFILL_MAX_PASSES = 1;
                 const candNamesOf = (txt) =>
                   (String(txt || '').match(/^CANDIDATE:\s*(.+)$/gim) || [])
@@ -2940,17 +2974,19 @@
                     ? `REFERENCES: [FDA label for ${name} (DailyMed)](${specificLabel})`
                     : `REFERENCES: FDA DailyMed label for ${name} — look it up by name on DailyMed. No specific study for ${cond} was available in this run, so no citation link is attached.`;
                   return `CANDIDATE: ${name}
+ITEM_KIND: MEDICATION
 CLASS: FDA-tracked medication (library fill)
 APPROVED_FOR: Other FDA-listed uses (see DailyMed) — not established for ${cond}
 WHAT_IT_DOES: An already-marketed medicine from the curated drug library; see DailyMed for its labeled uses.
-WHY_FOR_THIS_CONDITION: Library fill for a thin evidence pack — pathway overlap is a hypothesis only.
+WHY_FOR_THIS_CONDITION: There is no research on this specific drug for ${cond}. However, our research suggests it may help based on pathway overlap. Discuss this with your doctor.
 MECHANISM_TARGET: ${mechanism || 'See DailyMed label for named targets'}
 REPURPOSE_RATIONALE:
-• FDA-tracked medication from the open drug library${mechanism ? ` (${mechanism})` : ''}.
-• No published trial for ${cond} in this run's evidence pack — labeled MECHANISTIC_ONLY on purpose.
-• Discuss with a physician; this is an educational hypothesis, not a recommendation.
+• There is no research on this specific drug for ${cond}. However, our research suggests it may help, and here is why: FDA-tracked medicine from the open drug library${mechanism ? ` (${mechanism})` : ''}. Discuss this with your doctor.
+• No published trial for ${cond} was available in this run — labeled MECHANISTIC_ONLY on purpose.
+• This is an educational idea only, not a recommendation.
+REPURPOSE_SECTION: never-researched
 EVIDENCE_STRENGTH: MECHANISTIC_ONLY
-SUPPORTING_EVIDENCE: No human study for ${cond} was available in the grounded pack for this run — and a DailyMed search page is not a source, so no citation link is fabricated.
+SUPPORTING_EVIDENCE: No human study for ${cond} was available in the sources gathered for this run — and a DailyMed search page is not a source, so no citation link is fabricated.
 ${referencesLine}
 EFFICACY_HYPOTHESIS: No human efficacy results yet for this condition — the reason to list it is library/pathway overlap, not a measured benefit.
 PATIENT_SPECIFIC_RISKS: Confirm identity, dose, and interactions with the prescribing physician before considering any change.
@@ -2988,7 +3024,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                     status: 'running',
                     detail: pass === 0
                       ? 'Looking for more drug ideas with real source links…'
-                      : `Still short of 25 linked ideas — searching again (${pass + 1}/${BACKFILL_MAX_PASSES})…`
+                      : `Still short of 50 linked ideas — searching again (${pass + 1}/${BACKFILL_MAX_PASSES})…`
                   });
                   const laneCounts = laneResults.map((s) =>
                     s.status === 'fulfilled' && s.value ? countCandidateBlocks(textOf(s.value)) : 0);
@@ -3192,7 +3228,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
 
         const runFullAnalysis = async () => {
           // Gather once with repurpose extras (supplement seeds + DailyMed-enriched
-          // fillPool) so the chained drug-ideas pass can hit Hard-25 without a
+          // fillPool) so the chained drug-ideas pass can hit Hard-50 without a
           // second multi-minute gather — and so registry fill has real setid links.
           await runResearch('research', { chainRepurpose: true, includeRepurposeExtras: true });
         };
@@ -7100,12 +7136,12 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               {runMeta?.repurposeQuality && (
                 (runMeta.repurposeQuality.linkedCandidates != null
                   ? runMeta.repurposeQuality.linkedCandidates
-                  : runMeta.repurposeQuality.totalCandidates) < 25
+                  : runMeta.repurposeQuality.totalCandidates) < 50
               ) && (
                 <p style={{ color: theme.yellow, fontSize: '0.85rem' }}>
                   ⚠ Found {runMeta.repurposeQuality.linkedCandidates != null
                     ? runMeta.repurposeQuality.linkedCandidates
-                    : runMeta.repurposeQuality.totalCandidates} drug ideas with a real source link (target 25). Tap <strong>Find drug ideas</strong> again — your search is saved.
+                    : runMeta.repurposeQuality.totalCandidates} drug ideas with a real source link (target about 50 — ~25 never researched, ~25 researched but not FDA-approved). Tap <strong>Find drug ideas</strong> again — your search is saved.
                 </p>
               )}
             </div>
@@ -7242,14 +7278,21 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
             {candidates.length > 0 && (
               <div style={panelStyle}>
                 <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
-                  Drug & supplement ideas ({candidates.length})
+                  Drug &amp; supplement ideas ({candidates.length})
                 </h3>
                 <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  Top ideas from repurposing analysis — conversation starters, not prescriptions.
+                  Ideas from biology and early research — conversation starters with your doctor, not prescriptions. Open the Drug Repurposing tab for the full two-section list.
                 </p>
                 <div style={{ display: 'grid', gap: '0.85rem' }}>
                   {visibleDrugIdeas.map((c, i) => (
-                    <CandidateCard key={`rd-${i}`} c={c} rank={i + 1} highlightMechanistic={isMechanisticEvidence(c.evidence_strength)} audience={audience} />
+                    <CandidateCard
+                      key={`rd-${i}`}
+                      c={c}
+                      rank={i + 1}
+                      highlightMechanistic={resolveRepurposeSection(c) === 'never-researched'}
+                      audience={audience}
+                      conditionLabel={patient.condition || 'this condition'}
+                    />
                   ))}
                 </div>
                 {hiddenDrugCount > 0 && !showAllDrugIdeas && (
@@ -8093,14 +8136,32 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
         );
       };
 
-      const CANDIDATE_LEAK_FIELDS = ['candidate', 'class', 'approved_for', 'what_it_does', 'why_for_this_condition', 'mechanism_target', 'repurpose_rationale', 'evidence_strength', 'supporting_evidence', 'references', 'efficacy_hypothesis', 'safety', 'confidence', 'patient_specific_risks', 'how_to_discuss_with_doctor'];
-      const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layperson' }) => {
+      const CANDIDATE_LEAK_FIELDS = ['candidate', 'item_kind', 'class', 'approved_for', 'what_it_does', 'why_for_this_condition', 'mechanism_target', 'repurpose_rationale', 'repurpose_section', 'evidence_strength', 'supporting_evidence', 'references', 'efficacy_hypothesis', 'safety', 'confidence', 'patient_specific_risks', 'how_to_discuss_with_doctor'];
+      const ItemKindBadge = ({ kind }) => {
+        const isSupp = String(kind || '').toUpperCase() === 'SUPPLEMENT';
+        return (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center',
+            padding: '0.2rem 0.55rem', borderRadius: 999, fontSize: '0.68rem',
+            fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase',
+            border: `1px solid ${isSupp ? theme.green + '88' : theme.accent + '88'}`,
+            background: isSupp ? `${theme.green}18` : `${theme.accent}18`,
+            color: isSupp ? theme.green : theme.accent
+          }}>
+            {isSupp ? 'Supplement' : 'Medication'}
+          </span>
+        );
+      };
+      const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layperson', conditionLabel = '' }) => {
         const { card: c, leaks } = useMemo(
           () => auditAndScrubCard(rawC, CANDIDATE_LEAK_FIELDS, { kind: 'repurposing-candidate', label: rawC?.candidate }),
           [rawC]
         );
-        const mechanistic = highlightMechanistic || isMechanisticEvidence(c.evidence_strength);
+        const section = resolveRepurposeSection(c);
+        const itemKind = resolveItemKind(c);
+        const mechanistic = highlightMechanistic || section === 'never-researched' || isMechanisticEvidence(c.evidence_strength);
         const lay = audience !== 'medical';
+        const cond = conditionLabel || 'this condition';
         const allLinkText = linkifyMedicalIds(
           [c.references, c.supporting_evidence, c.repurpose_rationale].filter(Boolean).join('\n')
         );
@@ -8126,6 +8187,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                   <div style={{ fontWeight: 800, fontSize: '1.15rem', color: theme.text }}>
                     <InlineTitle text={c.candidate || '(unnamed candidate)'} />
                   </div>
+                  <ItemKindBadge kind={itemKind} />
                   {c.class && (
                     <div style={{ fontSize: '0.78rem', color: theme.textDim, fontStyle: 'italic' }}>
                       <InlineMD text={c.class} />
@@ -8133,6 +8195,25 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                   )}
                 </div>
                 <FormatWarning leaks={leaks} />
+                {section === 'never-researched' && (
+                  <div style={{
+                    marginTop: '0.55rem', padding: '0.55rem 0.65rem', borderRadius: 8,
+                    border: `1px dashed ${theme.accent}66`, background: `${theme.accent}10`,
+                    fontSize: '0.84rem', color: theme.text, lineHeight: 1.5
+                  }}>
+                    There is no research on this specific {itemKind === 'SUPPLEMENT' ? 'supplement' : 'drug'} for <strong>{cond}</strong>.
+                    However, our research suggests it may help, and here is why. Discuss this with your doctor.
+                  </div>
+                )}
+                {section === 'researched-not-approved' && (
+                  <div style={{
+                    marginTop: '0.55rem', padding: '0.55rem 0.65rem', borderRadius: 8,
+                    border: `1px solid ${theme.green}55`, background: `${theme.green}10`,
+                    fontSize: '0.84rem', color: theme.text, lineHeight: 1.5
+                  }}>
+                    This is not FDA-approved for <strong>{cond}</strong>, but research on {cond} shows promise — see the sources on this card. Discuss this with your doctor.
+                  </div>
+                )}
                 {c.what_it_does && lay && (
                   <div style={{
                     marginTop: '0.55rem', padding: '0.65rem 0.75rem', borderRadius: 8,
@@ -8167,7 +8248,9 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                     border: `1px solid ${theme.accent}44`, background: `${theme.accent}08`
                   }}>
                     <div style={{ fontSize: '0.72rem', fontWeight: 700, color: theme.accent, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
-                      Sources to read ↗
+                      {section === 'never-researched'
+                        ? 'Source from another condition / how it works ↗'
+                        : 'Research on this condition ↗'}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                       {cardLinks.slice(0, 4).map((l, i) => (
@@ -8184,7 +8267,9 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                     border: `1px dashed ${theme.yellow}66`, background: `${theme.yellow}10`,
                     fontSize: '0.78rem', color: theme.yellow, lineHeight: 1.45
                   }}>
-                    No published study found for this condition — included as a biological hypothesis (how the drug works suggests it could help). Discuss with your doctor before acting on it.
+                    {section === 'never-researched'
+                      ? `No study of this ${itemKind === 'SUPPLEMENT' ? 'supplement' : 'drug'} for ${cond} was found — included as a biology-based idea. Discuss with your doctor before acting on it.`
+                      : `Research was described for ${cond}, but no working source link was available in this run. Discuss with your doctor before acting on it.`}
                   </div>
                 )}
                 {c.approved_for && (
@@ -8350,37 +8435,27 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
         const [showRaw, setShowRaw] = useState(false);
         const [translatedText, setTranslatedText] = useState('');
         const renderedRepurposeText = translatedText || repurposeText;
-        const { human, preclinical, mechanistic } = useMemo(() => partitionCandidates(candidates), [candidates]);
-        const isMed = audience === 'medical';
-        const byStrength = {
-          LARGE_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 6).length,
-          SMALL_RCT:        candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 5).length,
-          OBSERVATIONAL:    candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 4).length,
-          CASE_REPORT:      candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 3).length,
-          PRECLINICAL:      candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 2).length,
-          MECHANISTIC_ONLY: candidates.filter(c => evidenceMeta(c.evidence_strength).rank === 1).length
-        };
+        const { neverResearched, researchedNotApproved } = useMemo(() => partitionCandidates(candidates), [candidates]);
+        const cond = patient.condition?.trim() || 'this condition';
         const hasRun = !!repurposeText || candidates.length > 0;
+        const linkedCount = runMeta?.repurposeQuality?.linkedCandidates != null
+          ? runMeta.repurposeQuality.linkedCandidates
+          : runMeta?.repurposeQuality?.totalCandidates;
         return (
           <div id="mrt-repurpose-export-target" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <AdSlot runtimeConfig={runtimeConfig} slotKey="repurposeTop" />
             <RepurposeHero patient={patient} busy={busy} runResearch={runResearch} />
 
-            {hasRun && runMeta?.repurposeQuality && (
-              (runMeta.repurposeQuality.linkedCandidates != null
-                ? runMeta.repurposeQuality.linkedCandidates
-                : runMeta.repurposeQuality.totalCandidates) < 25
-            ) && (
+            {hasRun && runMeta?.repurposeQuality && linkedCount != null && linkedCount < 50 && (
               <div style={{
                 ...panelStyle, padding: '0.75rem 1rem',
                 borderLeft: `3px solid ${theme.yellow}`,
                 background: `${theme.yellow}12`, fontSize: '0.86rem', color: theme.text, lineHeight: 1.5
               }}>
-                <strong>Under 25 linked ideas.</strong> This run found{' '}
-                {runMeta.repurposeQuality.linkedCandidates != null
-                  ? runMeta.repurposeQuality.linkedCandidates
-                  : runMeta.repurposeQuality.totalCandidates}{' '}
-                drug/supplement ideas with a real source link (not a Google search). Tap <strong>Find drug ideas</strong> again — your search is saved.
+                <strong>Under 50 linked ideas.</strong> This run found {linkedCount}{' '}
+                drug/supplement ideas with a real source link (not a Google search).
+                Aim is about 25 never-researched ideas and 25 researched-but-not-approved ideas.
+                Tap <strong>Find drug ideas</strong> again — your search is saved.
               </div>
             )}
 
@@ -8439,25 +8514,12 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
 
             {candidates.length > 0 && (
               <div style={panelStyle}>
-                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
-                  <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem' }}>
-                    {candidates.length} candidate{candidates.length === 1 ? '' : 's'}
-                    <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem', marginLeft: '0.5rem' }}>
-                      · {human.length} human studies · {preclinical.length} preclinical (animal/lab) · {mechanistic.length} logic-based
-                    </span>
-                  </h3>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
-                  {EVIDENCE_LADDER.slice().reverse().map(l => byStrength[l.key] ? (
-                    <span key={l.key} title={l.label} style={{
-                      padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.7rem',
-                      border: `1px solid ${l.color}66`, background: `${l.color}18`,
-                      color: l.color, fontWeight: 700
-                    }}>
-                      {byStrength[l.key]} × {l.label}
-                    </span>
-                  ) : null)}
-                </div>
+                <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem' }}>
+                  {candidates.length} idea{candidates.length === 1 ? '' : 's'}
+                  <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem', marginLeft: '0.5rem' }}>
+                    · {neverResearched.length} never researched for {cond} · {researchedNotApproved.length} researched, not FDA-approved
+                  </span>
+                </h3>
               </div>
             )}
 
@@ -8468,59 +8530,19 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                 background: `linear-gradient(90deg, ${theme.accent}12 0%, ${theme.panel} 55%)`
               }}>
                 <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <Brain size={18} /> Drug ideas
+                  <Brain size={18} /> Drug &amp; supplement ideas
                 </h3>
                 <div style={{
                   textAlign: 'center', padding: '1.25rem', color: theme.textDim,
                   border: `1px dashed ${theme.border}`, borderRadius: 10, fontSize: '0.88rem'
                 }}>
-                  Click &ldquo;Find drug ideas&rdquo; to start — results are grouped by how strong the evidence is: human studies, animal/lab (preclinical) studies, and logic-based ideas.
+                  Click &ldquo;Find drug ideas&rdquo; to start — results split into two lists: ideas never researched for your condition, and researched options that are not yet FDA-approved for it.
                 </div>
               </div>
             )}
 
-            {/* TIER 1 — human evidence */}
-            {human.length > 0 && (
-              <div style={panelStyle}>
-                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <Database size={18} />
-                  {isMed ? 'Backed by human studies' : 'Tested in people (human studies)'}
-                </h3>
-                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  {isMed
-                    ? 'Agents with human data — case reports, observational studies, or clinical trials — for this or a closely related condition. Cards note when the human evidence is for a related disease rather than this exact one.'
-                    : 'These have actually been studied in people — from a few patient reports up to clinical trials — for this condition or a closely related one. Sorted by how confident we are.'}
-                </p>
-                <div style={{ display: 'grid', gap: '0.85rem' }}>
-                  {human.map((c, i) => (
-                    <CandidateCard key={`h-${i}`} c={c} rank={i + 1} audience={audience} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* TIER 2 — preclinical (animal / lab) */}
-            {preclinical.length > 0 && (
-              <div style={panelStyle}>
-                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <Flask size={18} />
-                  {isMed ? 'Preclinical evidence (animal / lab) — no human trials yet' : 'Promising in animal & lab studies (not yet tested in humans)'}
-                </h3>
-                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  {isMed
-                    ? 'Agents with in vitro or animal-model evidence for this condition but no human trials. Biologically encouraging, unproven in people. Each card\u2019s "Tested in" line names the model/species.'
-                    : 'These have shown promise in lab dishes or animals (like rats), but have not been tested in humans for this condition yet. Each card\u2019s "Tested in" line says exactly what was studied.'}
-                </p>
-                <div style={{ display: 'grid', gap: '0.85rem' }}>
-                  {preclinical.map((c, i) => (
-                    <CandidateCard key={`p-${i}`} c={c} rank={i + 1} audience={audience} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* TIER 3 — logic-based (mechanism only) */}
-            {mechanistic.length > 0 && (
+            {/* SECTION 1 — Dorothy's #1 feature: never researched for this condition */}
+            {(neverResearched.length > 0 || hasRun) && (
               <div style={{
                 ...panelStyle,
                 borderLeft: `4px solid ${theme.accent}`,
@@ -8528,18 +8550,58 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
               }}>
                 <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                   <Brain size={18} />
-                  {isMed ? 'Logic-based candidates (mechanism only — no studies yet)' : 'Drug ideas from biology (no studies yet)'}
+                  Drug &amp; Supplement Repurposing Ideas
+                  {neverResearched.length > 0 && (
+                    <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem' }}>({neverResearched.length})</span>
+                  )}
                 </h3>
                 <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  {isMed
-                    ? 'Pure pathway/mechanism reasoning — no human or animal studies for this condition. Hypotheses for discussion, not prescriptions.'
-                    : 'These are educated guesses based on how the disease and the drug work — nobody has studied them for this condition yet. Worth asking your doctor about, but not proven.'}
+                  These have <strong style={{ color: theme.text }}>never been researched for {cond}</strong>.
+                  The idea comes from how the drug or supplement works in <em>other</em> conditions.
+                  Example: a medicine that reduces scarring in diabetes might help a scarring lung disease.
+                  Each card says there is no research for {cond}, explains why it might still help, and asks you to discuss it with your doctor.
+                  Source links are about the drug in that other context — not studies of {cond}.
                 </p>
-                <div style={{ display: 'grid', gap: '0.85rem' }}>
-                  {mechanistic.map((c, i) => (
-                    <CandidateCard key={`m-${i}`} c={c} rank={i + 1} highlightMechanistic={true} audience={audience} />
-                  ))}
-                </div>
+                {neverResearched.length > 0 ? (
+                  <div style={{ display: 'grid', gap: '0.85rem' }}>
+                    {neverResearched.map((c, i) => (
+                      <CandidateCard key={`nr-${i}`} c={c} rank={i + 1} highlightMechanistic={true} audience={audience} conditionLabel={cond} />
+                    ))}
+                  </div>
+                ) : hasRun ? (
+                  <div style={{ padding: '0.85rem', border: `1px dashed ${theme.border}`, borderRadius: 8, color: theme.textDim, fontSize: '0.86rem' }}>
+                    No never-researched ideas were returned in this run.
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {/* SECTION 2 — researched for condition, not FDA-approved */}
+            {(researchedNotApproved.length > 0 || hasRun) && (
+              <div style={panelStyle}>
+                <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Flask size={18} />
+                  Researched, Not Yet FDA-Approved for {cond}
+                  {researchedNotApproved.length > 0 && (
+                    <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem' }}>({researchedNotApproved.length})</span>
+                  )}
+                </h3>
+                <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+                  These drugs and supplements <strong style={{ color: theme.text }}>have been researched for {cond}</strong>
+                  {' '}(lab, animal, or early human studies) but are <strong style={{ color: theme.text }}>not FDA-approved</strong> for it.
+                  Each card links to that research. Already-approved treatments appear only under Approved Treatments — not here.
+                </p>
+                {researchedNotApproved.length > 0 ? (
+                  <div style={{ display: 'grid', gap: '0.85rem' }}>
+                    {researchedNotApproved.map((c, i) => (
+                      <CandidateCard key={`rna-${i}`} c={c} rank={i + 1} audience={audience} conditionLabel={cond} />
+                    ))}
+                  </div>
+                ) : hasRun ? (
+                  <div style={{ padding: '0.85rem', border: `1px dashed ${theme.border}`, borderRadius: 8, color: theme.textDim, fontSize: '0.86rem' }}>
+                    No researched-but-not-approved ideas were returned in this run.
+                  </div>
+                ) : null}
               </div>
             )}
 
@@ -8549,7 +8611,7 @@ HOW_TO_DISCUSS_WITH_DOCTOR: Ask whether any mechanism for ${cond} makes this dru
                   Combination ideas ({combos.length})
                 </h3>
                 <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-                  Pairs or triplets where drugs might work better together — including OTC + prescription when supported. For discussion with your doctor only.
+                  Pairs or triplets where drugs might work better together — including over-the-counter + prescription when supported. For discussion with your doctor only.
                 </p>
                 <div style={{ display: 'grid', gap: '0.85rem' }}>
                   {combos.map((c, i) => (

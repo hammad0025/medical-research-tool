@@ -167,7 +167,9 @@ const resolveMaxTokens = (model, mode, phase, half, isBatch) => {
     // English mode, so 9 needs ~6300; give headroom so the last candidate
     // finishes cleanly. Lanes run in parallel so wall-clock stays bounded well
     // under the 300s Vercel Pro cap even at this budget.
-    if (isBatch) return isOpus ? 5600 : 7200;
+    // Two Dorothy sections × ~9 cards/lane ≈ 18 candidates; ~350 tokens each
+    // needs headroom above the old Hard-25 / 9-card budget.
+    if (isBatch) return isOpus ? 9000 : 12000;
     // Single-shot fallback (API back-compat): one big call for all 15.
     return isOpus ? 5200 : 7000;
   }
@@ -1235,14 +1237,16 @@ const laypersonRepurposeExtra = (audience) =>
   audience === 'medical' ? '' : `
 
 REPURPOSE LAYPERSON FORMAT (when AUDIENCE is non-medical — keep every field at a 7th-grade reading level, short sentences, common words, and define any medical term in parentheses the first time):
+- ITEM_KIND is REQUIRED — SUPPLEMENT or MEDICATION on every card.
+- REPURPOSE_SECTION is REQUIRED — never-researched or researched-not-approved.
 - WHAT_IT_DOES is REQUIRED for every CANDIDATE — one sentence: what the drug is normally used for + what it does in the body in plain English.
-- WHY_FOR_THIS_CONDITION is REQUIRED — one plain sentence: "This might help [condition] because …" using everyday words only.
+- WHY_FOR_THIS_CONDITION is REQUIRED — for never-researched cards use: "There is no research on this specific drug for [condition]. However, our research suggests it may help, and here is why. Discuss this with your doctor." For researched-not-approved: say it is not FDA-approved for [condition] but research shows promise.
 - MECHANISM_TARGET must be a plain-English phrase (≤12 words), e.g. "Slows lung scarring signals" — NOT "TGF-β signalling" alone.
 - REPURPOSE_RATIONALE must be exactly 2 short bullets in plain text (use "•" bullets) — skip the third unless essential.
-- REFERENCES is REQUIRED — at least one clickable markdown link [short title](url) per candidate from the evidence pack. No candidate may ship without a link.
+- REFERENCES: include a real clickable markdown link [short title](url) when one exists about THIS drug (other-condition source for never-researched; condition-specific for researched-not-approved). Never invent a link.
 - HOW_TO_DISCUSS_WITH_DOCTOR: **one** question the patient can read aloud — not a paragraph.
 - SUPPORTING_EVIDENCE: max 2 sentences or one short quote — no literature review.
-- Every field ≤25 words unless quoting a source.`;
+- Every field ≤25 words unless quoting a source. Never say "evidence pack", "repurposing analysis", or other internal labels.`;
 
 // Build the per-request dynamic header that is NEVER cached (it's different
 // on every call: audience, patient profile, condition-specific context).
@@ -1484,15 +1488,22 @@ ${SHARED_GUARDRAILS}`;
 const REPURPOSE_CANDIDATE_FORMAT = `Produce ranked CANDIDATE blocks using this exact format (the UI parses it):
 
 CANDIDATE: <name — plain English the patient would say, e.g. "Goji berries" or "TUDCA"; Latin/scientific name only in parentheses if needed>
+ITEM_KIND: <exactly one of: SUPPLEMENT | MEDICATION — SUPPLEMENT for vitamins/minerals/herbs/OTC nutraceuticals; MEDICATION for prescription or other drugs, including stem-cell drug products>
 CLASS: <drug class or supplement category — for layperson: use plain category, e.g. "immune-suppressing pill" not "mTOR inhibitor class">
 APPROVED_FOR: <current FDA-approved or common use — plain English for layperson>
 WHAT_IT_DOES: <REQUIRED — one sentence a non-doctor understands: what this drug/supplement is normally for and what it does in the body. No unexplained jargon.>
-WHY_FOR_THIS_CONDITION: <REQUIRED — one plain sentence. For a drug with positive or untested rationale: "This might help [condition] because …". For a drug whose human evidence is NEGATIVE / no-benefit / possible-harm (see STUDIED-AGENT RULE), DO NOT write "this might help" — state the honest finding instead, e.g. "This has been tried for [condition], but the research so far shows no clear benefit and possible harm — it is listed here so you and your doctor know it was already studied." Everyday words, no jargon without a parenthetical definition.>
+WHY_FOR_THIS_CONDITION: <REQUIRED — 7th-grade plain English. SECTION RULES:
+  - If REPURPOSE_SECTION is never-researched: MUST open with this idea in short sentences: "There is no research on this specific drug for [condition]. However, our research suggests it may help, and here is why. Discuss this with your doctor." Then one short "because …" clause from the OTHER condition / pathway.
+  - If REPURPOSE_SECTION is researched-not-approved: "This is not FDA-approved for [condition], but research on [condition] shows promise — here is what the studies found." Everyday words; define any medical term in parentheses the first time.
+  - NEVER list a drug already FDA-approved for THIS condition (those belong only in Approved Treatments).>
 MECHANISM_TARGET: <for medical audience: molecular target/pathway. For layperson: ≤12-word plain phrase, e.g. "Helps cells clean up damaged parts" — define any technical term in parentheses>
-REPURPOSE_RATIONALE: <why it might help THIS condition — at the specified audience level. Layperson: 3 bullet lines per LAYPERSON RULES above. Medical: step-by-step biology.>
+REPURPOSE_RATIONALE: <why it might help THIS condition — at the specified audience level. Layperson: 2-3 short "•" bullets. For never-researched cards, borrow the mechanism from the OTHER condition plainly (canonical pattern: "Drug X reduces scarring in diabetes. [Condition] is a scarring disease. So drug X might help [condition].").>
+REPURPOSE_SECTION: <exactly one of: never-researched | researched-not-approved>
 EVIDENCE_STRENGTH: <one of: MECHANISTIC_ONLY | PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT>
-SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the evidence pack plus verbatim quoted passages. STATE THE EVIDENCE LEVEL IN PLAIN WORDS and name the species/study type — e.g. "tested in rats and large animals, not yet in humans" for preclinical work, or "human observational study (n=…)". If the human evidence is for a RELATED condition rather than THIS exact one, say so plainly (e.g. "human trials in retinal degeneration broadly, not RP specifically"). If no study of any kind exists, say "Mechanistic hypothesis only — no human or animal data yet".>
-REFERENCES: <REQUIRED — 1-3 clickable markdown links [short title](url) from the evidence pack or trials pull. Every candidate MUST have at least one link here even if SUPPORTING_EVIDENCE repeats them.>
+SUPPORTING_EVIDENCE: <peer-reviewed support with clickable markdown links [title](url) from the gathered sources plus verbatim quoted passages. STATE THE EVIDENCE LEVEL IN PLAIN WORDS.
+  - never-researched: the link MUST be about the drug in the OTHER condition / pathway context — NOT a paper about THIS patient's condition. Say plainly there is no study of this drug for [condition].
+  - researched-not-approved: the link MUST be condition-specific research (preclinical/animal/early clinical for THIS condition).>
+REFERENCES: <REQUIRED when a real drug-specific source exists — 1-3 clickable markdown links [short title](url) from the gathered sources or trials pull. For never-researched: cite the OTHER-condition / mechanism paper about THIS drug. For researched-not-approved: cite the condition-specific paper/NCT. If no honest link exists, leave plain text — NEVER invent a URL or point at a search page.>
 EFFICACY_HYPOTHESIS: <an HONEST, plain-English statement of what benefit (if any) the evidence actually suggests for THIS condition — NEVER an invented 0-100 rating or a made-up percentage. If real human efficacy data exists, state the actual result with its real numbers and end with a [source](url) link. If the evidence is only mechanistic, animal, or observational, say so plainly instead of giving a number, e.g. "No human efficacy results yet for this condition — the reason to consider it is how it works in the body, not a measured benefit." A "%" may appear ONLY if it is the real statistic from a cited study.>
 SAFETY: <Low | Moderate | High> — <higher band = safer. Do NOT invent a percentage. Justify the band ONLY with cited FDA label / FAERS facts and END the line with an inline clickable source link [source](url). NOTE: the system replaces this line with a deterministic band computed from the FDA label + this patient's current medicines, so base any band you write strictly on listed evidence.>
 CONFIDENCE: <Low | Moderate | High> — <overall confidence that this is worth physician discussion. You MUST justify the band with cited evidence and END the line with an inline clickable source link [source](url). If you have NO citable evidence to support a confidence rating for this candidate, OMIT this entire CONFIDENCE line — never give an opinion with no source to click.>
@@ -1536,23 +1547,26 @@ CARD INTEGRITY (every CANDIDATE block):
 - WORKED EXAMPLE (the general principle, not a special case): if the evidence pool shows an agent was studied in a completed trial for this condition and showed no benefit — whether it is a prescription drug (e.g. metformin in IPF) or a supplement (e.g. an antioxidant that failed its primary endpoint) — it must NOT appear as a repurposing candidate; at most it belongs in a "previously studied" context with the failed trial cited.
 
 OTC / SUPPLEMENT CARVE-OUT (Lane C and combination blocks):
-Over-the-counter supplements are DIFFERENT from prescription repurposing. Lane C MUST read the "OTC / SUPPLEMENT LITERATURE IN THIS PACK" block (if present) and output one CANDIDATE per supplement that has peer-reviewed support in the pack AND has not failed a completed trial for this condition (see FAILED-TRIAL DISQUALIFIER). Use plain-English names patients recognize (e.g. "Goji berries", "TUDCA", "Taurine", "Alpha-lipoic acid") — never Latin binomial alone as the CANDIDATE name. Label EVIDENCE_STRENGTH honestly from what the papers show. Do NOT invent supplements that are not in the evidence pack.
+Over-the-counter supplements are DIFFERENT from prescription repurposing. Lane C MUST read the "OTC / SUPPLEMENT LITERATURE" block (if present) and output candidates FROM those live-retrieved papers AND from mechanistically plausible supplements with NO condition-specific papers. Use plain-English names patients recognize (e.g. "Goji berries", "TUDCA", "Taurine", "Alpha-lipoic acid") — never Latin binomial alone as the CANDIDATE name. Set ITEM_KIND: SUPPLEMENT. Label REPURPOSE_SECTION and EVIDENCE_STRENGTH honestly. Do NOT invent supplements with no real name or source.
 
-## Mechanistic Hypotheses (genuinely no human data for this condition)
-Produce 5-8 candidates where EVIDENCE_STRENGTH is MECHANISTIC_ONLY or PRECLINICAL ONLY when the evidence pack truly contains no human studies for that drug + this condition.
-These MUST be drugs/supplements with plausible pathway logic for THIS condition. Examples of the thinking we want:
-- Anti-inflammatory already used in Condition B → shared pathway with patient's condition
-- Metabolic drug → overlaps with disease pathophysiology
-- Supplement targeting oxidative stress when disease involves ROS
+TWO-SECTION OUTPUT (Dorothy product rule — the whole reason for this software):
+Every CANDIDATE must set REPURPOSE_SECTION to exactly one of:
+1) never-researched — Section 1 "Drug & Supplement Repurposing Ideas"
+   - There is NO study of THIS specific drug/supplement for THIS specific condition (no preclinical, animal, or human paper pairing them).
+   - You propose it from mechanistic reasoning borrowed from OTHER conditions (canonical pattern: metformin reduces scarring in diabetes → IPF is a scarring disease → metformin might help IPF).
+   - EVIDENCE_STRENGTH is almost always MECHANISTIC_ONLY.
+   - REFERENCES / SUPPORTING_EVIDENCE must link the OTHER-context article about the DRUG (pathway / other disease) — NEVER a paper about the patient's condition. The source must still mention the drug (relevance gate).
+   - WHY_FOR_THIS_CONDITION must use the plain disclaimer in the format block.
+2) researched-not-approved — Section 2 "Researched, Not Yet FDA-Approved for [condition]"
+   - Research EXISTS for THIS condition (preclinical/animal/early clinical/observational/RCT) but the drug is NOT FDA-approved for it.
+   - EVIDENCE_STRENGTH is PRECLINICAL | CASE_REPORT | OBSERVATIONAL | SMALL_RCT | LARGE_RCT as honest.
+   - Link the condition-specific research (journal / NCT).
+   - NEVER include drugs already FDA-approved for this condition (Approved Treatments only).
+   - Still obey FAILED-TRIAL DISQUALIFIER: a completed failed/null/harmful trial for this condition is NOT a "promising researched" idea — exclude it.
 
-For EACH mechanistic candidate, SUPPORTING_EVIDENCE must say explicitly:
-"Mechanistic hypothesis only — no human data for [condition] yet" when true.
-Still cite adjacent-condition papers or pathway reviews from the evidence pack when available — with clickable links.
+Include supplements, over-the-counter meds, prescription drugs, and stem-cell approaches where relevant. Aim for a BALANCED mix of the two sections in every lane (roughly half never-researched, half researched-not-approved when the sources honestly support both).
 
-Output these mechanistic/preclinical candidates FIRST, each using the CANDIDATE block format below.
-Then continue with additional candidates that may have observational or trial data.
-
-QUOTA (mandatory): At least 30% of your candidates MUST have EVIDENCE_STRENGTH of MECHANISTIC_ONLY or PRECLINICAL — but ONLY when the evidence pack lacks human data for that drug + condition.`;
+Output never-researched candidates FIRST, then researched-not-approved.`;
 
 const REPURPOSE_COMBO_AND_SUMMARY = `## Combination Candidates
 Produce **3-4** combination candidates (quality over quantity). Prefer novel biology pairings where **each drug alone may not help much** but together might — NOT guideline first-line pairs from Section 3.
@@ -1584,34 +1598,31 @@ One sentence: hypothesis-generation only — discuss with a physician before any
 const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
-Produce 12 candidates (mechanistic/preclinical FIRST, at least 4, then published-support). 12 is the target; returning fewer than 10 is a FAILURE.
-Keep EVERY field to ONE concise sentence (≤25 words). Every candidate MUST include WHY_FOR_THIS_CONDITION and at least one link in REFERENCES.
+Produce ~24 candidates balanced across the two sections (~12 never-researched FIRST, then ~12 researched-not-approved). Returning fewer than 16 total is a FAILURE when the sources support more.
+Keep EVERY field short (≤25 words where possible). Every candidate MUST include ITEM_KIND, REPURPOSE_SECTION, WHY_FOR_THIS_CONDITION, and a real drug-specific link in REFERENCES when one exists.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
 ${SHARED_GUARDRAILS}`;
 
 // Distinct "lanes" of drug types. Each batched front call covers ONE lane so
-// the concurrent batches don't produce the same drugs. Lane D is the one that
-// forces honest handling of drugs already studied in this condition (e.g.
-// metformin in IPF) so a studied-but-negative drug can never be mislabeled as
-// "never researched".
+// the concurrent batches don't produce the same drugs. Every lane must emit
+// BOTH Dorothy sections (~half never-researched, ~half researched-not-approved).
 const REPURPOSE_LANES = [
-  'LANE A — anti-inflammatory & immune-modulating drugs already approved for OTHER inflammatory or autoimmune conditions that could plausibly slow this condition. These must be MECHANISTIC_ONLY or PRECLINICAL for THIS condition — zero human trials for this disease. Skip any drug in EXCLUDED AGENTS and any agent that already failed a completed trial for THIS condition (FAILED-TRIAL DISQUALIFIER).',
-  'LANE B — metabolic, antifibrotic, hormonal, and cardiovascular drugs approved for other diseases that could be repurposed via pathway overlap. MECHANISTIC_ONLY or PRECLINICAL for THIS condition only. Skip EXCLUDED AGENTS and any agent that already failed a completed trial for THIS condition (FAILED-TRIAL DISQUALIFIER).',
-  'LANE C — over-the-counter supplements, vitamins, and antioxidants. Read the OTC / SUPPLEMENT LITERATURE block in the evidence pack and output candidates FROM those live-retrieved papers. Plain-English CANDIDATE names only (e.g. "Goji berries", not "Lycium barbarum"). Skip EXCLUDED AGENTS and any supplement that already failed a completed trial for THIS condition (FAILED-TRIAL DISQUALIFIER).'
+  'LANE A — anti-inflammatory & immune-modulating drugs (prescription medications; ITEM_KIND: MEDICATION). Emit BOTH sections: (1) never-researched = approved for OTHER inflammatory/autoimmune conditions with ZERO studies for THIS condition — MECHANISTIC_ONLY, cite the OTHER-condition article about the drug; (2) researched-not-approved = agents with preclinical/early clinical research FOR THIS condition that are NOT FDA-approved for it. Skip EXCLUDED AGENTS, already-approved SOC for this condition, and FAILED-TRIAL DISQUALIFIER agents.',
+  'LANE B — metabolic, antifibrotic, hormonal, cardiovascular, and cell/stem-cell drug approaches (ITEM_KIND: MEDICATION). Same TWO-SECTION mix as Lane A. never-researched = pathway overlap from OTHER diseases with no study for THIS condition; researched-not-approved = condition-specific research, not FDA-approved. Skip EXCLUDED AGENTS / SOC / failed trials.',
+  'LANE C — over-the-counter supplements, vitamins, antioxidants, and non-prescription medicines (ITEM_KIND: SUPPLEMENT). Read the OTC / SUPPLEMENT LITERATURE block when present. Emit BOTH sections: never-researched supplements with only OTHER-context mechanism papers, AND supplements with researched-but-not-approved evidence for THIS condition. Plain-English names (e.g. "Goji berries"). Skip EXCLUDED AGENTS and failed-trial supplements.'
 ];
 
 // Batched front prompt: one lane, a handful of candidates, finishes fast.
-// Does NOT hardcode "15" (that quota belongs to the single-shot prompt); the
-// per-batch count comes from the user message. Keeps the STUDIED-AGENT rule
-// and the candidate format so quality + the metformin guardrail are intact.
+// Does NOT hardcode a fixed quota; the per-batch count comes from the user
+// message. Keeps the STUDIED-AGENT rule and the two-section candidate format.
 const REPURPOSE_PROMPT_FRONT_BATCH_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS ONE BATCH of a larger candidate list. Other batches (running at the same time) cover the other drug lanes, so produce ONLY candidates that fit the LANE named in the user message — do not stray into other lanes, or you will duplicate another batch.
 Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary, no preamble.
-Produce UP TO the number of candidates requested in the user message. This is a quality-curated list, not a quota: prefer candidates you can back with a real citation from the evidence pack, and NEVER invent a citation. A mechanistically sound idea with no published trial for THIS condition is still valuable (especially cheap/unpatentable agents no one will fund a trial for) — include it, label EVIDENCE_STRENGTH: MECHANISTIC_ONLY, and say plainly there is no human data yet. Do not pad with weak duplicates.
-Keep EVERY field to ONE concise sentence (≤25 words). Every candidate MUST include WHY_FOR_THIS_CONDITION; cite the mechanism/pathway paper in REFERENCES whenever one exists. FINISH the last candidate fully.
+Produce UP TO the number of candidates requested in the user message, aiming for roughly HALF never-researched and HALF researched-not-approved when the sources honestly support both. This is a quality-curated list, not a pad-to-N exercise: prefer candidates you can back with a real citation about the DRUG, and NEVER invent a citation. A mechanistically sound idea with no published trial for THIS condition is still valuable (especially cheap/unpatentable agents) — include it as REPURPOSE_SECTION: never-researched, EVIDENCE_STRENGTH: MECHANISTIC_ONLY, with the plain disclaimer and an OTHER-context drug paper when available. Do not pad with weak duplicates.
+Keep EVERY field short (≤25 words where possible). Every candidate MUST include ITEM_KIND, REPURPOSE_SECTION, and WHY_FOR_THIS_CONDITION. FINISH the last candidate fully.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -1632,7 +1643,7 @@ ${SHARED_GUARDRAILS}`;
 // Single-shot fallback (API backward compat). UI uses gather → synth front → synth back.
 const REPURPOSE_PROMPT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
-Produce a ranked list of 12 candidate repurposed drugs or supplements total (10 minimum).
+Produce a ranked list of ~24 candidate repurposed drugs or supplements total (~12 never-researched, ~12 researched-not-approved; 16 minimum when sources allow).
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -2642,22 +2653,23 @@ ${SHARED_GUARDRAILS}
       }
       if (isRepurposeBatch) {
         const laneIdx = Math.max(0, Math.min(REPURPOSE_LANES.length - 1, Number(batchLane) || 0));
-        const count = Math.max(1, Math.min(10, Number(batchSize) || 4));
-        // Backfill/top-up pass (Fix 2): when the parallel lanes came up short of
-        // target, this batch is asked for MORE grounded candidates. We pass the
-        // already-used drug names so the model produces only NEW, non-duplicate
-        // ideas — and we DO NOT relax the evidence bar (no padding to hit a
-        // number; a truthful 20 beats 25 with junk).
+        const count = Math.max(1, Math.min(20, Number(batchSize) || 8));
+        // Backfill/top-up pass: when the parallel lanes came up short of the
+        // Hard-50 (~25 per Dorothy section) target, this batch is asked for MORE
+        // grounded candidates. We pass the already-used drug names so the model
+        // produces only NEW, non-duplicate ideas — and we DO NOT relax the
+        // evidence bar (no padding to hit a number; a truthful short list beats
+        // 50 with junk).
         const avoidList = Array.isArray(avoidCandidates)
           ? [...new Set(avoidCandidates.map((n) => String(n || '').trim()).filter(Boolean))]
           : [];
         const avoidBlock = avoidList.length
-          ? `\n\nDO NOT REPEAT any of these already-suggested candidates (propose only NEW, different drugs/supplements): ${avoidList.slice(0, 60).join(', ')}.`
+          ? `\n\nDO NOT REPEAT any of these already-suggested candidates (propose only NEW, different drugs/supplements): ${avoidList.slice(0, 80).join(', ')}.`
           : '';
-        return `Produce UP TO ${count} CANDIDATE blocks, and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nEVIDENCE BAR (Hard 25 — REAL links only): every CANDIDATE that carries a citation MUST use a REAL clickable link — an exact URL from the evidence pack, a ClinicalTrials.gov /study/NCT######## that appears in the trials pull, OR a SPECIFIC DailyMed label monograph (https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=<SPL_SETID>) if you are certain of the setid. NEVER invent a DOI, PMID, PubMed URL, journal deep link, or NCT ID. A Google search URL, and a DailyMed SEARCH page (search.cfm?query=…), must NEVER appear in REFERENCES as "the paper"/"the label" — a search results page is not a source. Prefer pack citations; if none exist for a mechanistically sound idea, set EVIDENCE_STRENGTH: MECHANISTIC_ONLY, say plainly there is no human data yet, and leave REFERENCES as plain text (no fabricated link) rather than linking a search page. Aim for ${count}; do not pad with weak duplicates or fake links.${avoidBlock}\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the CANDIDATE blocks.`;
+        return `Produce UP TO ${count} CANDIDATE blocks (~half REPURPOSE_SECTION: never-researched, ~half researched-not-approved when sources allow), and ONLY for this lane:\n${REPURPOSE_LANES[laneIdx]}\n\nEVIDENCE BAR (Hard 50 — REAL links only): every CANDIDATE that carries a citation MUST use a REAL clickable link — an exact URL from the gathered sources, a ClinicalTrials.gov /study/NCT######## that appears in the trials pull, OR a SPECIFIC DailyMed label monograph (https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=<SPL_SETID>) if you are certain of the setid. NEVER invent a DOI, PMID, PubMed URL, journal deep link, or NCT ID. A Google search URL, and a DailyMed SEARCH page (search.cfm?query=…), must NEVER appear in REFERENCES as "the paper"/"the label" — a search results page is not a source. For never-researched cards, cite the OTHER-condition / mechanism paper about THIS drug (not a paper about the patient's condition). For researched-not-approved, cite condition-specific research. If none exist for a mechanistically sound idea, set REPURPOSE_SECTION: never-researched, EVIDENCE_STRENGTH: MECHANISTIC_ONLY, use the plain disclaimer, and leave REFERENCES as plain text rather than linking a search page. Aim for ${count}; do not pad with weak duplicates or fake links.${avoidBlock}\n\nDo not output any candidate that belongs to a different lane. No combinations, no summary, no preamble — just the CANDIDATE blocks.`;
       }
       if (mode === 'repurpose' && phase === 'synthesize' && half === 'front') {
-        return 'Produce Part 1 only: ranked CANDIDATE blocks (mechanistic/preclinical first, then published-support). No combinations or summary.';
+        return 'Produce Part 1 only: ranked CANDIDATE blocks (never-researched first, then researched-not-approved). No combinations or summary.';
       }
       return `Please perform the ${mode} analysis now for the patient profile above.`;
     })();

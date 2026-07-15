@@ -10,6 +10,7 @@ import { buildSupplementDiscoveryBlock, isSupplementEvidenceItem } from '../lib/
 import {
   REPURPOSE_MIN_TOTAL,
   REPURPOSE_TARGET_TOTAL,
+  REPURPOSE_SECTION_TARGET,
   REPURPOSE_LANE_COUNT,
   REPURPOSE_PER_LANE,
   countCandidateBlocks,
@@ -23,6 +24,10 @@ import {
   textHasRealCitation,
   isDailyMedSearchUrl,
   isDailyMedLabelUrl,
+  resolveRepurposeSection,
+  resolveItemKind,
+  REPURPOSE_SECTION_NEVER,
+  REPURPOSE_SECTION_RESEARCHED,
   REPURPOSE_BACKFILL_MAX_PASSES
 } from '../lib/repurpose-quality.js';
 import {
@@ -147,10 +152,10 @@ if (REPURPOSE_LANE_COUNT * REPURPOSE_PER_LANE >= REPURPOSE_TARGET_TOTAL) {
   fail('Lane count × per-lane does not reach target total');
 }
 
-// 2. Batch token budget — must be high enough for up to 9 candidates/lane
+// 2. Batch token budget — must be high enough for up to ~18 candidates/lane
 const researchSrc = readFileSync(new URL('../api/research.js', import.meta.url), 'utf8');
-if (/isBatch\)\s*return\s+isOpus\s*\?\s*5600\s*:\s*7200/.test(researchSrc)) {
-  pass('Repurpose lane max_tokens = 7200 (Sonnet) — fits up to 9 candidates/lane');
+if (/isBatch\)\s*return\s+isOpus\s*\?\s*9000\s*:\s*12000/.test(researchSrc)) {
+  pass('Repurpose lane max_tokens = 12000 (Sonnet) — fits up to ~18 candidates/lane');
 } else {
   fail('Repurpose batch max_tokens may be too low — check resolveMaxTokens in api/research.js');
 }
@@ -234,13 +239,13 @@ if (/Retrying.*incomplete drug batch/i.test(html) || /MIN_PER_LANE|laneNeedsRetr
 //     (tagged `_uncited`) and routed to the logic-based section, not dropped;
 //     cited candidates rank ahead and the list is trimmed to the soft cap.
 const keepsUncited = /_uncited/.test(html) && /hasCitation/.test(html);
-const capsList = /SOFT_CAP/.test(html) && /ranked\.slice\(0, SOFT_CAP\)/.test(html);
-const routesUncited = /if \(c\._uncited\) \{ mechanistic\.push\(c\); return; \}/.test(html);
-const threeTiers = /const human = \[\];/.test(html) && /const preclinical = \[\];/.test(html);
-if (keepsUncited && capsList && routesUncited && threeTiers) {
-  pass('Repurpose candidates: three tiers (human/preclinical/logic-based), uncited kept as hypotheses, cited ranked first, capped to soft cap (index.html)');
+const capsList = /SOFT_CAP\s*=\s*50/.test(html) && /SECTION_CAP\s*=\s*25/.test(html) && /combined\.slice\(0, SOFT_CAP\)/.test(html);
+const twoSections = /neverResearched/.test(html) && /researchedNotApproved/.test(html) && /resolveRepurposeSection/.test(html);
+const itemKindUi = /ItemKindBadge/.test(html) && /ITEM_KIND:/.test(html);
+if (keepsUncited && capsList && twoSections && itemKindUi) {
+  pass('Repurpose candidates: two Dorothy sections (~25 each), uncited kept, cited first, soft-capped to 50 (index.html)');
 } else {
-  fail(`Citation/tier wiring missing in index.html (keepsUncited=${keepsUncited} caps=${capsList} routes=${routesUncited} threeTiers=${threeTiers})`);
+  fail(`Citation/section wiring missing in index.html (keepsUncited=${keepsUncited} caps=${capsList} twoSections=${twoSections} itemKind=${itemKindUi})`);
 }
 
 // 9. Health endpoint
@@ -257,7 +262,7 @@ const slugs = await listKbs();
 if (slugs.length >= 11) pass(`${slugs.length} curated KB conditions registered`);
 else fail(`Only ${slugs.length} KBs — expected ≥11`);
 
-// 11. Quality assessor sanity — Hard 25 requires ≥25 REAL-linked cards
+// 11. Quality assessor sanity — Hard 50 requires ≥50 REAL-linked cards (~25/section)
 {
   // REAL citations only (client mandate): a DailyMed SEARCH page no longer
   // counts — use specific setid label monographs (drugInfo.cfm?setid=…) which do.
@@ -265,18 +270,23 @@ else fail(`Only ${slugs.length} KBs — expected ≥11`);
     'CANDIDATE: a\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=aa-1)\n',
     'CANDIDATE: b\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=bb-2)\n'
   ]);
-  if (!short.ok && short.linked === 2 && short.shortfall === 23) {
-    pass(`Quality assessor: ${short.linked} REAL-linked candidates flagged below Hard-25 floor`);
+  if (!short.ok && short.linked === 2 && short.shortfall === 48) {
+    pass(`Quality assessor: ${short.linked} REAL-linked candidates flagged below Hard-50 floor`);
   } else {
     fail(`Quality assessor broken (ok=${short.ok} linked=${short.linked} shortfall=${short.shortfall})`);
   }
-  const blocks = Array.from({ length: 25 }, (_, i) => {
-    const name = `Candidate${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + (i % 26))}`;
+  const blocks = Array.from({ length: 50 }, (_, i) => {
+    const name = `Candidate${String.fromCharCode(65 + Math.floor(i / 26))}${String.fromCharCode(65 + (i % 26))}${i}`;
     return `CANDIDATE: ${name}\nREFERENCES: [DailyMed label](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=${name.toLowerCase()}-x)`;
   }).join('\n\n');
   const full = assessRepurposeQuality([blocks]);
-  if (full.ok && full.linked >= 25) pass(`Quality assessor OK at ${full.linked} REAL-linked candidates`);
-  else fail(`Quality assessor should pass Hard 25 (ok=${full.ok} linked=${full.linked})`);
+  if (full.ok && full.linked >= 50) pass(`Quality assessor OK at ${full.linked} REAL-linked candidates`);
+  else fail(`Quality assessor should pass Hard 50 (ok=${full.ok} linked=${full.linked})`);
+  if (REPURPOSE_SECTION_TARGET === 25 && REPURPOSE_TARGET_TOTAL === 50) {
+    pass(`Two-section targets: ${REPURPOSE_SECTION_TARGET}/section, ${REPURPOSE_TARGET_TOTAL} total`);
+  } else {
+    fail(`Two-section targets wrong (section=${REPURPOSE_SECTION_TARGET} total=${REPURPOSE_TARGET_TOTAL})`);
+  }
 }
 
 // 12. Infra (local env — warn only)
@@ -1435,42 +1445,46 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
 }
 
 // ===========================================================================
-// FIX 2 — Hard 25 REAL-link floor. Retry floor 7; backfill threshold 25;
+// FIX 2 — Hard 50 REAL-link floor (~25/section). Retry floor 12; backfill 50;
 // multi-pass + registry fill; Google alone does not count as a citation.
 // ===========================================================================
 {
-  const floorOk = REPURPOSE_MIN_PER_LANE === 7 && REPURPOSE_BACKFILL_THRESHOLD === 25;
-  const lane5 = Array.from({ length: 5 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + i)}`).join('\n');
-  const lane8 = Array.from({ length: 8 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + i)}`).join('\n');
-  const retry5 = countCandidateBlocks(lane5) < REPURPOSE_MIN_PER_LANE;
-  const retry8 = countCandidateBlocks(lane8) < REPURPOSE_MIN_PER_LANE;
-  if (floorOk && retry5 && !retry8) pass('Fix 2: retry floor is 7; Hard-25 backfill threshold is 25');
-  else fail(`Fix 2: retry-floor regression (floor=${floorOk} retry5=${retry5} retry8=${retry8})`);
+  const floorOk = REPURPOSE_MIN_PER_LANE === 12 && REPURPOSE_BACKFILL_THRESHOLD === 50;
+  const lane11 = Array.from({ length: 11 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + (i % 26))}${i}`).join('\n');
+  const lane13 = Array.from({ length: 13 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + (i % 26))}${i}`).join('\n');
+  const retry11 = countCandidateBlocks(lane11) < REPURPOSE_MIN_PER_LANE;
+  const retry13 = countCandidateBlocks(lane13) < REPURPOSE_MIN_PER_LANE;
+  if (floorOk && retry11 && !retry13) pass('Fix 2: retry floor is 12; Hard-50 backfill threshold is 50');
+  else fail(`Fix 2: retry-floor regression (floor=${floorOk} retry11=${retry11} retry13=${retry13})`);
 
-  const mk = (n) => Array.from({ length: n }, (_, i) =>
-    `CANDIDATE: Drug${String.fromCharCode(97 + i)} (Brand) — 100 mg`).join('\n');
-  const dupSome = mk(20) + '\nCANDIDATE: Druga (dup entry)';
+  // Names must stay letter-based: candidateDedupKey cuts at the first digit.
+  const mk = (n) => Array.from({ length: n }, (_, i) => {
+    const a = String.fromCharCode(97 + (i % 26));
+    const b = String.fromCharCode(97 + Math.floor(i / 26));
+    return `CANDIDATE: Drug${a}${b} (Brand) — dose note`;
+  }).join('\n');
+  const dupSome = mk(20) + '\nCANDIDATE: Drugaa (dup entry)';
   const distinct = distinctCandidateCount(dupSome);
   const namesOk = candidateNamesFromText(dupSome).length === 21;
   const backfillNeeded = needsBackfill(distinct);
-  if (distinct === 20 && namesOk && backfillNeeded) pass('Fix 2: distinctCandidateCount ignores a duplicate (20), needsBackfill fires below the 25 target');
+  if (distinct === 20 && namesOk && backfillNeeded) pass('Fix 2: distinctCandidateCount ignores a duplicate (20), needsBackfill fires below the 50 target');
   else fail(`Fix 2: distinct/backfill regression (distinct=${distinct} names=${namesOk} needBackfill=${backfillNeeded})`);
 
-  const fullList = mk(25);
-  if (!needsBackfill(distinctCandidateCount(fullList))) pass('Fix 2: a genuinely full list (25 distinct) does NOT trigger backfill');
+  const fullList = mk(50);
+  if (!needsBackfill(distinctCandidateCount(fullList))) pass('Fix 2: a genuinely full list (50 distinct) does NOT trigger backfill');
   else fail('Fix 2: full list wrongly triggered backfill');
 
   if (REPURPOSE_BACKFILL_MAX_PASSES >= 1 && REPURPOSE_BACKFILL_MAX_PASSES <= 2) {
-    pass(`Fix 2: backfill cap is ${REPURPOSE_BACKFILL_MAX_PASSES} (registry fill finishes Hard-25)`);
+    pass(`Fix 2: backfill cap is ${REPURPOSE_BACKFILL_MAX_PASSES} (registry fill finishes Hard-50)`);
   } else fail(`Fix 2: BACKFILL_MAX_PASSES should be 1–2 (got ${REPURPOSE_BACKFILL_MAX_PASSES})`);
 
-  // Google alone never counts toward Hard 25
+  // Google alone never counts toward Hard 50
   const googleOnly = `CANDIDATE: MagicalPill
 REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
   if (distinctLinkedCandidateCount(googleOnly) === 0 && !isRealCitationUrl('https://www.google.com/search?q=x')) {
-    pass('Hard 25: Google-search-only does NOT count as a REAL citation');
+    pass('Hard 50: Google-search-only does NOT count as a REAL citation');
   } else {
-    fail('Hard 25: Google-search incorrectly counted as real citation');
+    fail('Hard 50: Google-search incorrectly counted as real citation');
   }
 
   // DailyMed SEARCH pages are NO LONGER real citations (client mandate:
@@ -1480,34 +1494,62 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
   const dailyLabelReal = isRealCitationUrl('https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=abc-123');
   const nctOk = isRealCitationUrl('https://clinicaltrials.gov/study/NCT05321069');
   if (dailySearchNotReal && dailyLabelReal && nctOk) {
-    pass('Hard 25: DailyMed SEARCH is NOT a real citation; specific setid label + CT.gov study ARE');
+    pass('Hard 50: DailyMed SEARCH is NOT a real citation; specific setid label + CT.gov study ARE');
   } else {
-    fail(`Hard 25: DailyMed citation rule regression (searchNotReal=${dailySearchNotReal} labelReal=${dailyLabelReal})`);
+    fail(`Hard 50: DailyMed citation rule regression (searchNotReal=${dailySearchNotReal} labelReal=${dailyLabelReal})`);
   }
 
   // Registry fill must NOT fabricate a DailyMed search citation. With no real
   // link available, a registry-fill candidate carries NO citation link and does
-  // NOT count toward Hard 25 (honest "real specific URL or none").
+  // NOT count toward Hard 50 (honest "real specific URL or none").
   const fillBlock = buildRegistryFillCandidate({ name: 'Metformin', mechanism: 'AMPK' }, { condition: 'IPF' });
   const fillNoSearchLink = !/dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(fillBlock);
   const fillNoInventedPaper = !/pubmed\.ncbi|doi\.org\/10\./i.test(fillBlock);
   const fillNotCounted = !textHasRealCitation(fillBlock);
+  const fillTaggedNever = resolveRepurposeSection(fillBlock) === REPURPOSE_SECTION_NEVER;
+  const fillMedication = resolveItemKind(fillBlock) === 'MEDICATION';
   // A registry-fill candidate WITH a resolved specific setid label DOES count.
   const fillWithLabel = buildRegistryFillCandidate(
     { name: 'Metformin' },
     { condition: 'IPF', labelUrl: 'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=xyz-1' }
   );
   const fillLabelCounted = textHasRealCitation(fillWithLabel);
-  if (fillNoSearchLink && fillNoInventedPaper && fillNotCounted && fillLabelCounted) {
-    pass('Hard 25: registry fill never fabricates a DailyMed search link (no citation w/o a real setid label; counts only with one)');
+  if (fillNoSearchLink && fillNoInventedPaper && fillNotCounted && fillLabelCounted && fillTaggedNever && fillMedication) {
+    pass('Hard 50: registry fill never fabricates a DailyMed search link; tags never-researched + MEDICATION');
   } else {
-    fail(`Hard 25: registry fill DailyMed-search regression (noSearch=${fillNoSearchLink} notCounted=${fillNotCounted} labelCounted=${fillLabelCounted})`);
+    fail(`Hard 50: registry fill regression (noSearch=${fillNoSearchLink} notCounted=${fillNotCounted} labelCounted=${fillLabelCounted} section=${fillTaggedNever} kind=${fillMedication})`);
   }
 
   const clientHasMultiPass = /BACKFILL_MAX_PASSES\s*=\s*1/.test(html) && /registryFilled/.test(html);
   const clientHasRealGate = /isGoogleSearchCitation|isGoogleUrl/.test(html) && /!isGoogle/.test(html);
-  if (clientHasMultiPass && clientHasRealGate) pass('Hard 25: index.html backfill + Google-excluded citation gate present');
-  else fail(`Hard 25: client wiring missing (multi=${clientHasMultiPass} gate=${clientHasRealGate})`);
+  if (clientHasMultiPass && clientHasRealGate) pass('Hard 50: index.html backfill + Google-excluded citation gate present');
+  else fail(`Hard 50: client wiring missing (multi=${clientHasMultiPass} gate=${clientHasRealGate})`);
+
+  // Dorothy two-section tags + UI wiring
+  const neverBlock = `CANDIDATE: IdeaDrug
+ITEM_KIND: MEDICATION
+REPURPOSE_SECTION: never-researched
+EVIDENCE_STRENGTH: MECHANISTIC_ONLY
+REFERENCES: [other](https://pubmed.ncbi.nlm.nih.gov/11111111/)`;
+  const researchedBlock = `CANDIDATE: StudiedDrug
+ITEM_KIND: SUPPLEMENT
+REPURPOSE_SECTION: researched-not-approved
+EVIDENCE_STRENGTH: PRECLINICAL
+REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
+  const sectionOk =
+    resolveRepurposeSection(neverBlock) === REPURPOSE_SECTION_NEVER &&
+    resolveRepurposeSection(researchedBlock) === REPURPOSE_SECTION_RESEARCHED &&
+    resolveItemKind(researchedBlock) === 'SUPPLEMENT' &&
+    resolveRepurposeSection({ evidence_strength: 'MECHANISTIC_ONLY' }) === REPURPOSE_SECTION_NEVER &&
+    resolveRepurposeSection({ evidence_strength: 'SMALL_RCT' }) === REPURPOSE_SECTION_RESEARCHED;
+  const uiTwoSection =
+    /Drug &amp; Supplement Repurposing Ideas|Drug & Supplement Repurposing Ideas/.test(html) &&
+    /Researched, Not Yet FDA-Approved/.test(html) &&
+    /resolveRepurposeSection/.test(html) &&
+    /ItemKindBadge/.test(html) &&
+    /REPURPOSE_SECTION:/.test(researchSrc);
+  if (sectionOk && uiTwoSection) pass('Dorothy two-section: REPURPOSE_SECTION + ITEM_KIND resolve; UI renders both section headers');
+  else fail(`Dorothy two-section regression (sectionOk=${sectionOk} ui=${uiTwoSection})`);
 }
 
 // ===========================================================================
