@@ -21,9 +21,12 @@ if (forbiddenTracked.length) {
 }
 
 const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8'));
-const routes = JSON.stringify(vercel);
-for (const privatePrefix of ['/lib/', '/data/', '/scripts/', '/docs/', '/.verify-', '/tmp/']) {
-  if (!routes.includes(privatePrefix)) {
+const privateRoute = vercel.routes?.[0];
+if (!privateRoute || privateRoute.dest !== '/api/private-static') {
+  fail('vercel.json must deny private paths before every other route');
+}
+for (const privatePrefix of ['lib', 'data', 'scripts', 'docs', '\\.verify-runs', 'tmp']) {
+  if (!String(privateRoute?.src || '').includes(privatePrefix)) {
     fail(`vercel.json does not explicitly deny static access to ${privatePrefix}`);
   }
 }

@@ -193,16 +193,18 @@ await test('subscription listing requires a matching ownership token', async () 
 
 await test('deployment config denies private paths and sets security/cache headers', async () => {
   const config = JSON.parse(await readFile(new URL('vercel.json', root), 'utf8'));
-  const destinations = new Map(config.rewrites.map((r) => [r.source, r.destination]));
-  for (const source of ['/lib/:path*', '/data/:path*', '/docs/:path*', '/.verify-runs/:path*']) {
-    assert.equal(destinations.get(source), '/api/private-static');
+  const privateRoute = config.routes.find((route) => route.dest === '/api/private-static' && /lib\|data/.test(route.src));
+  assert.ok(privateRoute, 'private-path route must run before filesystem serving');
+  for (const prefix of ['lib', 'data', 'docs', '\\.verify-runs']) {
+    assert.match(privateRoute.src, new RegExp(prefix.replace('\\', '\\\\')));
   }
-  const allHeaders = config.headers.find((h) => h.source === '/(.*)').headers;
-  const csp = allHeaders.find((h) => h.key === 'Content-Security-Policy')?.value || '';
+  assert.equal(config.routes[0], privateRoute);
+  const pageRoute = config.routes.find((route) => route.dest === '/index.html');
+  const csp = pageRoute?.headers?.['Content-Security-Policy'] || '';
   assert.match(csp, /object-src 'none'/);
   assert.match(csp, /frame-ancestors 'none'/);
-  const apiHeaders = config.headers.find((h) => h.source === '/api/(.*)').headers;
-  assert.match(apiHeaders.find((h) => h.key === 'Cache-Control').value, /no-store/);
+  const apiRoute = config.routes.find((route) => route.dest === '/api/$1');
+  assert.match(apiRoute?.headers?.['Cache-Control'] || '', /no-store/);
   const ignored = await readFile(new URL('.vercelignore', root), 'utf8');
   for (const path of ['.cursor', '.verify-runs', '.verify-screenshots', 'docs', 'scripts', 'tmp']) {
     assert.match(ignored, new RegExp(`^${path.replace('.', '\\.')}\\s*$`, 'm'));

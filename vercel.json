@@ -1,43 +1,39 @@
 {
-  "headers": [
+  "routes": [
     {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
-      ]
+      "src": "^/(?:lib|data|docs|scripts|\\.verify-runs|\\.verify-screenshots|\\.cursor|tmp)(?:/.*)?$",
+      "dest": "/api/private-static",
+      "headers": {
+        "Cache-Control": "private, no-store, max-age=0",
+        "X-Content-Type-Options": "nosniff"
+      }
     },
     {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "private, no-store, max-age=0" }
-      ]
+      "src": "^/api/(.*)$",
+      "dest": "/api/$1",
+      "headers": {
+        "Cache-Control": "private, no-store, max-age=0",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY"
+      }
     },
     {
-      "source": "/index.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-      ]
+      "src": "^/(?:index\\.html)?$",
+      "dest": "/index.html",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests",
+        "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+        "Referrer-Policy": "no-referrer",
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY"
+      }
     },
     {
-      "source": "/",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
-      ]
+      "src": "^/.*$",
+      "dest": "/api/private-static"
     }
-  ],
-  "rewrites": [
-    { "source": "/lib/:path*", "destination": "/api/private-static" },
-    { "source": "/data/:path*", "destination": "/api/private-static" },
-    { "source": "/docs/:path*", "destination": "/api/private-static" },
-    { "source": "/scripts/:path*", "destination": "/api/private-static" },
-    { "source": "/.verify-runs/:path*", "destination": "/api/private-static" },
-    { "source": "/.verify-screenshots/:path*", "destination": "/api/private-static" },
-    { "source": "/.cursor/:path*", "destination": "/api/private-static" },
-    { "source": "/tmp/:path*", "destination": "/api/private-static" }
   ],
   "functions": {
     "api/**/*.js": {
