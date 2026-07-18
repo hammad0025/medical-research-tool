@@ -1,6 +1,6 @@
 # Terms of Use — researchingmycondition.com
 
-**Last updated:** May 2026
+**Last updated:** July 2026
 
 By using this research tool, you agree to these Terms of Use. If you do not agree, do not use the site.
 
@@ -26,13 +26,13 @@ You are responsible for independently verifying every citation, link, trial list
 
 ## Email alerts
 
-If you subscribe to weekly email digests, we store your **email address** and **condition of interest** on our server (Upstash) to send those emails. Do not include names, MRNs, or other identifying information in alert subscriptions or profile fields tied to alerts.
+If you subscribe to email digests, we store your **email address, condition of interest, alert cadence, and the alert context you submit**. Alert context can include age, sex/gender, disease stage, diagnoses, medications, allergies, and short notes. This data is stored on our server (Upstash when configured) and used to personalize and send alerts until you unsubscribe. Do not include names, MRNs, or other direct identifying information.
 
 ## Data storage
 
-We do **not** persist your patient profile (age, sex, medications, conditions, symptoms, and similar fields) on our servers. Your profile is transmitted with each request **only** so our AI providers can generate and cross-check your report: Anthropic produces the analysis, and Perplexity (and, when configured, OpenAI) independently validate it. We do not write the profile to a database, and it is not retained after the request completes. We use AI provider API tiers that the providers state are not used to train their models.
+We do **not** persist the patient profile used for an on-demand research report unless you separately submit some of those fields as alert context. An on-demand profile is transmitted with each request so our AI providers can generate and cross-check your report: Anthropic produces the analysis, and Perplexity (and, when configured, OpenAI) independently validate it. We do not write that on-demand profile to our database. We use AI provider API tiers that the providers state are not used to train their models.
 
-For abuse prevention and monthly usage limits, we store your **IP address** together with a request count. If you subscribe to email alerts, we also store the **email address** and **condition of interest** you provide (see **Email alerts** above). We do not store any other profile data on our servers.
+For abuse prevention and monthly usage limits, we store your **IP address** together with a request count. If you subscribe to email alerts, we store the subscription and alert-context fields listed under **Email alerts** above.
 
 ## Age requirement
 

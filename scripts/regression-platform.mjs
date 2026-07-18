@@ -2,9 +2,10 @@
 // Platform robustness regression — offline, no Anthropic spend.
 // Run: node scripts/regression-platform.mjs
 
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { loadKb, listKbs } from '../lib/kb.js';
 import { buildSupplementDiscoveryBlock, isSupplementEvidenceItem } from '../lib/supplement-discovery.js';
 import {
@@ -68,6 +69,7 @@ import {
   reattachEntityLinks,
   sanitizeFabricatedEfficacyScores,
   demoteGoogleAsPaperCitations,
+  stripGoogleSearchMarkdownLinks,
   isFabricatedEfficacyScore,
   sanitizeMarkdownLinks,
   collectAllowedUrls,
@@ -101,6 +103,7 @@ import {
   conditionSubjectTokens
 } from '../lib/grounding-gate.js';
 import { stripDemographicMismatchLines } from '../lib/demographic-gate.js';
+import { stripForeignDiseaseContamination, filterEvidencePackByCondition } from '../lib/disease-contamination.js';
 import {
   REPURPOSE_MIN_PER_LANE,
   REPURPOSE_BACKFILL_THRESHOLD,
@@ -139,6 +142,13 @@ import {
   extractReportUrls,
   findDeadLinks
 } from '../lib/link-check.js';
+import {
+  isBannedClaimCitation,
+  demoteBannedClaimCitations,
+  buildDeadLinkReplacement,
+  isUnverifiedDocumentUrl
+} from '../lib/citation-gate.js';
+import { extractKbCitationUrls } from './audit-kb-links.mjs';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
 const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
@@ -152,6 +162,21 @@ try {
   pass('api/research.js parses — SyntaxError would kill every gather/synth call');
 } catch (e) {
   fail(`api/research.js SyntaxError: ${String(e.stderr || e.message).split('\n')[0]}`);
+}
+
+// Access gate: ON whenever MRT_ACCESS_PASSCODE is set — never requires a
+// separate FORCE flag (that left production world-readable while the
+// passcode env was present).
+{
+  const gateSrc = readFileSync(new URL('../lib/access-gate.js', import.meta.url), 'utf8');
+  if (
+    /validPasscodes\.size\s*>\s*0/.test(gateSrc) &&
+    !/MRT_ACCESS_GATE_FORCE/.test(gateSrc)
+  ) {
+    pass('Access gate: enabled whenever MRT_ACCESS_PASSCODE is set (no FORCE opt-in)');
+  } else {
+    fail('Access gate still depends on MRT_ACCESS_GATE_FORCE or is not passcode-driven');
+  }
 }
 
 // 1. Repurpose quality constants wired
@@ -261,7 +286,7 @@ const researchTabTwoSection =
   /rd-nr-/.test(html) &&
   /rd-rna-/.test(html);
 if (keepsUncited && capsList && twoSections && itemKindUi && researchTabTwoSection) {
-  pass('Repurpose candidates: two Dorothy sections on Research + Repurpose tabs (~25 each), uncited kept, soft-capped to 50');
+  pass('Repurpose candidates: two Dorothy sections on Research (~25 each), uncited kept, soft-capped to 50');
 } else {
   fail(`Citation/section wiring missing in index.html (keepsUncited=${keepsUncited} caps=${capsList} twoSections=${twoSections} itemKind=${itemKindUi} researchTab=${researchTabTwoSection})`);
 }
@@ -280,7 +305,8 @@ const slugs = await listKbs();
 if (slugs.length >= 11) pass(`${slugs.length} curated KB conditions registered`);
 else fail(`Only ${slugs.length} KBs — expected ≥11`);
 
-// 11. Quality assessor sanity — Hard 50 requires ≥50 REAL-linked cards (~25/section)
+// 11. Quality assessor sanity — evidence quality is mandatory, but no medical
+// candidate quota may force unsupported filler.
 {
   // REAL citations only (client mandate): a DailyMed SEARCH page no longer
   // counts — use specific setid label monographs (drugInfo.cfm?setid=…) which do.
@@ -288,8 +314,8 @@ else fail(`Only ${slugs.length} KBs — expected ≥11`);
     'CANDIDATE: a\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=aa-1)\n',
     'CANDIDATE: b\nREFERENCES: [x](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=bb-2)\n'
   ]);
-  if (!short.ok && short.linked === 2 && short.shortfall === 48) {
-    pass(`Quality assessor: ${short.linked} REAL-linked candidates flagged below Hard-50 floor`);
+  if (short.ok && short.linked === 2 && short.shortfall === 0) {
+    pass(`Quality assessor accepts ${short.linked} supported candidates without forcing filler`);
   } else {
     fail(`Quality assessor broken (ok=${short.ok} linked=${short.linked} shortfall=${short.shortfall})`);
   }
@@ -300,8 +326,8 @@ else fail(`Only ${slugs.length} KBs — expected ≥11`);
   const full = assessRepurposeQuality([blocks]);
   if (full.ok && full.linked >= 50) pass(`Quality assessor OK at ${full.linked} REAL-linked candidates`);
   else fail(`Quality assessor should pass Hard 50 (ok=${full.ok} linked=${full.linked})`);
-  if (REPURPOSE_SECTION_TARGET === 25 && REPURPOSE_TARGET_TOTAL === 50) {
-    pass(`Two-section targets: ${REPURPOSE_SECTION_TARGET}/section, ${REPURPOSE_TARGET_TOTAL} total`);
+  if (REPURPOSE_SECTION_TARGET === 0 && REPURPOSE_TARGET_TOTAL === 0) {
+    pass('Two-section output has no unsupported minimum quota');
   } else {
     fail(`Two-section targets wrong (section=${REPURPOSE_SECTION_TARGET} total=${REPURPOSE_TARGET_TOTAL})`);
   }
@@ -1467,12 +1493,12 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
 // multi-pass + registry fill; Google alone does not count as a citation.
 // ===========================================================================
 {
-  const floorOk = REPURPOSE_MIN_PER_LANE === 12 && REPURPOSE_BACKFILL_THRESHOLD === 50;
+  const floorOk = REPURPOSE_MIN_PER_LANE === 12 && REPURPOSE_BACKFILL_THRESHOLD === 0;
   const lane11 = Array.from({ length: 11 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + (i % 26))}${i}`).join('\n');
   const lane13 = Array.from({ length: 13 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + (i % 26))}${i}`).join('\n');
   const retry11 = countCandidateBlocks(lane11) < REPURPOSE_MIN_PER_LANE;
   const retry13 = countCandidateBlocks(lane13) < REPURPOSE_MIN_PER_LANE;
-  if (floorOk && retry11 && !retry13) pass('Fix 2: retry floor is 12; Hard-50 backfill threshold is 50');
+  if (floorOk && retry11 && !retry13) pass('Fix 2: retry floor is 12; unsupported quota backfill is disabled');
   else fail(`Fix 2: retry-floor regression (floor=${floorOk} retry11=${retry11} retry13=${retry13})`);
 
   // Names must stay letter-based: candidateDedupKey cuts at the first digit.
@@ -1485,7 +1511,7 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
   const distinct = distinctCandidateCount(dupSome);
   const namesOk = candidateNamesFromText(dupSome).length === 21;
   const backfillNeeded = needsBackfill(distinct);
-  if (distinct === 20 && namesOk && backfillNeeded) pass('Fix 2: distinctCandidateCount ignores a duplicate (20), needsBackfill fires below the 50 target');
+  if (distinct === 20 && namesOk && !backfillNeeded) pass('Fix 2: distinctCandidateCount ignores a duplicate and quota backfill stays disabled');
   else fail(`Fix 2: distinct/backfill regression (distinct=${distinct} names=${namesOk} needBackfill=${backfillNeeded})`);
 
   const fullList = mk(50);
@@ -1532,8 +1558,8 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     { condition: 'IPF', labelUrl: 'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=xyz-1' }
   );
   const fillLabelCounted = textHasRealCitation(fillWithLabel);
-  if (fillNoSearchLink && fillNoInventedPaper && fillNotCounted && fillLabelCounted && fillTaggedNever && fillMedication) {
-    pass('Hard 50: registry fill never fabricates a DailyMed search link; tags never-researched + MEDICATION');
+  if (fillNoSearchLink && fillNoInventedPaper && fillNotCounted && !fillLabelCounted && fillTaggedNever && fillMedication) {
+    pass('Registry filler never turns an unrelated product label into condition evidence');
   } else {
     fail(`Hard 50: registry fill regression (noSearch=${fillNoSearchLink} notCounted=${fillNotCounted} labelCounted=${fillLabelCounted} section=${fillTaggedNever} kind=${fillMedication})`);
   }
@@ -1569,7 +1595,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     /rd-nr-/.test(html) &&
     /rd-rna-/.test(html) &&
     !/Open the Drug Repurposing tab for the full two-section list/.test(html);
-  if (sectionOk && uiTwoSection) pass('Dorothy two-section: REPURPOSE_SECTION + ITEM_KIND resolve; Research + Repurpose tabs both render section headers');
+  if (sectionOk && uiTwoSection) pass('Dorothy two-section: REPURPOSE_SECTION + ITEM_KIND resolve; Research tab renders both section headers');
   else fail(`Dorothy two-section regression (sectionOk=${sectionOk} ui=${uiTwoSection})`);
 }
 
@@ -1646,7 +1672,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     ]
   };
   const map = buildReferenceUrlMap(evidence);
-  const mapOk = map.get(1) === 'https://pubmed.ncbi.nlm.nih.gov/11111111/' &&
+  const mapOk = map.get(1) === 'https://pubmed.ncbi.nlm.nih.gov/11111111' &&
                 map.get(2) === 'https://doi.org/10.1000/abc' &&
                 map.get(3) === 'https://clinicaltrials.gov/study/NCT05321069';
   if (mapOk) pass('Inline citations: reference-URL map mirrors the [#N] evidence-pack numbering');
@@ -1693,7 +1719,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
 
   // finalizeReportText wires the resolver into the real render path.
   const finalized = finalizeReportText('Finasteride slows loss. [#1]', { evidence, trials: null });
-  if (/\[source ↗\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/11111111\/\)/.test(finalized) && !/\[#1\]/.test(finalized)) {
+  if (/\[source ↗\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/11111111\/?\)/.test(finalized) && !/\[#1\]/.test(finalized)) {
     pass('Inline citations: finalizeReportText inlines [#N] markers end-to-end');
   } else {
     fail(`Inline citations: finalize end-to-end regression → ${JSON.stringify(finalized)}`);
@@ -1839,6 +1865,105 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   } else {
     fail(`Condition mention primitives regression (sickleMentionsRp=${sickleMentionsRp} taxonomyOnly=${taxonomyOnly})`);
   }
+
+  // Prose contamination: sickle-cell sentences must not survive finalize on an
+  // IPF/RP report even when no citation URL is attached.
+  const contaminatedProse = [
+    'Idiopathic pulmonary fibrosis causes progressive scarring of the lungs.',
+    'Sickle cell disease can also cause retinal ischemia and vaso-occlusive crisis.',
+    'Nintedanib and pirfenidone are FDA-approved antifibrotics for IPF.'
+  ].join(' ');
+  const scrubbed = stripForeignDiseaseContamination(
+    contaminatedProse,
+    'Idiopathic Pulmonary Fibrosis'
+  );
+  const finalizedContam = finalizeReportText(contaminatedProse, {
+    evidence: { groundedForPrompt: [{
+      title: 'IPF overview',
+      text: 'Idiopathic pulmonary fibrosis causes progressive scarring of the lungs. Nintedanib and pirfenidone are approved.',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/77770001/',
+      isCuratedKB: true
+    }] },
+    patient: { condition: 'Idiopathic Pulmonary Fibrosis' }
+  });
+  if (
+    scrubbed.stripped.length >= 1 &&
+    !/sickle\s*cell/i.test(scrubbed.text) &&
+    /nintedanib/i.test(scrubbed.text) &&
+    !/sickle\s*cell/i.test(finalizedContam)
+  ) {
+    pass('Wrong-disease prose: sickle cell sentences stripped from IPF finalize (no sickle cell, no bs)');
+  } else {
+    fail(`Sickle prose contamination regression → scrubbed=${JSON.stringify(scrubbed)} finalized=${JSON.stringify(finalizedContam)}`);
+  }
+
+  // Patient WITH sickle cell keeps their own disease prose.
+  const keepOwn = stripForeignDiseaseContamination(
+    'Sickle cell disease causes vaso-occlusive crisis. Hydroxyurea reduces crises.',
+    'Sickle Cell Disease'
+  );
+  if (keepOwn.stripped.length === 0 && /sickle\s*cell/i.test(keepOwn.text)) {
+    pass('Wrong-disease prose: sickle cell patients keep sickle cell sentences');
+  } else {
+    fail(`Own-disease keep regression → ${JSON.stringify(keepOwn)}`);
+  }
+
+  // Pack gather gate: SCD live hit must not enter an IPF prompt pack.
+  const mixedPack = [
+    {
+      title: 'IPF antifibrotic therapy review',
+      text: 'Idiopathic pulmonary fibrosis treated with nintedanib.',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/11110001/',
+      isCuratedKB: true
+    },
+    {
+      title: 'Voxelotor in sickle cell disease',
+      text: 'Sickle cell disease vaso-occlusive crisis reduced with voxelotor (Oxbryta).',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/11110002/',
+      isCuratedKB: false
+    },
+    {
+      title: 'Hydroxyurea meta-analysis',
+      abstract: 'Hydroxyurea for sickle cell disease reduces crises.',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/11110003/',
+      isCuratedKB: false
+    }
+  ];
+  const filteredPack = filterEvidencePackByCondition(mixedPack, 'Idiopathic Pulmonary Fibrosis');
+  if (
+    filteredPack.length === 1 &&
+    /IPF antifibrotic/i.test(filteredPack[0].title) &&
+    !filteredPack.some((it) => /sickle|voxelotor|Oxbryta/i.test(`${it.title} ${it.text || ''} ${it.abstract || ''}`))
+  ) {
+    pass('Wrong-disease pack: filterEvidencePackByCondition drops SCD live hits from IPF pack');
+  } else {
+    fail(`Pack filter regression → ${JSON.stringify(filteredPack)}`);
+  }
+
+  // Fail-closed: unknown document URL must not stay as a condition cite.
+  const unknownDoc = enforceConditionCitationRelevance(
+    'Night blindness comes first ([source ↗](https://pubmed.ncbi.nlm.nih.gov/55550001/)).',
+    { groundedForPrompt: [rpOverview] }, // 55550001 not in pack → document fail-closed
+    { condition: 'Retinitis Pigmentosa' }
+  );
+  if (!/55550001/.test(unknownDoc.text) && unknownDoc.demoted.length >= 1) {
+    pass('Wrong-disease cites: unknown PubMed document demoted fail-closed for condition gate');
+  } else {
+    fail(`Fail-closed condition cite regression → ${JSON.stringify(unknownDoc)}`);
+  }
+
+  // Chat/trials path wiring: research.js must finalize those modes too.
+  const researchSrc = readFileSync(new URL('../api/research.js', import.meta.url), 'utf8');
+  const evidenceSrcWrong = readFileSync(new URL('../lib/evidence.js', import.meta.url), 'utf8');
+  if (
+    /mode === 'research' \|\| mode === 'repurpose' \|\| mode === 'chat' \|\| mode === 'trials'/.test(researchSrc) &&
+    /coverage rewrite bypasses the earlier finalize/i.test(researchSrc) &&
+    /filterEvidencePackByCondition/.test(evidenceSrcWrong)
+  ) {
+    pass('Wrong-disease seal: chat+trials finalize, coverage re-finalize, and pack gather filter are wired');
+  } else {
+    fail('api/research.js or lib/evidence.js missing wrong-disease seal wiring');
+  }
 }
 
 // ===========================================================================
@@ -1969,15 +2094,23 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
 
   // evidence-pack jargon must not reach the reader.
   const jargon = polishReportForDisplay(
-    'No evidence-pack item establishes any approved gene therapy for CERKL.'
+    'No evidence-pack item establishes any approved gene therapy for CERKL. SAFETY: Moderate — the evidence pack does not provide FAERS post-market death report counts.'
+  );
+  const jargonFinal = finalizeReportText(
+    'No completed positive RCT exists in this evidence pack. [FDA label](https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&applno=&drugname=Nintedanib)',
+    { evidence: { groundedForPrompt: [] }, trials: null }
   );
   if (
     !/evidence[- ]pack/i.test(jargon) &&
-    /No published source gathered here establishes/.test(jargon)
+    !/\bFAERS\b/.test(jargon) &&
+    /No published source found here establishes/.test(jargon) &&
+    /FDA post-market report/.test(jargon) &&
+    !/evidence[- ]pack/i.test(jargonFinal) &&
+    !/applno=&/i.test(jargonFinal)
   ) {
-    pass('Evidence-pack jargon: rewritten to plain-English "published source gathered here"');
+    pass('Patient jargon: evidence-pack/FAERS rewritten; empty-applno FDA links demoted');
   } else {
-    fail(`Evidence-pack jargon regression → ${JSON.stringify(jargon)}`);
+    fail(`Patient jargon regression → ${JSON.stringify({ jargon, jargonFinal })}`);
   }
 }
 
@@ -2079,6 +2212,21 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   } else {
     fail('Google-as-paper demote failed');
   }
+  const expertGoogle =
+    '- **[Dr. Ganesh Raghu](https://www.google.com/search?q=Ganesh+Raghu+IPF)** — University of Washington ([source ↗](https://pubmed.ncbi.nlm.nih.gov/35486072/)).\n' +
+    'COST: contact assistance ([Jascayd support](https://www.google.com/search?q=Jascayd+patient+assistance))';
+  const strippedExperts = stripGoogleSearchMarkdownLinks(expertGoogle);
+  const finalizeExperts = finalizeReportText(expertGoogle, { evidence: { groundedForPrompt: [] }, trials: null });
+  if (
+    !/google\.com\/search/i.test(strippedExperts) &&
+    /Dr\. Ganesh Raghu/.test(strippedExperts) &&
+    /pubmed\.ncbi\.nlm\.nih\.gov\/35486072/.test(strippedExperts) &&
+    !/google\.com\/search/i.test(finalizeExperts)
+  ) {
+    pass('Google placeholders: expert/assistance search links stripped to plain names; real PubMed kept');
+  } else {
+    fail('Google placeholder strip failed for expert/assistance links');
+  }
 
   const invented = 'See [Hallucinated paper](https://pubmed.ncbi.nlm.nih.gov/99999999/) and [fake doi](https://doi.org/10.1234/fake.doi) for proof.';
   const allowed = collectAllowedUrls({ groundedForPrompt: [{ url: 'https://pubmed.ncbi.nlm.nih.gov/24836310/' }] }, null);
@@ -2129,6 +2277,18 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     pass('Validator panel hidden from readers (no second-AI score / Backed up UI)');
   } else {
     fail('Validator panel should return null and not surface second-AI scores');
+  }
+  // Client mandate: no "AIs disagreed" / mismatch dispute banner for readers.
+  if (/do NOT surface second-AI vs first-AI disagreement/.test(html) && /const ValidationMismatchBanner = \(\) =>/.test(html)) {
+    pass('Validation mismatch banner hidden from readers (no second-AI fight UI)');
+  } else {
+    fail('ValidationMismatchBanner should return null and not surface AI disagreement');
+  }
+  // Dorothy: full report primary export is Word, with structured headings.
+  if (/Export Full Report \(Word\)/.test(html) && /Never Researched for/.test(html) && /downloadWordDocument/.test(html)) {
+    pass('Full report export is Word-first with structured never-researched section');
+  } else {
+    fail('Full report Word export / structured body missing');
   }
 }
 
@@ -2235,7 +2395,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     drugName: 'DrugB', patientMeds: 'Warfarin 5 mg',
     fdaLabel: { url, drugInteractions: 'Concomitant warfarin increases bleeding risk.' }, faers: []
   });
-  const dropsOk = clean.band === 'High' && interact.band === 'Moderate' &&
+  const dropsOk = clean.band === 'Unknown' && interact.band === 'Moderate' &&
     interact.factors.some((f) => /warfarin/i.test(f.text) && f.url === url);
   if (dropsOk) pass('Fix 6(b): a patient-med interaction drops the band one level (High → Moderate) with a cited factor');
   else fail(`Fix 6(b): interaction-drop regression (clean=${clean.band} interact=${interact.band})`);
@@ -2253,24 +2413,24 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   const deathIgnored = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
     { reaction: 'Death', reports: 99999 }
   ] });
-  const faersOk = oneSerious.band === 'Moderate' && threeSerious.band === 'Low' && belowThreshold.band === 'High'
-    && deathIgnored.band === 'High'
+  const faersOk = oneSerious.band === 'Moderate' && threeSerious.band === 'Low' && belowThreshold.band === 'Unknown'
+    && deathIgnored.band === 'Unknown'
     && !(deathIgnored.factors || []).some((f) => /DEATH|Death/i.test(f.text));
   if (faersOk) pass(`Fix 6(c): serious FAERS signal floors the band (1≥${FAERS_SERIOUS_MIN_REPORTS}→Moderate, ≥3→Low; bare Death counts ignored)`);
   else fail(`Fix 6(c): FAERS-floor regression (one=${oneSerious.band} three=${threeSerious.band} below=${belowThreshold.band} death=${deathIgnored.band})`);
 
-  // (d) No negative signal → High, still with a clickable FDA factor.
+  // (d) Incomplete captured label sections cannot establish High safety.
   const high = scoreSafety({ drugName: 'DrugD', patientMeds: 'Metformin', fdaLabel: { url, warnings: 'headache' }, faers: [{ reaction: 'Headache', reports: 40 }] });
-  if (high.band === 'High' && high.factors.length === 1 && high.factors[0].url === url) {
-    pass('Fix 6(d): no negative FDA signal → High band, still carrying a clickable FDA source');
+  if (high.band === 'Unknown' && high.factors.length === 1 && high.factors[0].url === url) {
+    pass('Fix 6(d): incomplete FDA sections remain Unknown with a clickable FDA source');
   } else {
     fail(`Fix 6(d): no-signal High regression (band=${high.band} factors=${JSON.stringify(high.factors)})`);
   }
 
-  // (e) No FDA label → null band (caller drops the meter — no unsourced rating).
+  // (e) No FDA label → explicit Unknown (caller does not invent a rating).
   const nolabel = scoreSafety({ drugName: 'DrugE', patientMeds: '', fdaLabel: null, faers: [] });
-  if (nolabel.band === null && !nolabel.factors.length) {
-    pass('Fix 6(e): a drug with no FDA label yields no band (graceful degrade → meter dropped)');
+  if (nolabel.band === 'Unknown' && !nolabel.factors.length) {
+    pass('Fix 6(e): a drug with no FDA label yields an explicit Unknown state');
   } else {
     fail(`Fix 6(e): no-label degrade regression (band=${nolabel.band})`);
   }
@@ -2371,7 +2531,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     pubmedUrl: 'https://pubmed.ncbi.nlm.nih.gov/32000001/',
     doiUrl: 'https://doi.org/10.1038/s41586-020-1234-5'
   });
-  if (withPmc === 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7654321/') {
+  if (withPmc === 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7654321') {
     pass('Fix 7(a): a paywalled publisher URL with a PMC alternative cites the PMC full-text link');
   } else {
     fail(`Fix 7(a): PMC promotion regression (got ${withPmc})`);
@@ -2383,7 +2543,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     pubmedUrl: 'https://pubmed.ncbi.nlm.nih.gov/32000002/',
     doiUrl: 'https://doi.org/10.1016/j.example.2021.01.001'
   });
-  if (withPubmed === 'https://pubmed.ncbi.nlm.nih.gov/32000002/') {
+  if (withPubmed === 'https://pubmed.ncbi.nlm.nih.gov/32000002') {
     pass('Fix 7(b): with no PMC copy, the PubMed record is preferred over DOI and the publisher URL');
   } else {
     fail(`Fix 7(b): PubMed promotion regression (got ${withPubmed})`);
@@ -2446,7 +2606,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   // (h) The promoted URL survives the report-polish allowlist / link sanitizer.
   const allow = collectAllowedUrls({ groundedForPrompt: [item] }, null);
   const line = `See the trial [source](${preferVerifiableUrl(item)}).`;
-  if (/\[source\]\(https:\/\/pmc\.ncbi\.nlm\.nih\.gov\/articles\/PMC1\/\)/.test(sanitizeMarkdownLinks(line, allow))) {
+  if (/\[source\]\(https:\/\/pmc\.ncbi\.nlm\.nih\.gov\/articles\/PMC1\/?\)/.test(sanitizeMarkdownLinks(line, allow))) {
     pass('Fix 7(h): the promoted reader-verifiable URL is on the allowlist and survives sanitizeMarkdownLinks');
   } else {
     fail('Fix 7(h): promoted URL stripped by the link sanitizer');
@@ -2529,18 +2689,20 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     fail('Fix 8(d): a transient/healthy status was wrongly treated as dead');
   }
 
-  // (e) A dead markdown citation is REPLACED with a condition-scoped PubMed
-  //     search of the same label, not just demoted to a bare claim.
+  // (e) A dead markdown citation without an NCT is demoted to PLAIN TEXT —
+  //     never replaced with a PubMed search placeholder (citation integrity).
   const dud = 'https://www.sciencedirect.com/science/article/abs/pii/S0002939419305732';
   const body = `NAC in RP — Johns Hopkins phase 1, AJO 2020 [source](${dud}) improved vision.`;
   const fixed = stripDeadLinksFromText(body, new Set([dud]), { condition: 'retinitis pigmentosa' });
   if (
     !fixed.includes(dud) &&
-    /\[source\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/\?term=[^)]+\)/.test(fixed)
+    /source/.test(fixed) &&
+    !/pubmed\.ncbi\.nlm\.nih\.gov\/\?term=/i.test(fixed) &&
+    !/google\.com\/search/i.test(fixed)
   ) {
-    pass('Fix 8(e): a stripped dud citation is replaced with a scoped PubMed search link');
+    pass('Fix 8(e): a stripped dud citation becomes plain text (no search-placeholder replacement)');
   } else {
-    fail(`Fix 8(e): dud citation not replaced with a working search link (got: ${fixed})`);
+    fail(`Fix 8(e): dud citation handling regression (got: ${fixed})`);
   }
 
   // (f) An NCT-labelled dead link is repointed at the exact ClinicalTrials.gov
@@ -2554,13 +2716,64 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     fail(`Fix 8(f): NCT/bare-URL handling regression (nct=${nctUrl}, bare="${bareFixed}")`);
   }
 
-  // (g) The replacement search links are navigational, so they survive the
-  //     dead-link extractor's own skip list (never re-stripped) and are stable.
+  // (g) Non-NCT dead links get NO search fallback (empty string) — integrity over density.
   const replUrl = buildFallbackSearchUrl('some paper title', 'IPF');
-  if (replUrl === buildFallbackSearchUrl('some paper title', 'IPF') && extractReportUrls(`[x](${replUrl})`).includes(replUrl)) {
-    pass('Fix 8(g): fallback search URL is deterministic and extractable');
+  if (replUrl === '' && buildFallbackSearchUrl('some paper title', 'IPF') === '') {
+    pass('Fix 8(g): non-NCT dead-link fallback is empty (plain text, not a search URL)');
   } else {
-    fail('Fix 8(g): fallback search URL non-deterministic or unextractable');
+    fail(`Fix 8(g): expected empty fallback, got ${replUrl}`);
+  }
+
+  // Citation authority: banned claim cites + fail-closed unverified documents.
+  {
+    const bannedOk =
+      isBannedClaimCitation('https://www.google.com/search?q=x') &&
+      isBannedClaimCitation('https://pubmed.ncbi.nlm.nih.gov/?term=ipf') &&
+      isBannedClaimCitation('https://clinicaltrials.gov/search?term=ipf') &&
+      isBannedClaimCitation('https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=x') &&
+      !isBannedClaimCitation('https://pubmed.ncbi.nlm.nih.gov/35486072/');
+    const demoted = demoteBannedClaimCitations(
+      'See [Dr X](https://www.google.com/search?q=x) and [paper](https://pubmed.ncbi.nlm.nih.gov/35486072/).'
+    );
+    const demoteOk = !/google\.com\/search/i.test(demoted) && /pubmed\.ncbi\.nlm\.nih\.gov\/35486072/.test(demoted);
+    const unverifiedOk =
+      isUnverifiedDocumentUrl('https://pubmed.ncbi.nlm.nih.gov/99999999/') &&
+      !isUnverifiedDocumentUrl('https://clinicaltrials.gov/study/NCT04148833');
+    const nctOnly = buildDeadLinkReplacement('see NCT04148833') === 'https://clinicaltrials.gov/study/NCT04148833'
+      && buildDeadLinkReplacement('random paper') === '';
+    if (bannedOk && demoteOk && unverifiedOk && nctOnly) {
+      pass('Citation authority: banned search cites demoted; NCT-only dead fallback; unverified docs flagged');
+    } else {
+      fail(`Citation authority regression (banned=${bannedOk} demote=${demoteOk} unverified=${unverifiedOk} nct=${nctOnly})`);
+    }
+  }
+
+  // ALL CONDITIONS: every curated KB must pin ≥1 citeable URL and ZERO banned
+  // claim citations (Google / DailyMed search / PubMed search / CT search).
+  // This is the explicit per-condition gate Dorothy required — runs offline.
+  {
+    const kbDir = join(repoRoot, 'data', 'kb');
+    const files = readdirSync(kbDir).filter((f) => f.endsWith('.json') && !f.startsWith('_'));
+    let empty = 0;
+    let bannedConds = 0;
+    let bannedUrls = 0;
+    for (const f of files) {
+      const slug = f.replace(/\.json$/, '');
+      const kb = JSON.parse(readFileSync(join(kbDir, f), 'utf8'));
+      const cites = extractKbCitationUrls(kb, slug);
+      if (!cites.length) empty++;
+      const bad = cites.filter((c) => isBannedClaimCitation(c.url));
+      if (bad.length) {
+        bannedConds++;
+        bannedUrls += bad.length;
+        fail(`[${slug}] pins ${bad.length} banned citation URL(s) — e.g. ${bad[0].url}`);
+      }
+    }
+    if (!empty && !bannedConds) {
+      pass(`All ${files.length} condition KBs: ≥1 citeable URL each, 0 banned search/dud cites`);
+    } else if (empty) {
+      fail(`${empty}/${files.length} condition KB(s) have zero citeable URLs`);
+    }
   }
 
   // (h) Budget guard: findDeadLinks skips always-live hosts (PubMed/PMC/DOI/
@@ -2751,8 +2964,9 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   const offTopic = citationRelevantToSubject('https://pubmed.ncbi.nlm.nih.gov/11110000/', 'Clascoterone', urlIndex);
   const onTopic = citationRelevantToSubject('https://pubmed.ncbi.nlm.nih.gov/22220000/', 'Clascoterone', urlIndex);
   const unknown = citationRelevantToSubject('https://pubmed.ncbi.nlm.nih.gov/33330000/', 'Clascoterone', urlIndex);
-  if (offTopic === false && onTopic === true && unknown === null) {
-    pass('Task B: citationRelevantToSubject rejects the off-topic AGA review, accepts the clascoterone trial, and returns null for an unknown URL');
+  // Fail-closed: a PubMed document URL not in the pack is demoted (false), not kept (null).
+  if (offTopic === false && onTopic === true && unknown === false) {
+    pass('Task B: citationRelevantToSubject rejects off-topic + pack-unknown PubMed docs; accepts on-topic trial');
   } else {
     fail(`Task B: relevance regression (offTopic=${offTopic} onTopic=${onTopic} unknown=${unknown})`);
   }

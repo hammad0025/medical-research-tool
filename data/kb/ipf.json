@@ -110,7 +110,7 @@
     },
     {
       "name": "Three Lakes Foundation",
-      "url": "https://www.threelakesfoundation.org",
+      "url": null,
       "why": "IPF research funder + patient support programs."
     },
     {
@@ -120,7 +120,7 @@
     },
     {
       "name": "PF Warriors",
-      "url": "https://pfwarriors.org",
+      "url": null,
       "why": "Patient-run community and education."
     }
   ],
@@ -190,7 +190,7 @@
       "year": 2022,
       "doi": "10.1164/rccm.202202-0399ST",
       "pmid": "35486072",
-      "url": "https://www.atsjournals.org/doi/10.1164/rccm.202202-0399ST",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/35486072/",
       "accessLevel": "abstract",
       "summary": "The current authoritative IPF practice guideline jointly endorsed by the American Thoracic Society, European Respiratory Society, Japanese Respiratory Society, and Latin American Thoracic Association. Updates the 2018 guideline. Contains strong recommendations for pirfenidone and nintedanib, introduces the concept of 'progressive pulmonary fibrosis' as a treatable phenotype beyond IPF, and recommends against prednisone monotherapy or combination immunosuppression for IPF.",
       "keyPassages": [
@@ -218,7 +218,7 @@
       "year": 2018,
       "doi": "10.1164/rccm.201807-1255ST",
       "pmid": "30168753",
-      "url": "https://www.atsjournals.org/doi/10.1164/rccm.201807-1255ST",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/30168753/",
       "accessLevel": "abstract",
       "summary": "The diagnostic counterpart to the treatment guideline. Defines the HRCT and histopathology patterns required for IPF diagnosis: Definite UIP, Probable UIP, Indeterminate, and Alternative Diagnosis. Establishes that Definite UIP pattern on HRCT in the right clinical context is sufficient for IPF diagnosis without surgical lung biopsy.",
       "keyPassages": [
@@ -258,7 +258,7 @@
       "year": 2014,
       "doi": "10.1056/NEJMoa1402582",
       "pmid": "24836310",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1402582",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24836310/",
       "accessLevel": "abstract",
       "summary": "The confirmatory phase 3 RCT that secured US FDA approval of pirfenidone (Esbriet) in October 2014. 555 patients; at 52 weeks, pirfenidone reduced the proportion of patients with FVC decline >=10% or death from 31% to 17%. Mortality was reduced in a pooled analysis of ASCEND + CAPACITY.",
       "keyPassages": [
@@ -282,7 +282,7 @@
       "year": 2014,
       "doi": "10.1056/NEJMoa1402584",
       "pmid": "24836311",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1402584",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24836311/",
       "accessLevel": "abstract",
       "summary": "Twin phase 3 RCTs that secured US FDA approval of nintedanib (Ofev) in October 2014 on the same day as pirfenidone. 1,066 patients total. Both trials met the primary endpoint of reducing annual FVC decline. Diarrhea was the main adverse event (>60%).",
       "keyPassages": [
@@ -306,7 +306,7 @@
       "year": 2019,
       "doi": "10.1056/NEJMoa1908681",
       "pmid": "31566307",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1908681",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/31566307/",
       "accessLevel": "abstract",
       "summary": "Expanded nintedanib's indication beyond IPF to any chronic fibrosing ILD with a progressive phenotype (chronic HP, connective tissue disease-ILD, unclassifiable ILD, sarcoidosis, etc.). Foundation for the 2022 guideline's 'progressive pulmonary fibrosis' concept.",
       "keyPassages": [
@@ -326,7 +326,7 @@
       "year": 2012,
       "doi": "10.1056/NEJMoa1113354",
       "pmid": "22607134",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1113354",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/22607134/",
       "accessLevel": "abstract",
       "summary": "CRITICAL NEGATIVE TRIAL. The triple-therapy arm (prednisone + azathioprine + NAC) was stopped early by the DSMB for increased mortality (8 vs 1 death), increased hospitalizations (23 vs 7), and more serious adverse events vs placebo. Ended decades of empiric use of combination immunosuppression for IPF. This is why current guidelines STRONGLY recommend against these regimens.",
       "keyPassages": [
@@ -346,7 +346,7 @@
       "year": 2014,
       "doi": "10.1056/NEJMoa1401739",
       "pmid": "24836312",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1401739",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24836312/",
       "accessLevel": "abstract",
       "summary": "PANTHER-IPF's NAC-monotherapy arm. After the triple-therapy arm was stopped, the NAC-alone arm continued. It also showed NO benefit over placebo for FVC decline, mortality, or exacerbation. Put to rest the long-standing empiric use of NAC monotherapy for IPF despite common off-label enthusiasm.",
       "keyPassages": [
@@ -366,7 +366,7 @@
       "year": 2018,
       "doi": "10.1056/NEJMra1705751",
       "pmid": "29742380",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMra1705751",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29742380/",
       "accessLevel": "abstract",
       "summary": "The most widely-cited modern clinical review of IPF. Synthesizes epidemiology, pathogenesis, the HRCT-based diagnostic paradigm, both antifibrotics, supportive care, and transplant. The standard reference for the modern standard of care in IPF.",
       "keyPassages": []
@@ -468,7 +468,7 @@
       "year": 2021,
       "doi": "10.1002/14651858.CD006322.pub4",
       "pmid": "33620086",
-      "url": "https://www.cochranelibrary.com/cdsr/doi/10.1002/14651858.CD006322.pub4/full",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/33620086/",
       "accessLevel": "abstract",
       "summary": "Cochrane systematic review establishing that pulmonary rehabilitation improves 6-minute walk distance, dyspnea, and HRQoL in ILD including IPF. Basis for guideline recommendations to enroll IPF patients in structured pulmonary rehab.",
       "keyPassages": [
@@ -488,7 +488,7 @@
       "year": 2021,
       "doi": "10.1016/j.healun.2021.07.005",
       "pmid": "34359733",
-      "url": "https://www.jhltonline.org/article/S1053-2498(21)02407-1/fulltext",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/34359733/",
       "accessLevel": "abstract",
       "summary": "International Society for Heart and Lung Transplantation consensus on lung transplant candidate selection. IPF is the most common indication for lung transplantation worldwide. Patients with IPF and progressive disease despite antifibrotics should be referred early for transplant evaluation. Upper age limit is no longer absolute but physiological fitness matters.",
       "keyPassages": [
@@ -538,7 +538,7 @@
       "year": 2020,
       "doi": "10.1164/rccm.202009-3608ST",
       "pmid": "33108225",
-      "url": "https://www.atsjournals.org/doi/10.1164/rccm.202009-3608ST",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/33108225/",
       "accessLevel": "abstract",
       "summary": "ATS guideline on home oxygen therapy. For adults with ILD (including IPF) and severe resting hypoxemia, long-term O2 is strongly recommended. For exertional desaturation (common in IPF), ambulatory O2 is conditionally recommended — it improves exercise capacity and symptoms in many patients.",
       "keyPassages": [
@@ -556,7 +556,6 @@
       "authors": "CDC Advisory Committee on Immunization Practices",
       "journal": "CDC / MMWR",
       "year": 2024,
-      "url": "https://www.cdc.gov/vaccines/acip/recommendations.html",
       "accessLevel": "full-text",
       "summary": "Patients with chronic fibrosing lung disease should be up to date on: annual influenza vaccine, pneumococcal vaccination (PCV20 OR PCV15 followed by PPSV23), COVID-19 boosters per current schedule, RSV vaccine (age >=60 shared decision), pertussis (Tdap booster), and shingles (Shingrix >=50). Pirfenidone and nintedanib are not immunosuppressants — routine vaccines including live vaccines are not contraindicated, but confirm current CDC guidance.",
       "keyPassages": []
@@ -591,7 +590,7 @@
       "year": 2016,
       "doi": "10.1164/rccm.201604-0801CI",
       "pmid": "27299520",
-      "url": "https://www.atsjournals.org/doi/10.1164/rccm.201604-0801CI",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/27299520/",
       "accessLevel": "abstract",
       "summary": "Working definition of acute exacerbation of IPF (AE-IPF): acute worsening of dyspnea (typically <1 month), new bilateral ground-glass/consolidation on HRCT superimposed on UIP, not fully explained by cardiac failure or fluid overload. Mortality is high (~50% hospital mortality). No proven treatment — empiric high-dose steroids are commonly used despite weak evidence.",
       "keyPassages": [
@@ -611,7 +610,7 @@
       "year": 2022,
       "doi": "10.1056/NEJMoa2201737",
       "pmid": "35569036",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa2201737",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/35569036/",
       "accessLevel": "abstract",
       "summary": "Phase 2 RCT of BI 1015550 (nerandomilast / Jascayd), a preferential PDE4B inhibitor, in IPF. At 12 weeks, treatment prevented FVC decline vs placebo — the readout that launched FIBRONEER-IPF / FIBRONEER-ILD. HISTORICAL context only: nerandomilast is now FDA-approved (Oct 7, 2025). Prefer the phase 3 FIBRONEER-IPF paper (ipf-fibroneer-ipf-2025) for efficacy numbers.",
       "keyPassages": [
@@ -631,7 +630,7 @@
       "year": 2025,
       "doi": "10.1056/NEJMoa2414108",
       "pmid": "40387033",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa2414108",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/40387033/",
       "pubmedUrl": "https://pubmed.ncbi.nlm.nih.gov/40387033/",
       "accessLevel": "abstract",
       "summary": "PIVOTAL phase 3 RCT that secured FDA approval of nerandomilast (Jascayd) for IPF. 1,177 patients; 77.7% on background nintedanib or pirfenidone. Primary endpoint: absolute FVC change at week 52. Adjusted mean FVC changes: −114.7 mL (18 mg BID), −138.6 mL (9 mg BID), −183.5 mL (placebo). Adjusted difference vs placebo for the approved 18 mg dose: 68.8 mL (95% CI 30.3–107.4; P<0.001) — i.e. about 69 mL less FVC lost over 52 weeks, NOT 80 mL/year. Most common AE: diarrhea. This is the number to cite for nerandomilast efficacy.",
@@ -710,7 +709,7 @@
       "year": 2018,
       "doi": "10.1038/s41591-018-0087-6",
       "pmid": "29967351",
-      "url": "https://www.nature.com/articles/s41591-018-0087-6",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29967351/",
       "accessLevel": "abstract",
       "summary": "PRECLINICAL (ANIMAL/CELL) study that generated the metformin-for-IPF hypothesis. In mouse lungs and in fibroblasts from human IPF patients, activating AMPK with metformin reduced and even reversed established fibrosis. This is exciting laboratory science, but it is NOT human proof. It explains WHY metformin keeps coming up for IPF — but the human post-hoc data (Spagnolo 2018) did not show benefit. So research on metformin in IPF clearly exists; it is just not positive in people yet.",
       "keyPassages": [
@@ -1030,7 +1029,10 @@
     },
     {
       "name": "Metformin as an IPF antifibrotic",
-      "aliases": ["metformin", "Glucophage"],
+      "aliases": [
+        "metformin",
+        "Glucophage"
+      ],
       "reason": "Metformin HAS been researched for IPF — it is NOT an unstudied drug. Lab studies in mice and in human IPF cells (Rangarajan, Nature Medicine 2018) showed metformin can reverse lung scarring, which created excitement. BUT the human data do not back this up: a post-hoc analysis of 624 patients across three phase 3 pirfenidone trials (Spagnolo, Respiration 2018) found metformin had no effect on lung-function decline, walking distance, hospitalization, or survival, and slightly more metformin users had a >=5% drop in FVC. A dedicated phase 3 trial is ongoing. Bottom line: studied in people, but not shown to help — not an established IPF treatment outside a trial. Never describe metformin as 'not researched' or 'never studied' for IPF.",
       "evidenceRef": "ipf-metformin-spagnolo-2018"
     }

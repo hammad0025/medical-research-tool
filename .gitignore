@@ -21,3 +21,9 @@ yarn-error.log*
 .env*.local
 data/.cache/
 data/kb/_REVIEW.md
+
+# Local audit output and screenshots may contain patient-like fixtures.
+.verify-runs/
+.verify-screenshots/
+tmp/
+.cursor/debug-*.log

@@ -1,6 +1,6 @@
 // GET /api/health — platform readiness (no AI spend, no auth required when gate unset).
 
-import { getInfraStatus } from '../lib/infra-status.js';
+import { checkInfraStatus } from '../lib/infra-status.js';
 import { listKbs } from '../lib/kb.js';
 import { requireAccess } from '../lib/access-gate.js';
 import {
@@ -22,14 +22,18 @@ export default async function handler(req, res) {
 
   if (!requireAccess(req, res)) return;
 
-  const infra = getInfraStatus();
+  const infra = await checkInfraStatus();
   let kbCount = 0;
+  let kbAvailable = true;
   try {
     kbCount = (await listKbs()).length;
-  } catch (_) {}
+  } catch (_) {
+    kbAvailable = false;
+  }
 
-  const status = infra.productionReady ? 'healthy' : 'degraded';
-  res.status(infra.productionReady ? 200 : 503).json({
+  const healthy = infra.productionReady && kbAvailable;
+  const status = healthy ? 'healthy' : 'degraded';
+  res.status(healthy ? 200 : 503).json({
     status,
     service: 'medical-research-tool',
     version: '3.0.0',
@@ -68,13 +72,24 @@ export default async function handler(req, res) {
         }
       }
     },
-    kb: { curatedConditions: kbCount },
+    kb: { curatedConditions: kbCount, state: kbAvailable ? 'operational' : 'unavailable' },
     infra: {
-      productionReady: infra.productionReady,
+      productionReady: healthy,
       ok: infra.ok,
       warnings: infra.warnings.map((w) => w.id),
       missing: infra.missing.map((m) => m.id),
-      brainStore: infra.brainStore
+      brainStore: infra.brainStore,
+      usageMeteringEnabled: infra.usageMeteringEnabled,
+      dependencies: Object.fromEntries(
+        Object.entries(infra.dependencies).map(([name, dependency]) => [
+          name,
+          {
+            required: dependency.required,
+            configured: dependency.configured,
+            state: dependency.state
+          }
+        ])
+      )
     }
   });
 }

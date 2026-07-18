@@ -6,6 +6,8 @@
 // Run: node scripts/e2e-test.mjs
 // Set ANTHROPIC_API_KEY in env to enable the Anthropic-backed tests.
 
+import './test-helpers/isolate-persistent-stores.mjs';
+
 import trialsHandler from '../api/trials.js';
 import pubmedHandler from '../lib/pubmed.js';
 import researchHandler from '../api/research.js';
@@ -98,14 +100,16 @@ const info = (msg) => console.log(`  ${msg}`);
   pass('parse/rank/URL extraction all working');
 
   const phase3 = studies.filter(s => (s.phases || []).some(p => /3/.test(p)));
-  pass(`${phase3.length} Phase 3 IPF trials found`);
+  phase3.length > 0
+    ? pass(`${phase3.length} Phase 3 IPF trials found`)
+    : fail('no Phase 3 IPF trials found');
 
   const placeboFree = studies.filter(s => !s.hasPlacebo);
-  pass(`${placeboFree.length}/${returned} IPF trials with no placebo arm (preferred for patients who want guaranteed treatment)`);
+  info(`${placeboFree.length}/${returned} IPF trials have no placebo arm`);
 
   const westernOnly = studies.filter(s =>
     !['China', 'Vietnam', 'Mexico', 'India'].some(c => (s.countries || []).includes(c)));
-  pass(`${westernOnly.length}/${returned} IPF trials excluding China/Vietnam/Mexico/India`);
+  info(`${westernOnly.length}/${returned} IPF trials exclude China/Vietnam/Mexico/India`);
 
   console.log('\n=== 2. /api/pubmed — live PubMed for IPF antifibrotics ===');
   const pubmed = await invoke(pubmedHandler, {
@@ -133,6 +137,7 @@ const info = (msg) => console.log(`  ${msg}`);
     limit: 4, includeFullText: true
   });
   if (epmc.status !== 200) return fail(`europe-pmc returned ${epmc.status}`);
+  if (!epmc.body.count) return fail('Europe PMC returned no articles');
   pass(`Europe PMC returned ${epmc.body.count} articles`);
   const oaHits = (epmc.body.articles || []).filter(a => a.inPMC);
   info(`  OA / inPMC articles: ${oaHits.length}`);
@@ -150,13 +155,14 @@ const info = (msg) => console.log(`  ${msg}`);
     limit: 5
   });
   if (oa.status !== 200) return fail(`openalex returned ${oa.status}`);
+  if (!oa.body.count) return fail('OpenAlex returned no works');
   pass(`OpenAlex returned ${oa.body.count} works`);
   const oaTop = oa.body.articles?.[0];
   if (oaTop) {
     info(`  top work: ${oaTop.title?.slice(0,80)}… · ${oaTop.journal} (${oaTop.journalTier}) · cited ${oaTop.citedByCount} · OA=${oaTop.openAccess?.is_oa ? 'yes' : 'no'}`);
   }
   const aPlus = (oa.body.articles || []).filter(a => a.journalTier === 'A+' || a.journalTier === 'A');
-  pass(`${aPlus.length} A/A+ tier hits (NEJM/Lancet/JAMA/BMJ class)`);
+  info(`${aPlus.length} A/A+ tier hits (NEJM/Lancet/JAMA/BMJ class)`);
 
   console.log('\n=== 2d. /api/openfda — FDA label + FAERS for pirfenidone ===');
   const fda = await invoke(openfdaHandler, { drug: 'pirfenidone' });
@@ -251,13 +257,16 @@ const info = (msg) => console.log(`  ${msg}`);
       : fail(`only ${abstractsOrBetter} items have abstract-or-better — expected >= 10`);
   }
   const packSize = (ev.body.groundedForPrompt || []).length;
+  if (!packSize) return fail('no items prepared for Claude grounding');
   pass(`${packSize} items prepared for Claude grounding`);
   const taggedPack = (ev.body.groundedForPrompt || []).filter(x => x.accessLevel);
   taggedPack.length === packSize
     ? pass(`every grounded-prompt item is tagged with accessLevel`)
     : fail(`${packSize - taggedPack.length} items missing accessLevel tag`);
   const fdaCount = (ev.body.fdaLabels || []).filter(f => f.label).length;
-  pass(`${fdaCount} FDA labels attached to evidence pack`);
+  fdaCount > 0
+    ? pass(`${fdaCount} FDA labels attached to evidence pack`)
+    : fail('no FDA labels attached to evidence pack');
 
   // Curated KB ↔ evidence pack integration. This is the lock-in test: for
   // IPF, the KB ALWAYS pins a chunk of hand-curated items into the prompt
@@ -517,11 +526,16 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
     info(`  confirmed: ${(vb.primary?.confirmed || []).length} · disputed: ${(vb.primary?.disputed || []).length} · unsupported: ${(vb.primary?.unsupported || []).length} · hallucinated: ${(vb.primary?.hallucinatedCitations || []).length}`);
     if ((vb.primary?.hallucinatedCitations || []).length > 0) {
       pass('validator correctly flagged the fake pubmed URL as hallucinated');
+    } else {
+      fail('validator did not flag the fake PubMed URL as hallucinated');
     }
   }
 
   // ==== WEEKLY EMAIL ALERTS ====
   console.log('\n=== 2g. /api/alerts-subscribe — create, list, unsubscribe ===');
+  if (alertsStoreConfigured()) {
+    return fail('test isolation failed: alerts store selected a persistent backend');
+  }
   resetAlerts();
 
   const invokeAlerts = async (method, query, body) => {
@@ -795,8 +809,8 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
       info(`  synonyms: ${d.synonyms.slice(0, 4).join(' / ')}${d.synonyms.length > 4 ? '…' : ''}`);
     }
     if (typeof d.uncertainty !== 'number') fail(`dossier "${e.input}" → missing uncertainty field`);
-    if (d.subspecialty && !e.expectSubspecialty.test(d.subspecialty)) {
-      info(`  (soft) subspecialty "${d.subspecialty}" didn't match ${e.expectSubspecialty}`);
+    if (!d.subspecialty || !e.expectSubspecialty.test(d.subspecialty)) {
+      fail(`dossier "${e.input}" subspecialty "${d.subspecialty || '(missing)'}" didn't match ${e.expectSubspecialty}`);
     }
     if ((d.topCenters || []).length) {
       info(`  topCenters: ${d.topCenters.slice(0, 3).map(c => c.name).join(' / ')}`);
@@ -829,7 +843,7 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   if (garbage && typeof garbage.uncertainty === 'number' && garbage.uncertainty >= 0.7) {
     pass(`dossier flags nonsense input as uncertain (unc=${garbage.uncertainty})`);
   } else {
-    info(`  (soft) dossier unc=${garbage?.uncertainty ?? '?'} for nonsense input (hoped for >=0.7)`);
+    fail(`dossier unc=${garbage?.uncertainty ?? '?'} for nonsense input; expected >=0.7`);
   }
 
   console.log('\n=== 3. /api/research mode=research — Anthropic for IPF patient ===');
@@ -838,12 +852,14 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   });
   if (research.status !== 200) return fail(`research returned ${research.status}: ${JSON.stringify(research.body).slice(0, 400)}`);
   const researchText = (research.body.content || []).filter(b => b.type==='text').map(b=>b.text).join('\n');
-  pass(`research returned ${researchText.length} chars`);
+  researchText.length >= 500
+    ? pass(`research returned ${researchText.length} chars`)
+    : fail(`research response too short (${researchText.length} chars)`);
   const hasProvider = /PROVIDER:/i.test(researchText);
   // EFFICACY is now a real, sourced outcome sentence (not a fabricated %) —
   // just require the field is present with content.
   const hasEfficacy = /EFFICACY:\s*\S/i.test(researchText);
-  const hasSafety = /SAFETY:\s*\d{1,3}\s*%/i.test(researchText);
+  const hasSafety = /SAFETY:\s*(Low|Moderate|High)\b[^\n]*\[[^\]]+\]\(https?:\/\//i.test(researchText);
   const hasInteractions = /INTERACTIONS:/i.test(researchText);
   const hasReferences = /REFERENCES:/i.test(researchText);
   const hasApprovedTreatments = /approved treatments|backed by research|standard of care/i.test(researchText);
@@ -851,7 +867,7 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   const hasStem = /stem cell/i.test(researchText);
   hasProvider ? pass('structured PROVIDER blocks present') : fail('no PROVIDER blocks');
   hasEfficacy ? pass('EFFICACY outcome present') : fail('no EFFICACY field');
-  hasSafety ? pass('SAFETY 1-100 present') : fail('no SAFETY %');
+  hasSafety ? pass('evidence-backed SAFETY band with citation present') : fail('no cited Low/Moderate/High SAFETY band');
   hasInteractions ? pass('INTERACTIONS field present (drug-drug check)') : fail('no INTERACTIONS field');
   hasReferences ? pass('REFERENCES field present') : fail('no REFERENCES field');
   hasApprovedTreatments ? pass('approved-treatments section present') : fail('no approved-treatments section');
@@ -888,12 +904,16 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   });
   if (rep.status !== 200) return fail(`repurpose returned ${rep.status}`);
   const repText = (rep.body.content || []).filter(b => b.type==='text').map(b=>b.text).join('\n');
-  pass(`repurpose returned ${repText.length} chars`);
+  repText.length >= 500
+    ? pass(`repurpose returned ${repText.length} chars`)
+    : fail(`repurpose response too short (${repText.length} chars)`);
   const candidateCount = (repText.match(/CANDIDATE:/g) || []).length;
   if (candidateCount < 3) return fail(`only ${candidateCount} candidates returned`);
   pass(`${candidateCount} repurposing candidates generated`);
   if (/vitamin d|n-acetylcysteine|nac|metformin|azithromycin|statin|melatonin/i.test(repText))
     pass('plausible repurposing candidate surfaced (vitamin D / NAC / metformin / azithromycin / statin / melatonin)');
+  else
+    fail('no expected plausible repurposing candidate surfaced');
   // UI parses CANDIDATE blocks for the EveryCure-style cards. If Claude
   // stops emitting one of these fields, the cards silently lose data — so
   // lock in every structural field the UI reads.
@@ -911,12 +931,20 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   refLinkHits >= Math.min(3, candidateCount)
     ? pass(`${refLinkHits} candidate(s) include REFERENCES with clickable markdown links`)
     : fail(`expected REFERENCES with markdown links on at least ${Math.min(3, candidateCount)} candidates, got ${refLinkHits}`);
-  // SAFETY and CONFIDENCE remain 0-100 meters; EFFICACY_HYPOTHESIS is now an
-  // honest sourced statement (no fabricated %), so it is not counted here.
-  const pctHits = (repText.match(/(SAFETY|CONFIDENCE):\s*\d{1,3}\s*%/g) || []).length;
-  pctHits >= candidateCount * 2
-    ? pass(`${pctHits} quantified 0-100 scores across candidates (safety + confidence per candidate)`)
-    : fail(`only ${pctHits} quantified scores across ${candidateCount} candidates — cards need at least safety+confidence each`);
+  // Safety must be a deterministic, cited band for every candidate. Confidence
+  // may be omitted when no citable support exists, but any emitted confidence
+  // must also be a cited band (never an unsourced percentage/opinion).
+  const safetyBandHits = (repText.match(/^SAFETY:\s*(Low|Moderate|High)\b[^\n]*\[[^\]]+\]\(https?:\/\//gim) || []).length;
+  const confidenceLines = repText.match(/^CONFIDENCE:[^\n]*/gim) || [];
+  const citedConfidenceHits = confidenceLines.filter((line) =>
+    /^CONFIDENCE:\s*(Low|Moderate|High)\b[^\n]*\[[^\]]+\]\(https?:\/\//i.test(line)
+  ).length;
+  safetyBandHits >= candidateCount
+    ? pass(`${safetyBandHits}/${candidateCount} candidates include cited Low/Moderate/High safety bands`)
+    : fail(`only ${safetyBandHits}/${candidateCount} candidates include cited safety bands`);
+  citedConfidenceHits === confidenceLines.length
+    ? pass(`all ${confidenceLines.length} emitted confidence ratings are cited bands`)
+    : fail(`${confidenceLines.length - citedConfidenceHits} confidence rating(s) are unsourced or off-band`);
   // Evidence strength must come from the defined ladder — the UI has color
   // coding for each rung, and a free-form value breaks the badge.
   const evidenceLadder = ['MECHANISTIC_ONLY', 'PRECLINICAL', 'CASE_REPORT', 'OBSERVATIONAL', 'SMALL_RCT', 'LARGE_RCT'];
@@ -940,7 +968,9 @@ See https://pubmed.ncbi.nlm.nih.gov/99999999 — "Pirfenidone cures IPF in most 
   });
   if (chat.status !== 200) return fail(`chat returned ${chat.status}`);
   const chatText = (chat.body.content || []).filter(b => b.type==='text').map(b=>b.text).join('\n');
-  pass(`chat returned ${chatText.length} chars`);
+  chatText.length >= 200
+    ? pass(`chat returned ${chatText.length} chars`)
+    : fail(`chat response too short (${chatText.length} chars)`);
   // Key anti-pattern checks: the OLD chat refused a lot; the NEW one should answer.
   const refused = /I cannot provide medical advice|please consult your (doctor|physician)(?!.*however|.*but)/i.test(chatText) && chatText.length < 500;
   const namesDrugs = /pirfenidone/i.test(chatText) && /nintedanib/i.test(chatText);

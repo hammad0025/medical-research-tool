@@ -202,7 +202,7 @@
       "year": 2020,
       "doi": "10.1176/appi.books.9780890424841",
       "pmid": "32911828",
-      "url": "https://psychiatryonline.org/doi/book/10.1176/appi.books.9780890424841",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/32911828/",
       "accessLevel": "abstract",
       "summary": "Current APA guideline on schizophrenia pharmacotherapy + psychosocial interventions. Evidence-graded recommendations. Still the primary reference for US practice alongside 2009 Schizophrenia PORT and 2021 Royal Australian/New Zealand guideline.",
       "keyPassages": []
@@ -217,7 +217,7 @@
       "year": 2005,
       "doi": "10.1056/NEJMoa051688",
       "pmid": "16172203",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa051688",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/16172203/",
       "accessLevel": "abstract",
       "summary": "Pragmatic RCT of 1,493 patients comparing perphenazine (FGA), olanzapine, risperidone, quetiapine, and ziprasidone. Primary endpoint was all-cause discontinuation at 18 months. Olanzapine had the lowest discontinuation but greatest metabolic impact. Perphenazine was similar to SGAs except olanzapine. Shaped modern practice: FGAs and SGAs have comparable efficacy outside of clozapine; metabolic side effects matter.",
       "keyPassages": [
@@ -235,7 +235,7 @@
       "authors": "Karuna Therapeutics / Bristol Myers Squibb",
       "journal": "US FDA",
       "year": 2024,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=xanomeline+trospium",
+      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Cobenfy",
       "accessLevel": "full-text",
       "summary": "FDA-approved September 26, 2024. First antipsychotic with a non-D2 mechanism of action (muscarinic M1/M4 agonist xanomeline) combined with peripheral anticholinergic trospium to mitigate GI/urinary side effects. Indication: treatment of schizophrenia in adults. Dose-titration from 50/20 to 125/30 mg BID. Not approved in pediatric or for adjunctive use. Warnings: cholinergic/anticholinergic effects, urinary retention, hepatic dysfunction.",
       "keyPassages": [
@@ -259,7 +259,7 @@
       "year": 2024,
       "doi": "10.1016/S0140-6736(23)02190-6",
       "pmid": "38103588",
-      "url": "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(23)02190-6/fulltext",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/38103588/",
       "accessLevel": "abstract",
       "summary": "5-week phase 3 RCT in 252 acute schizophrenia inpatients. Primary endpoint (PANSS total change at week 5) significantly improved with KarXT vs placebo (-9.6 point adjusted difference, P<0.0001). Key nondopaminergic profile: no significant weight gain, no prolactin increase, no extrapyramidal symptoms. Most common AEs were cholinergic (constipation, dyspepsia, nausea, vomiting, dry mouth) and anticholinergic at titration.",
       "keyPassages": [
@@ -277,7 +277,6 @@
       "authors": "Sumitomo Pharma press release",
       "journal": "Sumitomo Pharma / Company Filing",
       "year": 2023,
-      "url": "https://www.sumitomo-pharma.com/news/20230801-3.html",
       "accessLevel": "full-text",
       "summary": "August 2023 — Sumitomo Pharma announced that the phase 3 DIAMOND-1 and DIAMOND-2 trials of ulotaront (SEP-363856, TAAR1 agonist) in schizophrenia did NOT meet primary endpoints. This was a high-profile novel-mechanism candidate (Breakthrough Therapy designation 2019). Program for schizophrenia was subsequently deprioritized.",
       "keyPassages": [

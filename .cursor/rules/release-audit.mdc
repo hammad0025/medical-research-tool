@@ -1,0 +1,15 @@
+---
+description: Require medical, privacy, security, and deployment verification before release
+alwaysApply: true
+---
+
+# Release audit policy
+
+- Never push or deploy from a dirty working tree or an unaudited commit.
+- Before proposing a push, run `npm run audit:prepush` and report failures.
+- Treat access-control, XSS, SSRF, wrong-condition evidence, unsupported medical claims, dead citations, and private-artifact exposure as release blockers.
+- Patient-visible content must use the server-sealed output; browser code must not invent claims or citations.
+- Every bug fix requires a behavioral regression that fails on the defect.
+- Do not weaken a failing assertion into a warning or bypass a gate to make CI pass.
+- External live-link and production checks belong in scheduled/post-deploy jobs; deterministic safety checks must remain in the pre-push gate.
+- A release is complete only when the deployed SHA matches the reviewed Git SHA and post-deploy smoke checks pass.

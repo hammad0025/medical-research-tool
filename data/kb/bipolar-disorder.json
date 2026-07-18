@@ -224,7 +224,6 @@
       "authors": "American Psychiatric Association Work Group on Bipolar Disorder",
       "journal": "American Journal of Psychiatry",
       "year": 2002,
-      "url": "https://psychiatryonline.org/pb/assets/raw/sitewide/practice_guidelines/guidelines/bipolar.pdf",
       "accessLevel": "abstract",
       "summary": "APA guideline for bipolar disorder (2002 edition; last revision guideline watch 2005). Older but still widely cited; subsequent US-specific guideline updates have been limited. Modern practice is more heavily shaped by CANMAT 2018 (Canadian) and NICE 2014 (UK).",
       "keyPassages": []
@@ -239,7 +238,7 @@
       "year": 2018,
       "doi": "10.1111/bdi.12609",
       "pmid": "29536616",
-      "url": "https://onlinelibrary.wiley.com/doi/10.1111/bdi.12609",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29536616/",
       "accessLevel": "abstract",
       "summary": "Current gold-standard bipolar treatment guideline for North America. Evidence-graded first-line through fourth-line across mania, bipolar I depression, bipolar II depression, and maintenance. Used internationally. First-line: lithium, quetiapine, divalproex, lurasidone (bipolar depression), cariprazine (mania, depression).",
       "keyPassages": []
@@ -254,7 +253,7 @@
       "year": 2010,
       "doi": "10.1016/S0140-6736(09)61828-6",
       "pmid": "20092882",
-      "url": "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(09)61828-6/fulltext",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/20092882/",
       "accessLevel": "abstract",
       "summary": "Pragmatic open-label RCT of lithium monotherapy, valproate monotherapy, and lithium + valproate combination in 330 BD-I patients. Primary endpoint: new mood-episode intervention. Lithium and lithium+valproate both superior to valproate alone; combination and lithium alone not significantly different.",
       "keyPassages": [
@@ -274,7 +273,7 @@
       "year": 2011,
       "doi": "10.1016/S0140-6736(11)60873-8",
       "pmid": "21851976",
-      "url": "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(11)60873-8/fulltext",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/21851976/",
       "accessLevel": "abstract",
       "summary": "Network meta-analysis of 68 trials (16,073 participants) comparing 13 antimanic drugs. Haloperidol, risperidone, and olanzapine were most efficacious for acute mania; SGAs generally better-tolerated. Lithium effective but slower onset. Standard reference for acute-mania choice.",
       "keyPassages": []
@@ -289,7 +288,7 @@
       "year": 2013,
       "doi": "10.1136/bmj.f3646",
       "pmid": "23814104",
-      "url": "https://www.bmj.com/content/346/bmj.f3646",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/23814104/",
       "accessLevel": "full-text",
       "summary": "Meta-analysis of 48 RCTs showed lithium reduces suicide by ~60% and all-cause mortality vs placebo and vs some comparators in mood disorders (including bipolar). Single most important evidence supporting lithium as first-line maintenance therapy.",
       "keyPassages": [
@@ -307,7 +306,7 @@
       "authors": "Intra-Cellular Therapies",
       "journal": "US FDA",
       "year": 2021,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=lumateperone",
+      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Caplyta",
       "accessLevel": "full-text",
       "summary": "December 2021 — Caplyta (lumateperone) received FDA approval for bipolar I and bipolar II depression as monotherapy AND as adjunct to lithium or valproate. Favorable metabolic profile. Based on Calabrese 2021 registrational trials.",
       "keyPassages": [
@@ -327,7 +326,7 @@
       "year": 2014,
       "doi": "10.1176/appi.ajp.2013.13070984",
       "pmid": "24170102",
-      "url": "https://ajp.psychiatryonline.org/doi/10.1176/appi.ajp.2013.13070984",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24170102/",
       "accessLevel": "abstract",
       "summary": "6-week phase 3 RCT of lurasidone monotherapy (20-60 or 80-120 mg) vs placebo in 505 BD-I depression patients. Both lurasidone groups significantly reduced MADRS vs placebo. Low rates of weight gain and metabolic adverse effects. Basis for FDA indication in bipolar depression (2013). Together with quetiapine, lurasidone is a first-line bipolar depression therapy.",
       "keyPassages": []

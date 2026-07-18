@@ -11,7 +11,7 @@
 // id alone cannot cancel someone else's subscription.
 
 import {
-  putSubscription,
+  createSubscription,
   getSubscription,
   deleteSubscription,
   listSubscriptionsByEmail,
@@ -19,6 +19,7 @@ import {
   backendName
 } from '../lib/alerts-store.js';
 import { requireAccess } from '../lib/access-gate.js';
+import { timingSafeEqual } from 'node:crypto';
 
 const randomId = (len = 16) => {
   const bytes = new Uint8Array(len);
@@ -28,6 +29,12 @@ const randomId = (len = 16) => {
 
 const isValidEmail = (s) =>
   typeof s === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim()) && s.length <= 254;
+
+const tokenMatches = (provided, stored) => {
+  const a = Buffer.from(String(provided || ''));
+  const b = Buffer.from(String(stored || ''));
+  return a.length === b.length && a.length >= 16 && timingSafeEqual(a, b);
+};
 
 // Limit what the client can inject into the patient-context blob. We only
 // forward fields that are actually useful for personalising the evidence
@@ -43,6 +50,7 @@ const sanitisePatientContext = (p = {}) => ({
 });
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Access-Passcode');
@@ -56,15 +64,29 @@ export default async function handler(req, res) {
     // ---- LIST --------------------------------------------------------
     if (req.method === 'GET') {
       const email = req.query?.email;
+      const token = req.query?.token;
       if (!isValidEmail(email)) return res.status(400).json({ error: 'valid email query param required' });
+      if (!token) return res.status(403).json({ error: 'ownership token required', code: 'OWNER_TOKEN_REQUIRED' });
       const subs = await listSubscriptionsByEmail(email);
+      const owned = subs.filter((sub) =>
+        tokenMatches(token, sub.ownerToken || sub.unsubscribeToken)
+      );
+      if (!owned.length) {
+        return res.status(403).json({ error: 'invalid ownership token', code: 'OWNER_TOKEN_INVALID' });
+      }
       return res.status(200).json({
         backend: backendName(),
-        email,
-        count: subs.length,
-        // Don't leak unsubscribeTokens back in a list view — that's a
-        // private secret tied to the original subscribe call.
-        subscriptions: subs.map(({ unsubscribeToken, ...s }) => s)
+        count: owned.length,
+        // Explicit allow-list: list responses must not expose email, patient
+        // context, capability tokens, provider IDs, or future private fields.
+        subscriptions: owned.map((sub) => ({
+          id: sub.id,
+          condition: sub.condition,
+          cadence: sub.cadence,
+          createdAt: sub.createdAt,
+          lastRunAt: sub.lastRunAt || null,
+          active: sub.active === true
+        }))
       });
     }
 
@@ -78,7 +100,7 @@ export default async function handler(req, res) {
       if (!id || !token) return res.status(400).json({ error: 'id + token required' });
       const sub = await getSubscription(id);
       if (!sub) return res.status(404).json({ error: 'subscription not found' });
-      if (sub.unsubscribeToken !== token) return res.status(403).json({ error: 'invalid token' });
+      if (!tokenMatches(token, sub.unsubscribeToken)) return res.status(403).json({ error: 'invalid token' });
       await deleteSubscription(id);
       return res.status(200).json({ ok: true, unsubscribed: id });
     }
@@ -93,19 +115,20 @@ export default async function handler(req, res) {
 
     // Dedupe: one active subscription per (email, condition) pair.
     const existing = await listSubscriptionsByEmail(email);
-    const match = existing.find((s) => s.condition.toLowerCase() === condition.toLowerCase());
+    const match = existing.find((s) =>
+      typeof s.condition === 'string' &&
+      s.condition.toLowerCase() === condition.trim().toLowerCase()
+    );
     if (match) {
-      return res.status(200).json({
-        ok: true, reactivated: false, alreadyExists: true,
-        id: match.id,
-        condition: match.condition,
-        createdAt: match.createdAt,
-        backend: backendName()
+      return res.status(409).json({
+        error: 'A subscription already exists for this email and condition.',
+        code: 'SUBSCRIPTION_EXISTS'
       });
     }
 
     const id = randomId(16);
     const unsubscribeToken = randomId(24);
+    const ownerToken = randomId(24);
     const sub = {
       id,
       email: email.trim().toLowerCase(),
@@ -113,11 +136,20 @@ export default async function handler(req, res) {
       cadence: cadence === 'monthly' ? 'monthly' : 'weekly',
       patientContext: patientContext ? sanitisePatientContext(patientContext) : null,
       unsubscribeToken,
+      ownerToken,
       createdAt: new Date().toISOString(),
       lastRunAt: null,
       active: true
     };
-    await putSubscription(sub);
+    // The store enforces this uniqueness atomically too, closing the race
+    // between concurrent subscribe requests.
+    const created = await createSubscription(sub);
+    if (!created) {
+      return res.status(409).json({
+        error: 'A subscription already exists for this email and condition.',
+        code: 'SUBSCRIPTION_EXISTS'
+      });
+    }
 
     return res.status(201).json({
       ok: true,
@@ -130,6 +162,7 @@ export default async function handler(req, res) {
       // can hold onto it if it wants to offer an unsubscribe button later.
       // Subsequent GET calls never return it.
       unsubscribeToken,
+      ownerToken,
       backend: backendName(),
       ephemeral: !isConfigured(),
       warning: isConfigured()

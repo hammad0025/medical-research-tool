@@ -17,8 +17,17 @@
 
 import evidenceHandler from '../lib/evidence.js';
 import trialsHandler from './trials.js';
-import { listSubscriptions, getSentLedger, addToSentLedger, putSubscription, backendName } from '../lib/alerts-store.js';
+import {
+  listSubscriptionsPage,
+  getSentLedger,
+  claimDelivery,
+  releaseDeliveryClaim,
+  completeDelivery,
+  backendName
+} from '../lib/alerts-store.js';
 import { sendEmail, renderAlertHtml, renderAlertSubject, isEmailConfigured } from '../lib/alerts-email.js';
+import { asInternalReq } from '../lib/internal-call.js';
+import { authorizeCron } from '../lib/cron-auth.js';
 
 const invoke = async (handler, body) => {
   let captured = { status: 200, body: null };
@@ -27,7 +36,7 @@ const invoke = async (handler, body) => {
     end() {}, json(o) { captured.body = o; return this; }
   };
   try {
-    await handler({ method: 'POST', body, headers: {}, query: {} }, res);
+    await handler(asInternalReq({ method: 'POST', body, headers: {}, query: {} }), res);
   } catch (e) {
     captured.status = 500;
     captured.body = { error: e.message };
@@ -35,19 +44,41 @@ const invoke = async (handler, body) => {
   return captured;
 };
 
-// Vercel cron auth: the Vercel scheduler sends `Authorization: Bearer <CRON_SECRET>`.
-// We also allow a plain `?secret=` query param so the endpoint can be
-// exercised manually from a browser / curl during testing.
-const isAuthorised = (req) => {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) return true; // not configured → allow; dev mode
-  const auth = req.headers?.authorization || '';
-  if (auth === `Bearer ${expected}`) return true;
-  if (req.query?.secret === expected) return true;
-  return false;
+const periodKey = (cadence, date = new Date()) => {
+  const iso = date.toISOString();
+  if (cadence === 'monthly') return `monthly:${iso.slice(0, 7)}`;
+  const day = Math.floor(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 86_400_000);
+  return `weekly:${Math.floor(day / 7)}`;
 };
 
-const oneRun = async (sub, { dryRun } = {}) => {
+const isDue = (sub, now = new Date()) => {
+  if (!sub.lastRunAt) return true;
+  const previous = new Date(sub.lastRunAt);
+  if (Number.isNaN(previous.getTime())) return true;
+  return periodKey(sub.cadence, previous) !== periodKey(sub.cadence, now);
+};
+
+const oneRun = async (sub, {
+  dryRun,
+  now = new Date(),
+  deadlineAt = Number.POSITIVE_INFINITY,
+  invokeFn = invoke,
+  sendEmailFn = sendEmail
+} = {}) => {
+  const runKey = periodKey(sub.cadence, now);
+  if (!isDue(sub, now)) {
+    return { subId: sub.id, skipped: 'cadence', sent: false };
+  }
+
+  const claimToken = crypto.randomUUID();
+  if (!dryRun) {
+    const claim = await claimDelivery(sub.id, runKey, claimToken, 240_000);
+    if (claim !== 'claimed') {
+      return { subId: sub.id, skipped: claim, sent: false };
+    }
+  }
+
+  try {
   // Pull a fresh evidence pack for this condition. We pass the patient
   // context's medication list (if any) into `treatments` so openFDA
   // labels and interaction searches run against the user's actual
@@ -63,7 +94,7 @@ const oneRun = async (sub, { dryRun } = {}) => {
     .slice(0, 4);
 
   const [ev, trials] = await Promise.all([
-    invoke(evidenceHandler, {
+    invokeFn(evidenceHandler, {
       condition,
       treatments,
       drugs: treatments,
@@ -71,11 +102,17 @@ const oneRun = async (sub, { dryRun } = {}) => {
       limitPerSource: 6,
       includeFullText: false // Speed: digest only needs abstracts
     }),
-    invoke(trialsHandler, { query: condition, limit: 10 })
+    invokeFn(trialsHandler, { query: condition, limit: 10 })
   ]);
 
   if (ev.status !== 200) {
-    return { subId: sub.id, error: `evidence failed: ${ev.status}`, sent: false };
+    throw new Error(`evidence failed: ${ev.status}`);
+  }
+  if (trials.status !== 200) {
+    throw new Error(`trials failed: ${trials.status}`);
+  }
+  if (Date.now() >= deadlineAt) {
+    throw new Error('alert run deadline exceeded');
   }
 
   // New-item filter: anything whose id (DOI or PMID) is NOT in the
@@ -151,7 +188,23 @@ const oneRun = async (sub, { dryRun } = {}) => {
 
   let emailResult = { skipped: true, reason: 'dryRun' };
   if (!dryRun) {
-    emailResult = await sendEmail({ to: sub.email, subject, html });
+    emailResult = await sendEmailFn({
+      to: sub.email,
+      subject,
+      html,
+      // Resend de-duplicates retries after a crash between provider
+      // acceptance and our atomic ledger commit.
+      idempotencyKey: `alerts:${sub.id}:${runKey}`
+    });
+    if (emailResult.mocked || !emailResult.id) {
+      await releaseDeliveryClaim(sub.id, runKey, claimToken);
+      return {
+        subId: sub.id,
+        error: emailResult.mocked ? 'email provider not configured' : 'email provider id missing',
+        sent: false,
+        stateAdvanced: false
+      };
+    }
   }
 
   // Update ledger so next week's run doesn't re-send the same items.
@@ -164,77 +217,117 @@ const oneRun = async (sub, { dryRun } = {}) => {
     ...newFdaActions.map((a) => a.id)
   ];
 
-  if (!dryRun && ledgerAdditions.length) {
-    await addToSentLedger(sub.id, ledgerAdditions);
-    sub.lastRunAt = new Date().toISOString();
-    sub.lastRunStats = {
+  let completion = 'dry-run';
+  if (!dryRun) {
+    completion = await completeDelivery({
+      subId: sub.id,
+      runKey,
+      token: claimToken,
+      providerId: emailResult.id,
+      itemIds: ledgerAdditions,
+      lastRunAt: now.toISOString(),
+      lastRunStats: {
       screened: ev.body.qualityBreakdown?.totalScreened ?? null,
       newItemsEmailed: digestItems.length,
       newTrials: newTrials.length,
       newFdaActions: newFdaActions.length
-    };
-    await putSubscription(sub);
+      }
+    });
+    if (completion !== 'completed' && completion !== 'delivered') {
+      return {
+        subId: sub.id,
+        error: `delivery state commit ${completion}`,
+        providerId: emailResult.id,
+        sent: true,
+        stateAdvanced: false
+      };
+    }
   }
 
   return {
     subId: sub.id,
-    email: sub.email,
-    condition,
     firstRun,
     screened: ev.body.qualityBreakdown?.totalScreened ?? null,
     newItemsEmailed: digestItems.length,
     newTrials: newTrials.length,
     newFdaActions: newFdaActions.length,
-    subject,
-    htmlLength: html.length,
-    emailResult,
-    sent: !dryRun && !emailResult.mocked
+    emailResult: dryRun
+      ? { skipped: true, reason: 'dryRun' }
+      : { provider: emailResult.provider, id: emailResult.id },
+    sent: !dryRun,
+    stateAdvanced: !dryRun && completion === 'completed'
   };
+  } catch (error) {
+    if (!dryRun) await releaseDeliveryClaim(sub.id, runKey, claimToken).catch(() => {});
+    throw error;
+  }
 };
 
+export const _alertsCronTest = { periodKey, isDue, oneRun };
+
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  if (!isAuthorised(req)) {
-    return res.status(401).json({ error: 'unauthorized — CRON_SECRET required' });
+  const auth = authorizeCron(req);
+  if (!auth.ok) {
+    return res.status(auth.status).json({ error: auth.code, code: auth.code });
   }
 
   try {
     const dryRun = String(req.query?.dryRun || '').toLowerCase() === '1' ||
                    req.body?.dryRun === true;
     const onlyEmail = req.query?.onlyEmail; // manual targeted run
-    const allSubs = await listSubscriptions();
-    const subs = allSubs.filter((s) =>
+    const cursor = /^\d+$/.test(String(req.query?.cursor || '0'))
+      ? String(req.query?.cursor || '0')
+      : '0';
+    const batchSize = Math.max(1, Math.min(10, Number(req.query?.limit) || 10));
+    const page = await listSubscriptionsPage({ cursor, limit: batchSize });
+    const subs = page.subscriptions.filter((s) =>
       s.active && (!onlyEmail || s.email === onlyEmail)
     );
 
     const started = Date.now();
-    // Run sequentially to stay polite to the upstream APIs. Cron has
-    // a 60s cap per function so we can process ~10-20 subs per run
-    // before running out of headroom; beyond that, paginate by
-    // cadence or by batching across cron slots.
+    const deadlineAt = started + 45_000;
     const results = [];
+    let deadlineReached = false;
     for (const sub of subs) {
+      if (Date.now() >= deadlineAt) {
+        deadlineReached = true;
+        break;
+      }
       try {
-        const r = await oneRun(sub, { dryRun });
+        const r = await oneRun(sub, { dryRun, deadlineAt });
         results.push(r);
       } catch (e) {
         results.push({ subId: sub.id, error: e.message, sent: false });
       }
-      // Politeness delay between subs so we don't hit PubMed/NCBI's
-      // per-IP limits when fanning out many subscriptions.
-      if (subs.length > 1) await new Promise((r) => setTimeout(r, 800));
+      if (subs.length > 1 && Date.now() + 800 < deadlineAt) {
+        await new Promise((r) => setTimeout(r, 800));
+      }
     }
 
-    return res.status(200).json({
-      ok: true,
+    const attempted = results.filter((r) => !r.skipped).length;
+    const failures = results.filter((r) => r.error).length;
+    const successes = attempted - failures;
+    const meaningfulFailure =
+      (attempted > 0 && failures === attempted) ||
+      (failures > 0 && failures >= successes) ||
+      (page.malformed > 0 && page.subscriptions.length === 0);
+    const status = meaningfulFailure ? 503 : 200;
+    return res.status(status).json({
+      ok: !meaningfulFailure,
       backend: backendName(),
       emailConfigured: isEmailConfigured(),
       dryRun,
       subsProcessed: results.length,
+      failures,
+      malformedSkipped: page.malformed,
+      cursor: deadlineReached ? cursor : page.cursor,
+      deadlineReached,
       durationMs: Date.now() - started,
       results
     });

@@ -205,7 +205,7 @@
       "year": 2017,
       "doi": "10.1016/S0140-6736(17)31868-8",
       "pmid": "28712537",
-      "url": "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(17)31868-8/fulltext",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/28712537/",
       "accessLevel": "abstract",
       "summary": "Pivotal phase 3 RCT of voretigene neparvovec (Luxturna) in 31 patients with biallelic RPE65-mutation retinal dystrophy. Primary endpoint (multi-luminance mobility test change at year 1) significantly improved in treated vs control. Basis for FDA approval December 2017 — the FIRST FDA-approved gene therapy for an inherited disease. Technique: subretinal injection under general anesthesia by specialized vitreoretinal surgeon.",
       "keyPassages": [
@@ -223,7 +223,7 @@
       "authors": "Spark Therapeutics",
       "journal": "US FDA",
       "year": 2017,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=Luxturna",
+      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Luxturna",
       "accessLevel": "full-text",
       "summary": "First FDA-approved gene therapy for an inherited disease. Indication: biallelic RPE65 mutation-associated retinal dystrophy. AAV2-hRPE65v2 delivered via subretinal injection under general anesthesia in each eye, separated by 6-18 days. Covers only the ~0.3-1% of IRD patients with biallelic RPE65 mutations. List price ~$850,000 for both eyes.",
       "keyPassages": [
@@ -256,7 +256,6 @@
       "authors": "Editas Medicine press release",
       "journal": "Editas Medicine / Company Filing",
       "year": 2022,
-      "url": "https://ir.editasmedicine.com/news-releases",
       "accessLevel": "full-text",
       "summary": "November 2022 — Editas Medicine announced it would not pursue commercial development of EDIT-101 for LCA10, after a portfolio reprioritization toward hematology (EDIT-301 for sickle cell). Trial assets transitioned to academic partners. This is a consequential inflection point for CEP290 LCA10 therapeutic options. Sepofarsen (ProQR) also failed earlier in 2022 — leaving CEP290 LCA10 without a late-stage therapeutic option.",
       "keyPassages": []
@@ -282,7 +281,6 @@
       "authors": "Atsena Therapeutics / conference presentations",
       "journal": "Atsena / ARVO / AAO meeting updates",
       "year": 2024,
-      "url": "https://atsenatx.com/pipeline/",
       "accessLevel": "metadata-only",
       "summary": "ATSN-101 (formerly AT-GTR) is an AAV-based gene therapy delivering GUCY2D for LCA1 (GUCY2D-associated Leber congenital amaurosis). 2024 interim phase 1/2 data showed improvements in full-field stimulus test (FST) sensitivity consistent with biological activity. Phase 3 program planned. Atsena is one of the primary remaining LCA gene therapy developers after EDIT-101 and sepofarsen setbacks.",
       "keyPassages": []

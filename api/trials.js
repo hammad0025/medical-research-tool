@@ -34,6 +34,7 @@ import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb } from '../lib/kb.js';
 import { requireAccess } from '../lib/access-gate.js';
 import { ensureDynamicKb, isDynamicKbEnabled } from '../lib/kb-bootstrap.js';
+import { parseExplicitBoolean, parsePageSize } from '../lib/normalize.js';
 
 const CT_API = 'https://clinicaltrials.gov/api/v2/studies';
 
@@ -53,6 +54,33 @@ const containsAny = (text, hints) => {
   if (!text) return false;
   const lower = String(text).toLowerCase();
   return hints.some(h => lower.includes(h));
+};
+
+export const parseApprovalStatus = (value) => {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return 'unknown';
+  if (/\b(?:not|un|non)[- ]?(?:fda[- ]?)?approved\b|\bnot approved\b|\binvestigational\b|\bapproval (?:pending|withdrawn|revoked)\b/.test(text)) {
+    return 'not-approved';
+  }
+  if (/\bapproved\b/.test(text) && /\b(?:other|another|different)\s+(?:use|condition|disease|indication)\b/.test(text)) {
+    return 'approved-other-indication';
+  }
+  if (/\b(?:fda[- ]?)?approved\b|\bapproved for marketing\b/.test(text)) return 'approved';
+  return 'unknown';
+};
+
+export const parseEligibilityCriteria = (raw) => {
+  const fullText = String(raw || '').replace(/\r\n?/g, '\n').trim();
+  if (!fullText) return { fullText: '', inclusion: '', exclusion: '', reviewStatus: 'not-provided' };
+  const inclusionMatch = fullText.match(/(?:^|\n)\s*inclusion criteria\s*:?\s*([\s\S]*?)(?=(?:\n\s*exclusion criteria\s*:?)|$)/i);
+  const exclusionMatch = fullText.match(/(?:^|\n)\s*exclusion criteria\s*:?\s*([\s\S]*)$/i);
+  return {
+    fullText,
+    inclusion: inclusionMatch?.[1]?.trim() || '',
+    exclusion: exclusionMatch?.[1]?.trim() || '',
+    reviewStatus: 'unchecked',
+    caution: 'The full inclusion and exclusion criteria have not been checked against this patient; contact the study team before assuming eligibility.'
+  };
 };
 
 // ---- Patient-facing "promise" score (0-100) -------------------------------
@@ -285,7 +313,7 @@ const extractContacts = (contactsLocationsModule = {}) => {
 // Joslin Diabetes Center for LADA, or Pittsburgh Simmons Center for ILD,
 // on top of the Tier-1 safety-floor whitelist). If omitted, falls back to
 // the global `isTopCenter` whitelist.
-const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
+export const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
   const protocol = study.protocolSection || {};
   const identification = protocol.identificationModule || {};
   const status = protocol.statusModule || {};
@@ -404,6 +432,7 @@ const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
     oversightHasDMC: oversight.oversightHasDmc,
     usExportStatus: oversight.isUsExport
   };
+  const parsedCriteria = parseEligibilityCriteria(eligibility.eligibilityCriteria);
 
   return {
     nctId,
@@ -453,7 +482,10 @@ const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
 
     oversight: oversightFlags,
 
-    eligibilityCriteria: eligibility.eligibilityCriteria,
+    eligibilityCriteria: parsedCriteria.fullText,
+    eligibility: parsedCriteria,
+    eligibilityReviewStatus: parsedCriteria.reviewStatus,
+    eligibilityCaution: parsedCriteria.caution || null,
     healthyVolunteers: eligibility.healthyVolunteers,
     sex: eligibility.sex,
     minimumAge: eligibility.minimumAge,
@@ -630,14 +662,17 @@ export default async function handler(req, res) {
     const body = req.method === 'POST' ? req.body : req.query;
     const {
       condition,
-      recruitingOnly = true,
-      treatmentOnly = true,
-      excludePlacebo = false,
+      recruitingOnly: recruitingOnlyRaw = true,
+      treatmentOnly: treatmentOnlyRaw = true,
+      excludePlacebo: excludePlaceboRaw = false,
       pageSize = 50,
       country,
       patientAge = null,
       patientSex = null
     } = body || {};
+    const recruitingOnly = parseExplicitBoolean(recruitingOnlyRaw, true);
+    const treatmentOnly = parseExplicitBoolean(treatmentOnlyRaw, true);
+    const excludePlacebo = parseExplicitBoolean(excludePlaceboRaw, false);
 
     if (!condition || !String(condition).trim()) {
       return res.status(400).json({ error: 'condition is required' });
@@ -659,7 +694,7 @@ export default async function handler(req, res) {
     // user's colloquial input doesn't match CT.gov's indexing (e.g. "LADA"
     // → "Diabetes Mellitus, Type 1").
     const meshTerms = (dossier.meshTerms || []).filter(Boolean);
-    const perSource = Math.min(Number(pageSize) || 50, 100);
+    const perSource = parsePageSize(pageSize, { fallback: 50, max: 100 });
     // Extend the top-center matcher with dossier-supplied centers so
     // disease-specific leaders (Joslin for diabetes, Pittsburgh Simmons for
     // ILD, UCSF MAC for dementia) count alongside the global whitelist.
@@ -868,7 +903,18 @@ export default async function handler(req, res) {
       // Rank patients toward trials they can actually join, flag stopped/harmful
       // ones, and rescale the raw sum to a clear 0-100 score (Item 7 + 0-100).
       const { score: adjustedScore, caution } = applyPatientPromiseAdjustment(score, s, { patientAge, patientSex });
-      s.caution = caution;
+      const eligibility = assessTrialEligibility(s, { patientAge, patientSex });
+      s.caution = caution || s.eligibilityCaution || null;
+      s.eligibilityAssessment = {
+        status: eligibility.flags.length
+          ? 'hard-mismatch'
+          : s.eligibilityReviewStatus === 'not-provided'
+            ? 'criteria-unavailable'
+            : 'criteria-unchecked',
+        reviewedCriteria: false,
+        caution: s.eligibilityCaution ||
+          'Full eligibility criteria were unavailable and were not checked against this patient.'
+      };
       s.promiseScoreRaw = adjustedScore;
       s.promiseScore = normalizePromise(adjustedScore);
     });
@@ -949,11 +995,11 @@ export default async function handler(req, res) {
         ? {
             canonical: kb.meta?.condition,
             approvedDrugs: (kb.meta?.pipelineDrugs || [])
-              .filter((d) => /approved/i.test(String(d.approvalStatus || d.status || '')))
+              .filter((d) => ['approved', 'approved-other-indication'].includes(parseApprovalStatus(d.approvalStatus || d.status)))
               .slice(0, 5)
               .map((d) => ({ name: d.name, status: d.approvalStatus || d.status, why: d.whyItMatters })),
             pipelineHighlights: (kb.meta?.pipelineDrugs || [])
-              .filter((d) => !/approved/i.test(String(d.approvalStatus || d.status || '')))
+              .filter((d) => !['approved', 'approved-other-indication'].includes(parseApprovalStatus(d.approvalStatus || d.status)))
               .slice(0, 4)
               .map((d) => ({ name: d.name, status: d.approvalStatus || d.status })),
             keyFacts: (kb.meta?.canonicalFacts || []).slice(0, 4).map((f) => f.claim || f)

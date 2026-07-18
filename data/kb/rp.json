@@ -135,7 +135,7 @@
     },
     {
       "name": "RP International",
-      "url": "https://www.rpinternational.org",
+      "url": null,
       "why": "Patient education + Helen Harris Memorial Low-Vision clinic."
     }
   ],
@@ -205,7 +205,7 @@
       "year": 2017,
       "doi": null,
       "pmid": null,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=Luxturna",
+      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Luxturna",
       "accessLevel": "full-text",
       "summary": "First FDA-approved gene therapy for an inherited retinal disease. Subretinal AAV2-hRPE65v2 for patients with biallelic RPE65 mutation-associated retinal dystrophy. Landmark because it established the regulatory path for ocular gene therapy — but it covers only ~0.3-1% of RP patients (those with biallelic RPE65 mutations).",
       "keyPassages": [
@@ -225,7 +225,7 @@
       "year": 2019,
       "doi": "10.1016/j.ophtha.2019.06.017",
       "pmid": "31324366",
-      "url": "https://www.aaojournal.org/article/S0161-6420(19)31566-7/fulltext",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/31324366/",
       "accessLevel": "abstract",
       "summary": "Pivotal phase 3 and long-term follow-up of voretigene neparvovec. Demonstrated functional vision improvement on multi-luminance mobility testing (MLMT) at 1 year with durability at 3-4 years. Established the clinical benchmark for subretinal AAV gene therapy in IRDs.",
       "keyPassages": [
@@ -245,7 +245,7 @@
       "year": 2017,
       "doi": "10.1016/S0140-6736(17)31868-8",
       "pmid": "28712537",
-      "url": "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(17)31868-8/fulltext",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/28712537/",
       "accessLevel": "abstract",
       "summary": "The phase 3 RCT that led to Luxturna approval. Randomized 31 patients with biallelic RPE65 mutations 2:1 to bilateral subretinal AAV2-hRPE65v2 vs control. Primary endpoint was change in bilateral multi-luminance mobility testing (MLMT) at 1 year.",
       "keyPassages": [
@@ -265,7 +265,7 @@
       "year": 1993,
       "doi": "10.1001/archopht.1993.01090060049022",
       "pmid": "8512476",
-      "url": "https://jamanetwork.com/journals/jamaophthalmology/fullarticle/641136",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/8512476/",
       "accessLevel": "abstract",
       "summary": "Landmark RCT supporting vitamin A palmitate 15,000 IU/day for slowing RP progression (measured by ERG 30-Hz cone flicker amplitude). The study also suggested vitamin E 400 IU/day may be harmful (faster decline). This is the historical basis for the 'take vitamin A, not vitamin E' advice common in RP care — although the finding is debated and not applicable to all subtypes (notably harmful in ABCA4/Stargardt, a related but distinct IRD).",
       "keyPassages": [
@@ -289,7 +289,7 @@
       "year": 2004,
       "doi": "10.1001/archopht.122.9.1297",
       "pmid": "15364708",
-      "url": "https://jamanetwork.com/journals/jamaophthalmology/fullarticle/417031",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/15364708/",
       "accessLevel": "abstract",
       "summary": "DHA supplementation in RP patients already on vitamin A. Overall trial did not show slowing of ERG decline, but subgroup analysis suggested benefit in patients new to vitamin A in the first 2 years.",
       "keyPassages": []
@@ -324,7 +324,7 @@
       "year": 2016,
       "doi": "10.1126/scitranslmed.aaf2838",
       "pmid": "27733558",
-      "url": "https://www.science.org/doi/10.1126/scitranslmed.aaf2838",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/27733558/",
       "accessLevel": "abstract",
       "summary": "Foundational review of the IRD therapeutic pipeline: gene augmentation, gene editing, optogenetics, cell therapy, and neuroprotection. Useful orientation document for any RP discussion.",
       "keyPassages": []
@@ -414,7 +414,7 @@
       "year": 2012,
       "doi": "10.1371/journal.pone.0042017",
       "pmid": "23049625",
-      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0042017",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/23049625/",
       "accessLevel": "abstract",
       "summary": "Taurine supplementation in drinking water prevented ~65% of secondary RGC loss in P23H RP rats after photoreceptor degeneration. Taurine is an OTC amino-acid supplement; retina has high taurine demand. No large human RP trial — discussed alongside Berson protocol supplements.",
       "keyPassages": [
@@ -474,7 +474,7 @@
       "year": 2016,
       "doi": "10.1016/j.ophtha.2016.06.049",
       "pmid": "27555109",
-      "url": "https://www.aaojournal.org/article/S0161-6420(16)30568-4/fulltext",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/27555109/",
       "accessLevel": "abstract",
       "summary": "Long-term follow-up of the Argus II epiretinal prosthesis. Second Sight (the manufacturer) went bankrupt and stopped supporting devices in 2020 — patients with implanted devices were left without upgrades or replacement parts. Cautionary tale for any retinal prosthesis recommendation today. Newer devices in development (PRIMA subretinal implant from Pixium, now Science Corp) are the relevant modern options.",
       "keyPassages": []

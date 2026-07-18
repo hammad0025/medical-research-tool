@@ -195,7 +195,7 @@
       "year": 2022,
       "doi": "10.1056/NEJMoa2204705",
       "pmid": "36129998",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa2204705",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/36129998/",
       "accessLevel": "abstract",
       "summary": "Phase 3 RCT of intrathecal tofersen in 108 patients with SOD1-mutation ALS. Primary endpoint (ALSFRS-R slope at week 28) not met. Significant reductions in CSF SOD1 protein and plasma neurofilament light (NfL). 12-month open-label extension showed trend toward benefit. FDA granted accelerated approval (Qalsody) April 2023 based on NfL biomarker endpoint — first biomarker-based ALS approval.",
       "keyPassages": [
@@ -219,7 +219,7 @@
       "year": 2020,
       "doi": "10.1056/NEJMoa1916945",
       "pmid": "32877582",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1916945",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/32877582/",
       "accessLevel": "abstract",
       "summary": "Phase 2 RCT of AMX0035 (sodium phenylbutyrate + taurursodiol) in 137 patients. ALSFRS-R slope difference 0.42 points/month favoring AMX0035 (p=0.03). Basis for controversial FDA approval September 2022 as Relyvrio. Confirmatory PHOENIX phase 3 was FAILING and Amylyx voluntarily WITHDREW Relyvrio from US market April 2024.",
       "keyPassages": [
@@ -237,7 +237,6 @@
       "authors": "Amylyx Pharmaceuticals press release",
       "journal": "Amylyx / Company Filing",
       "year": 2024,
-      "url": "https://www.amylyx.com/newsroom",
       "accessLevel": "full-text",
       "summary": "April 4, 2024 — Amylyx announced voluntary withdrawal of RELYVRIO/ALBRIOZA (sodium phenylbutyrate + taurursodiol) from US and Canadian markets after the confirmatory phase 3 PHOENIX trial failed to show benefit on ALSFRS-R slope or survival. Patients on therapy may continue access via free-of-charge program. This is THE critical 2024 ALS therapy event — any output recommending Relyvrio as a current treatment is out of date.",
       "keyPassages": [
@@ -275,7 +274,7 @@
       "year": 2009,
       "doi": "10.1212/WNL.0b013e3181bc0141",
       "pmid": "19822872",
-      "url": "https://www.aan.com/Guidelines/Home/GuidelineDetail/372",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/19822872/",
       "accessLevel": "abstract",
       "summary": "AAN practice parameter on ALS care: multidisciplinary clinic (level B), NIV when FVC <50% or symptomatic (level A), PEG placement before severe respiratory compromise, cough augmentation for secretions, riluzole, vitamin E supplementation did not show benefit. Now being revised but remains the most-cited systematic ALS care standard.",
       "keyPassages": []

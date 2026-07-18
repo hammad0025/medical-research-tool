@@ -134,7 +134,7 @@
     },
     {
       "name": "TrialNet",
-      "url": "https://www.trialnet.org",
+      "url": null,
       "why": "Free islet autoantibody screening for T1D relatives; trial enrollment gateway."
     },
     {
@@ -210,7 +210,7 @@
       "journal": "Diabetes Care",
       "year": 2025,
       "doi": "10.2337/dc25-SINT",
-      "url": "https://diabetesjournals.org/care/issue/48/Supplement_1",
+      "url": "https://doi.org/10.2337/dc25-SINT",
       "accessLevel": "abstract",
       "summary": "Annual ADA Standards of Care — the single most cited US diabetes guideline. Chapter 7 (diabetes technology) endorses CGM and AID for all T1D; chapter 9 covers pharmacologic approaches. Updated annually.",
       "keyPassages": []
@@ -225,7 +225,7 @@
       "year": 1993,
       "doi": "10.1056/NEJM199309303291401",
       "pmid": "8366922",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJM199309303291401",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/8366922/",
       "accessLevel": "abstract",
       "summary": "Foundational RCT of intensive vs conventional insulin therapy in 1,441 T1D patients over mean 6.5 years. Intensive therapy reduced retinopathy progression by ~60%, nephropathy by ~50%, neuropathy by ~60%. EDIC follow-up showed 'metabolic memory' — early intensive control continues benefit for decades.",
       "keyPassages": [
@@ -245,7 +245,7 @@
       "year": 2019,
       "doi": "10.1056/NEJMoa1902226",
       "pmid": "31180194",
-      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa1902226",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/31180194/",
       "accessLevel": "abstract",
       "summary": "Phase 2 prevention trial of 14-day IV teplizumab (anti-CD3) vs placebo in 76 relatives of T1D patients with ≥2 autoantibodies + dysglycemia (stage 2 T1D). Median time to diabetes was 48.4 months with teplizumab vs 24.4 months with placebo (HR 0.41, P=0.006) — a median 2-year delay in onset. Basis for Tzield FDA approval.",
       "keyPassages": [
@@ -281,7 +281,6 @@
       "authors": "CellTrans",
       "journal": "US FDA",
       "year": 2023,
-      "url": "https://www.accessdata.fda.gov/BiologicsLicenseApplications",
       "accessLevel": "full-text",
       "summary": "First FDA-approved allogeneic pancreatic islet cellular therapy for adults with T1D who experience severe hypoglycemia and impaired awareness of hypoglycemia despite intensive management. Approved June 2023. Requires chronic immunosuppression. Complicated logistics limit real-world use.",
       "keyPassages": [
@@ -299,7 +298,6 @@
       "authors": "Vertex Pharmaceuticals / ADA and EASD conference updates",
       "journal": "Vertex / conference proceedings",
       "year": 2024,
-      "url": "https://www.vrtx.com/diseases/type-1-diabetes/",
       "accessLevel": "metadata-only",
       "summary": "VX-880 uses stem-cell-derived pancreatic islet cells delivered by infusion into the hepatic portal vein, with chronic immunosuppression. 2024 interim data from phase 1/2 trial showed majority of patients achieving insulin independence with restoration of endogenous C-peptide. VX-264 is the companion program using encapsulated delivery to avoid the need for immunosuppression. Considered the most consequential non-insulin T1D therapeutic advance in development.",
       "keyPassages": []

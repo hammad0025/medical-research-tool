@@ -104,6 +104,6 @@ Do **not** open `index.html` via `file://` — `/api/*` will not resolve.
 ## Security
 
 - API keys stay server-side; browser calls `/api/*` only
-- Access gate when `MRT_ACCESS_PASSCODE` is set (fail-open when unset)
+- Access gate when `MRT_ACCESS_PASSCODE` is set (ON whenever the passcode env is present; leave unset for local/dev)
 - Cron routes require `CRON_SECRET`
 - Internal in-process calls use `INTERNAL_CALL` symbol (not spoofable from HTTP)

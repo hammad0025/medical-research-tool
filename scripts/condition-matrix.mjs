@@ -22,6 +22,8 @@
 //
 // Exits non-zero on any invariant failure. Degrades gracefully with clear skips.
 
+import './test-helpers/isolate-persistent-stores.mjs';
+
 import { readFileSync, readdirSync } from 'fs';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -33,7 +35,6 @@ import {
   filterExcludedRepurposeCandidates,
   filterExcludedAgentMentions,
   excludedAgentNames,
-  parseHeadlinePercent,
   assertNoForeignEntities
 } from '../lib/report-polish.js';
 import {
@@ -45,10 +46,10 @@ import {
   buildEvidenceGradeBlock
 } from '../api/research.js';
 import { validateExtract, assembleKbFromExtract, drugKeyFromName } from '../lib/kb-builder.js';
+import { loadProductionReportParsers } from './test-helpers/production-report-parsers.mjs';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
 const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
-const warn = (m) => console.log(`\x1b[33m!\x1b[0m ${m}`);
 const skip = (m) => console.log(`\x1b[90m∅ skip\x1b[0m ${m}`);
 const head = (m) => console.log(`\n\x1b[1m${m}\x1b[0m`);
 
@@ -58,6 +59,7 @@ const KB_DIR = path.join(ROOT, 'data', 'kb');
 
 const LIVE = process.argv.includes('--live');
 const BASE_URL = process.env.MRT_BASE_URL || 'http://localhost:3000';
+const { parseCandidates } = loadProductionReportParsers();
 
 // ---------------------------------------------------------------------------
 // Condition matrix — both curated and genuinely non-curated/dynamic entries.
@@ -213,7 +215,7 @@ head('I3 — guardrail serving regardless of review status (lib/kb.js)');
       } else {
         fail(`I3: guardrails suppressed (excludedAgents=${meta.excludedAgents?.length} redFlags=${meta.redFlags?.length} reviewed=${meta.reviewed})`);
       }
-      if (!wasUnreviewed) warn('I3: served KB did not surface reviewed=false (check meta mapping)');
+      if (!wasUnreviewed) fail('I3: served KB did not surface reviewed=false (check meta mapping)');
     }
   } catch (e) {
     fail(`I3: loadKb threw (${e.message})`);
@@ -270,7 +272,7 @@ head('I1 — excluded-agent contamination guard (lib/report-polish.js)');
   if (!/ambrisentan/i.test(cleanedProse)) {
     pass('I1: excluded agent removed from recommending prose line');
   } else {
-    warn('I1: excluded agent still present in prose (acceptable if line was safety-framed)');
+    fail('I1: excluded agent still present in recommending prose');
   }
 }
 
@@ -281,65 +283,7 @@ head('I1 — excluded-agent contamination guard (lib/report-polish.js)');
 // field opens a NEW candidate boundary so one drug's data can never overwrite
 // another's; the orphaned fragment (no CANDIDATE name) is dropped in de-dup.
 // ===========================================================================
-head('I2 — parser cross-drug field-bleed containment (mirrors index.html:733)');
-
-const REPURPOSE_KEYS = [
-  'CANDIDATE:', 'ITEM_KIND:', 'CLASS:', 'APPROVED_FOR:', 'WHAT_IT_DOES:', 'WHY_FOR_THIS_CONDITION:',
-  'MECHANISM_TARGET:', 'REPURPOSE_RATIONALE:', 'REPURPOSE_SECTION:', 'EVIDENCE_STRENGTH:',
-  'SUPPORTING_EVIDENCE:', 'REFERENCES:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:',
-  'PATIENT_SPECIFIC_RISKS:', 'HOW_TO_DISCUSS_WITH_DOCTOR:'
-];
-
-const collectBlock = (text, startIdx, terminators) => {
-  const lines = text.split('\n');
-  let cur = lines[startIdx].split(':').slice(1).join(':').trim();
-  let next = startIdx + 1;
-  while (next < lines.length) {
-    const trimmed = lines[next].trim();
-    if (terminators.some((t) => trimmed.startsWith(t))) break;
-    if (trimmed.startsWith('## ')) break;
-    if (trimmed) cur += ' ' + trimmed;
-    next++;
-  }
-  return cur;
-};
-
-const parseCandidates = (text) => {
-  const out = [];
-  const lines = text.split('\n');
-  let cur = null;
-  lines.forEach((line, i) => {
-    const t = line.trim();
-    const key = REPURPOSE_KEYS.find((k) => t.startsWith(k));
-    if (!key) return;
-    const field = key.replace(':', '').toLowerCase();
-    if (key === 'CANDIDATE:' || (cur && cur[field] !== undefined)) {
-      if (cur) out.push(cur);
-      cur = {};
-    }
-    if (!cur) return;
-    cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
-    // EFFICACY_HYPOTHESIS is now an honest sourced statement, not a % score
-    // (mirror of index.html) — only SAFETY and CONFIDENCE are % meters.
-    if (field === 'safety' || field === 'confidence') {
-      cur[field + '_pct'] = parseHeadlinePercent(cur[field]);
-    }
-  });
-  if (cur) out.push(cur);
-  const sorted = out.sort((a, b) =>
-    (b.confidence_pct || 0) - (a.confidence_pct || 0)
-  );
-  const seen = new Set();
-  const deduped = [];
-  for (const cand of sorted) {
-    if (!String(cand.candidate || '').trim()) continue; // drop orphan fragments
-    const norm = String(cand.candidate || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '').trim();
-    if (norm && seen.has(norm)) continue;
-    if (norm) seen.add(norm);
-    deduped.push(cand);
-  }
-  return deduped;
-};
+head('I2 — parser cross-drug field-bleed containment (executes index.html parser source)');
 
 {
   // Delimiter-MISSING fixture: the second drug (Lumateperone) lost its
@@ -689,7 +633,7 @@ if (!LIVE) {
 } else {
   const up = await serverReachable();
   if (!up) {
-    warn(`live mode requested but ${BASE_URL} is unreachable — skipping live assertions (not a failure)`);
+    fail(`live mode requested but ${BASE_URL} is unreachable`);
   } else {
     pass(`server reachable at ${BASE_URL}`);
     for (const c of CONDITION_MATRIX) {
@@ -700,14 +644,23 @@ if (!LIVE) {
           body: JSON.stringify({ mode: 'research', phase: 'gather', patient: { condition: c.name } })
         });
         if (!gatherRes.ok) { fail(`LIVE ${c.name}: gather HTTP ${gatherRes.status}`); continue; }
-        const pools = await gatherRes.json();
+        const gathered = await gatherRes.json();
+        if (!gathered.gatherFingerprint || !gathered.gatherSeal) {
+          fail(`LIVE ${c.name}: gather response missing gatherFingerprint/gatherSeal`);
+          continue;
+        }
 
         const synthRes = await fetch(`${BASE_URL}/api/research`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             mode: 'research', phase: 'synthesize',
-            patient: { condition: c.name }, pools
+            patient: { condition: c.name },
+            gatherFingerprint: gathered.gatherFingerprint,
+            gatherSeal: gathered.gatherSeal,
+            providedDossier: gathered.dossier,
+            providedEvidence: gathered.evidence,
+            providedTrials: gathered.trials
           })
         });
         if (!synthRes.ok) { fail(`LIVE ${c.name}: synthesize HTTP ${synthRes.status}`); continue; }
@@ -732,7 +685,7 @@ if (!LIVE) {
         if (text.toLowerCase().includes(canon.split(' ')[0])) {
           pass(`LIVE ${c.name}: I5 — report references the resolved condition`);
         } else {
-          warn(`LIVE ${c.name}: I5 — resolved condition token not found in report (review for wrong-disease grounding)`);
+          fail(`LIVE ${c.name}: I5 — resolved condition token not found in report (possible wrong-disease grounding)`);
         }
 
         // I6-live: grounding-sufficiency grade (Pillar 1). The grade must be
@@ -744,15 +697,15 @@ if (!LIVE) {
           fail(`LIVE ${c.name}: I6 — response carries no evidenceGrade`);
         } else if (c.kind === 'curated') {
           if (grade.tier === 'strong') pass(`LIVE ${c.name}: I6 — curated condition graded "strong" (no banner)`);
-          else warn(`LIVE ${c.name}: I6 — curated condition graded "${grade.tier}" (expected strong; review grounding)`);
+          else fail(`LIVE ${c.name}: I6 — curated condition graded "${grade.tier}" (expected strong)`);
         } else {
           // dynamic / non-curated
           if (grade.tier === 'thin' || grade.tier === 'dossier-only') {
             const hedged = /limited|thin|starting point|not a vetted|discuss with/i.test(text);
             if (hedged) pass(`LIVE ${c.name}: I6 — graded "${grade.tier}" (${grade.realPaperCount} real papers) and report carries an honest hedge`);
-            else warn(`LIVE ${c.name}: I6 — graded "${grade.tier}" but no hedge phrase detected in report text (banner still renders client-side)`);
+            else fail(`LIVE ${c.name}: I6 — graded "${grade.tier}" but no hedge phrase detected in report text`);
           } else {
-            warn(`LIVE ${c.name}: I6 — dynamic condition graded "${grade.tier}" (${grade.realPaperCount} real papers) — unexpectedly well-grounded, verify it is correct`);
+            fail(`LIVE ${c.name}: I6 — dynamic condition graded "${grade.tier}" (${grade.realPaperCount} real papers), expected thin/dossier-only`);
           }
         }
       } catch (e) {

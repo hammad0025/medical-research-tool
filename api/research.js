@@ -38,6 +38,7 @@ import {
   preferVerifiableUrl
 } from '../lib/report-polish.js';
 import { removeDeadLinks } from '../lib/link-check.js';
+import { demoteUnverifiedDocumentCitations } from '../lib/citation-gate.js';
 import { geneticContextLine } from '../lib/genetics.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb, matchKb } from '../lib/kb.js';
@@ -85,6 +86,7 @@ import {
   checkProfileCoherence,
   checkDossierProfileCoherence
 } from '../lib/profile-coherence.js';
+import { createGatherSeal, verifyGatherSeal } from '../lib/gather-seal.js';
 
 import {
   DEFAULT_RESEARCH_MODEL,
@@ -881,7 +883,11 @@ REPURPOSING RULE: Drugs listed under EXCLUDED AGENTS have already been studied f
 // block header or the phrase "previously caught errors" to the reader.
 export const MAX_LEARNED_ERRORS = 15;
 export const buildLearnedErrorsBlock = (errors) => {
-  const list = Array.isArray(errors) ? errors.slice(0, MAX_LEARNED_ERRORS) : [];
+  // User-submitted flags are stored for review but never receive system-prompt
+  // authority. Only validator-derived records may shape future model output.
+  const list = Array.isArray(errors)
+    ? errors.filter((error) => error?.source !== 'user').slice(0, MAX_LEARNED_ERRORS)
+    : [];
   if (!list.length) return '';
 
   const lines = list.map((e, i) => {
@@ -1269,13 +1275,13 @@ CITATION RULES (absolute — the single biggest failure mode of AI in medical re
 - EVERY named entity MUST be a clickable markdown link — no exceptions. This includes treatments, drugs, trials, papers, guidelines, AND non-paper entities: hospitals/centers, clinics, advocacy organizations, patient registries, government bodies (FDA, NIH), and named physicians/experts. The client's hard requirement is "links to everything" — a named entity rendered as plain or bold-only text is a failure.
 - LINK SOURCE PRIORITY (use the first that applies, never invent a deep link to fake a citation):
   1. If a URL for the entity exists in the evidence pack or trials pull, use that exact URL.
-  2. Trials → [NCT… ](https://clinicaltrials.gov/study/NCT01234567) ONLY for NCT IDs that appear in the live trials pull — never invent an NCT ID; if no NCT, link a ClinicalTrials.gov search: https://clinicaltrials.gov/search?term=<url-encoded terms>.
+  2. Trials → [NCT… ](https://clinicaltrials.gov/study/NCT01234567) ONLY for NCT IDs that appear in the live trials pull — never invent an NCT ID; if no NCT, leave the trial name as PLAIN TEXT (do NOT invent a ClinicalTrials.gov search link as a citation).
   3. Drugs → use a pack URL for the drug if one exists (PubMed/DOI/label). A DailyMed SEARCH page (dailymed.nlm.nih.gov/dailymed/search.cfm?query=…) is NEVER an acceptable citation — it is a results list, not an authoritative label, and does not support the claim. Only a SPECIFIC DailyMed label monograph (dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=<SPL_SETID>) is acceptable, and only if you are certain of the exact setid. If you have neither a pack URL nor a specific label, leave the drug name as PLAIN TEXT — do NOT link a search page.
-  4. Guidelines → the issuing society's guideline page if you are certain of it, else a PubMed search (https://pubmed.ncbi.nlm.nih.gov/?term=<url-encoded>).
-  5. Centers/clinics/advocacy orgs/registries/experts → the entity's official website ONLY if you are confident of the exact URL; otherwise link a Google search (https://www.google.com/search?q=<url-encoded name>). A search link is a navigational aid for places/people ONLY — NEVER put a Google or DailyMed search URL in REFERENCES or SUPPORTING_EVIDENCE as if it were the paper/label.
-- NEVER invent a paper URL, DOI, PMID, PubMed ID, journal deep link, or NCT ID, and NEVER link a DailyMed/Google SEARCH page as a citation. If you lack a real specific supporting URL for a claim, OMIT the claim or leave the text plain — never fabricate a citation or point at a search page.
+  4. Guidelines → the issuing society's guideline page if you are certain of it AND it is in the pack; otherwise cite the pack PubMed/DOI for that guideline. If neither exists, PLAIN TEXT — never invent a PubMed search URL as the citation.
+  5. Centers/clinics/advocacy orgs/registries/experts → the entity's official website ONLY if you are confident of the exact URL; otherwise PLAIN TEXT. NEVER use a Google search URL, PubMed search URL, or ClinicalTrials.gov search URL as a link for a person, center, or claim. Real URL or plain text — no search placeholders.
+- NEVER invent a paper URL, DOI, PMID, PubMed ID, journal deep link, or NCT ID, and NEVER link a DailyMed/Google/PubMed/ClinicalTrials SEARCH page as a citation. If you lack a real specific supporting URL for a claim, OMIT the claim or leave the text plain — never fabricate a citation or point at a search page.
 - CITATION METADATA MUST MATCH THE LINK: only state a specific publication YEAR, JOURNAL, or first AUTHOR for a citation when it matches the evidence-pack item you are linking. Do NOT guess or "round" a year (e.g. do not label a 2019 paper "2020"). If you are unsure of the exact year/journal, cite the source by title + link WITHOUT a fabricated year rather than attaching one that disagrees with the linked article.
-- A Google search URL, and a DailyMed SEARCH (search.cfm?query=…) URL, must NEVER be the sole REFERENCES entry for a drug/paper card and must NEVER be presented as "the paper" or "the label."
+- A Google search URL, a PubMed ?term= search URL, a ClinicalTrials.gov /search URL, and a DailyMed SEARCH (search.cfm?query=…) URL, must NEVER appear as a clickable citation anywhere in the report — not in REFERENCES, not on expert names, not on centers, not on patient-assistance lines.
 - Bare URLs are acceptable only if markdown link syntax is impossible; prefer [title](url) always.
 - If the evidence pack does not support a claim, OMIT it or use plain English ("Published figures vary — ask your doctor for local rates."). NEVER write "No grounded evidence in pack" or other internal pipeline phrases.
 - Prefer A+ and A tier journals (NEJM, Lancet, JAMA, BMJ, Nature Medicine, Cochrane, ERJ, AJRCCM, Thorax, Chest) over B/C.
@@ -1296,7 +1302,8 @@ NO-INVENTED-PATIENT-FACTS (critical — the second AI flags violations, and a ha
 - NEVER invent an efficacy or "how well it works" percentage. A percent may appear ONLY when it is the exact statistic reported in a cited study. For a drug's effectiveness, report the REAL measured outcome from the evidence pack (e.g. "slowed decline by ~110 mL/year", "cut flares roughly in half") — do NOT convert a study result into a made-up 0-100 score. If no measured outcome is available, say so plainly rather than inventing a number.
 
 READER-FACING LANGUAGE (critical — demo / lawyer audience):
-- NEVER expose internal terms to the reader: "grounded evidence", "evidence pack", "dossier", "dossier source", "confirmed against grounded evidence", "uncertainty score", or similar.
+- NEVER expose internal terms to the reader: "grounded evidence", "evidence pack", "dossier", "dossier source", "confirmed against grounded evidence", "uncertainty score", "FAERS", "CURATED KB", "ABSTRACT-ONLY", "METADATA-ONLY", or similar pipeline jargon.
+- If you lack a published source for a detail, say so in plain English ("We did not find a published figure for this in the sources we reviewed") — NEVER write "not in the evidence pack" or "no grounded evidence".
 - Centers, experts, and advocacy orgs should read like a normal medical report — no mention of where the list came from internally.
 - NEVER write "Note on patient profile", "the dossier flags X but the profile says Y", or reconcile sex/condition mismatches in the report. The pipeline guarantees profile and dossier align — treat PRIMARY CONDITION and dossier canonical as authoritative; do not invent mismatch disclaimers.
 
@@ -1733,6 +1740,9 @@ export default async function handler(req, res) {
   if (!requireAccess(req, res)) return;
 
   try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'request body must be an object', code: 'INVALID_REQUEST_BODY' });
+    }
     const {
       mode = 'research',
       patient = {},
@@ -1782,8 +1792,36 @@ export default async function handler(req, res) {
       // the parallel lanes, so a top-up batch can be told to propose only NEW,
       // non-duplicate grounded candidates instead of repeating the same drugs.
       avoidCandidates = null,
-      gatherFingerprint: clientGatherFingerprint = null
+      gatherFingerprint: clientGatherFingerprint = null,
+      gatherSeal = null
     } = req.body || {};
+    const allowedModes = new Set([
+      'research', 'repurpose', 'trials', 'chat', 'runtime-config',
+      'resolve-condition', 'condition-subtypes', 'flag-error',
+      'parse-patient-message', 'usage', 'activate-plan', 'translate',
+      'benchmark-models', 'validate', 'polish-report'
+    ]);
+    if (!allowedModes.has(mode)) {
+      return res.status(400).json({ error: 'Unsupported mode', code: 'INVALID_MODE' });
+    }
+    if (!['all', 'gather', 'synthesize'].includes(phase)) {
+      return res.status(400).json({ error: 'Unsupported phase', code: 'INVALID_PHASE' });
+    }
+    if (!patient || typeof patient !== 'object' || Array.isArray(patient)) {
+      return res.status(400).json({ error: 'patient must be an object', code: 'INVALID_PATIENT' });
+    }
+    if (!Array.isArray(chatHistory)) {
+      return res.status(400).json({ error: 'chatHistory must be an array', code: 'INVALID_CHAT_HISTORY' });
+    }
+    if (trialsData !== null && (typeof trialsData !== 'object' || Array.isArray(trialsData))) {
+      return res.status(400).json({ error: 'trialsData must be an object', code: 'INVALID_TRIALS_DATA' });
+    }
+    if (avoidCandidates !== null && !Array.isArray(avoidCandidates)) {
+      return res.status(400).json({ error: 'avoidCandidates must be an array', code: 'INVALID_AVOID_CANDIDATES' });
+    }
+    if (String(userQuery).length > 20_000 || String(priorText).length > 150_000) {
+      return res.status(413).json({ error: 'Request text exceeds limit', code: 'REQUEST_TOO_LARGE' });
+    }
     const model = String(req.body?.model || DEFAULT_MODEL);
     const isRepurposeBatch =
       mode === 'repurpose' && phase === 'synthesize' && half === 'front' &&
@@ -1886,6 +1924,9 @@ export default async function handler(req, res) {
       const reason = String(req.body?.reason || '').trim();
       if (!condition) return res.status(400).json({ error: 'condition is required' });
       if (!claim) return res.status(400).json({ error: 'claim is required' });
+      if (condition.length > 200 || claim.length > 2_000 || reason.length > 1_000) {
+        return res.status(413).json({ error: 'flag fields exceed allowed length' });
+      }
       try {
         const saved = await recordConditionErrors(condition, [{
           type: 'user_flagged',
@@ -2179,6 +2220,7 @@ export default async function handler(req, res) {
       // Dead-link gate: open every remaining link and demote any that 404/410
       // or fail DNS to plain text, so a "page not found" citation can never
       // render as clickable (Dorothy's demo failure). Non-fatal + budgeted.
+      let citationVerificationFailed = false;
       if (isLinkCheckEnabled()) {
         try {
           const { text: deadStripped, deadUrls } = await removeDeadLinks(polished, {
@@ -2189,7 +2231,9 @@ export default async function handler(req, res) {
             polished = deadStripped;
           }
         } catch (err) {
-          console.warn('[research] polish-report dead-link check skipped:', err.message);
+          console.warn('[research] polish-report dead-link check failed closed:', err.message);
+          citationVerificationFailed = true;
+          polished = demoteUnverifiedDocumentCitations(polished);
         }
       }
       // Re-attach entity links after dead-link demotion using the real
@@ -2201,6 +2245,11 @@ export default async function handler(req, res) {
           console.warn(`[research] polish-report re-attached ${relinked.reattached.length} fallback entity link(s)`);
           polished = relinked.text;
         }
+      }
+      // Seal citations after dead-strip + reattach (same as synthesis path).
+      polished = finalizeReportText(polished, { evidence, trials, patient: patientProfile });
+      if (citationVerificationFailed) {
+        polished = demoteUnverifiedDocumentCitations(polished);
       }
       return res.status(200).json({
         content: [{ type: 'text', text: polished }],
@@ -2311,6 +2360,23 @@ export default async function handler(req, res) {
     // Phase: 'synthesize' trusts client-provided pools, skips fan-out.
     // Everything else (gather / all) does the live pulls.
     if (phase === 'synthesize') {
+      if (mode === 'research' || mode === 'repurpose') {
+        const sealCheck = verifyGatherSeal({
+          seal: gatherSeal,
+          gatherFingerprint: clientGatherFingerprint,
+          dossier: providedDossier,
+          evidence: providedEvidence,
+          trials: providedTrials
+        });
+        if (!sealCheck.ok) {
+          return res.status(sealCheck.code === 'GATHER_SEAL_CONFIG' ? 503 : 409).json({
+            error: sealCheck.code === 'GATHER_SEAL_CONFIG'
+              ? 'Gather signing is not configured.'
+              : 'Gathered evidence is invalid or expired — re-gathering.',
+            code: sealCheck.code
+          });
+        }
+      }
       const slim = trimSynthPools({
         dossier: providedDossier,
         evidence: providedEvidence,
@@ -2496,11 +2562,27 @@ export default async function handler(req, res) {
         dossier, evidence, trials, gatherFingerprint: serverGatherFingerprint
       });
       const conditionResolution = conditionResolutionHint;
+      let gatherSeal;
+      try {
+        gatherSeal = createGatherSeal({
+          gatherFingerprint: serverGatherFingerprint,
+          dossier: trimmed.dossier,
+          evidence: trimmed.evidence,
+          trials: trimmed.trials
+        });
+      } catch (error) {
+        console.error('[research] gather seal failed:', error?.message || error);
+        return res.status(503).json({
+          error: 'Gather signing is unavailable.',
+          code: 'GATHER_SEAL_CONFIG'
+        });
+      }
       return res.status(200).json({
         phase: 'gather',
         model,
         maxTokens,
         gatherFingerprint: serverGatherFingerprint,
+        gatherSeal,
         conditionResolution,
         evidenceGrade,
         ...trimmed
@@ -2721,7 +2803,8 @@ ${SHARED_GUARDRAILS}
       );
     }
 
-    if ((mode === 'research' || mode === 'repurpose') && evidence) {
+    let citationVerificationFailed = false;
+    if (mode === 'research' || mode === 'repurpose' || mode === 'chat' || mode === 'trials') {
       const filtered = filterExcludedAgentMentions(claudeText, evidence);
       if (filtered !== claudeText) {
         console.warn('[research] stripped excluded-agent content from output');
@@ -2737,16 +2820,25 @@ ${SHARED_GUARDRAILS}
       // instead of a model-eyeballed percent. A card whose drug has no FDA
       // label degrades gracefully (safety meter dropped). Runs BEFORE finalize
       // so the FDA source links pass through the normal link sanitizer.
-      try {
-        const fdaForCards = await enrichFdaLabelsForCards(claudeText, evidence?.fdaLabels);
-        claudeText = injectSafetyBands(claudeText, {
-          fdaLabels: fdaForCards,
-          patientMeds: patient?.medications
-        });
-      } catch (err) {
-        console.warn('[research] safety-band injection skipped:', err.message);
+      // Skip safety-band injection for chat (not card-shaped); still finalize.
+      if (mode === 'research' || mode === 'repurpose') {
+        try {
+          const fdaForCards = await enrichFdaLabelsForCards(claudeText, evidence?.fdaLabels);
+          claudeText = injectSafetyBands(claudeText, {
+            fdaLabels: fdaForCards,
+            patientMeds: patient?.medications
+          });
+        } catch (err) {
+          console.warn('[research] safety-band injection skipped:', err.message);
+        }
       }
-      claudeText = finalizeReportText(claudeText, { evidence, trials, evidenceGrade, patient });
+      const outputTrials = mode === 'trials' ? (trialsData || trials) : trials;
+      claudeText = finalizeReportText(claudeText, {
+        evidence: evidence || {},
+        trials: outputTrials,
+        evidenceGrade,
+        patient
+      });
       if (isLinkCheckEnabled()) {
         try {
           const { text: deadStripped, deadUrls } = await removeDeadLinks(claudeText, {
@@ -2757,18 +2849,31 @@ ${SHARED_GUARDRAILS}
             claudeText = deadStripped;
           }
         } catch (err) {
-          console.warn('[research] synthesis dead-link check skipped:', err.message);
+          console.warn('[research] synthesis dead-link check failed closed:', err.message);
+          citationVerificationFailed = true;
+          claudeText = demoteUnverifiedDocumentCitations(claudeText);
         }
       }
       // Re-attach entity links after dead-link demotion using the real
       // evidence/trials URL index (pipeline drugs, NCT, FDA labels).
       {
-        const entityIndex = buildEntityUrlIndex(evidence, trials);
+        const entityIndex = buildEntityUrlIndex(evidence || {}, outputTrials);
         const relinked = reattachEntityLinks(claudeText, entityIndex);
         if (relinked.reattached.length) {
           console.warn(`[research] synthesis re-attached ${relinked.reattached.length} fallback entity link(s)`);
           claudeText = relinked.text;
         }
+      }
+      // Seal citations again after dead-strip + reattach so no search placeholder
+      // or unallowlisted deep link re-enters the reader-facing text.
+      claudeText = finalizeReportText(claudeText, {
+        evidence: evidence || {},
+        trials: outputTrials,
+        evidenceGrade,
+        patient
+      });
+      if (citationVerificationFailed) {
+        claudeText = demoteUnverifiedDocumentCitations(claudeText);
       }
       if (data.content?.length) {
         const lastText = data.content.findIndex((c) => c?.type === 'text');
@@ -2898,9 +3003,20 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
               claudeText = rewritten;
               coverageAudit.reprompted = true;
               coverageAudit.finalMissed = scanForMissedPipelineDrugs(rewritten, pipelineDrugs).map((d) => d.name);
+              // Coverage rewrite bypasses the earlier finalize — seal again so
+              // sickle-cell / banned cites / dead patterns cannot re-enter.
+              claudeText = finalizeReportText(claudeText, { evidence, trials, evidenceGrade, patient });
+              if (citationVerificationFailed) {
+                claudeText = demoteUnverifiedDocumentCitations(claudeText);
+              }
               // Replace the content in the response so the UI renders the
               // corrected analysis, not the first draft.
-              data.content = repromptData.content;
+              data.content = (repromptData.content || []).map((c) =>
+                c?.type === 'text' ? { ...c, text: claudeText } : c
+              );
+              if (!data.content.length) {
+                data.content = [{ type: 'text', text: claudeText }];
+              }
             }
           }
         } catch (err) {

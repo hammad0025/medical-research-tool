@@ -121,7 +121,7 @@
     },
     {
       "name": "Help 4 HD International",
-      "url": "https://help4hd-international.org",
+      "url": null,
       "why": "Patient advocacy and community support."
     }
   ],
@@ -199,7 +199,7 @@
       "year": 2015,
       "doi": "10.1038/nrdp.2015.5",
       "pmid": "27188817",
-      "url": "https://www.nature.com/articles/nrdp20155",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/27188817/",
       "accessLevel": "abstract",
       "summary": "Consensus review on HD pathophysiology, clinical features, genetics, diagnosis, and management. Standard modern reference authored by the field's leading clinician-scientists.",
       "keyPassages": []
@@ -230,7 +230,6 @@
       "authors": "Prilenia Therapeutics press release",
       "journal": "Prilenia / Company Filing",
       "year": 2023,
-      "url": "https://prilenia.com/prilenia-announces-topline-results-from-proof-hd-phase-3-trial/",
       "accessLevel": "full-text",
       "summary": "March 16, 2023 — Prilenia reported that the phase 3 PROOF-HD trial of pridopidine (sigma-1 receptor agonist) in early manifest HD did NOT meet the primary endpoint (cUHDRS change at 65 weeks) or key secondary endpoints. Development for HD paused; Prilenia pursuing ALS and other indications. Patients who heard positive phase 2 results should be told the phase 3 failed.",
       "keyPassages": [
@@ -266,7 +265,7 @@
       "authors": "Neurocrine Biosciences",
       "journal": "US FDA",
       "year": 2023,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=valbenazine",
+      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Ingrezza",
       "accessLevel": "full-text",
       "summary": "VMAT2 inhibitor valbenazine — originally approved 2017 for tardive dyskinesia — received label expansion August 2023 for chorea associated with Huntington's disease based on KINECT-HD phase 3 (AAN 2023; Ann Neurol 2023). Once-daily dosing. Boxed warning for depression and suicidality in HD patients.",
       "keyPassages": [
@@ -284,7 +283,6 @@
       "authors": "uniQure / CHDI presentations",
       "journal": "CHDI HD Therapeutics Conference proceedings / company updates",
       "year": 2024,
-      "url": "https://www.uniqure.com/programs/huntingtons-disease",
       "accessLevel": "metadata-only",
       "summary": "AMT-130 (AAV5-miHTT) is an intraparenchymal (surgical) gene therapy delivering microRNA that targets huntingtin mRNA. 2024 interim data in phase 1/2 dose-escalation showed dose-dependent CSF neurofilament light reduction compared to natural-history controls — first HD disease-modifying candidate with credible biomarker signal after tominersen's failure. FDA dialogue around accelerated-approval pathway based on NfL biomarker (as was done for tofersen in SOD1-ALS).",
       "keyPassages": []

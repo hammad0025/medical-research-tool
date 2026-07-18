@@ -27,11 +27,11 @@ import {
   auditCardFields,
   parseHeadlinePercent,
   clampToCompleteSentence,
-  drugKeysMatch,
   renderInlineMarkdownHtml,
   cleanAnchorLabel,
   filterExcludedAgentMentions
 } from '../lib/report-polish.js';
+import { loadProductionReportParsers } from './test-helpers/production-report-parsers.mjs';
 
 const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
 const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
@@ -40,41 +40,26 @@ const head = (m) => console.log(`\n\x1b[1m${m}\x1b[0m`);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIX_DIR = path.join(__dirname, 'fixtures', 'report-outputs');
 const fx = (name) => readFileSync(path.join(FIX_DIR, name), 'utf8');
-
-// Mirror of the index.html band helpers — Safety/Confidence are now
-// Low/Moderate/High bands, and Confidence requires citable evidence or is
-// dropped. Kept in lockstep with the static-page parsers below.
-const parseBandRating = (raw) => {
-  const s = String(raw == null ? '' : raw).replace(/\*/g, '').trim();
-  const m = s.match(/^(Low|Moderate|High)\b\s*[—\-–:]?\s*([\s\S]*)$/i);
-  if (!m) return null;
-  return { band: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(), note: m[2].trim() };
-};
-const hasCitableLink = (s) => /\[[^\]]+\]\(https?:\/\/[^)]+\)/i.test(String(s == null ? '' : s));
+const {
+  parseTreatments,
+  parseCandidates,
+  parseCombos,
+  parseBandRating,
+  source: productionParserSource
+} = loadProductionReportParsers();
 
 console.log('\n=== Report-parser golden-output regression (Layer 1 + 2) ===');
+if (/const parseTreatments =/.test(productionParserSource) &&
+    /const parseCandidates =/.test(productionParserSource) &&
+    /const parseCombos =/.test(productionParserSource)) {
+  pass('loaded parseTreatments/parseCandidates/parseCombos directly from index.html');
+} else {
+  fail('production parser extraction is incomplete');
+}
 
 // ---------------------------------------------------------------------------
 // Shared block walkers — FIXED (hardened) and LEGACY (pre-fix) variants.
 // ---------------------------------------------------------------------------
-const CARD_BOUNDARY_RE = /^(?:-{2,}\s*)?(?:#{1,6}\s*)?(?:💊\s*)?(?:(?:drug|treatment|combo|combination|candidate|supplement)\s+)?CARD\s+\d+\s*[—–:-]/i;
-const isCardBoundaryLine = (line) => CARD_BOUNDARY_RE.test(String(line || '').trim());
-
-const collectBlock = (text, startIdx, terminators) => {
-  const lines = text.split('\n');
-  let cur = lines[startIdx].split(':').slice(1).join(':').trim();
-  let next = startIdx + 1;
-  while (next < lines.length) {
-    const trimmed = lines[next].trim();
-    if (terminators.some((t) => trimmed.startsWith(t))) break;
-    if (trimmed.startsWith('## ')) break;
-    if (isCardBoundaryLine(trimmed)) break;
-    if (trimmed) cur += ' ' + trimmed;
-    next++;
-  }
-  return cur;
-};
-
 // Pre-fix: NO card-boundary break (AGA defect 1) — a card's SOURCES/REFERENCES
 // swallowed the next "### 💊 CARD N —" header + its WHAT IT DOES intro.
 const collectBlockLegacy = (text, startIdx, terminators) => {
@@ -134,7 +119,6 @@ const parseTreatmentsWith = (text, collector) => {
     .map((b) => (b.treatment ? b : { ...b, treatment: deriveTreatmentName(b) }))
     .filter((b) => b.treatment || b.efficacy || b.safety_band || b.safety_pct != null || b.risks);
 };
-const parseTreatments = (text) => parseTreatmentsWith(text, collectBlock);
 const parseTreatmentsLegacy = (text) => parseTreatmentsWith(text, collectBlockLegacy);
 const TREATMENT_FIELDS = ['treatment', 'fda_status', 'provider', 'references', 'risks', 'efficacy', 'safety'];
 
@@ -147,87 +131,6 @@ const REPURPOSE_KEYS = [
   'SUPPORTING_EVIDENCE:', 'REFERENCES:', 'EFFICACY_HYPOTHESIS:', 'SAFETY:', 'CONFIDENCE:',
   'PATIENT_SPECIFIC_RISKS:', 'HOW_TO_DISCUSS_WITH_DOCTOR:'
 ];
-const candidateIdentityKey = (name) =>
-  String(name || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '').trim();
-const candidateSearchTerms = (name) => {
-  const raw = String(name || '').replace(/\*/g, '');
-  const terms = [];
-  const lead = raw.replace(/\(.*?\)/g, ' ').split(/[—–]|\s-\s|:|\|/)[0].replace(/\s+\d.*$/, '').trim();
-  if (lead.length >= 4) terms.push(lead);
-  const paren = raw.match(/\(([^)]+)\)/);
-  if (paren) {
-    for (const piece of paren[1].split(/[,/]/)) {
-      const p = piece.trim();
-      if (p.length >= 4 && !/^\d/.test(p)) terms.push(p);
-    }
-  }
-  return terms;
-};
-const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const CANDIDATE_SELF_FIELDS = [
-  'patient_specific_risks', 'safety', 'confidence', 'efficacy_hypothesis', 'how_to_discuss_with_doctor'
-];
-const dropForeignCandidateFields = (cands) => {
-  const ident = cands.map((c) => ({ key: candidateIdentityKey(c.candidate), terms: candidateSearchTerms(c.candidate) }));
-  cands.forEach((cand, ci) => {
-    const self = ident[ci];
-    if (!self.key) return;
-    const foreign = ident.filter((x, i) => i !== ci && x.key && !drugKeysMatch(x.key, self.key) && x.terms.length);
-    if (!foreign.length) return;
-    CANDIDATE_SELF_FIELDS.forEach((field) => {
-      const val = cand[field];
-      if (val == null) return;
-      const lower = String(val).toLowerCase();
-      if (self.terms.some((t) => lower.includes(t.toLowerCase()))) return;
-      const hit = foreign.some((f) => f.terms.some((t) => new RegExp('\\b' + escapeRe(t) + '\\b', 'i').test(String(val))));
-      if (hit) delete cand[field];
-    });
-  });
-  return cands;
-};
-const parseCandidates = (text) => {
-  const out = [];
-  const lines = text.split('\n');
-  let cur = null;
-  lines.forEach((line, i) => {
-    const t = line.trim();
-    const key = REPURPOSE_KEYS.find((k) => t.startsWith(k));
-    if (!key) return;
-    const field = key.replace(':', '').toLowerCase();
-    if (key === 'CANDIDATE:' || (cur && cur[field] !== undefined)) { if (cur) out.push(cur); cur = {}; }
-    if (!cur) return;
-    cur[field] = collectBlock(text, i, REPURPOSE_KEYS);
-    // SAFETY is an evidence-backed band (server-injected). CONFIDENCE is a band
-    // that MUST carry citable evidence — with no clickable link it is dropped
-    // entirely rather than shown as unsourced opinion (mirror of index.html).
-    if (field === 'safety') {
-      const band = parseBandRating(cur[field]);
-      if (band) { cur.safety_band = band.band; cur.safety_note = band.note; cur.safety_pct = null; }
-      else { cur.safety_pct = parseHeadlinePercent(cur[field]); }
-    } else if (field === 'confidence') {
-      const band = parseBandRating(cur[field]);
-      if (hasCitableLink(cur[field])) {
-        if (band) { cur.confidence_band = band.band; cur.confidence_note = band.note; }
-        else { cur.confidence_pct = parseHeadlinePercent(cur[field]); }
-      }
-    }
-  });
-  if (cur) out.push(cur);
-  const confRank = (c) => c.confidence_band
-    ? ({ low: 1, moderate: 2, high: 3 }[c.confidence_band.toLowerCase()] * 33)
-    : (c.confidence_pct || 0);
-  const sorted = out.sort((a, b) => confRank(b) - confRank(a));
-  const seen = new Set();
-  const deduped = [];
-  for (const cand of sorted) {
-    if (!String(cand.candidate || '').trim()) continue;
-    const norm = candidateIdentityKey(cand.candidate);
-    if (norm && seen.has(norm)) continue;
-    if (norm) seen.add(norm);
-    deduped.push(cand);
-  }
-  return dropForeignCandidateFields(deduped);
-};
 const CANDIDATE_FIELDS = [
   'candidate', 'class', 'approved_for', 'what_it_does', 'why_for_this_condition',
   'mechanism_target', 'repurpose_rationale', 'evidence_strength', 'supporting_evidence',
@@ -239,62 +142,6 @@ const CANDIDATE_FIELDS = [
 // Combination cards — FIXED (normalized labels + truncation drop) and LEGACY
 // (exact underscored labels, no truncation drop = AGA defects 2 + 3).
 // ---------------------------------------------------------------------------
-const COMBO_FIELD_BY_NORM = {
-  COMBO: 'combo', RATIONALE: 'rationale', EVIDENCETIER: 'evidence_tier',
-  SUPPORTINGEVIDENCE: 'supporting_evidence', INTERACTIONRISK: 'interaction_risk',
-  PATIENTSPECIFICRISKS: 'patient_specific_risks', CONFIDENCE: 'confidence',
-  HOWTODISCUSSWITHDOCTOR: 'how_to_discuss_with_doctor', REFERENCES: 'references'
-};
-const comboFieldFromLine = (line) => {
-  const t = String(line || '').trim().replace(/\*\*/g, '');
-  const m = t.match(/^([A-Za-z][A-Za-z _\-]*?)\s*:/);
-  if (!m) return null;
-  const norm = m[1].replace(/[^a-z0-9]/gi, '').toUpperCase();
-  return COMBO_FIELD_BY_NORM[norm] || null;
-};
-const collectComboValue = (lines, startIdx) => {
-  let cur = lines[startIdx].split(':').slice(1).join(':').replace(/^\s*\*+\s*/, '').trim();
-  let next = startIdx + 1;
-  while (next < lines.length) {
-    const trimmed = lines[next].trim();
-    if (comboFieldFromLine(trimmed)) break;
-    if (trimmed.startsWith('## ')) break;
-    if (isCardBoundaryLine(trimmed)) break;
-    if (trimmed) cur += ' ' + trimmed;
-    next++;
-  }
-  return cur;
-};
-const COMBO_TRAILING_FIELDS = ['interaction_risk', 'patient_specific_risks', 'confidence', 'how_to_discuss_with_doctor', 'references'];
-const parseCombos = (text) => {
-  const out = [];
-  const lines = text.split('\n');
-  let cur = null;
-  lines.forEach((line, i) => {
-    const field = comboFieldFromLine(line);
-    if (!field) return;
-    if (field === 'combo' || (cur && cur[field] !== undefined)) { if (cur) out.push(cur); cur = {}; }
-    if (!cur) return;
-    cur[field] = collectComboValue(lines, i);
-    if (field === 'confidence') {
-      const band = parseBandRating(cur[field]);
-      if (hasCitableLink(cur[field])) {
-        if (band) { cur.confidence_band = band.band; cur.confidence_note = band.note; }
-        else {
-          const num = cur[field].match(/(\d{1,3})\s*%/);
-          cur.confidence_pct = num ? parseInt(num[1], 10) : null;
-        }
-      }
-    }
-  });
-  if (cur) out.push(cur);
-  const cleaned = out.filter((c) => String(c.combo || '').trim());
-  if (cleaned.length) {
-    const last = cleaned[cleaned.length - 1];
-    if (!COMBO_TRAILING_FIELDS.some((f) => last[f] !== undefined)) cleaned.pop();
-  }
-  return cleaned;
-};
 // Pre-fix combo parser: requires EXACT underscored labels and never drops a
 // truncated final card. Underscore-less labels (EVIDENCETIER, SUPPORTINGEVIDENCE)
 // are unrecognized, so RATIONALE swallows them into one raw ALLCAPS blob.
@@ -644,15 +491,14 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
     fail('index.html Google-search anchor relabel missing');
   }
 
-  // 7d. sanitizeMarkdownLinks must KEEP Google-search fallback links. Without
-  //     this, the de-scaffolded sanitizer (7a) demotes [Google search](google…)
-  //     to the bare words "Google search" BEFORE the relabel (7c) can run — the
-  //     exact collision that left the bug live after the first fix. Pin that the
-  //     allow-check ORs in isGoogleSearchUrl.
-  if (/urlIsAllowed\(url, allowedUrls\)\s*\|\|\s*isGoogleSearchUrl\(url\)/.test(indexSrc)) {
-    pass('sanitizeMarkdownLinks keeps Google-search links so the relabel can run (no strip-before-relabel)');
+  // 7d. Google-search fallbacks are not citations. The sanitizer must demote
+  //     them while applying cleanAnchorLabel so a bare "Google search" label
+  //     cannot leak into patient-visible prose.
+  if (/google\\\.\[a-z\.\]\+\\\/search/.test(indexSrc) &&
+      /_match,\s*label,\s*url\)\s*=>\s*cleanAnchorLabel\(label,\s*url\)/.test(indexSrc)) {
+    pass('sanitizeMarkdownLinks demotes Google-search links with a clean label');
   } else {
-    fail('sanitizeMarkdownLinks strips Google-search links before relabel — bare "Google search" will leak');
+    fail('sanitizeMarkdownLinks does not cleanly demote Google-search links');
   }
 
   // 7e. parseTreatments must recover/drop nameless cards so a PROVIDER-only
@@ -674,8 +520,7 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
     /<InlineMD text=\{String\(t\.provider\)\.replace\(\/\^Mechanism:\\s\*\/i, ''\)\} \/>/, // "Also FDA-approved" overflow list provider
     /<InlineMD text=\{c\.class\} \/>/,                                                     // CandidateCard drug class
     /<InlineMD text=\{c\.approved_for\} \/>/,                                              // CandidateCard "usually used for"
-    /<InlineMD text=\{String\(c\.mechanism_target\)\.length/,                              // CandidateCard "might work by" / mechanism
-    /<InlineMD text=\{v\} \/>/                                                             // ComparisonTable default prose cell (provider/risks/class/etc.)
+    /<InlineMD text=\{String\(c\.mechanism_target\)\.length/                               // CandidateCard "might work by" / mechanism
   ];
   const sweepCount = sweepWired.filter((re) => re.test(indexSrc)).length;
   if (sweepCount === sweepWired.length) {

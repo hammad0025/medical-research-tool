@@ -12,15 +12,7 @@
 import { dequeueBrainRefreshBatch } from '../lib/brain-queue.js';
 import { pickRefreshBatch, runBrainRefreshBatch } from '../lib/brain-refresh.js';
 import { dynamicKbBackendName } from '../lib/kb-store.js';
-
-const isAuthorised = (req) => {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) return true;
-  const auth = req.headers?.authorization || '';
-  if (auth === `Bearer ${expected}`) return true;
-  if (req.query?.secret === expected) return true;
-  return false;
-};
+import { authorizeCron } from '../lib/cron-auth.js';
 
 const dedupeEntries = (entries) => {
   const seen = new Set();
@@ -32,14 +24,16 @@ const dedupeEntries = (entries) => {
 };
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!isAuthorised(req)) {
-    return res.status(401).json({ error: 'unauthorized — CRON_SECRET required' });
+  const auth = authorizeCron(req);
+  if (!auth.ok) {
+    return res.status(auth.status).json({ error: auth.code, code: auth.code });
   }
 
   if (String(process.env.MRT_BRAIN_CRON || '1').trim() === '0') {

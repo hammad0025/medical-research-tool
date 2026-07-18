@@ -231,7 +231,7 @@
       "authors": "Sarepta Therapeutics",
       "journal": "US FDA",
       "year": 2024,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=delandistrogene+moxeparvovec",
+      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Elevidys",
       "accessLevel": "full-text",
       "summary": "First AAV-based gene therapy for DMD. Delivers Elevidys micro-dystrophin transgene. Accelerated approval June 2023 for ambulatory patients 4-5 years; label EXPANDED June 2024 to all ambulatory patients ≥4 years (traditional approval) and non-ambulatory patients ≥4 years (accelerated approval) despite primary endpoint miss in EMBARK. Two deaths in non-ambulatory patients post-expansion triggered safety review. Boxed/warning concerns include acute liver injury, immune-mediated myositis, myocarditis.",
       "keyPassages": [
@@ -253,7 +253,7 @@
       "authors": "Italfarmaco",
       "journal": "US FDA",
       "year": 2024,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=givinostat",
+      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Duvyzat",
       "accessLevel": "full-text",
       "summary": "First FDA-approved non-steroid disease-modifying DMD therapy (March 2024). Oral HDAC inhibitor given twice daily. Approved for ambulatory patients ≥6 years with confirmed DMD mutation. EPIDYS phase 3 showed slowing of 4-stair climb decline. Key monitoring: platelet count (thrombocytopenia), triglycerides, QT interval.",
       "keyPassages": [
@@ -271,7 +271,7 @@
       "authors": "Catalyst Pharmaceuticals / Santhera",
       "journal": "US FDA",
       "year": 2023,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=vamorolone",
+      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Agamree",
       "accessLevel": "full-text",
       "summary": "Dissociative steroid that retains efficacy of prednisone/deflazacort on motor outcomes but with reduced growth suppression and bone-mineral-density loss. FDA-approved October 2023 for DMD in patients ≥2 years. VISION-DMD pivotal trial basis. Alternative to prednisone/deflazacort where growth/bone side effects are intolerable.",
       "keyPassages": [
@@ -289,7 +289,6 @@
       "authors": "Pfizer press release",
       "journal": "Pfizer / Company Filing",
       "year": 2024,
-      "url": "https://www.pfizer.com/news/press-release",
       "accessLevel": "full-text",
       "summary": "June 2024 — Pfizer announced discontinuation of development for fordadistrogene movaparvovec (PF-06939926, an AAV9-based DMD microdystrophin gene therapy) after the CIFFREO phase 3 failed to meet its primary endpoint. This leaves Elevidys as the only marketed AAV DMD gene therapy. Patients and families following Pfizer's program must be informed it is not moving forward.",
       "keyPassages": [
