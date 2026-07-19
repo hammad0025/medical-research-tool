@@ -178,7 +178,10 @@ test('offline gather → seal → synthesize → finalize → render/export rout
       termsVersion: TERMS_VERSION,
       sections: {
         research: { text: polishedText, profileKey },
-        repurpose: { text: 'Offline repurpose fixture.', profileKey }
+        repurpose: {
+          text: 'CANDIDATE: Offline idea\nREFERENCES: [Published study](https://pubmed.ncbi.nlm.nih.gov/12345678/)',
+          profileKey
+        }
       },
       trials: { status: 'empty', profileKey },
       audits: {

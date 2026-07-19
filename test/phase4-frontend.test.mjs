@@ -30,6 +30,34 @@ REFERENCES: [Study](https://pubmed.ncbi.nlm.nih.gov/12345678/)`);
   assert.match(card.interactions, /anticoagulants/);
 });
 
+test('approved treatment parser never substitutes a manufacturer for a missing treatment', () => {
+  const { parseTreatments } = loadProductionReportParsers();
+  const cards = parseTreatments(`PROVIDER: Abbott / AbbVie
+FDA_STATUS: approved
+EFFICACY: Benefit described in the reviewed label. [FDA label](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=abc)
+REFERENCES: [FDA label](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=abc)`);
+  assert.equal(cards.length, 0);
+});
+
+test('unknown safety status is parsed without duplicating the visible label', () => {
+  const { parseTreatments } = loadProductionReportParsers();
+  const [card] = parseTreatments(`PROVIDER: Teva
+TREATMENT: Rasagiline
+FDA_STATUS: approved
+SAFETY: Safety concern: Unknown — exact product label did not match.
+REFERENCES: [FDA label](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=abc)`);
+  assert.equal(card.safety_band, 'Unknown');
+  assert.equal(card.safety_note, 'exact product label did not match.');
+});
+
+test('approved treatment parser does not require a provider line', () => {
+  const { parseTreatments } = loadProductionReportParsers();
+  const [card] = parseTreatments(`TREATMENT: Rasagiline
+FDA_STATUS: approved
+REFERENCES: [FDA label](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=abc)`);
+  assert.equal(card.treatment, 'Rasagiline');
+});
+
 test('approved treatment screen and full export render all retained fields', () => {
   for (const label of [
     'Dose and schedule', 'What studies found', 'Safety',
@@ -89,6 +117,10 @@ test('full export uses the report citation allowlist', () => {
   assert.match(source, /const allowedUrls = buildAllowedUrlSet\(trialsData, evidenceSummary/);
   assert.match(source, /renderMarkdownForExport\(value, allowedUrls\)/);
   assert.match(source, /references\.filter\(\(r\) => urlIsAllowed\(r\.url, allowedUrls\)\)/);
+});
+
+test('trimmed synthesis pools preserve the signed trial-registry payload', () => {
+  assert.match(source, /registrySeal:\s*trials\.registrySeal/);
 });
 
 console.log(`\n${passed} Phase 4 frontend checks passed.`);

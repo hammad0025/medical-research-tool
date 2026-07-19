@@ -31,7 +31,10 @@ export default async function handler(req, res) {
 
   const body = requireJsonObjectBody(req, res, { maxBytes: 1024 * 1024 });
   if (!body) return;
-  const contract = assessReportCompletion(body, {
+  const contract = assessReportCompletion({
+    ...body,
+    outputQualityVersion: '1'
+  }, {
     termsAccepted: hasTermsConsent(req)
   });
   const now = Date.now();

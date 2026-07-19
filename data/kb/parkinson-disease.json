@@ -387,14 +387,13 @@
     {
       "name": "Apomorphine",
       "aliases": [
-        "Apokyn (SC)",
-        "Kynmobi (sublingual)"
+        "Apokyn (SC)"
       ],
       "mechanism": "Non-ergot dopamine agonist",
       "sponsor": "Sumitomo / Supernus",
-      "status": "SC injection approved 2004; sublingual Kynmobi approved 2020",
+      "status": "Apokyn subcutaneous injection is FDA-approved; Kynmobi sublingual film was withdrawn from the US market in 2023 and its NDA approval was withdrawn in 2025, so it must not be presented as currently available",
       "approvalStatus": "approved",
-      "whyItMatters": "Rescue therapy for sudden OFF episodes. SC continuous apomorphine infusion approved in EU; US approval also expanded."
+      "whyItMatters": "Apokyn injection is a rescue therapy for sudden OFF episodes. Do not present discontinued Kynmobi film as a currently available US option."
     },
     {
       "name": "Rasagiline",

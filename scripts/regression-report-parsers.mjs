@@ -353,12 +353,10 @@ head('4 — curated IPF approved-treatments fixture (no regression)');
 }
 
 // ===========================================================================
-// 4b. PROVIDER-only card with no TREATMENT: name (Overactive Bladder defect —
-//     the "Medtronic InterStim" card rendered as "(unnamed treatment)" with
-//     empty meters). The parser must recover a name from the provider line and
-//     drop a card that has neither a name nor any content.
+// 4b. PROVIDER-only card with no TREATMENT: name. A manufacturer is not a
+//     treatment identity, so every such card must be dropped fail-closed.
 // ===========================================================================
-head('4b — PROVIDER-only card recovers a name / drops if empty (unnamed-treatment defect)');
+head('4b — PROVIDER-only cards fail closed (unnamed-treatment defect)');
 {
   const raw = [
     'PROVIDER: Allergan / AbbVie | Administered by a urologist | DailyMed label',
@@ -377,8 +375,8 @@ head('4b — PROVIDER-only card recovers a name / drops if empty (unnamed-treatm
   const noUnnamed = after.every((t) => t.treatment && !/^\(unnamed/i.test(t.treatment));
   const interstim = after.find((t) => /interstim/i.test(t.treatment || ''));
   const emptyDropped = !after.some((t) => !t.treatment && !t.efficacy && t.safety_pct == null && !t.risks);
-  if (after.length === 2 && noUnnamed && interstim && interstim.treatment === 'Medtronic InterStim' && emptyDropped) {
-    pass(`AFTER: nameless device card recovered ("${interstim.treatment}"), empty PROVIDER-only card dropped, zero "(unnamed treatment)"`);
+  if (after.length === 1 && noUnnamed && !interstim && emptyDropped) {
+    pass('AFTER: every PROVIDER-only card dropped; explicit treatment card retained');
   } else {
     fail(`AFTER: unnamed-treatment regression (n=${after.length} noUnnamed=${noUnnamed} interstim=${JSON.stringify(interstim?.treatment)} emptyDropped=${emptyDropped})`);
   }
@@ -501,12 +499,13 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
     fail('sanitizeMarkdownLinks does not cleanly demote Google-search links');
   }
 
-  // 7e. parseTreatments must recover/drop nameless cards so a PROVIDER-only
-  //     entry never renders as "(unnamed treatment)" (Overactive Bladder defect).
-  if (/deriveTreatmentName/.test(indexSrc)) {
-    pass('parseTreatments recovers/drops nameless cards (deriveTreatmentName present)');
+  // 7e. parseTreatments must fail closed on nameless cards so a manufacturer
+  //     can never render as the treatment name.
+  if (/manufacturer\/provider is never a safe substitute/i.test(indexSrc) &&
+      /\.filter\(\(b\)\s*=>[\s\S]{0,120}String\(b\.treatment/.test(indexSrc)) {
+    pass('parseTreatments drops cards without an explicit treatment identity');
   } else {
-    fail('parseTreatments has no nameless-card recovery — "(unnamed treatment)" can render');
+    fail('parseTreatments does not fail closed on missing treatment identity');
   }
 
   // 7f. Comprehensive sweep guard — the FULL class of "literal markdown leaks in

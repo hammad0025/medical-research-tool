@@ -213,7 +213,10 @@ const validReportInput = (termsVersion) => ({
   termsVersion,
   sections: {
     research: { text: 'Complete research.', profileKey: 'condition|female|moderate|54' },
-    repurpose: { text: 'Complete repurpose.', profileKey: 'condition|female|moderate|54' }
+    repurpose: {
+      text: 'CANDIDATE: Example idea\nREFERENCES: [Published study](https://pubmed.ncbi.nlm.nih.gov/12345678/)',
+      profileKey: 'condition|female|moderate|54'
+    }
   },
   trials: { status: 'complete', profileKey: 'condition|female|moderate|54' },
   audits: {

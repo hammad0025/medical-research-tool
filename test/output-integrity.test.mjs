@@ -18,7 +18,9 @@ import {
   attachMissingClaimCitations,
   enforceConditionCitationRelevance,
   enforceQuantitativeCitationSupport,
+  finalizeReportText,
   hasQuantitativeClaim,
+  replaceClinicalTrialsSection,
   resolveInlineReferenceMarkers,
   sanitizeMarkdownLinks,
   stripInvalidMarkdownAnchors
@@ -150,6 +152,67 @@ test('hard claims fail closed when the evidence pack is empty', () => {
   );
   assert.equal(result.text, '');
   assert.equal(result.stripped, 1);
+});
+
+test('ordinary factual claims do not bypass citation checks by missing keywords', () => {
+  const output = finalizeReportText([
+    'Example Specialist is a leading authority at Example University.',
+    'This treatment is usually covered by Medicare and costs $200 per month.',
+    '| Center | City | Condition-specific work |',
+    '|---|---|---|',
+    '| Example Center | Boston | Runs a high-volume treatment program |'
+  ].join('\n'), {
+    evidence: {},
+    trials: {},
+    patient: { condition: 'Parkinson disease' }
+  });
+  assert.doesNotMatch(output, /Example Specialist|Medicare|Example Center|high-volume/i);
+});
+
+test('short factual card fields still require an adjacent source', () => {
+  const result = attachMissingClaimCitations('RISKS: Hallucinations.', {});
+  assert.equal(result.text, '');
+  assert.equal(result.stripped, 1);
+});
+
+test('unsupported interaction rows cannot retain high-risk or avoid directives', () => {
+  const result = attachMissingClaimCitations([
+    '| PD Drug | Interacting Drug | What Can Happen | Severity |',
+    '|---|---|---|---|',
+    '| Levodopa | Typical antipsychotics | Symptoms may worsen | High — avoid |'
+  ].join('\n'), {});
+  assert.doesNotMatch(result.text, /Levodopa|High — avoid/);
+});
+
+test('clinical-trial section is rendered from structured registry records', () => {
+  const output = replaceClinicalTrialsSection([
+    '## 4. Clinical Trials & Access Programs',
+    'No trials were pulled. Contact an outside trial finder.',
+    '',
+    '## 5. Treatments in development',
+    'Next section.'
+  ].join('\n'), {
+    studies: [{
+      nctId: 'NCT01234567',
+      briefTitle: 'Verified Parkinson Study',
+      status: 'RECRUITING',
+      phases: ['PHASE2']
+    }]
+  });
+  assert.match(output, /Verified Parkinson Study — Phase 2 — Recruiting — NCT01234567/);
+  assert.match(output, /https:\/\/clinicaltrials\.gov\/study\/NCT01234567/);
+  assert.doesNotMatch(output, /outside trial finder/);
+});
+
+test('missing trial retrieval is reported as unavailable, not zero matching trials', () => {
+  const output = replaceClinicalTrialsSection([
+    '## 4. Clinical Trials',
+    'Generated trial prose.',
+    '## 5. Treatments in development',
+    'Next section.'
+  ].join('\n'), null);
+  assert.match(output, /results were unavailable/i);
+  assert.doesNotMatch(output, /No matching ClinicalTrials\.gov records/i);
 });
 
 test('structured card and table claims receive adjacent title-labeled citations', () => {

@@ -626,9 +626,16 @@ if (/SUBGROUP \/ BIOMARKER EXCEPTION/i.test(researchSrc) &&
     { name: 'Pirfenidone', aliases: ['Esbriet'], approvalStatus: 'approved' },
     { name: 'BI 1015550', approvalStatus: 'investigational' }
   ];
+  const fdaLabels = ['Nintedanib', 'Pirfenidone'].map((drug) => ({
+    drug,
+    label: {
+      genericName: drug,
+      url: `https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=${drug.toLowerCase()}-label`
+    }
+  }));
   // Only nerandomilast parsed as a structured card; the rest are prose-only.
   const parsedCards = [{ _type: 'treatment', treatment: 'Nerandomilast', fda_status: 'FDA-approved' }];
-  const merged = injectApprovedTreatmentStubs(parsedCards, pipelineDrugs);
+  const merged = injectApprovedTreatmentStubs(parsedCards, pipelineDrugs, fdaLabels);
   const names = merged.map((t) => String(t.treatment || '').toLowerCase());
   const hasNintedanib = names.some((n) => n.includes('nintedanib'));
   const hasPirfenidone = names.some((n) => n.includes('pirfenidone'));
@@ -698,7 +705,14 @@ if (/SUBGROUP \/ BIOMARKER EXCEPTION/i.test(researchSrc) &&
   // A stub-only approved drug (no rich card yet) still surfaces exactly once.
   const stubOnly = injectApprovedTreatmentStubs(
     richCards,
-    [...pipelineDrugs, { name: 'Inhaled treprostinil', aliases: ['Yutrepia', 'Tyvaso'], approvalStatus: 'approved' }]
+    [...pipelineDrugs, { name: 'Inhaled treprostinil', aliases: ['Yutrepia', 'Tyvaso'], approvalStatus: 'approved' }],
+    [{
+      drug: 'Inhaled treprostinil',
+      label: {
+        genericName: 'Inhaled treprostinil',
+        url: 'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=treprostinil-label'
+      }
+    }]
   );
   const trep = stubOnly.filter((t) => /treprostinil/i.test(t.treatment || '')).length;
   if (trep === 1 && stubOnly.length === 4) {
@@ -915,8 +929,8 @@ if (/const InlineTitle = /.test(indexSrc) &&
 //     "also FDA-approved" reference list, not fake cards with empty "—" meters.
 if (/_approvedStub/.test(indexSrc) &&
     /stubTreatments/.test(indexSrc) &&
-    /Also FDA-approved for this condition/i.test(indexSrc)) {
-  pass('Empty approved stubs render as an honest reference list (no fake "—" efficacy/safety cards, defect 3)');
+    /Other FDA-approved treatments with verified labels/i.test(indexSrc)) {
+  pass('Verified-label approved stubs render as a reference list (no fake efficacy/safety cards, defect 3)');
 } else {
   fail('Approved stubs still render as empty cards — header overstates detailed approved-treatment cards');
 }
@@ -2127,9 +2141,9 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   });
   if (
     !/web\.sph\.uth\.edu\/RetNet/i.test(retnetFinal) &&
-    /CERKL is one of the genes listed in the RetNet database/.test(retnetFinal)
+    !/CERKL is one of the genes listed in the RetNet database/.test(retnetFinal)
   ) {
-    pass('RetNet ban: finalize strips dead RetNet URL (claim may stay plain or use live pack URL)');
+    pass('RetNet ban: finalize removes the claim when its only source is dead');
   } else {
     fail(`RetNet strip regression → ${JSON.stringify(retnetFinal)}`);
   }

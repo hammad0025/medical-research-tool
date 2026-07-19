@@ -630,6 +630,9 @@ const parseTreatments = (text) => {
     if (key === 'PROVIDER:') {
       if (cur) blocks.push(cur);
       cur = { _type: 'treatment' };
+    } else if (key === 'TREATMENT:' && (!cur || cur.treatment)) {
+      if (cur) blocks.push(cur);
+      cur = { _type: 'treatment' };
     }
     if (!cur) return;
     const field = key.replace(':', '').toLowerCase();
@@ -672,25 +675,20 @@ const parseTreatments = (text) => {
     }
   });
   if (cur) blocks.push(cur);
-  // A model card that only had a PROVIDER: line (e.g. a device entry like
-  // "Medtronic InterStim") arrives with no TREATMENT: name and would render
-  // as "(unnamed treatment)". Recover a display name from the first
-  // descriptive segment of the provider/manufacturer line (skipping phone
-  // numbers, URLs, and "ask/call/implanted by …" boilerplate); drop a card
-  // that ends up with neither a name nor any content.
-  const deriveTreatmentName = (b) => String(b.provider || '')
-    .split(/\s*[|—–]\s*/)
-    .map((s) => s.trim())
-    .find((s) => s
-      && !/^\+?[\d().\s-]{7,}$/.test(s)
-      && !/^https?:|\.(com|org|gov|net|edu)\b/i.test(s)
-      && !/^(ask|call|available|implanted|administered|contact|by )/i.test(s)) || '';
-  // Preserve the model's intended ranking (prompt lists approved /
-  // newest-mechanism drugs first). We no longer re-sort by a fabricated
-  // efficacy %, since that number is gone.
+  // A manufacturer/provider is never a safe substitute for a missing
+  // treatment identity. Drop malformed cards fail-closed; the verified KB
+  // approved-treatment list can still show the actual treatment name.
   return blocks
-    .map((b) => (b.treatment ? b : { ...b, treatment: deriveTreatmentName(b) }))
-    .filter((b) => b.treatment || b.efficacy || b.safety_band || b.safety_pct != null || b.risks);
+    .filter((b) =>
+      String(b.treatment || '').trim() &&
+      /\[[^\]]+\]\(https?:\/\/[^)]+\)/i.test([
+        b.references,
+        b.efficacy,
+        b.safety,
+        b.risks,
+        b.interactions
+      ].filter(Boolean).join(' '))
+    );
 };
 
 const REPURPOSE_KEYS = [
@@ -1679,7 +1677,7 @@ const bandFillPct = (band) => {
 // { band, note } or null when the value is not a band (legacy % meters).
 const parseBandRating = (raw) => {
   const s = String(raw == null ? '' : raw).replace(/\*/g, '').trim();
-  const m = s.match(/^(?:Safety concern:\s*)?(Low|Moderate|High)\b\s*[—\-–:]?\s*([\s\S]*)$/i);
+  const m = s.match(/^(?:Safety concern:\s*)?(Low|Moderate|High|Unknown)\b\s*[—\-–:]?\s*([\s\S]*)$/i);
   if (!m) return null;
   return {
     band: m[1][0].toUpperCase() + m[1].slice(1).toLowerCase(),
@@ -2505,7 +2503,11 @@ const App = () => {
 
   /* -------- Derived / parsed data -------- */
   const treatments = useMemo(
-    () => injectApprovedTreatmentStubs(parseTreatments(researchText), evidenceSummary?.pipelineDrugs),
+    () => injectApprovedTreatmentStubs(
+      parseTreatments(researchText),
+      evidenceSummary?.pipelineDrugs,
+      evidenceSummary?.fdaLabels
+    ),
     [researchText, evidenceSummary]
   );
   const candidates = useMemo(() => {
@@ -2659,7 +2661,23 @@ const App = () => {
     setValidationMismatch((v) => ({ ...v, [mode]: null }));
     setBusy(mode);
     busyRef.current = mode;
-    if (mode === 'repurpose') setRepurposeDrugScreen(null);
+    setLastRunMeta((meta) => ({
+      ...meta,
+      [mode]: null,
+      ...(mode === 'research' && extra.chainRepurpose ? { repurpose: null } : {})
+    }));
+    if (mode === 'research') {
+      setResearchText('');
+      if (extra.chainRepurpose) {
+        setRepurposeText('');
+        setRepurposeForCondition(null);
+      }
+    }
+    if (mode === 'repurpose') {
+      setRepurposeText('');
+      setRepurposeForCondition(null);
+      setRepurposeDrugScreen(null);
+    }
     // Seed deep-research progress for research/repurpose (the heavy,
     // multi-phase modes). Chat / trials-analysis stay lightweight and
     // just use the inline spinner.
@@ -2732,7 +2750,8 @@ const App = () => {
           cancelled: trials.cancelled === true,
           degraded: trials.degraded === true,
           providerErrors: trials.providerErrors,
-          studies: (trials.studies || []).slice(0, 20)
+          studies: (trials.studies || []).slice(0, 20),
+          registrySeal: trials.registrySeal
         } : null
       };
     };
@@ -3157,6 +3176,31 @@ const App = () => {
         if (polished.validation) data.validation = polished.validation;
         if (polished.validationMismatch) data.validationMismatch = polished.validationMismatch;
         if (polished.citationAudit) data.citationAudit = polished.citationAudit;
+      }
+      if (mode === 'repurpose') {
+        const finalCandidates = parseCandidates(text);
+        const linkedCandidates = finalCandidates.filter((candidate) =>
+          /\[[^\]]+\]\(https?:\/\/[^)]+\)/i.test([
+            candidate.references,
+            candidate.supporting_evidence,
+            candidate.repurpose_rationale,
+            candidate.efficacy_hypothesis
+          ].filter(Boolean).join(' '))
+        );
+        data.repurposeQuality = {
+          ...(data.repurposeQuality || {}),
+          totalCandidates: finalCandidates.length,
+          linkedCandidates: linkedCandidates.length,
+          ok: finalCandidates.length > 0 && linkedCandidates.length === finalCandidates.length
+        };
+        if (linkedCandidates.length === 0) {
+          setRepurposeText('No source-supported drug or supplement ideas survived verification for this report.');
+          setRepurposeForCondition(runPatient.condition.trim());
+          throw new Error(
+            'No source-supported drug or supplement ideas survived verification. ' +
+            'The report is incomplete and was not marked ready.'
+          );
+        }
       }
       updateStep('synth', {
         status: 'done',
@@ -6082,7 +6126,7 @@ const buildFullReportBody = ({ reportModel }) => {
       parts.push(cardBlock(body || '<p>See linked sources in the research report.</p>'));
     });
     if (stubTx.length) {
-      parts.push('<h3>Also FDA-approved for this condition</h3><ul>');
+      parts.push('<h3>Other FDA-approved treatments with verified labels</h3><ul>');
       stubTx.forEach((t) => {
         parts.push(`<li><strong>${escapeHtmlForExport(String(t.treatment).replace(/[*_]/g, ''))}</strong>` +
           (t.provider ? ` — ${escapeHtmlForExport(String(t.provider).replace(/^Mechanism:\s*/i, ''))}` : '') +
@@ -7525,7 +7569,7 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
           {stubTreatments.length > 0 && (
             <div style={{ marginTop: realTreatments.length > 0 ? '1rem' : 0 }}>
               <div style={{ fontSize: '0.78rem', fontWeight: 700, color: theme.textDim, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
-                Also FDA-approved for this condition (see treatment guidelines)
+                Other FDA-approved treatments with verified labels
               </div>
               <div style={{ display: 'grid', gap: '0.4rem' }}>
                 {stubTreatments.map((t, i) => (
@@ -7538,7 +7582,7 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
                 ))}
               </div>
               <div style={{ fontSize: '0.75rem', color: theme.textDim, marginTop: 6, lineHeight: 1.5 }}>
-                These are established FDA-approved options without per-drug efficacy/safety scores in this report — ask your doctor or see condition treatment guidelines for details.
+                These entries are shown only when an exact FDA label was available. No efficacy or safety score is inferred from the label alone.
               </div>
             </div>
           )}
@@ -8201,6 +8245,9 @@ const TreatmentCard = ({ t: rawT, rank, allowedUrls = null }) => {
   );
   const fda = String(t.fda_status || '').toLowerCase();
   const notApproved = fda && !fda.startsWith('approved');
+  const exactLabelLink = cardLinks.find((link) =>
+    /dailymed\.nlm\.nih\.gov\/dailymed\/drugInfo\.cfm\?setid=/i.test(link.url)
+  );
   return (
     <div style={{
       padding: '1rem 1.1rem', background: theme.panel, borderRadius: 12,
@@ -8221,6 +8268,19 @@ const TreatmentCard = ({ t: rawT, rank, allowedUrls = null }) => {
           {t.fda_status && (
             <div style={{ fontSize: '0.78rem', color: notApproved ? theme.yellow : theme.green, marginTop: 4, fontWeight: 600 }}>
               <InlineMD text={t.fda_status} allowedUrls={allowedUrls} />
+              {exactLabelLink && (
+                <>
+                  {' · '}
+                  <a
+                    href={exactLabelLink.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: theme.accent }}
+                  >
+                    FDA label ↗
+                  </a>
+                </>
+              )}
             </div>
           )}
           {t.provider && (

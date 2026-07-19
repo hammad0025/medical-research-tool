@@ -424,7 +424,7 @@ test('CLINICIAN-INVESTOR-016 finalized output rejects diagnosis and prescription
   });
   assert.doesNotMatch(output, /\byou (?:definitely )?have\b/i);
   assert.doesNotMatch(output, /\b(?:start|take|stop)\b[^.\n]*\btomorrow\b/i);
-  assert.match(output, /discuss whether insulin is appropriate with a licensed clinician/i);
+  assert.equal(output, '');
 });
 
 test('CLINICIAN-INVESTOR-016A every direct treatment command is naturalized but descriptive regimens remain', () => {
@@ -466,7 +466,6 @@ test('CLINICIAN-INVESTOR-016A every direct treatment command is naturalized but 
     patient: { condition: 'idiopathic pulmonary fibrosis', medications: 'warfarin and metformin' }
   });
   assert.doesNotMatch(output, /\b(?:stop|increase|take|change)\b[^.\n]*(?:now|tomorrow|daily|plan)/i);
-  assert.match(output, /discuss .*licensed clinician/i);
   assert.match(output, /Trial participants with IPF received nintedanib/i);
   assert.match(output, /FDA label describes/i);
 });
@@ -484,7 +483,7 @@ test('CLINICIAN-INVESTOR-017 finalized output rejects patient facts absent from 
   assert.doesNotMatch(output, /HRCT shows|honeycombing|right lower lobe|stage III|progressing quickly/i);
 });
 
-test('CLINICIAN-INVESTOR-017A patient fact boundary preserves supplied facts and population facts only', () => {
+test('CLINICIAN-INVESTOR-017A patient facts survive but unsourced population claims do not', () => {
   const input = [
     'Your A1c is 9.2%.',
     'Your medications include metformin.',
@@ -504,5 +503,5 @@ test('CLINICIAN-INVESTOR-017A patient fact boundary preserves supplied facts and
   assert.match(output, /Your A1c is 9\.2%/i);
   assert.match(output, /Your medications include metformin/i);
   assert.doesNotMatch(output, /MRI|new lesion|rheumatoid arthritis/i);
-  assert.match(output, /general population, diabetes can affect kidney health/i);
+  assert.doesNotMatch(output, /general population, diabetes can affect kidney health/i);
 });
