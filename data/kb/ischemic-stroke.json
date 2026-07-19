@@ -307,15 +307,6 @@
       "status": "Phase 3 trials ongoing",
       "approvalStatus": "investigational",
       "evidenceRef": "ischemic-stroke-8"
-    },
-    {
-      "name": "Tirofiban",
-      "aliases": [],
-      "mechanism": "Glycoprotein IIb/IIIa receptor antagonist",
-      "sponsor": "Various",
-      "status": "Tested in combination with thrombectomy",
-      "approvalStatus": "investigational",
-      "evidenceRef": "ischemic-stroke-11"
     }
   ],
   "excludedAgents": [

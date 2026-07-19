@@ -324,7 +324,7 @@
       ]
     },
     {
-      "claim": "Vertex VX-880 stem-cell-derived islet cell therapy has shown insulin independence in early clinical trials (2024 interim), signaling a potential future cure-oriented pathway.",
+      "claim": "Vertex VX-880 stem-cell-derived islet cell therapy has shown insulin independence in early clinical trials (2024 interim), signaling a potential future disease-modifying pathway.",
       "evidenceRefs": [
         "t1d-vertex-vx880-2024"
       ]
@@ -543,31 +543,5 @@
       "whyItMatters": "Off-label interest for T1D patients with obesity. Not a substitute for insulin."
     }
   ],
-  "excludedAgents": [
-    {
-      "name": "SGLT2 inhibitors for T1D (primary therapy)",
-      "reason": "Elevated risk of euglycemic diabetic ketoacidosis in T1D. Sotagliflozin (Zynquista) was not approved by FDA for T1D in 2019 (approved EU but marketing limited). Dapagliflozin EU approval for T1D was withdrawn 2022.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Stem-cell clinics (China / Mexico / Panama / Russia / India) offering IV MSC infusions or 'islet cell' products for T1D",
-      "reason": "No peer-reviewed efficacy data. FDA warning letters. Vertex VX-880 and Lantidra are the only validated islet-cell products and both require FDA-regulated channels.",
-      "evidenceRef": null
-    },
-    {
-      "name": "'Cure T1D by diet' (ultra-low-carb, raw food, etc.) as replacement for insulin",
-      "reason": "T1D is absolute insulin deficiency; cannot be 'cured' by diet. Promoting this causes DKA and death.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Chiropractic, acupuncture, homeopathy for T1D beta-cell restoration",
-      "reason": "No biological plausibility; no evidence of effect on insulin requirement.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Uncontrolled compounded insulins or non-regulated insulin sources",
-      "reason": "FDA and state pharmacy boards have issued warnings. Insulin must come through licensed manufacturing channels.",
-      "evidenceRef": null
-    }
-  ]
+  "excludedAgents": []
 }

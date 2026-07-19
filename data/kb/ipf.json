@@ -737,7 +737,7 @@
       ]
     },
     {
-      "claim": "For IPF, the FDA-approved disease-modifying treatments (standard medical care) are pirfenidone (Esbriet), nintedanib (Ofev), and nerandomilast (Jascayd). CAR-T, CAR cell therapy, and stem-cell / MSC clinic treatments are NOT FDA-approved for IPF, are NOT gold standard, and must never be described as standard of care. Early human stem-cell trials (e.g. AETHER phase 1) showed safety signals but no proven efficacy; offshore stem-cell clinics are warned against in the literature. Already-approved antifibrotics must NEVER appear as drug-repurposing CANDIDATE ideas — they belong only in Approved Treatments.",
+      "claim": "For IPF, the FDA-approved disease-modifying treatments (standard medical care) are pirfenidone (Esbriet), nintedanib (Ofev), and nerandomilast (Jascayd). CAR-T, CAR cell therapy, and stem-cell / MSC clinic treatments are not FDA-approved for IPF, are not gold standard, and should not be described as standard of care. Early human stem-cell trials (e.g. AETHER phase 1) showed safety signals but no proven efficacy; offshore stem-cell clinics are warned against in the literature. Already-approved antifibrotics should not appear as drug-repurposing candidate ideas — they belong only in Approved Treatments.",
       "evidenceRefs": [
         "ipf-stemcells-review-2020",
         "ipf-fda-label-pirfenidone",
@@ -746,7 +746,7 @@
       ]
     },
     {
-      "claim": "Metformin has been studied in people with IPF and did NOT improve outcomes (Spagnolo 2018, post-hoc analysis of 3 phase 3 trials), even though lab/mouse studies were promising (Rangarajan 2018). So metformin is studied-but-not-effective for IPF — it must never be described as 'not researched' or 'never studied.'",
+      "claim": "Metformin has been studied in people with IPF and did NOT improve outcomes (Spagnolo 2018, post-hoc analysis of 3 phase 3 trials), even though lab/mouse studies were promising (Rangarajan 2018). So metformin is studied-but-not-effective for IPF — it should not be described as 'not researched' or 'unstudied.'",
       "evidenceRefs": [
         "ipf-metformin-spagnolo-2018",
         "ipf-metformin-rangarajan-2018"
@@ -942,19 +942,6 @@
       "whyItMatters": "LPA1 antagonism is a mechanistically distinct anti-fibrotic pathway. Phase 2 showed ~69% reduction in rate of FVC decline vs placebo at the 60 mg dose."
     },
     {
-      "name": "PRM-151 (zinpentraxin alfa)",
-      "aliases": [
-        "zinpentraxin alfa",
-        "pentraxin-2 recombinant"
-      ],
-      "mechanism": "Recombinant human pentraxin-2 — inhibits monocyte differentiation into fibrocytes",
-      "sponsor": "Roche/Promedior (Phase 3 discontinued 2022 for futility)",
-      "status": "Phase 3 STARSCAPE discontinued November 2022 for lack of efficacy — included for transparency",
-      "approvalStatus": "discontinued",
-      "nct": "NCT04552899",
-      "whyItMatters": "Once considered the third leg of the IPF antifibrotic stool. Failed in phase 3. Users asking about PRM-151 should know it was discontinued."
-    },
-    {
       "name": "Pamrevlumab",
       "aliases": [
         "FG-3019",
@@ -976,7 +963,7 @@
       "mechanism": "Prostacyclin analog (inhaled)",
       "sponsor": "United Therapeutics",
       "status": "FDA-approved for PH-ILD (INCREASE trial, 2021); investigational as antifibrotic (TETON-1, TETON-2 phase 3)",
-      "approvalStatus": "approved (for PH-ILD); investigational (for IPF antifibrotic effect)",
+      "approvalStatus": "approved-other-indication",
       "pmid": "33440107",
       "nct": "NCT04708782",
       "whyItMatters": "Unexpected signal in INCREASE suggested possible anti-fibrotic effect in addition to pulmonary hypertension benefit. TETON phase 3 trials tested this hypothesis head-on."
@@ -1011,16 +998,6 @@
       "name": "N-acetylcysteine monotherapy (general IPF population)",
       "reason": "PANTHER-NAC (2014) — no effect on FVC decline vs placebo in the overall IPF population. May be evaluated in TOLLIP TT-genotype subgroup (see pipelineDrugs).",
       "evidenceRef": "ipf-panther-nac-2014"
-    },
-    {
-      "name": "Pamrevlumab (FG-3019)",
-      "reason": "ZEPHYRUS-1 phase 3 failed primary endpoint (June 2023). FibroGen halted development for IPF.",
-      "evidenceRef": null
-    },
-    {
-      "name": "PRM-151 (zinpentraxin alfa)",
-      "reason": "STARSCAPE phase 3 discontinued November 2022 for futility at interim analysis.",
-      "evidenceRef": null
     },
     {
       "name": "Offshore stem-cell therapy (clinics in China / Vietnam / Mexico / India)",

@@ -706,24 +706,9 @@
       "evidenceRef": "rp-berson-vita-1993"
     },
     {
-      "name": "Vitamin A palmitate in ABCA4/Stargardt disease",
-      "reason": "Vitamin A accelerates A2E and lipofuscin accumulation in RPE in ABCA4-related disease. Literature warns against use in Stargardt. Confirm genotype before recommending the Berson protocol.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Offshore stem cell clinics (China, Vietnam, Mexico, India, and cash-pay US 'regenerative medicine' operators)",
-      "reason": "No peer-reviewed efficacy data for RP. Multiple FDA warning letters. Documented cases of blindness (bilateral central retinal occlusion) following intravitreal adipose-derived 'stem cell' injections. The legitimate cell therapy path is the jCell/jCyte phase 2b/3 trial (NCT03073733) and the CPCB-RPE1 subretinal patch trial.",
-      "evidenceRef": null
-    },
-    {
       "name": "Argus II retinal prosthesis (new implantation)",
       "reason": "Second Sight (manufacturer) ended support in 2020. Existing patients have been left without upgrades. New implantations are not appropriate. Current modern retinal-prosthesis investigational options include the PRIMA subretinal implant (Science Corp / formerly Pixium).",
       "evidenceRef": "rp-argus-ii-2015"
-    },
-    {
-      "name": "Acetazolamide or topical dorzolamide for cystoid macular edema in RP WITHOUT confirmed CME",
-      "reason": "Acetazolamide and topical CAIs (dorzolamide) are used to treat RP-associated cystoid macular edema when it is documented on OCT. Empiric use without OCT-confirmed CME is not indicated.",
-      "evidenceRef": null
     }
   ]
 }

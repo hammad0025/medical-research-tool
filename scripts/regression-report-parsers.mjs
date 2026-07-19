@@ -457,7 +457,7 @@ head('6 — inline-markdown card-body rendering (literal **bold**/[label](url) l
 // ===========================================================================
 head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)');
 {
-  const indexSrc = readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const indexSrc = readFileSync(path.join(__dirname, '..', 'src', 'app.jsx'), 'utf8');
 
   // 7a. The internal scaffolding phrase must never be emitted to users again.
   if (!/\(link removed/.test(indexSrc)) {
@@ -468,13 +468,13 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
 
   // 7b. The InlineMD component exists and is wired into the short prose fields
   //     that previously rendered as bare {field} text nodes.
-  const hasComponent = /const InlineMD = \(\{ text \}\) =>/.test(indexSrc);
+  const hasComponent = /const InlineMD = \(\{ text,\s*allowedUrls = new Set\(\) \}\) =>/.test(indexSrc);
   const wiredFields = [
-    /<InlineMD text=\{note\} \/>/,                          // MeterBar note
-    /<InlineMD text=\{t\.risks\} \/>/,                       // TreatmentCard risks
-    /<InlineMD text=\{c\.rationale\} \/>/,                   // ComboCard rationale
-    /<InlineMD text=\{c\.what_it_does\} \/>/,                // CandidateCard what it does
-    /<InlineMD text=\{c\.patient_specific_risks\} \/>/       // patient-specific risks
+    /<InlineMD\b[^>]*text=\{note\}[^>]*\/>/,                          // MeterBar note
+    /<InlineMD\b[^>]*text=\{t\.risks\}[^>]*\/>/,                       // TreatmentCard risks
+    /<InlineMD\b[^>]*text=\{c\.rationale\}[^>]*\/>/,                   // ComboCard rationale
+    /<InlineMD\b[^>]*text=\{c\.what_it_does\}[^>]*\/>/,                // CandidateCard what it does
+    /<InlineMD\b[^>]*text=\{c\.patient_specific_risks\}[^>]*\/>/       // patient-specific risks
   ];
   const wiredCount = wiredFields.filter((re) => re.test(indexSrc)).length;
   if (hasComponent && wiredCount === wiredFields.length) {
@@ -515,12 +515,12 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
   //     below matches EXACTLY what was wired (Parkinson Disease Crexont leak +
   //     siblings). If any regresses to a bare render, this fails loudly.
   const sweepWired = [
-    /<InlineMD text=\{t\.provider\} \/>/,                                                  // TreatmentCard provider (CONFIRMED leak)
-    /<InlineMD text=\{t\.fda_status\} \/>/,                                                // TreatmentCard FDA status
-    /<InlineMD text=\{String\(t\.provider\)\.replace\(\/\^Mechanism:\\s\*\/i, ''\)\} \/>/, // "Also FDA-approved" overflow list provider
-    /<InlineMD text=\{c\.class\} \/>/,                                                     // CandidateCard drug class
-    /<InlineMD text=\{c\.approved_for\} \/>/,                                              // CandidateCard "usually used for"
-    /<InlineMD text=\{String\(c\.mechanism_target\)\.length/                               // CandidateCard "might work by" / mechanism
+    /<InlineMD\b[^>]*text=\{t\.provider\}[^>]*\/>/,                                                  // TreatmentCard provider (CONFIRMED leak)
+    /<InlineMD\b[^>]*text=\{t\.fda_status\}[^>]*\/>/,                                                // TreatmentCard FDA status
+    /<InlineMD\b[^>]*text=\{String\(t\.provider\)\.replace\(\/\^Mechanism:\\s\*\/i, ''\)\}[^>]*\/>/, // "Also FDA-approved" overflow list provider
+    /<InlineMD\b[^>]*text=\{c\.class\}[^>]*\/>/,                                                     // CandidateCard drug class
+    /<InlineMD\b[^>]*text=\{c\.approved_for\}[^>]*\/>/,                                              // CandidateCard "usually used for"
+    /<InlineMD[\s\S]{0,120}text=\{String\(c\.mechanism_target\)\.length/                              // CandidateCard "might work by" / mechanism
   ];
   const sweepCount = sweepWired.filter((re) => re.test(indexSrc)).length;
   if (sweepCount === sweepWired.length) {

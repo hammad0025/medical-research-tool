@@ -389,19 +389,7 @@
     "Long-term opioid use carries significant risks and limited long-term benefits",
     "Rofecoxib and similar COX-2 inhibitors carry cardiovascular risks"
   ],
-  "pipelineDrugs": [
-    {
-      "name": "Sprifermin",
-      "aliases": [
-        "FGF-18"
-      ],
-      "mechanism": "Fibroblast growth factor-18 analog for cartilage regeneration",
-      "sponsor": "Not specified",
-      "status": "Failed Phase III",
-      "approvalStatus": "investigational",
-      "evidenceRef": "osteoarthritis-4"
-    }
-  ],
+  "pipelineDrugs": [],
   "excludedAgents": [
     {
       "name": "Autologous adipose-derived mesenchymal stem cells",

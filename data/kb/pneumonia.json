@@ -13,8 +13,7 @@
   "lastUpdated": "2026-06-14",
   "literatureSearchSeeds": [
     "Ceftaroline fosamil",
-    "Intrapleural streptokinase",
-    "Ziritaxestat"
+    "Intrapleural streptokinase"
   ],
   "items": [
     {
@@ -361,30 +360,6 @@
       "accessLevel": "abstract",
       "summary": "",
       "keyPassages": []
-    },
-    {
-      "id": "pneumonia-17",
-      "category": "review",
-      "tier": "B",
-      "title": "Ziritaxestat, a Novel Autotaxin Inhibitor, and Lung Function in Idiopathic Pulmonary Fibrosis: The ISABELA 1 and 2 Randomized Clinical Trials.",
-      "authors": [
-        "Maher TM",
-        "Ford P",
-        "Brown KK",
-        "Costabel U",
-        "Cottin V",
-        "Danoff SK",
-        "Groenveld I",
-        "Helmer E"
-      ],
-      "journal": "JAMA",
-      "year": "2023",
-      "doi": "10.1001/jama.2023.5355",
-      "pmid": "37159034",
-      "url": "https://doi.org/10.1001/jama.2023.5355",
-      "accessLevel": "abstract",
-      "summary": "",
-      "keyPassages": []
     }
   ],
   "canonicalFacts": [
@@ -450,11 +425,6 @@
       "name": "Intrapleural streptokinase",
       "reason": "Double-blind trial of 454 patients with pleural infection showed no benefit for intrapleural streptokinase versus placebo",
       "evidenceRef": "pneumonia-11"
-    },
-    {
-      "name": "Ziritaxestat",
-      "reason": "Phase 3 ISABELA trials in idiopathic pulmonary fibrosis were terminated early due to lack of efficacy",
-      "evidenceRef": "pneumonia-17"
     }
   ]
 }

@@ -3,6 +3,8 @@
 import { checkInfraStatus } from '../lib/infra-status.js';
 import { listKbs } from '../lib/kb.js';
 import { requireAccess } from '../lib/access-gate.js';
+import { setSameOriginCors } from '../lib/cors.js';
+import { requireTermsConsent } from '../lib/terms-consent.js';
 import {
   REPURPOSE_LANE_COUNT,
   REPURPOSE_PER_LANE,
@@ -12,15 +14,21 @@ import {
   REPURPOSE_TARGET_TOTAL
 } from '../lib/repurpose-quality.js';
 import { FAERS_SERIOUS_MIN_REPORTS } from '../lib/safety-score.js';
+import { installPublicJsonBoundary } from '../lib/public-language.js';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Access-Passcode');
+  installPublicJsonBoundary(res);
+  if (!setSameOriginCors(req, res, {
+    methods: 'GET,OPTIONS',
+    headers: 'Content-Type, X-Access-Passcode'
+  })) {
+    return res.status(403).json({ error: 'Cross-origin request blocked', code: 'ORIGIN_BLOCKED' });
+  }
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   if (!requireAccess(req, res)) return;
+  if (!requireTermsConsent(req, res)) return;
 
   const infra = await checkInfraStatus();
   let kbCount = 0;
@@ -37,6 +45,7 @@ export default async function handler(req, res) {
     status,
     service: 'medical-research-tool',
     version: '3.0.0',
+    deploymentSha: process.env.VERCEL_GIT_COMMIT_SHA || null,
     timestamp: new Date().toISOString(),
     platform: {
       maxFunctionDurationSec: 300,

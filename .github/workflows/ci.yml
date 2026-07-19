@@ -31,7 +31,7 @@ jobs:
         run: npm ci
 
       - name: Mandatory release audit
-        run: npm run audit:prepush
+        run: npm run assurance:all
 
       - name: Email owner on failure
         if: failure()
@@ -80,7 +80,7 @@ jobs:
 
   production-smoke:
     name: Production containment smoke
-    if: vars.PRODUCTION_URL != ''
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: offline-suites
     runs-on: ubuntu-latest
     steps:
@@ -96,7 +96,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify deployed containment
+      - name: Validate release configuration
         env:
           MRT_BASE_URL: ${{ vars.PRODUCTION_URL }}
+          MRT_EXPECTED_SHA: ${{ github.sha }}
+          MRT_ACCESS_PASSCODE: ${{ secrets.MRT_SMOKE_ACCESS_PASSCODE }}
+          MRT_REVIEWER_TOKEN: ${{ secrets.MRT_REVIEWER_TOKEN }}
+          MRT_REPORT_SEAL_SECRET: ${{ secrets.MRT_REPORT_SEAL_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERTS_EMAIL_FROM: ${{ vars.ALERTS_EMAIL_FROM }}
+          ALERTS_PUBLIC_URL: ${{ vars.ALERTS_PUBLIC_URL }}
+          ALERTS_MONITOR_WEBHOOK_URL: ${{ secrets.ALERTS_MONITOR_WEBHOOK_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+        run: npm run audit:release-config
+
+      - name: Verify reviewed SHA and deployed controls
+        env:
+          MRT_BASE_URL: ${{ vars.PRODUCTION_URL }}
+          MRT_EXPECTED_SHA: ${{ github.sha }}
+          MRT_ACCESS_PASSCODE: ${{ secrets.MRT_SMOKE_ACCESS_PASSCODE }}
         run: npm run smoke:postdeploy

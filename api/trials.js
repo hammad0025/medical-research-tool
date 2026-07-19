@@ -28,15 +28,24 @@
 // isExpandedAccess / isOpenLabelExtension / hasTopCenter flags.
 //
 // Public API, no key required. Docs: https://clinicaltrials.gov/data-api/api
+import { installPublicJsonBoundary } from '../lib/public-language.js';
 
-import { isTopCenter, topCenterBoost, buildExtendedCenterMatcher } from '../lib/medical-lexicon.js';
+import { isTopCenter, buildExtendedCenterMatcher } from '../lib/medical-lexicon.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb } from '../lib/kb.js';
 import { requireAccess } from '../lib/access-gate.js';
+import { fetchWithTimeout, isTimeoutError, timeoutFor } from '../lib/fetch-timeout.js';
 import { ensureDynamicKb, isDynamicKbEnabled } from '../lib/kb-bootstrap.js';
 import { parseExplicitBoolean, parsePageSize } from '../lib/normalize.js';
+import { classifyGeneticResult } from '../lib/genetics.js';
+import { setSameOriginCors } from '../lib/cors.js';
+import { requireTermsConsent } from '../lib/terms-consent.js';
+import { requireJsonObjectBody } from '../lib/request-boundary.js';
+import { logError } from '../lib/privacy-redaction.js';
+import { enforceDirectPaidHandlerPolicy } from '../lib/spend-controls.js';
 
 const CT_API = 'https://clinicaltrials.gov/api/v2/studies';
+const CLINICAL_TRIALS_TIMEOUT_MS = timeoutFor('clinical_trials', 12_000);
 
 const FAST_TRACK_HINTS = ['fast track', 'fast-track'];
 const BREAKTHROUGH_HINTS = ['breakthrough therapy', 'breakthrough designation'];
@@ -83,11 +92,11 @@ export const parseEligibilityCriteria = (raw) => {
   };
 };
 
-// ---- Patient-facing "promise" score (0-100) -------------------------------
-// The score rewards trials a patient can ACT on (recruiting / accepting /
-// accessible). Non-enrolling statuses are penalised so a finished or stopped
-// trial never outranks one still taking patients (Item 7). Stopped-for-harm /
-// negative trials (incl. the PANTHER aza+pred+NAC arm) get a caution + penalty.
+// ---- Internal access-and-study-stage ordering ------------------------------
+// This value is an ordering key, not a prediction of benefit or eligibility.
+// It rewards explicit registry attributes: current access, study phase/design,
+// regulatory designations, monitoring, and contactability. Patient-facing
+// surfaces explain those attributes and never expose the numeric value.
 // NO_LONGER_AVAILABLE = the program (often an expanded-access protocol) can no
 // longer be accessed, so penalise it like COMPLETED. UNKNOWN status means we
 // cannot confirm a patient can act on it — penalise so it never outranks a
@@ -202,6 +211,239 @@ export const patientSexIneligible = (study = {}, patientSex) => {
   return false;
 };
 
+const ELIGIBILITY_FACT_PENALTY = -70;
+const LAB_ALIASES = [
+  ['creatinine clearance', /\b(?:creatinine clearance|crcl)\b/i],
+  ['egfr', /\be-?gfr\b/i],
+  ['creatinine', /\bcreatinine\b/i],
+  ['platelets', /\bplatelets?\b/i],
+  ['anc', /\b(?:anc|absolute neutrophil count)\b/i],
+  ['hemoglobin', /\b(?:ha?emoglobin|hgb)\b/i],
+  ['bilirubin', /\bbilirubin\b/i],
+  ['ast', /\bast\b/i],
+  ['alt', /\balt\b/i],
+  ['lvef', /\b(?:lvef|left ventricular ejection fraction)\b/i],
+  ['fvc', /\bfvc\b/i],
+  ['dlco', /\bdlco\b/i]
+];
+
+const criteriaLines = (eligibility = {}) => {
+  const parsed = eligibility?.eligibility?.fullText
+    ? eligibility.eligibility
+    : parseEligibilityCriteria(eligibility?.eligibilityCriteria);
+  if (parsed.fullText) {
+    const lines = [];
+    let section = null;
+    for (const raw of parsed.fullText.split(/\n+/)) {
+      if (/^\s*inclusion criteria\s*:?\s*$/i.test(raw)) {
+        section = 'inclusion';
+        continue;
+      }
+      if (/^\s*exclusion criteria\s*:?\s*$/i.test(raw)) {
+        section = 'exclusion';
+        continue;
+      }
+      const criterion = raw.replace(/^\s*[-*•]\s*/, '').trim();
+      if (section && criterion) lines.push({ section, criterion });
+    }
+    if (lines.length) return lines;
+  }
+  const lines = [];
+  for (const [section, text] of [['inclusion', parsed.inclusion], ['exclusion', parsed.exclusion]]) {
+    for (const raw of String(text || '').split(/\n+/)) {
+      const criterion = raw.replace(/^\s*[-*•]\s*/, '').trim();
+      if (criterion) lines.push({ section, criterion });
+    }
+  }
+  return lines;
+};
+
+const patientText = (patient = {}) => [
+  patient.diagnoses,
+  patient.medications,
+  patient.medicationHistory,
+  patient.priorTreatments,
+  patient.labWork,
+  patient.geneticVariant,
+  patient.pregnancyStatus,
+  patient.clinicalHistory
+].filter(Boolean).join('; ');
+
+const explicitNegationFor = (text, term) => {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`\\b(?:no|not|never|without|negative for|denies|has not|have not)\\b[^.;\\n]{0,45}\\b${escaped}\\b`, 'i').test(text);
+};
+
+const readLab = (text, alias) => {
+  const hit = LAB_ALIASES.find(([name]) => name === alias);
+  if (!hit) return null;
+  const source = hit[1].source.replace(/^\b|\\b$/g, '');
+  const match = String(text || '').match(new RegExp(`(?:${source})[^\\d\\n]{0,20}(\\d+(?:\\.\\d+)?)\\s*(%)?`, 'i'));
+  return match ? { value: Number(match[1]), percent: Boolean(match[2]) } : null;
+};
+
+const labRequirement = (criterion) => {
+  for (const [name, re] of LAB_ALIASES) {
+    if (!re.test(criterion)) continue;
+    const after = criterion.slice(criterion.search(re));
+    const match = after.match(/(?:>=|≥|>|at least|minimum(?: of)?|must be)\s*(\d+(?:\.\d+)?)\s*(%)?|(?:<=|≤|<|no more than|maximum(?: of)?)\s*(\d+(?:\.\d+)?)\s*(%)?/i);
+    if (!match) return { name, operator: null, threshold: null };
+    if (match[1] != null) return { name, operator: 'min', threshold: Number(match[1]) };
+    return { name, operator: 'max', threshold: Number(match[3]) };
+  }
+  return null;
+};
+
+const assessOrganCriterion = (criterion, section, patient = {}) => {
+  const labs = String(patient.labWork || '');
+  const profile = patientText(patient);
+  const req = labRequirement(criterion);
+  if (req?.threshold != null) {
+    const actual = readLab(labs, req.name);
+    if (!actual) return { status: 'unknown', reason: `Patient ${req.name} result was not provided.` };
+    const thresholdMatches = req.operator === 'min' ? actual.value >= req.threshold : actual.value <= req.threshold;
+    const compatible = section === 'exclusion' ? !thresholdMatches : thresholdMatches;
+    return {
+      status: compatible ? 'compatible' : 'incompatible',
+      reason: compatible
+        ? `Provided ${req.name} result is compatible with this threshold criterion.`
+        : `Provided ${req.name} result conflicts with this threshold criterion.`
+    };
+  }
+  if (!/\b(?:adequate|normal|acceptable|preserved|impaired|insufficien|failure|dysfunction)\b/i.test(criterion)) return null;
+  if (!/\b(?:renal|kidney|hepatic|liver|cardiac|heart|organ|marrow|hematologic|haematologic)\b/i.test(criterion)) return null;
+  if (!profile) {
+    return {
+      status: 'unknown',
+      reason: 'The test results needed to assess this criterion were not provided.'
+    };
+  }
+  const patientGood = /\b(?:normal|adequate|preserved)\s+(?:renal|kidney|hepatic|liver|cardiac|heart|organ|marrow)/i.test(profile);
+  const patientImpaired = /\b(?:failure|severe|impaired|insufficien|dysfunction)\b/i.test(profile);
+  if (!patientGood && !patientImpaired) {
+    return {
+      status: 'unknown',
+      reason: 'The provided test results do not answer this study criterion.'
+    };
+  }
+  const criterionRequiresImpairment = /\b(?:impaired|insufficien|failure|dysfunction)\b/i.test(criterion);
+  const criterionMatches = criterionRequiresImpairment ? patientImpaired : patientGood;
+  const compatible = section === 'exclusion' ? !criterionMatches : criterionMatches;
+  return {
+    status: compatible ? 'compatible' : 'incompatible',
+    reason: compatible
+      ? 'Patient-reported organ function is compatible with this criterion.'
+      : 'Patient-reported organ function conflicts with this criterion.'
+  };
+};
+
+const geneSymbols = (text) => [...new Set(
+  (String(text || '').match(/\b[A-Z][A-Z0-9-]{1,11}\b/g) || [])
+    .filter((token) => !['DNA', 'RNA', 'ECOG', 'ANC', 'AST', 'ALT', 'ULN'].includes(token))
+)];
+
+const assessGenotypeCriterion = (criterion, section, patient = {}) => {
+  if (!/\b(?:genotype|mutation|variant|pathogenic|wild[- ]?type|biomarker|gene)\b/i.test(criterion)) return null;
+  const requiredGenes = geneSymbols(criterion);
+  const raw = String(patient.geneticVariant || '').trim();
+  if (!raw) return { status: 'unknown', reason: 'The required genetic result was not provided.' };
+  const kind = classifyGeneticResult(raw);
+  const patientGenes = geneSymbols(raw);
+  const matches = requiredGenes.length === 0 || requiredGenes.some((gene) => patientGenes.includes(gene));
+  const criterionNegative = /\b(?:wild[- ]?type|negative|without|no detectable|absence of)\b/i.test(criterion);
+  const patientNegative = kind === 'negative';
+  let hasCriterion = criterionNegative ? patientNegative : kind === 'positive' && matches;
+  if (section === 'exclusion') hasCriterion = !hasCriterion;
+  return {
+    status: hasCriterion ? 'compatible' : 'incompatible',
+    reason: hasCriterion
+      ? 'Provided genetic result is compatible with this criterion.'
+      : 'Provided genetic result conflicts with this criterion.'
+  };
+};
+
+const pregnancyState = (patient = {}) => {
+  const text = patientText(patient);
+  if (/\b(?:not pregnant|pregnancy test(?:ed)? negative|negative pregnancy test|not breastfeeding|not nursing)\b/i.test(text)) return 'not-pregnant';
+  if (/\b(?:pregnant|pregnancy test(?:ed)? positive|breastfeeding|nursing)\b/i.test(text)) return 'pregnant';
+  return 'unknown';
+};
+
+const assessPregnancyCriterion = (criterion, section, patient = {}) => {
+  if (!/\b(?:pregnan(?:t|cy)|breastfeed(?:ing)?|nursing|childbearing potential|contraception)\b/i.test(criterion)) return null;
+  const state = pregnancyState(patient);
+  if (state === 'unknown') {
+    return {
+      status: 'unknown',
+      reason: 'Pregnancy or breastfeeding information was not provided.'
+    };
+  }
+  const criterionRequiresPregnancy = !/\b(?:not pregnant|negative pregnancy|exclude|must not|no pregnant)\b/i.test(criterion);
+  const hasCriterion = state === 'pregnant';
+  const compatible = section === 'exclusion'
+    ? !hasCriterion
+    : criterionRequiresPregnancy ? hasCriterion : !hasCriterion;
+  return {
+    status: compatible ? 'compatible' : 'incompatible',
+    reason: compatible
+      ? 'Provided pregnancy status is compatible with this criterion.'
+      : 'Provided pregnancy status conflicts with this criterion.'
+  };
+};
+
+const treatmentTerms = (criterion) => {
+  const stop = new Set(['prior', 'previous', 'previously', 'treatment', 'therapy', 'treated', 'received', 'failed', 'failure', 'history', 'with', 'without', 'must', 'have', 'been', 'the', 'and', 'any', 'systemic']);
+  return (String(criterion || '').toLowerCase().match(/[a-z][a-z0-9-]{2,}/g) || [])
+    .filter((word) => !stop.has(word));
+};
+
+const assessPriorTreatmentCriterion = (criterion, section, patient = {}) => {
+  if (!/\b(?:prior|previous(?:ly)?|treatment[- ]na[iï]ve|therapy[- ]na[iï]ve|failed|refractory to|received)\b/i.test(criterion)) return null;
+  const history = [
+    patient.medications,
+    patient.medicationHistory,
+    patient.priorTreatments,
+    patient.clinicalHistory
+  ].filter(Boolean).join('; ').toLowerCase();
+  if (!history) return { status: 'unknown', reason: 'Prior-treatment history was not provided.' };
+  const terms = treatmentTerms(criterion);
+  const mentioned = terms.some((term) => history.includes(term));
+  const explicitlyNone = terms.some((term) => explicitNegationFor(history, term));
+  const requiresNoPrior = /\b(?:no prior|without prior|treatment[- ]na[iï]ve|therapy[- ]na[iï]ve|never (?:received|treated))\b/i.test(criterion);
+  let hasCriterion = requiresNoPrior ? explicitlyNone || !mentioned : mentioned && !explicitlyNone;
+  if (section === 'exclusion') hasCriterion = !hasCriterion;
+  return {
+    status: hasCriterion ? 'compatible' : 'incompatible',
+    reason: hasCriterion
+      ? 'Provided treatment history is compatible with this criterion.'
+      : 'Provided treatment history conflicts with this criterion.'
+  };
+};
+
+export const assessDetailedEligibility = (study = {}, patient = {}) => {
+  const checks = [];
+  for (const { section, criterion } of criteriaLines(study)) {
+    const assessments = [
+      ['organ-function', assessOrganCriterion(criterion, section, patient)],
+      ['genotype', assessGenotypeCriterion(criterion, section, patient)],
+      ['pregnancy', assessPregnancyCriterion(criterion, section, patient)],
+      ['prior-treatment', assessPriorTreatmentCriterion(criterion, section, patient)]
+    ];
+    for (const [dimension, result] of assessments) {
+      if (result) checks.push({ dimension, section, criterion, ...result });
+    }
+  }
+  const incompatible = checks.filter((check) => check.status === 'incompatible');
+  const unknown = checks.filter((check) => check.status === 'unknown');
+  return {
+    status: incompatible.length ? 'hard-mismatch' : unknown.length ? 'unknown' : checks.length ? 'no-hard-mismatch' : 'not-assessed',
+    eligible: false,
+    checks,
+    incompatible,
+    unknown
+  };
+};
+
 // Linear map of the raw additive sum into a 0-100 scale (the UI shows "/100").
 // Monotonic, so it preserves relative ranking order while keeping distinct
 // trials distinct instead of clamping many of them at 100.
@@ -218,7 +460,11 @@ export const normalizePromise = (raw) => {
 // of the checks being scattered through the score adjuster. Conservative: a
 // dimension only contributes a penalty when the patient is CLEARLY ineligible.
 // Returns { penalty, flags: [{ dimension, penalty, caution }], cautions }.
-export const assessTrialEligibility = (study = {}, { patientAge = null, patientSex = null } = {}) => {
+export const assessTrialEligibility = (study = {}, {
+  patientAge = null,
+  patientSex = null,
+  patient = {}
+} = {}) => {
   const flags = [];
   if (patientAgeIneligible(study, patientAge)) {
     flags.push({
@@ -234,12 +480,34 @@ export const assessTrialEligibility = (study = {}, { patientAge = null, patientS
       caution: 'This trial appears to enrol only patients of a different sex than the patient — they likely cannot join.'
     });
   }
+  const detailed = assessDetailedEligibility(study, {
+    ...patient,
+    age: patient.age ?? patientAge,
+    gender: patient.gender ?? patientSex
+  });
+  for (const check of [...detailed.incompatible, ...detailed.unknown]) {
+    flags.push({
+      dimension: check.dimension,
+      status: check.status,
+      // Missing patient facts are uncertainty, not evidence of ineligibility.
+      penalty: check.status === 'unknown' ? 0 : ELIGIBILITY_FACT_PENALTY,
+      caution: check.reason,
+      criterion: check.criterion
+    });
+  }
   const penalty = flags.reduce((sum, f) => sum + f.penalty, 0);
-  return { penalty, flags, cautions: flags.map((f) => f.caution) };
+  const status = flags.some((flag) => flag.status !== 'unknown')
+    ? 'hard-mismatch'
+    : flags.length ? 'unknown' : detailed.status;
+  return { penalty, flags, cautions: flags.map((f) => f.caution), status, detailed };
 };
 
 // Apply the status penalty + harmful-trial caution to an accumulated raw score.
-export const applyPatientPromiseAdjustment = (rawScore, study = {}, { patientAge = null, patientSex = null } = {}) => {
+export const applyPatientPromiseAdjustment = (rawScore, study = {}, {
+  patientAge = null,
+  patientSex = null,
+  patient = {}
+} = {}) => {
   let score = Number(rawScore) || 0;
   const STATUS = String(study.status || '').toUpperCase();
   const nct = String(study.nctId || '').toUpperCase();
@@ -270,10 +538,14 @@ export const applyPatientPromiseAdjustment = (rawScore, study = {}, { patientAge
   // eligibility gate so the dimensions can never silently drift apart. The
   // status caution (stopped-for-harm) keeps priority; otherwise the first
   // eligibility caution (age before sex) is surfaced.
-  const eligibility = assessTrialEligibility(study, { patientAge, patientSex });
+  const eligibility = assessTrialEligibility(study, { patientAge, patientSex, patient });
   score += eligibility.penalty;
-  if (!caution && eligibility.cautions.length) caution = eligibility.cautions[0];
-  return { score, caution };
+  return {
+    score,
+    caution,
+    stoppedNegative: stoppedHarmful,
+    eligibilityCaution: eligibility.cautions[0] || null
+  };
 };
 
 const extractContacts = (contactsLocationsModule = {}) => {
@@ -408,11 +680,9 @@ export const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
   ].filter(Boolean);
   const topCenters = [...new Set(centerTexts.filter(isTopCenterFn))];
   const hasTopCenter = topCenters.length > 0;
-  // We still use the hardcoded-whitelist boost for the numeric score (the
-  // dossier-extended list would let Claude inflate scores for obscure
-  // centers); the dossier's contribution is surfacing whether ANY match
-  // exists and naming the center in the UI / prompt context.
-  const topCenterScore = topCenterBoost(centerTexts);
+  // Center names are descriptive only. Hospital reputation and geography are
+  // not protocol-quality, safety, integrity, or access-ranking attributes.
+  const topCenterScore = 0;
 
   const interventions = (arms.interventions || []).map(i => ({
     type: i.type,
@@ -573,7 +843,7 @@ const scoreTrialRelevance = (study, matcher) => {
       const named = listedConds.slice(0, 2).join('; ');
       return {
         score: -100,
-        label: 'wrong disease',
+        label: 'condition mismatch',
         reason: `ClinicalTrials.gov lists this under "${named}" — not ${matcher.displayName}.`
       };
     }
@@ -582,22 +852,22 @@ const scoreTrialRelevance = (study, matcher) => {
   if (score >= 45) {
     return {
       score,
-      label: 'strong match',
-      reason: `Title and listed conditions clearly match ${matcher.displayName}.`
+      label: 'high condition relevance',
+      reason: `The title and listed conditions match ${matcher.displayName}. This does not determine personal eligibility.`
     };
   }
   if (score >= 18) {
     return {
       score,
-      label: 'likely match',
-      reason: `Appears related to ${matcher.displayName} based on title and conditions on ClinicalTrials.gov.`
+      label: 'moderate condition relevance',
+      reason: `The title or listed conditions appear related to ${matcher.displayName}. This does not determine personal eligibility.`
     };
   }
   if (score >= 8) {
     return {
       score,
-      label: 'weak match',
-      reason: `Only a loose connection to ${matcher.displayName} — confirm with the study team before assuming you qualify.`
+      label: 'low condition relevance',
+      reason: `The record has only a limited connection to ${matcher.displayName}. Ask the study team whether the study is relevant and whether you may qualify.`
     };
   }
   const ivText = (study.interventions || []).map((i) => i.name).join(' ');
@@ -607,19 +877,19 @@ const scoreTrialRelevance = (study, matcher) => {
   if (cellGene) {
     return {
       score: Math.max(score, 10),
-      label: 'cell / gene therapy',
-      reason: `Cell or gene therapy trial — may apply only to certain patients; confirm eligibility with the study team.`
+      label: 'specialized therapy study',
+      reason: 'This cell or gene therapy study may apply only to certain patients. Confirm relevance and eligibility with the study team.'
     };
   }
   return {
     score,
-    label: 'unlikely match',
-    reason: `Does not clearly mention ${matcher.displayName} — may have appeared because of a shared drug name or broad search.`
+    label: 'condition relevance unclear',
+    reason: `The record does not clearly mention ${matcher.displayName}. It may have appeared because of a shared drug name or broad search; ask the study team before relying on it.`
   };
 };
 
 // Single CT.gov query wrapper. Returns raw studies[] array or throws.
-const queryCtGov = async (paramsDict) => {
+const queryCtGov = async (paramsDict, signal = null) => {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(paramsDict)) {
     if (v !== undefined && v !== null && v !== '') params.set(k, String(v));
@@ -627,7 +897,13 @@ const queryCtGov = async (paramsDict) => {
   params.set('format', 'json');
   params.set('countTotal', 'true');
   const url = `${CT_API}?${params.toString()}`;
-  const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+  const response = await fetchWithTimeout(url, {
+    headers: { 'Accept': 'application/json' },
+    signal
+  }, {
+    timeoutMs: CLINICAL_TRIALS_TIMEOUT_MS,
+    provider: 'ClinicalTrials.gov'
+  });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
     const err = new Error(`ClinicalTrials.gov ${response.status}: ${text.slice(0, 200)}`);
@@ -639,13 +915,13 @@ const queryCtGov = async (paramsDict) => {
 };
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Access-Passcode'
-  );
+  installPublicJsonBoundary(res);
+  if (!setSameOriginCors(req, res, {
+    methods: 'GET,OPTIONS,POST',
+    headers: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Access-Passcode'
+  })) {
+    return res.status(403).json({ error: 'Cross-origin request blocked', code: 'ORIGIN_BLOCKED' });
+  }
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -657,9 +933,14 @@ export default async function handler(req, res) {
   }
 
   if (!requireAccess(req, res)) return;
+  if (!requireTermsConsent(req, res)) return;
 
   try {
-    const body = req.method === 'POST' ? req.body : req.query;
+    const body = req.method === 'POST'
+      ? requireJsonObjectBody(req, res, { maxBytes: 256 * 1024 })
+      : (req.query || {});
+    if (!body) return;
+    if (!await enforceDirectPaidHandlerPolicy(req, res)) return;
     const {
       condition,
       recruitingOnly: recruitingOnlyRaw = true,
@@ -668,7 +949,8 @@ export default async function handler(req, res) {
       pageSize = 50,
       country,
       patientAge = null,
-      patientSex = null
+      patientSex = null,
+      patient = {}
     } = body || {};
     const recruitingOnly = parseExplicitBoolean(recruitingOnlyRaw, true);
     const treatmentOnly = parseExplicitBoolean(treatmentOnlyRaw, true);
@@ -685,7 +967,7 @@ export default async function handler(req, res) {
     const dossier =
       (body && body.dossier && body.dossier.canonical)
         ? body.dossier
-        : await getDossier(condition);
+        : await getDossier(condition, { signal: req.signal || null });
 
     const primary = dossier.canonical || condition;
     const aliases = (dossier.synonyms || [])
@@ -715,7 +997,7 @@ export default async function handler(req, res) {
       ...(recruitingOnly
         ? { 'filter.overallStatus': 'RECRUITING,NOT_YET_RECRUITING,ENROLLING_BY_INVITATION' }
         : {})
-    }));
+    }, req.signal));
 
     // (b) Synonym fan-out (first 3 dossier-supplied aliases)
     for (const alias of aliases.slice(0, 3)) {
@@ -725,7 +1007,7 @@ export default async function handler(req, res) {
         ...(recruitingOnly
           ? { 'filter.overallStatus': 'RECRUITING,NOT_YET_RECRUITING,ENROLLING_BY_INVITATION' }
           : {})
-      }));
+      }, req.signal));
     }
 
     // (b2) MeSH term fan-out. CT.gov's indexing is more reliable on MeSH
@@ -738,7 +1020,7 @@ export default async function handler(req, res) {
         ...(recruitingOnly
           ? { 'filter.overallStatus': 'RECRUITING,NOT_YET_RECRUITING,ENROLLING_BY_INVITATION' }
           : {})
-      }));
+      }, req.signal));
     }
 
     // (c) Expanded Access studies for the condition, ALL statuses.
@@ -747,7 +1029,7 @@ export default async function handler(req, res) {
       'query.cond': primary,
       'filter.advanced': 'AREA[StudyType]EXPANDED_ACCESS',
       'pageSize': 40
-    }));
+    }, req.signal));
 
     // (d) Open-Label Extension / Long-Term Follow-Up. Title search is the most
     // reliable signal (sponsors label extensions with these words by convention).
@@ -755,7 +1037,7 @@ export default async function handler(req, res) {
       'query.cond': primary,
       'query.titles': 'extension OR "long-term follow-up" OR rollover',
       'pageSize': 40
-    }));
+    }, req.signal));
 
     // (e) Pipeline-drug fan-out. For every drug/NCT in the KB's
     // pipelineDrugs array we query CT.gov explicitly — either by NCT id
@@ -776,7 +1058,7 @@ export default async function handler(req, res) {
     for (const drug of pipelineDrugs.slice(0, 6)) {
       if (drug.nct) {
         // Direct NCT lookup — guaranteed match.
-        queries.push(queryCtGov({ 'query.id': drug.nct, 'pageSize': 5 }));
+        queries.push(queryCtGov({ 'query.id': drug.nct, 'pageSize': 5 }, req.signal));
         pipelineDrugQueryLabels.push(`nct:${drug.nct}:${drug.name}`);
       }
       if (drug.name) {
@@ -787,7 +1069,7 @@ export default async function handler(req, res) {
           'query.cond': primary,
           'query.intr': drug.name,
           'pageSize': 10
-        }));
+        }, req.signal));
         pipelineDrugQueryLabels.push(`drug:${drug.name}`);
       }
     }
@@ -811,9 +1093,25 @@ export default async function handler(req, res) {
         subQueryStats.push({ label: queryLabels[i], status: 'ok', count: r.value.length });
         allRaw.push(...r.value);
       } else {
-        subQueryStats.push({ label: queryLabels[i], status: 'error', error: r.reason?.message });
+        const cancelled =
+          r.reason === req.signal?.reason ||
+          r.reason?.name === 'AbortError' ||
+          r.reason?.code === 'ABORT_ERR' ||
+          (req.signal?.aborted && !isTimeoutError(r.reason));
+        if (!cancelled) {
+          logError('[trials] provider subquery failed', r.reason, { queryType: queryLabels[i] });
+        }
+        subQueryStats.push({
+          label: queryLabels[i],
+          status: cancelled ? 'cancelled' : (isTimeoutError(r.reason) ? 'timeout' : 'error'),
+          error: cancelled
+            ? 'caller cancelled'
+            : (isTimeoutError(r.reason) ? 'provider timeout' : 'provider request failed')
+        });
       }
     });
+    const cancelled = subQueryStats.some((entry) => entry.status === 'cancelled');
+    const degraded = subQueryStats.some((entry) => entry.status !== 'ok');
 
     // Classify + dedupe by NCT
     const byNct = new Map();
@@ -842,21 +1140,7 @@ export default async function handler(req, res) {
       );
     }
 
-    // Promise-score. Heavily revised from the previous single-query version:
-    //   - Phase bonuses (existing)
-    //   - Recruiting + no-placebo + designations (existing)
-    //   - NEW: +20 if expanded-access available (it's literally "you can
-    //     get the drug right now without winning a trial lottery")
-    //   - NEW: +15 if OLE available
-    //   - NEW: +3 per top center in sponsor/location/affiliation (capped 15)
-    //   - NEW: -15 if the trial is in China/Vietnam/Mexico/India for
-    //     the stem-cell safety reasons already used in evidence.js
-    const WESTERN = new Set([
-      'United States', 'Canada', 'United Kingdom', 'Germany', 'France', 'Italy',
-      'Spain', 'Netherlands', 'Sweden', 'Denmark', 'Norway', 'Finland', 'Belgium',
-      'Switzerland', 'Ireland', 'Austria', 'Australia', 'New Zealand', 'Japan'
-    ]);
-    const CHINA_LIKE = new Set(['China', 'Vietnam', 'Mexico', 'India']);
+    // Internal ordering uses only explicit registry/protocol attributes.
 
     const relevanceMatcher = buildRelevanceMatcher(
       primary,
@@ -887,12 +1171,12 @@ export default async function handler(req, res) {
       if (s.designations.orphan) score += 3;
       score += accessDesignationBonus(s);
       if (s.designations.hasPostTrialAccess) score += 6;
-      score += s.topCenterScore || 0;
-      const westernHit = (s.countries || []).some(c => WESTERN.has(c));
-      const chinaHit = (s.countries || []).some(c => CHINA_LIKE.has(c));
-      if (westernHit) score += 10;
-      if (chinaHit) score -= 15;
       if (s.oversight?.oversightHasDMC) score += 4;
+      if (s.oversight?.fdaRegulatedDrug || s.oversight?.fdaRegulatedDevice) score += 3;
+      const hasContact = (s.contacts?.centralContacts || []).some((c) => c.email || c.phone) ||
+        (s.contacts?.locations || []).some((location) =>
+          (location.contacts || []).some((c) => c.email || c.phone));
+      if (hasContact) score += 4;
       const ivBlob = (s.interventions || []).map((i) => i.name).join(' ');
       if (/\b(car[- ]?t|chimeric antigen|cell therapy|gene therapy|stem cell|gene[- ]edit)/i.test(
         `${s.briefTitle || ''} ${ivBlob}`
@@ -900,23 +1184,44 @@ export default async function handler(req, res) {
         score += 10;
       }
 
-      // Rank patients toward trials they can actually join, flag stopped/harmful
-      // ones, and rescale the raw sum to a clear 0-100 score (Item 7 + 0-100).
-      const { score: adjustedScore, caution } = applyPatientPromiseAdjustment(score, s, { patientAge, patientSex });
-      const eligibility = assessTrialEligibility(s, { patientAge, patientSex });
-      s.caution = caution || s.eligibilityCaution || null;
+      // Order by access and study stage; unknown eligibility facts add no
+      // penalty, while explicit incompatibilities remain fail-closed.
+      const patientProfile = {
+        ...(patient && typeof patient === 'object' ? patient : {}),
+        age: patient?.age ?? patientAge,
+        gender: patient?.gender ?? patientSex
+      };
+      const {
+        score: adjustedScore,
+        caution,
+        stoppedNegative,
+        eligibilityCaution
+      } = applyPatientPromiseAdjustment(score, s, {
+        patientAge,
+        patientSex,
+        patient: patientProfile
+      });
+      const eligibility = assessTrialEligibility(s, { patientAge, patientSex, patient: patientProfile });
+      s.caution = caution;
+      s.stoppedNegative = stoppedNegative;
       s.eligibilityAssessment = {
-        status: eligibility.flags.length
+        status: eligibility.status === 'hard-mismatch'
           ? 'hard-mismatch'
+          : eligibility.status === 'unknown'
+            ? 'unknown'
           : s.eligibilityReviewStatus === 'not-provided'
             ? 'criteria-unavailable'
             : 'criteria-unchecked',
         reviewedCriteria: false,
-        caution: s.eligibilityCaution ||
+        eligible: false,
+        checks: eligibility.detailed.checks,
+        caution: eligibilityCaution || s.eligibilityCaution ||
           'Full eligibility criteria were unavailable and were not checked against this patient.'
       };
       s.promiseScoreRaw = adjustedScore;
       s.promiseScore = normalizePromise(adjustedScore);
+      // Preferred internal name. Legacy fields remain API-compatible only.
+      s.accessStudyStageOrder = adjustedScore;
     });
 
     // Demographic HARD-GATE (patient-safety + eligibility). A study the patient
@@ -938,6 +1243,15 @@ export default async function handler(req, res) {
       });
       studies = demoKept;
     }
+
+    // Known incompatibilities in retained organ-function, genotype, pregnancy,
+    // and prior-treatment criteria are hard rejects. Unknown facts remain
+    // visible for study-team follow-up, but eligibilityAssessment.eligible is
+    // always false and status is "unknown" so they cannot be presented as
+    // patient-eligible.
+    const beforeDetailedEligibility = studies.length;
+    studies = studies.filter((s) => s.eligibilityAssessment?.status !== 'hard-mismatch');
+    const droppedEligibility = beforeDetailedEligibility - studies.length;
 
     // Drop clear wrong-disease trials; keep weak cell/gene therapy trials when not hard-mismatched.
     const beforeWrong = studies.length;
@@ -965,6 +1279,7 @@ export default async function handler(req, res) {
       total: studies.length,
       droppedWrongCondition: droppedWrong,
       droppedDemographic,
+      droppedEligibility,
       recruiting: studies.filter((s) => s.acceptingNewPatients).length,
       expandedAccess: studies.filter((s) => s.designations.hasExpandedAccess).length,
       openLabelExtension: studies.filter((s) => s.designations.hasOpenLabelExtension).length,
@@ -980,6 +1295,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       query: { condition, recruitingOnly, treatmentOnly, excludePlacebo, country },
+      status: cancelled ? 'cancelled' : degraded ? 'degraded' : 'complete',
+      cancelled,
       dossier: {
         canonical: dossier.canonical,
         synonyms: dossier.synonyms,
@@ -990,6 +1307,14 @@ export default async function handler(req, res) {
         generatedBy: dossier.generatedBy
       },
       subQueries: subQueryStats,
+      ...(degraded
+        ? {
+            degraded: true,
+            providerErrors: subQueryStats
+              .filter((entry) => entry.status !== 'ok')
+              .map(({ label, status, error }) => ({ provider: 'ClinicalTrials.gov', query: label, reason: status, error }))
+          }
+        : {}),
       breakdown,
       kbContext: kb.matched
         ? {
@@ -1010,7 +1335,10 @@ export default async function handler(req, res) {
       studies
     });
   } catch (error) {
-    console.error('trials.js error:', error);
-    return res.status(500).json({ error: 'Internal server error', message: error.message });
+    logError('[trials] request failed', error);
+    return res.status(500).json({
+      error: 'Internal server error.',
+      code: 'INTERNAL_SERVER_ERROR'
+    });
   }
 }

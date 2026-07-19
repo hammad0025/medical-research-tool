@@ -13,6 +13,8 @@ import { dequeueBrainRefreshBatch } from '../lib/brain-queue.js';
 import { pickRefreshBatch, runBrainRefreshBatch } from '../lib/brain-refresh.js';
 import { dynamicKbBackendName } from '../lib/kb-store.js';
 import { authorizeCron } from '../lib/cron-auth.js';
+import { setSameOriginCors } from '../lib/cors.js';
+import { logError } from '../lib/privacy-redaction.js';
 
 const dedupeEntries = (entries) => {
   const seen = new Set();
@@ -25,7 +27,12 @@ const dedupeEntries = (entries) => {
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (!setSameOriginCors(req, res, {
+    methods: 'GET,POST,OPTIONS',
+    headers: 'Content-Type,Authorization'
+  })) {
+    return res.status(403).json({ error: 'Cross-origin request blocked', code: 'ORIGIN_BLOCKED' });
+  }
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -75,7 +82,10 @@ export default async function handler(req, res) {
       durationMs: Date.now() - started
     });
   } catch (e) {
-    console.error('[brain-cron]', e);
-    return res.status(500).json({ error: 'brain_cron_failed', detail: e.message || String(e) });
+    logError('[brain-cron] request failed', e);
+    return res.status(500).json({
+      error: 'Brain refresh failed.',
+      code: 'BRAIN_CRON_FAILED'
+    });
   }
 }

@@ -15,6 +15,8 @@ delete process.env.VERCEL_ENV;
 const queue = await import('../lib/brain-queue.js');
 const usage = await import('../lib/usage-store.js');
 const kbStore = await import('../lib/kb-store.js');
+const spend = await import('../lib/spend-controls.js');
+const { INTERNAL_CALL } = await import('../lib/internal-call.js');
 const healthHandler = (await import('../api/health.js')).default;
 
 test.beforeEach(() => {
@@ -85,17 +87,48 @@ test('invalid finite-limit configuration fails closed', () => {
     delete process.env.UPSTASH_REDIS_REST_URL;
     delete process.env.UPSTASH_REDIS_REST_TOKEN;
     const store = await import('./lib/usage-store.js');
-    const result = await store.consumeResearchCredit('203.0.113.21');
-    process.stdout.write(JSON.stringify(result));
+    try {
+      await store.consumeResearchCredit('203.0.113.21');
+      process.stdout.write(JSON.stringify({ allowed: true }));
+    } catch (error) {
+      process.stdout.write(JSON.stringify({ allowed: false, code: error.code }));
+    }
   `;
   const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '--eval', source], {
     cwd: new URL('..', import.meta.url),
     encoding: 'utf8'
   }));
   assert.equal(result.allowed, false);
-  assert.equal(result.limit, 0);
-  assert.equal(result.used, 0);
-  assert.ok(Number.isFinite(result.remaining));
+  assert.equal(result.code, 'DURABLE_ENFORCEMENT_UNAVAILABLE');
+});
+
+test('all paid modes and direct handlers share spend enforcement', async () => {
+  for (const mode of [
+    'research', 'repurpose', 'trials', 'chat', 'translate',
+    'benchmark-models', 'validate', 'polish-report'
+  ]) {
+    assert.equal(spend.isPaidUserMode(mode), true, mode);
+  }
+
+  const previous = process.env.MRT_SPEND_ENABLED;
+  process.env.MRT_SPEND_ENABLED = '0';
+  try {
+    let statusCode = null;
+    let body = null;
+    const res = {
+      status(code) { statusCode = code; return this; },
+      json(value) { body = value; return this; }
+    };
+    assert.equal(await spend.enforceDirectPaidHandlerPolicy({
+      headers: { 'x-real-ip': '203.0.113.40' }
+    }, res), false);
+    assert.equal(statusCode, 503);
+    assert.equal(body.code, 'RESEARCH_SPEND_DISABLED');
+    assert.equal(await spend.enforceDirectPaidHandlerPolicy({ [INTERNAL_CALL]: true }, res), true);
+  } finally {
+    if (previous === undefined) delete process.env.MRT_SPEND_ENABLED;
+    else process.env.MRT_SPEND_ENABLED = previous;
+  }
 });
 
 test('KB updates replace aliases atomically without mutating caller data', async () => {

@@ -15,10 +15,19 @@ import {
   getSubscription,
   deleteSubscription,
   listSubscriptionsByEmail,
-  isConfigured,
-  backendName
+  isConfigured
 } from '../lib/alerts-store.js';
 import { requireAccess } from '../lib/access-gate.js';
+import { setSameOriginCors } from '../lib/cors.js';
+import { requireTermsConsent } from '../lib/terms-consent.js';
+import { requireJsonObjectBody } from '../lib/request-boundary.js';
+import {
+  PUBLIC_PROVIDER_LIMITATIONS,
+  RETENTION_SECONDS,
+  SERVER_DATA_INVENTORY
+} from '../lib/privacy-governance.js';
+import { logError, publicError } from '../lib/privacy-redaction.js';
+import { installPublicJsonBoundary } from '../lib/public-language.js';
 import { timingSafeEqual } from 'node:crypto';
 
 const randomId = (len = 16) => {
@@ -49,69 +58,128 @@ const sanitisePatientContext = (p = {}) => ({
   notes: typeof p.notes === 'string' ? p.notes.slice(0, 400) : undefined
 });
 
+const publicSubscription = (sub) => ({
+  id: sub.id,
+  condition: sub.condition,
+  cadence: sub.cadence,
+  createdAt: sub.createdAt,
+  expiresAt: sub.expiresAt,
+  lastRunAt: sub.lastRunAt || null,
+  active: sub.active === true
+});
+
+const exportableSubscription = (sub) => ({
+  ...publicSubscription(sub),
+  email: sub.email,
+  patientContext: sub.patientContext || null
+});
+
 export default async function handler(req, res) {
+  installPublicJsonBoundary(res);
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Access-Passcode');
+  if (!setSameOriginCors(req, res, {
+    methods: 'GET,POST,DELETE,OPTIONS',
+    headers: 'Content-Type, X-Access-Passcode'
+  })) {
+    return res.status(403).json({ error: 'Cross-origin request blocked', code: 'ORIGIN_BLOCKED' });
+  }
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (!requireAccess(req, res)) return;
+  if (!requireTermsConsent(req, res)) return;
 
   try {
     const action = String(req.query?.action || '').toLowerCase();
 
     // ---- LIST --------------------------------------------------------
     if (req.method === 'GET') {
+      if (action === 'inventory') {
+        return res.status(200).json({
+          scope: 'Repository-enforced data handling; not a legal compliance certification.',
+          serverData: SERVER_DATA_INVENTORY,
+          externalProviderLimitations: PUBLIC_PROVIDER_LIMITATIONS
+        });
+      }
+      if (action === 'export') {
+        const id = String(req.query?.id || '');
+        const token = String(req.query?.token || '');
+        if (!id || !token) {
+          return res.status(400).json({
+            error: 'This export link is incomplete. Open the alert settings page and try again.',
+            code: 'EXPORT_AUTH_REQUIRED'
+          });
+        }
+        const sub = await getSubscription(id);
+        if (!sub || !tokenMatches(token, sub.ownerToken || sub.unsubscribeToken)) {
+          return res.status(403).json({
+            error: 'We could not verify this export link. It may be invalid or expired.',
+            code: 'OWNER_TOKEN_INVALID'
+          });
+        }
+        return res.status(200).json({
+          exportedAt: new Date().toISOString(),
+          subscription: exportableSubscription(sub)
+        });
+      }
       const email = req.query?.email;
       const token = req.query?.token;
-      if (!isValidEmail(email)) return res.status(400).json({ error: 'valid email query param required' });
-      if (!token) return res.status(403).json({ error: 'ownership token required', code: 'OWNER_TOKEN_REQUIRED' });
+      if (!isValidEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
+      if (!token) {
+        return res.status(403).json({
+          error: 'Open the alert-management link that was provided when you subscribed.',
+          code: 'OWNER_TOKEN_REQUIRED'
+        });
+      }
       const subs = await listSubscriptionsByEmail(email);
       const owned = subs.filter((sub) =>
         tokenMatches(token, sub.ownerToken || sub.unsubscribeToken)
       );
       if (!owned.length) {
-        return res.status(403).json({ error: 'invalid ownership token', code: 'OWNER_TOKEN_INVALID' });
+        return res.status(403).json({
+          error: 'We could not verify this alert-management link. It may be invalid or expired.',
+          code: 'OWNER_TOKEN_INVALID'
+        });
       }
       return res.status(200).json({
-        backend: backendName(),
         count: owned.length,
         // Explicit allow-list: list responses must not expose email, patient
         // context, capability tokens, provider IDs, or future private fields.
-        subscriptions: owned.map((sub) => ({
-          id: sub.id,
-          condition: sub.condition,
-          cadence: sub.cadence,
-          createdAt: sub.createdAt,
-          lastRunAt: sub.lastRunAt || null,
-          active: sub.active === true
-        }))
+        subscriptions: owned.map(publicSubscription)
       });
+    }
+
+    const body = requireJsonObjectBody(req, res, { maxBytes: 32 * 1024 });
+    if (!body) return;
+
+    // ---- UNSUBSCRIBE -------------------------------------------------
+    if (action === 'unsubscribe' || req.method === 'DELETE') {
+      const { id, token } = body;
+      if (!id || !token) {
+        return res.status(400).json({ error: 'This unsubscribe link is incomplete.' });
+      }
+      const sub = await getSubscription(id);
+      if (!sub) return res.status(404).json({ error: 'This alert subscription was not found.' });
+      if (!tokenMatches(token, sub.unsubscribeToken) && !tokenMatches(token, sub.ownerToken)) {
+        return res.status(403).json({
+          error: 'We could not verify this unsubscribe link. It may be invalid or expired.',
+          code: 'OWNER_TOKEN_INVALID'
+        });
+      }
+      await deleteSubscription(id);
+      return res.status(200).json({ ok: true, deleted: id, unsubscribed: id });
     }
 
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const body = req.body || {};
-
-    // ---- UNSUBSCRIBE -------------------------------------------------
-    if (action === 'unsubscribe') {
-      const { id, token } = body;
-      if (!id || !token) return res.status(400).json({ error: 'id + token required' });
-      const sub = await getSubscription(id);
-      if (!sub) return res.status(404).json({ error: 'subscription not found' });
-      if (!tokenMatches(token, sub.unsubscribeToken)) return res.status(403).json({ error: 'invalid token' });
-      await deleteSubscription(id);
-      return res.status(200).json({ ok: true, unsubscribed: id });
-    }
-
     // ---- CREATE ------------------------------------------------------
     const { email, condition, patientContext, cadence } = body;
-    if (!isValidEmail(email)) return res.status(400).json({ error: 'valid email required' });
+    if (!isValidEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
     if (!condition || typeof condition !== 'string' || !condition.trim()) {
-      return res.status(400).json({ error: 'condition required' });
+      return res.status(400).json({ error: 'Enter the condition you want to follow.' });
     }
-    if (condition.length > 200) return res.status(400).json({ error: 'condition too long' });
+    if (condition.length > 200) {
+      return res.status(400).json({ error: 'The condition name is too long. Use 200 characters or fewer.' });
+    }
 
     // Dedupe: one active subscription per (email, condition) pair.
     const existing = await listSubscriptionsByEmail(email);
@@ -138,6 +206,7 @@ export default async function handler(req, res) {
       unsubscribeToken,
       ownerToken,
       createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + RETENTION_SECONDS.alerts * 1000).toISOString(),
       lastRunAt: null,
       active: true
     };
@@ -158,19 +227,19 @@ export default async function handler(req, res) {
       condition: sub.condition,
       cadence: sub.cadence,
       createdAt: sub.createdAt,
+      expiresAt: sub.expiresAt,
       // Return the unsubscribeToken ONLY at creation time so the client
       // can hold onto it if it wants to offer an unsubscribe button later.
       // Subsequent GET calls never return it.
       unsubscribeToken,
       ownerToken,
-      backend: backendName(),
       ephemeral: !isConfigured(),
       warning: isConfigured()
         ? null
-        : 'Store is in-memory and will be lost on next cold start. Set UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN in Vercel to persist.'
+        : 'This alert is temporary and may stop after the service restarts. Do not rely on it for urgent or time-sensitive medical information.'
     });
   } catch (e) {
-    console.error('alerts-subscribe error:', e);
-    return res.status(500).json({ error: 'Internal error', message: e.message });
+    logError('[alerts-subscribe]', e);
+    return res.status(500).json(publicError());
   }
 }

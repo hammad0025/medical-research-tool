@@ -510,26 +510,6 @@
       "name": "Aducanumab (Aduhelm)",
       "reason": "Withdrawn from US market by Biogen in January 2024. No longer commercially available. Any AD output recommending aducanumab as a current option is out of date.",
       "evidenceRef": "ad-aducanumab-withdrawal-2024"
-    },
-    {
-      "name": "Ginkgo biloba for dementia prevention",
-      "reason": "GEM study (Ann Intern Med 2008, JAMA 2008) showed no effect on dementia incidence in >3,000 older adults followed ~6 years. Not recommended by any current guideline.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Prevagen (apoaequorin)",
-      "reason": "No credible RCT evidence of cognitive benefit. Subject of FTC enforcement action 2017 for deceptive advertising.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Coconut oil / MCT oil for AD",
-      "reason": "No high-quality RCT evidence. Popular on patient forums; not recommended.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Stem cell clinics offering IV MSC infusions for AD",
-      "reason": "No peer-reviewed efficacy data for AD. FDA warning letters to multiple operators. Patient-safety concern.",
-      "evidenceRef": null
     }
   ]
 }

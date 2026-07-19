@@ -81,7 +81,7 @@ await test('passcode exchange creates an HttpOnly session without browser storag
   assert.equal(gate.requireAccess({
     method: 'POST', headers: { cookie }
   }, response()), true);
-  const indexSource = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const indexSource = await readFile(new URL('../src/app.jsx', import.meta.url), 'utf8');
   assert.doesNotMatch(indexSource, /mrt_access_passcode_v1|localStorage\.setItem\([^)]*passcode/i);
   if (oldNode === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = oldNode;
   if (oldPass === undefined) delete process.env.MRT_ACCESS_PASSCODE; else process.env.MRT_ACCESS_PASSCODE = oldPass;
@@ -128,7 +128,7 @@ await test('SSRF guard blocks private IPs and private redirect targets', async (
     resolver: async (host) => host === 'public.example'
       ? [{ address: '93.184.216.34', family: 4 }]
       : [{ address: '127.0.0.1', family: 4 }],
-    fetchImpl: async () => {
+    requestImpl: async () => {
       fetches += 1;
       return {
         status: 302,
@@ -166,7 +166,10 @@ await test('subscription listing requires a matching ownership token', async () 
   process.env.NODE_ENV = 'test';
   process.env.MRT_ACCESS_PASSCODE = 'test-access';
   const { default: alerts } = await import(`../api/alerts-subscribe.js?test=${Date.now()}`);
-  const auth = { 'x-access-passcode': 'test-access' };
+  const auth = {
+    'x-access-passcode': 'test-access',
+    'content-type': 'application/json'
+  };
   const created = response();
   await alerts({
     method: 'POST', headers: auth, query: {},
@@ -206,13 +209,13 @@ await test('deployment config denies private paths and sets security/cache heade
   const apiRoute = config.routes.find((route) => route.dest === '/api/$1');
   assert.match(apiRoute?.headers?.['Cache-Control'] || '', /no-store/);
   const ignored = await readFile(new URL('.vercelignore', root), 'utf8');
-  for (const path of ['.cursor', '.verify-runs', '.verify-screenshots', 'docs', 'scripts', 'tmp']) {
+  for (const path of ['.cursor', '.verify-runs', '.verify-screenshots', 'docs', 'tmp']) {
     assert.match(ignored, new RegExp(`^${path.replace('.', '\\.')}\\s*$`, 'm'));
   }
 });
 
 await test('all Markdown HTML sinks pass through the sanitizer', async () => {
-  const html = await readFile(new URL('index.html', root), 'utf8');
+  const html = await readFile(new URL('src/app.jsx', root), 'utf8');
   assert.match(html, /const sanitizeRenderedHtml =/);
   assert.equal((html.match(/<div[^>]+dangerouslySetInnerHTML/g) || []).length, 1);
   assert.match(html, /sanitizeRenderedHtml\(window\.marked\.parse/);

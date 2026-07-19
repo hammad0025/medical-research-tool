@@ -315,10 +315,6 @@
       ]
     },
     {
-      "claim": "Riluzole (oral 1995, suspension 2018 Tiglutik, sublingual 2019 Exservan) remains first-line; modest ~3-month survival benefit.",
-      "evidenceRefs": []
-    },
-    {
       "claim": "Edaravone (Radicava IV 2017; Radicava ORS oral 2022) is approved but eligibility reflects the narrower MCI186-19 trial population.",
       "evidenceRefs": [
         "als-edaravone-writing-group-2017"
@@ -534,31 +530,6 @@
       "name": "Relyvrio / Albrioza (AMX0035)",
       "reason": "Voluntarily WITHDRAWN from US and Canadian markets April 2024 following PHOENIX phase 3 failure. No longer a commercial product.",
       "evidenceRef": "als-phoenix-withdrawal-2024"
-    },
-    {
-      "name": "NurOwn (BrainStorm MSC-NTF)",
-      "reason": "Phase 3 primary endpoint missed 2020; FDA advisory committee voted against approval 2023; BLA not approved September 2023. Patient advocacy was intense but the data did not support approval.",
-      "evidenceRef": null
-    },
-    {
-      "name": "High-dose vitamin E for ALS",
-      "reason": "No benefit in RCTs; literature does not support recommending as treatment.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Offshore stem-cell clinics (China / Mexico / Panama / Vietnam / India)",
-      "reason": "No peer-reviewed ALS efficacy data. Multiple FDA warning letters to US-linked operators. Patient-safety concern.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Lithium for ALS",
-      "reason": "Multiple RCTs negative since the 2008 pilot. Not effective.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Creatine, coenzyme Q10 for ALS",
-      "reason": "Phase 2/3 RCTs did not show benefit on progression or survival.",
-      "evidenceRef": null
     }
   ]
 }

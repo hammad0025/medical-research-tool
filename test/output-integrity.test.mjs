@@ -15,10 +15,12 @@ import {
   rewriteMarkdownLinks
 } from '../lib/citation-gate.js';
 import {
+  attachMissingClaimCitations,
   enforceConditionCitationRelevance,
+  resolveInlineReferenceMarkers,
   sanitizeMarkdownLinks
 } from '../lib/report-polish.js';
-import { dedupeArticles } from '../lib/evidence.js';
+import { buildPromptPackBreakdown, dedupeArticles } from '../lib/evidence.js';
 
 test('condition relevance requires the exact canonical condition, not a generic token', () => {
   assert.equal(
@@ -34,6 +36,53 @@ test('condition relevance requires the exact canonical condition, not a generic 
     { title: 'Other fibrosis trial', abstract: 'Adults with cystic fibrosis were enrolled.' }
   ], ['idiopathic pulmonary fibrosis', 'IPF']);
   assert.deepEqual(filtered.map((item) => item.title), ['IPF treatment trial']);
+});
+
+test('source breakdown is recomputed from the contamination-filtered pack', () => {
+  const filtered = filterEvidencePackByCondition([
+    {
+      title: 'IPF curated evidence',
+      abstract: 'Adults with idiopathic pulmonary fibrosis were enrolled.',
+      isCuratedKB: true,
+      kbCondition: 'Idiopathic pulmonary fibrosis'
+    },
+    {
+      title: 'IPF live evidence',
+      abstract: 'Adults with idiopathic pulmonary fibrosis were enrolled.',
+      isCuratedKB: false
+    },
+    {
+      title: 'Foreign live evidence',
+      abstract: 'Adults with sickle cell disease were enrolled.',
+      isCuratedKB: false
+    }
+  ], 'Idiopathic pulmonary fibrosis');
+  const breakdown = buildPromptPackBreakdown(filtered);
+  assert.deepEqual(breakdown, { total: 2, curatedKB: 1, liveFetched: 1 });
+  assert.equal(breakdown.curatedKB + breakdown.liveFetched, breakdown.total);
+});
+
+test('curated evidence requires matching condition provenance', () => {
+  const filtered = filterEvidencePackByCondition([
+    {
+      title: 'Disease-specific landmark',
+      summary: 'A treatment result without the condition in the title.',
+      isCuratedKB: true,
+      kbCondition: 'Idiopathic pulmonary fibrosis'
+    },
+    {
+      title: 'Wrong curated landmark',
+      summary: 'A result imported from another knowledge base.',
+      isCuratedKB: true,
+      kbCondition: 'Chronic kidney disease'
+    },
+    {
+      title: 'Missing provenance',
+      isCuratedKB: true
+    }
+  ], ['idiopathic pulmonary fibrosis', 'IPF']);
+
+  assert.deepEqual(filtered.map((item) => item.title), ['Disease-specific landmark']);
 });
 
 test('foreign-disease rows are removed from markdown tables and structured output', () => {
@@ -89,6 +138,47 @@ test('document citations fail closed when evidence text is unavailable', () => {
   const input = 'Claim ([source ↗](https://pubmed.ncbi.nlm.nih.gov/12345678/)).';
   const result = enforceConditionCitationRelevance(input, {}, { condition: 'Parkinson disease' });
   assert.doesNotMatch(result.text, /https?:\/\//);
+});
+
+test('hard claims fail closed when the evidence pack is empty', () => {
+  const result = attachMissingClaimCitations(
+    'Treatment reduced mortality by 48% in 500 patients.',
+    {}
+  );
+  assert.equal(result.text, '');
+  assert.equal(result.stripped, 1);
+});
+
+test('structured card and table claims receive adjacent title-labeled citations', () => {
+  const evidence = {
+    groundedForPrompt: [{
+      title: 'Mortality Reduction Randomized Trial',
+      summary: 'Treatment reduced mortality by 48% in 500 patients.',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/12345678/'
+    }]
+  };
+  const input = [
+    'CANDIDATE: Example treatment',
+    'EFFICACY_HYPOTHESIS: Treatment reduced mortality by 48% in 500 patients.',
+    '| Treatment | Result |',
+    '|---|---|',
+    '| Example treatment | Reduced mortality by 48% in 500 patients. |'
+  ].join('\n');
+  const result = attachMissingClaimCitations(input, evidence);
+  assert.equal(result.attached, 2);
+  assert.match(result.text, /EFFICACY_HYPOTHESIS:.*\[Mortality Reduction Randomized Trial ↗\]/);
+  assert.match(result.text, /\| Example treatment \| Reduced mortality.*\[Mortality Reduction Randomized Trial ↗\].*\|/);
+});
+
+test('numeric reference markers use the source title as their link label', () => {
+  const output = resolveInlineReferenceMarkers('A measured claim [#1].', {
+    groundedForPrompt: [{
+      title: 'Named Clinical Study',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/12345678/'
+    }]
+  });
+  assert.match(output, /\[Named Clinical Study ↗\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/12345678\/?\)/);
+  assert.doesNotMatch(output, /\[source ↗\]/i);
 });
 
 test('identifier-less evidence records do not collapse into one row', () => {

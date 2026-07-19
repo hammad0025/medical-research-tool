@@ -79,12 +79,21 @@ test('safety remains unknown without safety evidence or matching formulation', (
     drugName: 'topical drug',
     fdaLabel: {
       ...base,
+      genericName: ['drug'],
       route: ['TOPICAL'],
       warnings: 'May cause irritation.',
       contraindications: 'None known.',
       drugInteractions: 'No known interactions.'
+    },
+    patientContext: {
+      allergies: 'No known drug allergies',
+      pregnancyStatus: 'not pregnant',
+      renalFunction: 'normal',
+      hepaticFunction: 'normal',
+      medicationHistory: 'No prior treatment',
+      labWork: 'Relevant labs reviewed'
     }
-  }).band, 'High');
+  }).band, 'Moderate');
 });
 
 test('openFDA label selection rejects route mismatches', () => {

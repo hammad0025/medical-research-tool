@@ -326,8 +326,8 @@ head('I2 — parser cross-drug field-bleed containment (executes index.html pars
 }
 
 // ===========================================================================
-// I4 — trials scoring (age-ineligible penalty, 0-100 bounds, no "stopped" flag
-// on an enrolling trial). Uses REAL applyPatientPromiseAdjustment/normalizePromise.
+// I4 — trial ordering compatibility (age-ineligible penalty, internal bounds,
+// no "stopped" flag on an enrolling trial).
 // ===========================================================================
 head('I4 — trials scoring fixtures (api/trials.js)');
 
@@ -337,7 +337,7 @@ head('I4 — trials scoring fixtures (api/trials.js)');
   const lo = normalizePromise(-300);
   const mid = normalizePromise(35);
   if (hi === 100 && lo === 0 && mid > 0 && mid < 100) {
-    pass(`I4: promise score clamped to 0-100 (hi=${hi} lo=${lo} mid=${mid})`);
+    pass(`I4: internal compatibility value clamped to 0-100 (hi=${hi} lo=${lo} mid=${mid})`);
   } else {
     fail(`I4: 0-100 bounds regression (hi=${hi} lo=${lo} mid=${mid})`);
   }
@@ -355,11 +355,11 @@ head('I4 — trials scoring fixtures (api/trials.js)');
   }, { patientAge: 64 });
   const pedNorm = normalizePromise(pediatric.score);
   const adultNorm = normalizePromise(adult.score);
-  const pedCaution = /age|enrol/i.test(pediatric.caution || '');
-  if (pedNorm < adultNorm && pedCaution && !adult.caution) {
+  const pedCaution = /age|enrol/i.test(pediatric.eligibilityCaution || '');
+  if (pedNorm < adultNorm && pedCaution && !adult.eligibilityCaution) {
     pass(`I4: age-ineligible trial penalized + cautioned and ranks below adult-eligible (${pedNorm} < ${adultNorm})`);
   } else {
-    fail(`I4: age-ineligibility regression (ped=${pedNorm} adult=${adultNorm} pedCaution=${pedCaution} adultCaution=${!!adult.caution})`);
+    fail(`I4: age-ineligibility regression (ped=${pedNorm} adult=${adultNorm} pedCaution=${pedCaution} adultCaution=${!!adult.eligibilityCaution})`);
   }
 
   // No "stopped/negative" flag on an actively-enrolling trial whose title merely

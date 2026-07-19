@@ -309,10 +309,6 @@
       ]
     },
     {
-      "claim": "Branaplam (Novartis LMI070) was discontinued for HD in August 2022 due to peripheral neuropathy signal.",
-      "evidenceRefs": []
-    },
-    {
       "claim": "AMT-130 (uniQure AAV5-miHTT intraparenchymal gene therapy) is the most promising current disease-modifying candidate — 2024 interim data showed dose-dependent CSF NfL reduction.",
       "evidenceRefs": [
         "hd-amt130-uniQure-2024"
@@ -487,21 +483,6 @@
       "name": "Pridopidine (for HD)",
       "reason": "PROOF-HD phase 3 failed primary endpoint March 2023. Not effective for HD progression.",
       "evidenceRef": "hd-proof-hd-failure-2023"
-    },
-    {
-      "name": "Branaplam (for HD)",
-      "reason": "VIBRANT-HD halted August 2022 due to peripheral neuropathy; Novartis discontinued HD program.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Coenzyme Q10, creatine, ethyl-EPA for HD",
-      "reason": "Multiple prior RCTs (2CARE, CREST-E, HD-EPA) were negative. Not recommended as therapy.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Stem-cell clinics offering IV MSC infusions for HD",
-      "reason": "No peer-reviewed efficacy data. FDA warning letters. Patient-safety concern.",
-      "evidenceRef": null
     }
   ]
 }

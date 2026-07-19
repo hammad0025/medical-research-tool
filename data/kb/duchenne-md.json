@@ -319,10 +319,6 @@
       ]
     },
     {
-      "claim": "Exon-skipping antisense oligonucleotides: eteplirsen (exon 51), golodirsen (exon 53), viltolarsen (exon 53), casimersen (exon 45) — all accelerated approvals with controversial efficacy evidence.",
-      "evidenceRefs": []
-    },
-    {
       "claim": "Pfizer discontinued its DMD AAV gene therapy PF-06939926 in June 2024 after the CIFFREO phase 3 trial failed.",
       "evidenceRefs": [
         "dmd-pfizer-ciffreo-2024"
@@ -486,7 +482,7 @@
       "mechanism": "Readthrough of premature stop codons (for nonsense mutations)",
       "sponsor": "PTC Therapeutics",
       "status": "EMA conditional approval (EU) 2014; NOT FDA-approved (advisory committee voted against; FDA denied 2017 and again 2023). EMA CHMP recommended NON-RENEWAL January 2024; conversion/withdrawal pending.",
-      "approvalStatus": "approved (EU, but non-renewal recommended 2024); not approved (US)",
+      "approvalStatus": "not approved (US); EU authorization non-renewal recommended",
       "whyItMatters": "EU-only access; EMA committee recommended non-renewal in 2024. Patients and families in the US may ask about it; needs accurate framing."
     },
     {
@@ -528,26 +524,6 @@
       "name": "Fordadistrogene movaparvovec (Pfizer PF-06939926)",
       "reason": "Phase 3 CIFFREO failed in 2024; Pfizer discontinued the program June 2024.",
       "evidenceRef": "dmd-pfizer-ciffreo-2024"
-    },
-    {
-      "name": "Offshore stem-cell clinics offering IV MSC or 'gene therapy' for DMD",
-      "reason": "No peer-reviewed efficacy data for DMD. FDA warning letters to US-linked operators. Patient-safety concern.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Metformin + L-citrulline (unproven 'exercise mimetic' combination)",
-      "reason": "Small open-label studies; no rigorous RCT support; not a guideline-endorsed therapy.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Coenzyme Q10 for DMD",
-      "reason": "No RCT evidence of benefit on motor outcomes.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Creatine monohydrate as primary therapy for DMD",
-      "reason": "Some small studies suggest short-term strength modest effects; NOT a disease-modifying therapy. Should not substitute for corticosteroid, exon-skipping, or gene therapy discussion.",
-      "evidenceRef": null
     }
   ]
 }

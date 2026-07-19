@@ -359,10 +359,6 @@
       "evidenceRefs": [
         "bd-canmat-2018"
       ]
-    },
-    {
-      "claim": "Valproate has significant teratogenicity (spina bifida, neurodevelopmental impairment) and should generally be avoided in women of reproductive potential.",
-      "evidenceRefs": []
     }
   ],
   "lifestyleRecommendations": [
@@ -585,31 +581,6 @@
       "name": "SSRI antidepressant monotherapy for bipolar depression",
       "reason": "Risk of switch to mania, induction of mixed states, and acceleration of cycling. If an antidepressant is used, it must be paired with a mood stabilizer — and many guidelines recommend against antidepressants in bipolar depression entirely.",
       "evidenceRef": "bd-canmat-2018"
-    },
-    {
-      "name": "Ketamine / Esketamine (Spravato) as a primary bipolar depression treatment",
-      "reason": "FDA-approved only for MDD/TRD. Small open-label bipolar data; manic-switch risk. Not a standard-of-care bipolar therapy as of 2026.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Psilocybin or MDMA-assisted therapy for bipolar",
-      "reason": "Bipolar patients are excluded from current pivotal psilocybin and MDMA trials (Compass Pathways, Usona, MAPS) due to manic-switch risk. No approved indication for bipolar.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Valproate in women of reproductive potential without extensive counseling + contraception",
-      "reason": "Highest teratogenic risk (spina bifida ~2%, neurodevelopmental impairment) among mood stabilizers. FDA-labeled contraindication in pregnancy for migraine.",
-      "evidenceRef": null
-    },
-    {
-      "name": "High-dose omega-3 fatty acids as bipolar depression monotherapy",
-      "reason": "Insufficient evidence for monotherapy. May have modest adjunctive benefit but does not replace first-line therapy.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Stimulants (methylphenidate, amphetamine) in untreated/uncontrolled bipolar",
-      "reason": "Risk of precipitating mania and mixed states; use only when bipolar is stabilized on mood stabilizer AND ADHD comorbidity is firmly established.",
-      "evidenceRef": null
     }
   ]
 }

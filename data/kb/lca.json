@@ -325,10 +325,6 @@
       "evidenceRefs": [
         "lca-atsena-gucy2d-2024"
       ]
-    },
-    {
-      "claim": "LCA is genetically heterogeneous (~25 causative genes); genetic testing is the critical first step because therapy options are gene-specific.",
-      "evidenceRefs": []
     }
   ],
   "lifestyleRecommendations": [
@@ -479,21 +475,6 @@
       "name": "EDIT-101 (commercial pathway)",
       "reason": "Editas Medicine discontinued commercial development November 2022. Trial assets transitioned but no commercial product is anticipated.",
       "evidenceRef": "lca-editas-brilliance-update-2022"
-    },
-    {
-      "name": "Offshore stem-cell or 'gene therapy' clinics (China, Mexico, Panama, India, Russia)",
-      "reason": "No peer-reviewed efficacy data for LCA. FDA warning letters; patient-safety concerns including intraocular infection, retinal detachment, vision loss.",
-      "evidenceRef": null
-    },
-    {
-      "name": "High-dose vitamin A palmitate for LCA",
-      "reason": "Vitamin A palmitate is a Berson-protocol intervention evaluated in adult RP with non-ABCA4 genotype. NOT shown to benefit LCA; can be hepatotoxic and teratogenic. Not a guideline recommendation for LCA.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Acupuncture, homeopathy, chelation for LCA",
-      "reason": "No biological plausibility, no evidence.",
-      "evidenceRef": null
     }
   ]
 }

@@ -22,7 +22,7 @@ lines.push('# Knowledge Base — Review Sheet');
 lines.push('');
 lines.push(`Generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC.`);
 lines.push('');
-lines.push(`These ${auto.length} knowledge bases were AUTO-GENERATED from real PubMed literature and are marked \`reviewed: false\`. Each "studied & failed" drug below cites the exact paper it came from. Please confirm each one is a genuine *efficacy failure for that disease* (not just a side effect). When a KB is verified, set \`"reviewed": true\` in its JSON file.`);
+lines.push(`These ${auto.length} knowledge bases were AUTO-GENERATED from real PubMed literature and are marked \`reviewed: false\`. Each "studied & failed" drug below cites the exact paper it came from. Please confirm each one is a genuine *efficacy failure for that disease* (not just a side effect). When a qualified human reviewer verifies a KB, set \`"reviewed": true\`, \`"reviewedBy": "<name/role>"\`, and \`"reviewedAt": "YYYY-MM-DD"\` in its JSON file. Do not mark review complete from an automated run.`);
 lines.push('');
 lines.push('---');
 lines.push('');

@@ -308,19 +308,7 @@
     "Withdrawal of heart failure medications after recovery carries high risk of relapse",
     "Delayed treatment initiation in acute heart failure worsens prognosis"
   ],
-  "pipelineDrugs": [
-    {
-      "name": "Omecamtiv mecarbil",
-      "aliases": [
-        "OM"
-      ],
-      "mechanism": "Selective cardiac myosin activator",
-      "sponsor": "Not specified",
-      "status": "Failed Phase 3",
-      "approvalStatus": "investigational",
-      "evidenceRef": "heart-failure-1"
-    }
-  ],
+  "pipelineDrugs": [],
   "excludedAgents": [
     {
       "name": "Omecamtiv mecarbil",

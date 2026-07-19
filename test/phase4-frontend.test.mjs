@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { loadProductionReportParsers } from '../scripts/test-helpers/production-report-parsers.mjs';
 
-const source = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const source = [
+  await readFile(new URL('../index.html', import.meta.url), 'utf8'),
+  await readFile(new URL('../src/app.jsx', import.meta.url), 'utf8')
+].join('\n');
 let passed = 0;
 const test = (name, fn) => {
   fn();

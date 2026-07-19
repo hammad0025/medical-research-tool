@@ -520,18 +520,6 @@
       "whyItMatters": "Still-active disease-modifying candidate despite missed primary in PASADENA; important to flag accurately as investigational-and-uncertain, not established."
     },
     {
-      "name": "Cinpanemab",
-      "aliases": [
-        "BIIB054"
-      ],
-      "mechanism": "Anti-α-synuclein IgG monoclonal antibody",
-      "sponsor": "Biogen",
-      "status": "SPARK phase 2 failed 2022; program DISCONTINUED",
-      "approvalStatus": "discontinued",
-      "pmid": "35921452",
-      "whyItMatters": "Failed. Patients and clinicians still ask — must be addressed as discontinued."
-    },
-    {
       "name": "Minzasolmin",
       "aliases": [
         "UCB0599"
@@ -587,31 +575,6 @@
       "name": "Cinpanemab",
       "reason": "SPARK phase 2 failed (NEJM 2022); Biogen halted development. Not a viable therapy.",
       "evidenceRef": "pd-cinpanemab-spark-2022"
-    },
-    {
-      "name": "Minzasolmin (UCB0599)",
-      "reason": "ORCHESTRA phase 2 failed primary endpoint 2024; UCB halted development.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Venglustat for GBA-PD",
-      "reason": "MOVES-PD phase 2 failed primary endpoint; Sanofi halted the PD indication.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Simvastatin for PD neuroprotection",
-      "reason": "PD-STAT negative for motor-progression endpoint. Literature does not support prescribing statin for PD neuroprotection outside cardiovascular-indication range.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Nilotinib for PD",
-      "reason": "Multiple phase 2 trials (NILO-PD, others) negative; not recommended for PD.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Unproven stem-cell infusions at offshore clinics (China, Vietnam, Mexico, India)",
-      "reason": "No peer-reviewed efficacy data for PD. FDA warning letters to US-linked operators. Patient-safety concern.",
-      "evidenceRef": null
     }
   ]
 }

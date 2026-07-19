@@ -14,10 +14,8 @@
   "literatureSearchSeeds": [
     "Runcaciguat",
     "Molidustat",
-    "Ziritaxestat",
     "Febuxostat",
-    "Lactobacillus paracasei N1115",
-    "Ziritaxestat"
+    "Lactobacillus paracasei N1115"
   ],
   "items": [
     {
@@ -285,30 +283,6 @@
       "keyPassages": []
     },
     {
-      "id": "chronic-kidney-disease-13",
-      "category": "review",
-      "tier": "B",
-      "title": "Ziritaxestat, a Novel Autotaxin Inhibitor, and Lung Function in Idiopathic Pulmonary Fibrosis: The ISABELA 1 and 2 Randomized Clinical Trials.",
-      "authors": [
-        "Maher TM",
-        "Ford P",
-        "Brown KK",
-        "Costabel U",
-        "Cottin V",
-        "Danoff SK",
-        "Groenveld I",
-        "Helmer E"
-      ],
-      "journal": "JAMA",
-      "year": "2023",
-      "doi": "10.1001/jama.2023.5355",
-      "pmid": "37159034",
-      "url": "https://doi.org/10.1001/jama.2023.5355",
-      "accessLevel": "abstract",
-      "summary": "",
-      "keyPassages": []
-    },
-    {
       "id": "chronic-kidney-disease-14",
       "category": "review",
       "tier": "B",
@@ -430,17 +404,6 @@
       "status": "Clinical trials ongoing",
       "approvalStatus": "investigational",
       "evidenceRef": "chronic-kidney-disease-12"
-    },
-    {
-      "name": "Ziritaxestat",
-      "aliases": [
-        "Autotaxin inhibitor"
-      ],
-      "mechanism": "Autotaxin inhibitor",
-      "sponsor": "Not specified",
-      "status": "Phase 3 terminated early",
-      "approvalStatus": "investigational",
-      "evidenceRef": "chronic-kidney-disease-13"
     }
   ],
   "excludedAgents": [
@@ -453,11 +416,6 @@
       "name": "Lactobacillus paracasei N1115",
       "reason": "Randomized placebo-controlled trial in peritoneal dialysis patients showed probiotic treatment induced changes in intestinal microbiota but did not alter SCFA levels",
       "evidenceRef": "chronic-kidney-disease-15"
-    },
-    {
-      "name": "Ziritaxestat",
-      "reason": "Phase 3 ISABELA 1 and 2 trials in idiopathic pulmonary fibrosis were terminated early due to lack of efficacy, with follow-up completed early due to study termination",
-      "evidenceRef": "chronic-kidney-disease-13"
     }
   ]
 }

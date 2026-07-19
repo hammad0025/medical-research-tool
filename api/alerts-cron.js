@@ -25,9 +25,16 @@ import {
   completeDelivery,
   backendName
 } from '../lib/alerts-store.js';
-import { sendEmail, renderAlertHtml, renderAlertSubject, isEmailConfigured } from '../lib/alerts-email.js';
+import { sendEmail, renderAlertHtml, renderAlertSubject, isEmailConfigured, emailReadiness } from '../lib/alerts-email.js';
 import { asInternalReq } from '../lib/internal-call.js';
 import { authorizeCron } from '../lib/cron-auth.js';
+import { logError } from '../lib/privacy-redaction.js';
+import {
+  isAlertMonitoringConfigured,
+  notifyAlertFailure
+} from '../lib/alerts-monitor.js';
+import { setSameOriginCors } from '../lib/cors.js';
+import { requireJsonObjectBody } from '../lib/request-boundary.js';
 
 const invoke = async (handler, body) => {
   let captured = { status: 200, body: null };
@@ -38,8 +45,12 @@ const invoke = async (handler, body) => {
   try {
     await handler(asInternalReq({ method: 'POST', body, headers: {}, query: {} }), res);
   } catch (e) {
+    logError('[alerts-cron] internal subrequest failed', e);
     captured.status = 500;
-    captured.body = { error: e.message };
+    captured.body = {
+      error: 'Internal subrequest failed.',
+      code: 'INTERNAL_SUBREQUEST_FAILED'
+    };
   }
   return captured;
 };
@@ -267,19 +278,37 @@ export const _alertsCronTest = { periodKey, isDue, oneRun };
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  if (!setSameOriginCors(req, res, {
+    methods: 'GET,POST,OPTIONS',
+    headers: 'Content-Type,Authorization'
+  })) {
+    return res.status(403).json({ error: 'Cross-origin request blocked', code: 'ORIGIN_BLOCKED' });
+  }
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const auth = authorizeCron(req);
   if (!auth.ok) {
     return res.status(auth.status).json({ error: auth.code, code: auth.code });
   }
+  const body = req.method === 'POST'
+    ? requireJsonObjectBody(req, res, { maxBytes: 4 * 1024, allowEmpty: true })
+    : {};
+  if (!body) return;
 
   try {
     const dryRun = String(req.query?.dryRun || '').toLowerCase() === '1' ||
-                   req.body?.dryRun === true;
+                   body.dryRun === true;
+    const delivery = emailReadiness();
+    if (!dryRun && (!delivery.ready || !isAlertMonitoringConfigured())) {
+      return res.status(503).json({
+        error: 'Alert delivery is not production-ready.',
+        code: 'ALERT_DELIVERY_MISCONFIGURED',
+        missing: [
+          ...delivery.missing,
+          ...(!isAlertMonitoringConfigured() ? ['ALERTS_MONITOR_WEBHOOK_URL'] : [])
+        ]
+      });
+    }
     const onlyEmail = req.query?.onlyEmail; // manual targeted run
     const cursor = /^\d+$/.test(String(req.query?.cursor || '0'))
       ? String(req.query?.cursor || '0')
@@ -303,7 +332,13 @@ export default async function handler(req, res) {
         const r = await oneRun(sub, { dryRun, deadlineAt });
         results.push(r);
       } catch (e) {
-        results.push({ subId: sub.id, error: e.message, sent: false });
+        logError('[alerts-cron] subscription run failed', e);
+        results.push({
+          subId: sub.id,
+          error: 'Subscription processing failed.',
+          code: 'SUBSCRIPTION_PROCESSING_FAILED',
+          sent: false
+        });
       }
       if (subs.length > 1 && Date.now() + 800 < deadlineAt) {
         await new Promise((r) => setTimeout(r, 800));
@@ -317,6 +352,17 @@ export default async function handler(req, res) {
       (attempted > 0 && failures === attempted) ||
       (failures > 0 && failures >= successes) ||
       (page.malformed > 0 && page.subscriptions.length === 0);
+    let monitoring = { sent: false, reason: 'not-needed' };
+    if (meaningfulFailure) {
+      monitoring = await notifyAlertFailure({
+        attempted,
+        failures,
+        backend: backendName()
+      }).catch((error) => {
+        logError('[alerts-cron] monitoring notification failed', error);
+        return { sent: false, reason: 'monitoring notification failed' };
+      });
+    }
     const status = meaningfulFailure ? 503 : 200;
     return res.status(status).json({
       ok: !meaningfulFailure,
@@ -329,10 +375,14 @@ export default async function handler(req, res) {
       cursor: deadlineReached ? cursor : page.cursor,
       deadlineReached,
       durationMs: Date.now() - started,
+      monitoring,
       results
     });
   } catch (e) {
-    console.error('alerts-cron error:', e);
-    return res.status(500).json({ error: 'Internal error', message: e.message });
+    logError('[alerts-cron] request failed', e);
+    return res.status(500).json({
+      error: 'Internal server error.',
+      code: 'INTERNAL_SERVER_ERROR'
+    });
   }
 }

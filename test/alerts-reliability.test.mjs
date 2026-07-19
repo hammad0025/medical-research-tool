@@ -221,7 +221,7 @@ test('list requires capability ownership and exposes only public fields', async 
   }, res);
   assert.equal(captured.status, 200);
   assert.deepEqual(Object.keys(captured.body.subscriptions[0]).sort(), [
-    'active', 'cadence', 'condition', 'createdAt', 'id', 'lastRunAt'
+    'active', 'cadence', 'condition', 'createdAt', 'expiresAt', 'id', 'lastRunAt'
   ]);
 
   const denied = response();
@@ -244,7 +244,10 @@ test('cron returns an alertable non-2xx when its page is wholly malformed', asyn
       method: 'POST',
       query: {},
       body: { dryRun: true },
-      headers: { authorization: 'Bearer cron-test-secret' }
+      headers: {
+        authorization: 'Bearer cron-test-secret',
+        'content-type': 'application/json'
+      }
     }, res);
   } finally {
     if (previousSecret === undefined) delete process.env.CRON_SECRET;
@@ -287,6 +290,55 @@ test('Redis write is one atomic command and malformed cleanup tolerates partial 
     const page = await redisStore.listSubscriptionsPage({ limit: 2 });
     assert.equal(page.malformed, 2);
     assert.deepEqual(page.subscriptions, []);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = previousUrl;
+    if (previousToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = previousToken;
+  }
+});
+
+test('delivery completion atomically preserves subscription TTL and bounds delivery ledgers', async () => {
+  const previousFetch = globalThis.fetch;
+  const previousUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const previousToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const scripts = [];
+  process.env.UPSTASH_REDIS_REST_URL = 'https://redis.invalid';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'test-token';
+  globalThis.fetch = async (_url, options) => {
+    const command = JSON.parse(options.body);
+    if (command[0] === 'EVAL') {
+      scripts.push(command[1]);
+      const script = command[1];
+      const result = script.includes("return 'completed'")
+        ? 'completed'
+        : script.includes("return 'claimed'")
+          ? 'claimed'
+          : 1;
+      return { ok: true, json: async () => ({ result }) };
+    }
+    return { ok: true, json: async () => ({ result: null }) };
+  };
+
+  try {
+    const redisStore = await import(`../lib/alerts-store.js?redis-ttl=${Date.now()}`);
+    await redisStore.createSubscription(baseSub('redis-ttl-sub'));
+    assert.equal(await redisStore.claimDelivery('redis-ttl-sub', 'weekly:1', 'worker'), 'claimed');
+    assert.equal(await redisStore.completeDelivery({
+      subId: 'redis-ttl-sub',
+      runKey: 'weekly:1',
+      token: 'worker',
+      providerId: 'resend-id',
+      itemIds: ['PMID:1'],
+      lastRunAt: '2026-07-18T00:00:00.000Z'
+    }), 'completed');
+
+    const completion = scripts.find((script) => script.includes("return 'completed'"));
+    assert.match(completion, /PTTL', KEYS\[1\]/);
+    assert.match(completion, /SET', KEYS\[1\], cjson\.encode\(sub\), 'PX', subscriptionTtl/);
+    assert.match(completion, /PEXPIRE', KEYS\[3\], subscriptionTtl/);
+    assert.match(completion, /PEXPIRE', KEYS\[5\], subscriptionTtl/);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;

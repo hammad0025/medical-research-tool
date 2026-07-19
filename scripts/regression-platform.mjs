@@ -261,19 +261,17 @@ if (/Goji berries|plain-English|TUDCA|taurine/i.test(block)) {
   fail('Supplement discovery block missing plain-English guidance');
 }
 
-// 8. Client lane retry (index.html)
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+// 8. Client lane retry (compiled from src/app.jsx)
+const html = readFileSync(new URL('../src/app.jsx', import.meta.url), 'utf8');
 if (/Retrying.*incomplete drug batch/i.test(html) || /MIN_PER_LANE|laneNeedsRetry|truncated/i.test(html)) {
   pass('Frontend retries incomplete repurpose lanes');
 } else {
   warn('Frontend lane retry not detected — add orchestration in index.html');
 }
 
-// 8b. Citation tagging + soft cap (index.html). Uncited candidates are KEPT
-//     (tagged `_uncited`) and routed to the logic-based section, not dropped;
-//     cited candidates rank ahead and the list is trimmed to the soft cap.
-const keepsUncited = /_uncited/.test(html) && /hasCitation/.test(html);
-const capsList = /SOFT_CAP\s*=\s*50/.test(html) && /SECTION_CAP\s*=\s*25/.test(html) && /combined\.slice\(0, SOFT_CAP\)/.test(html);
+// 8b. Only cited, server-sealed candidates render; no count-based padding/cap.
+const citedOnly = /\.filter\(hasCitation\)/.test(html);
+const noQuotaCap = !/SOFT_CAP\s*=\s*50|SECTION_CAP\s*=\s*25|combined\.slice\(0, SOFT_CAP\)/.test(html);
 const twoSections = /neverResearched/.test(html) && /researchedNotApproved/.test(html) && /resolveRepurposeSection/.test(html);
 const itemKindUi = /ItemKindBadge/.test(html) && /ITEM_KIND:/.test(html);
 // Dorothy: Research tab PRIMARY view must render both section headers itself —
@@ -285,10 +283,10 @@ const researchTabTwoSection =
   !/Open the Drug Repurposing tab for the full two-section list/.test(html) &&
   /rd-nr-/.test(html) &&
   /rd-rna-/.test(html);
-if (keepsUncited && capsList && twoSections && itemKindUi && researchTabTwoSection) {
-  pass('Repurpose candidates: two Dorothy sections on Research (~25 each), uncited kept, soft-capped to 50');
+if (citedOnly && noQuotaCap && twoSections && itemKindUi && researchTabTwoSection) {
+  pass('Repurpose candidates: two patient-facing sections render cited server output without quota padding');
 } else {
-  fail(`Citation/section wiring missing in index.html (keepsUncited=${keepsUncited} caps=${capsList} twoSections=${twoSections} itemKind=${itemKindUi} researchTab=${researchTabTwoSection})`);
+  fail(`Citation/section wiring missing in index.html (citedOnly=${citedOnly} noQuotaCap=${noQuotaCap} twoSections=${twoSections} itemKind=${itemKindUi} researchTab=${researchTabTwoSection})`);
 }
 
 // 9. Health endpoint
@@ -357,7 +355,7 @@ if (/CAR-T, CAR cell therapy|NOT gold standard/i.test(researchSrcChat)) {
   fail('Chat missing CAR/cell therapy guardrail');
 }
 
-const indexSrc = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const indexSrc = readFileSync(new URL('../src/app.jsx', import.meta.url), 'utf8');
 if (/reuseGather:\s*true/.test(indexSrc) && /lastGathered\.mode === mode \|\| extra\.reuseGather/.test(indexSrc)) {
   pass('chainRepurpose reuses research gather (reuseGather) — prevents cross-condition contamination');
 } else {
@@ -833,17 +831,18 @@ if (/SUBGROUP \/ BIOMARKER EXCEPTION/i.test(researchSrc) &&
   }
 }
 
-// 22. BEHAVIORAL (0-100 scale): normalized promise score never exceeds 100 or
-//     drops below 0, and the UI labels the trial score "/100".
+// 22. BEHAVIORAL: internal compatibility normalization remains bounded while
+//     the patient UI does not expose a pseudo-clinical numeric score.
 {
   const hi = normalizePromise(250);
   const lo = normalizePromise(-300);
   const mid = normalizePromise(35);
-  const labelled = /Score \/100/.test(indexSrc) && /\{trial\.promiseScore\}\/100|promiseScore\}<span[^>]*>\/100/.test(indexSrc);
-  if (hi === 100 && lo === 0 && mid > 0 && mid < 100 && labelled) {
-    pass('Promise score clamped/scaled to 0-100 and UI labels it "/100"');
+  const hidden = !/Ranking \/100/.test(indexSrc) &&
+    !/\{trial\.promiseScore\}\/100|promiseScore\}<span[^>]*>\/100/.test(indexSrc);
+  if (hi === 100 && lo === 0 && mid > 0 && mid < 100 && hidden) {
+    pass('Internal compatibility score stays bounded and is hidden from patient UI');
   } else {
-    fail(`0-100 scale regression (hi=${hi} lo=${lo} mid=${mid} labelled=${labelled})`);
+    fail(`Internal ordering compatibility regression (hi=${hi} lo=${lo} mid=${mid} hidden=${hidden})`);
   }
 }
 
@@ -884,11 +883,11 @@ if (/SUBGROUP \/ BIOMARKER EXCEPTION/i.test(researchSrc) &&
   }, { patientAge: 64 });
   const pedNorm = normalizePromise(pediatric.score);
   const adultNorm = normalizePromise(adult.score);
-  const pedCaution = /age|enrol/i.test(pediatric.caution || '');
-  if (pedNorm < adultNorm && pedCaution && !adult.caution) {
+  const pedCaution = /age|enrol/i.test(pediatric.eligibilityCaution || '');
+  if (pedNorm < adultNorm && pedCaution && !adult.eligibilityCaution) {
     pass(`Age-ineligible pediatric trial penalized + cautioned and ranks below adult-eligible (${pedNorm}/100 < ${adultNorm}/100) (defect 4b)`);
   } else {
-    fail(`Age-ineligibility regression (ped=${pedNorm} adult=${adultNorm} pedCaution=${pedCaution} adultCaution=${!!adult.caution})`);
+    fail(`Age-ineligibility regression (ped=${pedNorm} adult=${adultNorm} pedCaution=${pedCaution} adultCaution=${!!adult.eligibilityCaution})`);
   }
 }
 
@@ -951,7 +950,9 @@ if (/_approvedStub/.test(indexSrc) &&
 
   // finalizeReportText wires the guard into the real render path.
   const finalized = finalizeReportText(contaminated, { evidence: null, trials: null });
-  if (!/lumateperone/i.test(finalized.split(/(?=CANDIDATE:)/i).find((b) => /Magnesium/i.test(b)) || '')) {
+  const finalizedMag = finalized.split(/(?=CANDIDATE:)/i)
+    .find((b) => /^CANDIDATE:\s*Magnesium/i.test(b.trim())) || '';
+  if (!/lumateperone|QT interval/i.test(finalizedMag)) {
     pass('finalizeReportText applies the anti-contamination provenance guard');
   } else {
     fail('finalizeReportText did not strip cross-candidate contamination');
@@ -1054,13 +1055,13 @@ if (/return isOpus \? 2600 : 3400/.test(researchSrc)) {
   const foNorm = normalizePromise(femaleOnly.score);
   const nNorm = normalizePromise(neutral.score);
   const toNorm = normalizePromise(titleOnly.score);
-  const cautioned = /sex/i.test(femaleOnly.caution || '');
+  const cautioned = /sex/i.test(femaleOnly.eligibilityCaution || '');
   if (foNorm < nNorm && toNorm < nNorm && cautioned &&
-      !neutral.caution && !mixed.caution && !samesex.caution &&
+      !neutral.eligibilityCaution && !mixed.eligibilityCaution && !samesex.eligibilityCaution &&
       normalizePromise(mixed.score) === nNorm && normalizePromise(samesex.score) === nNorm) {
     pass(`Sex-ineligible Female Pattern trial penalized + cautioned for a male patient (${foNorm}/100 < ${nNorm}/100); mixed/same-sex not penalized (defect 4)`);
   } else {
-    fail(`Sex-ineligibility regression (femaleOnly=${foNorm} neutral=${nNorm} titleOnly=${toNorm} cautioned=${cautioned} mixedCaution=${!!mixed.caution} samesexCaution=${!!samesex.caution})`);
+    fail(`Sex-ineligibility regression (femaleOnly=${foNorm} neutral=${nNorm} titleOnly=${toNorm} cautioned=${cautioned} mixedCaution=${!!mixed.eligibilityCaution} samesexCaution=${!!samesex.eligibilityCaution})`);
   }
 }
 if (/patientSex:\s*patient\?\.gender/.test(researchSrc) && /patientSex = null/.test(readFileSync(new URL('../api/trials.js', import.meta.url), 'utf8'))) {
@@ -1186,8 +1187,14 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
   // Cap: push well past MAX (50) and confirm the newest are kept.
   _resetErrorStoreForTests();
   const many = [];
+  const recentBaseTs = Date.now() - 60_000;
   for (let i = 0; i < 60; i++) {
-    many.push({ type: 'unsupported', claim: `bogus claim number ${i}`, ts: 1000 + i, source: 'validator' });
+    many.push({
+      type: 'unsupported',
+      claim: `bogus claim number ${i}`,
+      ts: recentBaseTs + i,
+      source: 'validator'
+    });
   }
   await recordConditionErrors(cond, many);
   const capped = await getConditionErrors(cond);
@@ -1489,16 +1496,15 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
 }
 
 // ===========================================================================
-// FIX 2 — Hard 50 REAL-link floor (~25/section). Retry floor 12; backfill 50;
-// multi-pass + registry fill; Google alone does not count as a citation.
+// FIX 2 — Evidence quality without quota-driven generation or registry filler.
 // ===========================================================================
 {
-  const floorOk = REPURPOSE_MIN_PER_LANE === 12 && REPURPOSE_BACKFILL_THRESHOLD === 0;
+  const floorOk = REPURPOSE_MIN_PER_LANE === 0 && REPURPOSE_BACKFILL_THRESHOLD === 0;
   const lane11 = Array.from({ length: 11 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + (i % 26))}${i}`).join('\n');
   const lane13 = Array.from({ length: 13 }, (_, i) => `CANDIDATE: Drug${String.fromCharCode(97 + (i % 26))}${i}`).join('\n');
   const retry11 = countCandidateBlocks(lane11) < REPURPOSE_MIN_PER_LANE;
   const retry13 = countCandidateBlocks(lane13) < REPURPOSE_MIN_PER_LANE;
-  if (floorOk && retry11 && !retry13) pass('Fix 2: retry floor is 12; unsupported quota backfill is disabled');
+  if (floorOk && !retry11 && !retry13) pass('Fix 2: candidate count never triggers quota-driven lane retries');
   else fail(`Fix 2: retry-floor regression (floor=${floorOk} retry11=${retry11} retry13=${retry13})`);
 
   // Names must stay letter-based: candidateDedupKey cuts at the first digit.
@@ -1518,9 +1524,9 @@ if (/const detectStructuralLeak =/.test(indexSrc) &&
   if (!needsBackfill(distinctCandidateCount(fullList))) pass('Fix 2: a genuinely full list (50 distinct) does NOT trigger backfill');
   else fail('Fix 2: full list wrongly triggered backfill');
 
-  if (REPURPOSE_BACKFILL_MAX_PASSES >= 1 && REPURPOSE_BACKFILL_MAX_PASSES <= 2) {
-    pass(`Fix 2: backfill cap is ${REPURPOSE_BACKFILL_MAX_PASSES} (registry fill finishes Hard-50)`);
-  } else fail(`Fix 2: BACKFILL_MAX_PASSES should be 1–2 (got ${REPURPOSE_BACKFILL_MAX_PASSES})`);
+  if (REPURPOSE_BACKFILL_MAX_PASSES === 0) {
+    pass('Fix 2: quota-driven AI and registry backfill is disabled');
+  } else fail(`Fix 2: BACKFILL_MAX_PASSES should be 0 (got ${REPURPOSE_BACKFILL_MAX_PASSES})`);
 
   // Google alone never counts toward Hard 50
   const googleOnly = `CANDIDATE: MagicalPill
@@ -1564,10 +1570,13 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     fail(`Hard 50: registry fill regression (noSearch=${fillNoSearchLink} notCounted=${fillNotCounted} labelCounted=${fillLabelCounted} section=${fillTaggedNever} kind=${fillMedication})`);
   }
 
-  const clientHasMultiPass = /BACKFILL_MAX_PASSES\s*=\s*1/.test(html) && /registryFilled/.test(html);
+  const clientHasNoQuotaFill =
+    !/BACKFILL_MAX_PASSES|registryFilled|Still short of 50 linked ideas|pathway overlap/.test(html) &&
+    /const PER_LANE = 8/.test(html) &&
+    /\.filter\(hasCitation\)/.test(html);
   const clientHasRealGate = /isGoogleSearchCitation|isGoogleUrl/.test(html) && /!isGoogle/.test(html);
-  if (clientHasMultiPass && clientHasRealGate) pass('Hard 50: index.html backfill + Google-excluded citation gate present');
-  else fail(`Hard 50: client wiring missing (multi=${clientHasMultiPass} gate=${clientHasRealGate})`);
+  if (clientHasNoQuotaFill && clientHasRealGate) pass('Repurpose UI renders only cited server output and has no quota filler');
+  else fail(`Repurpose client policy regression (noQuotaFill=${clientHasNoQuotaFill} gate=${clientHasRealGate})`);
 
   // Dorothy two-section tags + UI wiring
   const neverBlock = `CANDIDATE: IdeaDrug
@@ -1666,9 +1675,9 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
 {
   const evidence = {
     groundedForPrompt: [
-      { pmid: '11111111', url: 'https://pubmed.ncbi.nlm.nih.gov/11111111/' },      // #1
-      { doi: '10.1000/abc', url: 'https://doi.org/10.1000/abc' },                   // #2
-      { url: 'https://clinicaltrials.gov/study/NCT05321069' }                        // #3
+      { title: 'Finasteride Clinical Study', pmid: '11111111', url: 'https://pubmed.ncbi.nlm.nih.gov/11111111/' }, // #1
+      { title: 'Dermatology Review', doi: '10.1000/abc', url: 'https://doi.org/10.1000/abc' }, // #2
+      { title: 'Minoxidil Trial NCT05321069', url: 'https://clinicaltrials.gov/study/NCT05321069' } // #3
     ]
   };
   const map = buildReferenceUrlMap(evidence);
@@ -1681,7 +1690,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   const body = 'Minoxidil is effective and safe for male AGA before starting. [#3]';
   const resolved = resolveInlineReferenceMarkers(body, evidence);
   if (
-    /\[source ↗\]\(https:\/\/clinicaltrials\.gov\/study\/NCT05321069\)/.test(resolved) &&
+    /\[Minoxidil Trial NCT05321069 ↗\]\(https:\/\/clinicaltrials\.gov\/study\/NCT05321069\)/.test(resolved) &&
     !/\[#3\]/.test(resolved)
   ) {
     pass('Inline citations: a resolvable [#3] becomes an inline clickable link at the claim (not a bare marker)');
@@ -1719,7 +1728,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
 
   // finalizeReportText wires the resolver into the real render path.
   const finalized = finalizeReportText('Finasteride slows loss. [#1]', { evidence, trials: null });
-  if (/\[source ↗\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/11111111\/?\)/.test(finalized) && !/\[#1\]/.test(finalized)) {
+  if (/\[Finasteride Clinical Study ↗\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/11111111\/?\)/.test(finalized) && !/\[#1\]/.test(finalized)) {
     pass('Inline citations: finalizeReportText inlines [#N] markers end-to-end');
   } else {
     fail(`Inline citations: finalize end-to-end regression → ${JSON.stringify(finalized)}`);
@@ -1914,7 +1923,8 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
       title: 'IPF antifibrotic therapy review',
       text: 'Idiopathic pulmonary fibrosis treated with nintedanib.',
       url: 'https://pubmed.ncbi.nlm.nih.gov/11110001/',
-      isCuratedKB: true
+      isCuratedKB: true,
+      kbCondition: 'Idiopathic Pulmonary Fibrosis'
     },
     {
       title: 'Voxelotor in sickle cell disease',
@@ -2152,8 +2162,8 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     'Finasteride is first-line ([finasteride 1mg](https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=finasteride+1mg)).',
     { evidence: null, trials: null }
   );
-  if (!/search\.cfm/.test(finalizedSearch) && /finasteride 1mg/.test(finalizedSearch)) {
-    pass('DailyMed ban: finalizeReportText strips an authored search link end-to-end (keeps anchor text)');
+  if (!/search\.cfm/.test(finalizedSearch) && (!finalizedSearch || /finasteride 1mg/.test(finalizedSearch))) {
+    pass('DailyMed ban: finalizeReportText strips an authored search link and any now-unsupported hard claim');
   } else {
     fail(`DailyMed ban: finalize did not strip search link → ${JSON.stringify(finalizedSearch)}`);
   }
@@ -2196,7 +2206,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   ].join('\n');
   const cleaned = sanitizeFabricatedEfficacyScores(dirty);
   if (
-    /No measured efficacy number/.test(cleaned) &&
+    /source-supported measured outcome was not available/i.test(cleaned) &&
     /110 mL\/year/.test(cleaned) &&
     !/^EFFICACY:\s*48%/m.test(cleaned)
   ) {
@@ -2251,7 +2261,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   } else {
     fail('Pipeline Watch still capped at max 5');
   }
-  if (/List up to \*\*25\*\* interventional trials/.test(researchSrc)) {
+  if (/List (?:up to \*\*25\*\*|only interventional records[\s\S]{0,160}up to \*\*25\*\*)/.test(researchSrc)) {
     pass('Trials prompt asks for up to 25 real NCT-linked trials');
   } else {
     fail('Trials prompt still limited to 5-8');
@@ -2284,11 +2294,26 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   } else {
     fail('ValidationMismatchBanner should return null and not surface AI disagreement');
   }
-  // Dorothy: full report primary export is Word, with structured headings.
-  if (/Export Full Report \(Word\)/.test(html) && /Never Researched for/.test(html) && /downloadWordDocument/.test(html)) {
-    pass('Full report export is Word-first with structured never-researched section');
+  // Complete-report exports are format-parity paths and stay disabled while a
+  // report is running or either sealed half is missing.
+  const fullFormats =
+    /Full Report Word/.test(html) &&
+    /Full Report PDF/.test(html) &&
+    /Full Report Text/.test(html);
+  const completeGate =
+    /const contract = await props\.getCompletionContract\(\)/.test(html) &&
+    /getCompletionContract=\{props\.getCompletionContract\}/.test(html) &&
+    /reportContractHtml\(contract\)/.test(html);
+  const exactClientAllowlist =
+    /return !!allowedReportUrl\(href, allowedUrls\)/.test(html) &&
+    /filterAllowedReportLinks/.test(html);
+  const safeExportAttributes =
+    /replace\(\/"\/g, '&quot;'\).*replace\(\/'\/g, '&#39;'\)/s.test(html) &&
+    /<title>\$\{escapeHtmlForExport\(title\)\}/.test(html);
+  if (fullFormats && completeGate && exactClientAllowlist && safeExportAttributes && /No Condition-Specific Study Identified/.test(html)) {
+    pass('Full report Word/PDF/Text exports require complete sealed output and exact safe links');
   } else {
-    fail('Full report Word export / structured body missing');
+    fail(`Full export contract regression (formats=${fullFormats} complete=${completeGate} exactLinks=${exactClientAllowlist} escaped=${safeExportAttributes})`);
   }
 }
 
@@ -2378,46 +2403,58 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
 // ===========================================================================
 {
   const url = 'https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=overview.process&drugname=Test';
+  const completeContext = {
+    allergies: 'No known drug allergies',
+    pregnancyStatus: 'not pregnant',
+    renalFunction: 'normal',
+    hepaticFunction: 'normal',
+    medicationHistory: 'No prior treatment',
+    labWork: 'Relevant labs reviewed'
+  };
 
-  // (a) Boxed warning → capped at Moderate (cannot be High).
+  // (a) Boxed warning → High safety concern.
   const boxed = scoreSafety({
-    drugName: 'DrugA', patientMeds: '',
-    fdaLabel: { url, boxedWarning: 'WARNING: serious liver injury' }, faers: []
+    drugName: 'DrugA', patientMeds: '', patientContext: completeContext,
+    fdaLabel: { url, genericName: ['DrugA'], boxedWarning: 'WARNING: serious liver injury' }, faers: []
   });
-  const boxedOk = boxed.band === 'Moderate' &&
+  const boxedOk = boxed.band === 'High' &&
     boxed.factors.some((f) => /boxed/i.test(f.text) && f.url === url);
-  if (boxedOk) pass('Fix 6(a): boxed warning caps the safety band at Moderate with a cited FDA factor');
-  else fail(`Fix 6(a): boxed-warning cap regression (band=${boxed.band} factors=${JSON.stringify(boxed.factors)})`);
+  if (boxedOk) pass('Fix 6(a): boxed warning maps to High safety concern with a cited FDA factor');
+  else fail(`Fix 6(a): boxed-warning concern regression (band=${boxed.band} factors=${JSON.stringify(boxed.factors)})`);
 
-  // (b) A patient-med interaction/contraindication → drops a level.
-  const clean = scoreSafety({ drugName: 'DrugB', patientMeds: 'Metformin', fdaLabel: { url, warnings: 'mild nausea' }, faers: [] });
+  // (b) A patient-med interaction/contraindication → High concern.
+  const clean = scoreSafety({ drugName: 'DrugB', patientMeds: 'Metformin', patientContext: completeContext, fdaLabel: { url, genericName: ['DrugB'], warnings: 'mild nausea' }, faers: [] });
   const interact = scoreSafety({
-    drugName: 'DrugB', patientMeds: 'Warfarin 5 mg',
-    fdaLabel: { url, drugInteractions: 'Concomitant warfarin increases bleeding risk.' }, faers: []
+    drugName: 'DrugB', patientMeds: 'Warfarin 5 mg', patientContext: completeContext,
+    fdaLabel: { url, genericName: ['DrugB'], drugInteractions: 'Concomitant warfarin increases bleeding risk.' }, faers: []
   });
-  const dropsOk = clean.band === 'Unknown' && interact.band === 'Moderate' &&
+  const dropsOk = clean.band === 'Unknown' && interact.band === 'High' &&
     interact.factors.some((f) => /warfarin/i.test(f.text) && f.url === url);
-  if (dropsOk) pass('Fix 6(b): a patient-med interaction drops the band one level (High → Moderate) with a cited factor');
-  else fail(`Fix 6(b): interaction-drop regression (clean=${clean.band} interact=${interact.band})`);
+  if (dropsOk) pass('Fix 6(b): a patient-med interaction maps to High concern with a cited factor');
+  else fail(`Fix 6(b): interaction-concern regression (clean=${clean.band} interact=${interact.band})`);
 
-  // (c) High-frequency serious FAERS reactions → floor (≥1 Moderate, ≥3 Low).
-  const oneSerious = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
+  // (c) Spontaneous report counts never determine the concern band.
+  const completeLabel = {
+    url, genericName: ['DrugC'], warnings: 'No warnings identified.',
+    contraindications: 'None known.', drugInteractions: 'No known interactions.'
+  };
+  const oneSerious = scoreSafety({ drugName: 'DrugC', patientContext: completeContext, fdaLabel: completeLabel, faers: [
     { reaction: 'Hepatic failure', reports: FAERS_SERIOUS_MIN_REPORTS + 10 }, { reaction: 'Nausea', reports: 99999 }
   ] });
-  const threeSerious = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
+  const threeSerious = scoreSafety({ drugName: 'DrugC', patientContext: completeContext, fdaLabel: completeLabel, faers: [
     { reaction: 'Hepatic failure', reports: 5000 }, { reaction: 'Sepsis', reports: 2000 }, { reaction: 'Cardiac arrest', reports: 1500 }
   ] });
-  const belowThreshold = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
+  const belowThreshold = scoreSafety({ drugName: 'DrugC', patientContext: completeContext, fdaLabel: completeLabel, faers: [
     { reaction: 'Hepatic failure', reports: FAERS_SERIOUS_MIN_REPORTS - 1 }
   ] });
-  const deathIgnored = scoreSafety({ drugName: 'DrugC', patientMeds: '', fdaLabel: { url }, faers: [
+  const deathIgnored = scoreSafety({ drugName: 'DrugC', patientContext: completeContext, fdaLabel: completeLabel, faers: [
     { reaction: 'Death', reports: 99999 }
   ] });
-  const faersOk = oneSerious.band === 'Moderate' && threeSerious.band === 'Low' && belowThreshold.band === 'Unknown'
-    && deathIgnored.band === 'Unknown'
-    && !(deathIgnored.factors || []).some((f) => /DEATH|Death/i.test(f.text));
-  if (faersOk) pass(`Fix 6(c): serious FAERS signal floors the band (1≥${FAERS_SERIOUS_MIN_REPORTS}→Moderate, ≥3→Low; bare Death counts ignored)`);
-  else fail(`Fix 6(c): FAERS-floor regression (one=${oneSerious.band} three=${threeSerious.band} below=${belowThreshold.band} death=${deathIgnored.band})`);
+  const faersOk = [oneSerious, threeSerious, belowThreshold, deathIgnored].every((result) =>
+    result.band === 'Low' && result.factors.some((f) => /not incidence rates.*do not prove causation/i.test(f.text))
+  );
+  if (faersOk) pass('Fix 6(c): spontaneous report counts do not change the safety-concern band and carry a limitation');
+  else fail(`Fix 6(c): spontaneous-report limitation regression (one=${oneSerious.band} three=${threeSerious.band} below=${belowThreshold.band} death=${deathIgnored.band})`);
 
   // (d) Incomplete captured label sections cannot establish High safety.
   const high = scoreSafety({ drugName: 'DrugD', patientMeds: 'Metformin', fdaLabel: { url, warnings: 'headache' }, faers: [{ reaction: 'Headache', reports: 40 }] });
@@ -2453,9 +2490,13 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     'CANDIDATE: UnmatchedDrugXYZ',
     'SAFETY: 80% — model eyeballed'
   ].join('\n');
-  const fdaLabels = [{ drug: 'Nintedanib', label: { url, genericName: ['nintedanib'], drugInteractions: 'aspirin' }, topAdverseEvents: [] }];
-  const injected = injectSafetyBands(report, { fdaLabels, patientMeds: 'Aspirin 81 mg' });
-  const nintBand = /SAFETY: Moderate — FDA label lists a drug interaction with your Aspirin \[FDA label\]\(https:\/\/www\.accessdata\.fda\.gov/i.test(injected);
+  const fdaLabels = [{ drug: 'Nintedanib', label: { url, genericName: ['nintedanib'], activeIngredient: ['nintedanib 150 mg'], drugInteractions: 'aspirin' }, topAdverseEvents: [] }];
+  const injected = injectSafetyBands(report, {
+    fdaLabels,
+    patientMeds: 'Aspirin 81 mg',
+    patientContext: completeContext
+  });
+  const nintBand = /SAFETY: Safety concern: High — FDA label lists a drug interaction with your Aspirin \[FDA label\]\(https:\/\/www\.accessdata\.fda\.gov/i.test(injected);
   const droppedUnmatched = !/UnmatchedDrugXYZ[\s\S]*SAFETY:/i.test(injected);
   const confUntouched = /CONFIDENCE: Moderate — some evidence/.test(injected);
   if (nintBand && droppedUnmatched && confUntouched) {
@@ -2491,7 +2532,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
 
   // (k) The synthesis prompt no longer asks the model for a "SAFETY: NN%".
   if (!/SAFETY: <1-100>%/.test(researchSrc) &&
-      /SAFETY: <Low \| Moderate \| High>/.test(researchSrc) &&
+      /SAFETY: Safety concern: <Low \| Moderate \| High>/.test(researchSrc) &&
       /OMIT this entire CONFIDENCE line/.test(researchSrc)) {
     pass('Fix 6(k): prompt emits SAFETY/CONFIDENCE bands (no fabricated percent) and drops unsourced confidence');
   } else {
@@ -2893,8 +2934,25 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   }
 
   // finalizeReportText wires the deterministic demographic gate into the real
-  // render path (patient threaded through).
-  const finalizedDemo = finalizeReportText(demoReport, { evidence: null, trials: null, patient: male });
+  // render path (patient threaded through). Exact trial records are supplied
+  // because finalized quantitative/NCT claims now fail closed without their
+  // own supporting source.
+  const finalizedDemo = finalizeReportText(demoReport, {
+    evidence: null,
+    trials: {
+      studies: [
+        {
+          nctId: 'NCT01234567',
+          title: 'A female-only study of topical estrogen in women with hair loss showed benefit'
+        },
+        {
+          nctId: 'NCT07654321',
+          title: 'Finasteride is a standard oral option studied in men and women'
+        }
+      ]
+    },
+    patient: male
+  });
   if (!/female-only study/.test(finalizedDemo) && /Finasteride is a standard oral option/.test(finalizedDemo)) {
     pass('Task A: finalizeReportText applies the demographic gate end-to-end (male patient)');
   } else {

@@ -22,6 +22,6 @@ UI previously said Full Report takes **1 to 2 minutes**. Live runs often take **
 
 ## Product talking points (architecture, for the overview doc)
 
-- Selling point vs ChatGPT: curated medical KB + live trials + grounded citations + second-AI audit, not a single chat model.
-- Drug repurposing: EveryCure-style hypotheses with local/registry candidates + evidence pack — doctors rarely get paid to invent these.
-- Second AI (Perplexity Sonar): independent check for bad links / unsupported claims; score panel is hidden from readers.
+- Product distinction from general-purpose chat tools: a reviewed medical reference collection, current trial records, claim-linked sources, and an independent source-support check.
+- Drug repurposing: structured research leads drawn from reviewed references and registries. Clinicians often have limited time for exploratory repurposing research.
+- Independent review: a separate configured service checks for unsupported claims and invalid links; internal scoring is not presented as a clinical rating.

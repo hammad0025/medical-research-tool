@@ -348,17 +348,6 @@
       "status": "Approved for RA",
       "approvalStatus": "approved",
       "evidenceRef": "rheumatoid-arthritis-4"
-    },
-    {
-      "name": "Otilimab",
-      "aliases": [
-        "GSK3196165"
-      ],
-      "mechanism": "Anti-GM-CSF monoclonal antibody",
-      "sponsor": "GSK",
-      "status": "Failed phase 3 trials",
-      "approvalStatus": "investigational",
-      "evidenceRef": "rheumatoid-arthritis-8"
     }
   ],
   "excludedAgents": [

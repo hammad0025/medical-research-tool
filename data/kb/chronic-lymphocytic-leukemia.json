@@ -437,11 +437,6 @@
       "evidenceRef": "chronic-lymphocytic-leukemia-6"
     },
     {
-      "name": "ibrutinib",
-      "reason": "Phase III CLL12 trial showed no benefit versus placebo in early-stage asymptomatic CLL patients (watch-and-wait population)",
-      "evidenceRef": "chronic-lymphocytic-leukemia-7"
-    },
-    {
       "name": "intravenous immunoglobulin",
       "reason": "Randomized trials showed reduction in bacterial infections but no clear evidence of improved survival or disease outcomes in CLL",
       "evidenceRef": "chronic-lymphocytic-leukemia-9"

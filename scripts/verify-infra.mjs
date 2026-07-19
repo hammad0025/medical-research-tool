@@ -4,6 +4,7 @@
 import { getInfraStatus, pingUpstash } from '../lib/infra-status.js';
 
 const LIVE = process.argv.includes('--live');
+const OFFLINE = process.argv.includes('--offline');
 const BASE = process.env.MRT_PUBLIC_URL || 'https://medical-research-tool.vercel.app';
 const PASSCODE = process.env.MRT_ACCESS_PASSCODE || '';
 
@@ -19,10 +20,12 @@ for (const m of status.missing) fail(`YOU MUST ADD: ${m.id}`);
 
 console.log(`\nBrain store: ${status.brainStore}`);
 
-if (status.brainPersistent) {
+if (status.brainPersistent && !OFFLINE) {
   const ping = await pingUpstash();
   if (ping.ok) pass('Upstash connected');
   else fail(`Upstash ping failed: ${ping.error}`);
+} else if (status.brainPersistent) {
+  pass('Upstash configuration contract present (offline; connectivity not tested)');
 }
 
 if (LIVE && PASSCODE) {

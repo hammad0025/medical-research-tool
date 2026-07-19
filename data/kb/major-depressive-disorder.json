@@ -510,26 +510,6 @@
       "status": "Approved for treatment-resistant depression",
       "approvalStatus": "approved",
       "evidenceRef": "major-depressive-disorder-2"
-    },
-    {
-      "name": "NBI-1065846",
-      "aliases": [
-        "TAK-041"
-      ],
-      "mechanism": "GPR139 agonist",
-      "sponsor": "Takeda",
-      "status": "Phase 2",
-      "approvalStatus": "investigational",
-      "evidenceRef": "major-depressive-disorder-14"
-    },
-    {
-      "name": "Azetukalner",
-      "aliases": [],
-      "mechanism": "Kv7 channel opener",
-      "sponsor": "Not specified",
-      "status": "Phase 2",
-      "approvalStatus": "investigational",
-      "evidenceRef": "major-depressive-disorder-15"
     }
   ],
   "excludedAgents": [

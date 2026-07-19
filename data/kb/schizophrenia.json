@@ -540,7 +540,7 @@
       "mechanism": "VMAT2 inhibitor",
       "sponsor": "Neurocrine",
       "status": "FDA-approved 2017 for TD",
-      "approvalStatus": "approved (for TD, not schizophrenia primary symptoms)",
+      "approvalStatus": "approved-other-indication",
       "whyItMatters": "Major quality-of-life intervention for antipsychotic-induced TD."
     },
     {
@@ -552,7 +552,7 @@
       "mechanism": "Deuterated VMAT2 inhibitor",
       "sponsor": "Teva",
       "status": "FDA-approved 2017 for TD; once-daily XR 2023",
-      "approvalStatus": "approved (for TD)",
+      "approvalStatus": "approved-other-indication",
       "whyItMatters": "Alternative VMAT2 inhibitor for TD; clinician's choice vs valbenazine."
     }
   ],
@@ -566,21 +566,6 @@
       "name": "Emraclidine (for schizophrenia, based on phase 2 data)",
       "reason": "EMPOWER-1/-2 phase 2 failed November 2024; no approved indication; regulatory future uncertain.",
       "evidenceRef": "sz-emraclidine-failure-2024"
-    },
-    {
-      "name": "Pimavanserin monotherapy for schizophrenia",
-      "reason": "Phase 3 not completed for schizophrenia; approved only for PD psychosis. Not supported as primary schizophrenia therapy.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Ginkgo biloba for schizophrenia cognitive symptoms",
-      "reason": "No consistent RCT evidence; not a guideline recommendation.",
-      "evidenceRef": null
-    },
-    {
-      "name": "Coerced or unmonitored 'natural' cannabis 'anti-psychotic' regimens",
-      "reason": "Cannabis use worsens schizophrenia trajectory; promoting it is harmful.",
-      "evidenceRef": null
     }
   ]
 }

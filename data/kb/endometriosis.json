@@ -314,17 +314,7 @@
     "Surgery for endometriosis may negatively impact ovarian reserve",
     "Medical/hormonal treatments are unsuitable for women trying to conceive"
   ],
-  "pipelineDrugs": [
-    {
-      "name": "Quinagolide vaginal ring",
-      "aliases": [],
-      "mechanism": "Dopamine agonist delivered via vaginal ring",
-      "sponsor": "Not specified",
-      "status": "Phase 2 completed",
-      "approvalStatus": "investigational",
-      "evidenceRef": "endometriosis-3"
-    }
-  ],
+  "pipelineDrugs": [],
   "excludedAgents": [
     {
       "name": "Quinagolide vaginal ring",

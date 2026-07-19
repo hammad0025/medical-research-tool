@@ -439,19 +439,8 @@
       "mechanism": "Glucagon-like peptide-1 receptor agonist",
       "sponsor": "Novo Nordisk",
       "status": "Phase 2 completed for NASH",
-      "approvalStatus": "approved",
+      "approvalStatus": "investigational (for MASLD)",
       "evidenceRef": "masld-nafld-3"
-    },
-    {
-      "name": "Empagliflozin",
-      "aliases": [
-        "SGLT2 inhibitor"
-      ],
-      "mechanism": "Sodium-glucose cotransporter 2 inhibitor",
-      "sponsor": "Boehringer Ingelheim",
-      "status": "Investigated for MASLD",
-      "approvalStatus": "approved",
-      "evidenceRef": "masld-nafld-4"
     },
     {
       "name": "Luseogliflozin",
@@ -461,7 +450,7 @@
       "mechanism": "Sodium-glucose cotransporter 2 inhibitor",
       "sponsor": "Taisho Pharmaceutical",
       "status": "Phase III completed",
-      "approvalStatus": "approved",
+      "approvalStatus": "approved-other-indication",
       "evidenceRef": "masld-nafld-12"
     }
   ],
