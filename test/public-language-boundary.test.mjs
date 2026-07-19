@@ -70,6 +70,13 @@ test('source titles and legitimate clinical terms are negative fixtures', () => 
   }
 });
 
+test('PARK8 biomedical text does not trigger the standalone K8 wording rule', () => {
+  const registryDescription = 'The intervention studies PARK8-associated Parkinson disease.';
+  assert.equal(sanitizePublicText(registryDescription), registryDescription);
+  assert.equal(sanitizePublicPayload({ description: registryDescription }).description, registryDescription);
+  assert.equal(sanitizePublicText('K8 quality wording'), 'quality review quality wording');
+});
+
 test('email HTML protects marked source titles but cleans other reader text', () => {
   const html = sanitizePublicHtml(
     '<div data-mrt-source-title="1">Model output and schema validation</div>' +
