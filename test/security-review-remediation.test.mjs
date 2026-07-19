@@ -179,10 +179,6 @@ test('release preflight requires the dedicated report seal and smoke checks its 
     MRT_EXPECTED_SHA: 'a'.repeat(40),
     MRT_ACCESS_PASSCODE: 'offline-access',
     MRT_REVIEWER_TOKEN: 'offline-reviewer',
-    RESEND_API_KEY: 'offline-resend',
-    ALERTS_EMAIL_FROM: 'alerts@offline.example.test',
-    ALERTS_PUBLIC_URL: 'https://offline.example.test',
-    ALERTS_MONITOR_WEBHOOK_URL: 'https://monitor.offline.example.test/hook',
     CRON_SECRET: 'offline-cron',
     UPSTASH_REDIS_REST_URL: 'https://redis.offline.example.test',
     UPSTASH_REDIS_REST_TOKEN: 'offline-redis'
