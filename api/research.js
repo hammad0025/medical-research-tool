@@ -55,7 +55,10 @@ import {
   verifyPlanCode,
   activatePlanForIp
 } from '../lib/usage-store.js';
-import { requireAccess } from '../lib/access-gate.js';
+import {
+  isPrivatePreviewUnlimited,
+  requireAccess
+} from '../lib/access-gate.js';
 import { requireJsonObjectBody } from '../lib/request-boundary.js';
 import {
   createAuditContext,
@@ -1987,7 +1990,9 @@ export default async function handler(req, res) {
       const adsenseClient = String(process.env.MRT_ADSENSE_CLIENT || '').trim();
       const prices = usagePricing();
       const lim = usageLimits();
-      const devUnlimited = isUsageLimitBypassed(getClientIp(req));
+      const devUnlimited =
+        isPrivatePreviewUnlimited(req) ||
+        isUsageLimitBypassed(getClientIp(req));
       const hasPerplexity = !!process.env.PERPLEXITY_API_KEY;
       const hasOpenAI = !!process.env.OPENAI_API_KEY;
       const hasXai = !!process.env.XAI_API_KEY;
@@ -2146,6 +2151,7 @@ export default async function handler(req, res) {
       });
     }
     const ip = getClientIp(req);
+    const authenticatedPreview = isPrivatePreviewUnlimited(req);
     const isSplitPipelineContinuation =
       pipelineMode && phase === 'synthesize' && (mode === 'research' || mode === 'repurpose');
     const shouldMeter = isPaidUserMode(mode) &&
@@ -2192,7 +2198,7 @@ export default async function handler(req, res) {
       }
       billableReservation = { ...reservation, fingerprint };
 
-      const quota = await consumeResearchCredit(ip);
+      const quota = await consumeResearchCredit(ip, { authenticatedPreview });
       if (!quota.allowed) {
         const lim = usageLimits();
         const prices = usagePricing();
@@ -2304,10 +2310,13 @@ export default async function handler(req, res) {
     if (mode === 'usage') {
       try {
         const ip = getClientIp(req);
-        const usage = await getUsage(ip);
+        const usage = await getUsage(ip, {
+          authenticatedPreview: isPrivatePreviewUnlimited(req)
+        });
         const lim = usageLimits();
         const prices = usagePricing();
-        const devUnlimited = isUsageLimitBypassed(ip);
+        const devUnlimited =
+          isPrivatePreviewUnlimited(req) || isUsageLimitBypassed(ip);
         return res.status(200).json({
           ok: true,
           usage,

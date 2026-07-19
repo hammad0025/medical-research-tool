@@ -19,6 +19,10 @@ import {
 import { sanitizePublicText } from "../lib/public-language.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
+import {
+  profileClinicalPlaceholders,
+  profileSafetyFields
+} from "../lib/profile-field-config.js";
 
 window.marked = marked;
 
@@ -4626,6 +4630,8 @@ const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runRes
   ];
   const upgradeUrl = approvedUpgradeUrl(runtimeConfig?.monetization?.upgradeUrl);
   const fmtTierPrice = (t) => t.priceUsd ? `$${t.priceUsd}/mo` : 'Free';
+  const clinicalPlaceholders = profileClinicalPlaceholders(patient);
+  const safetyFields = profileSafetyFields(patient);
   // `type` can be 'text' | 'number' | 'select'. Select fields also
   // supply `options` (array of {value,label}). Most free-form clinical
   // context stays as textarea so clinicians can paste from notes.
@@ -4633,7 +4639,7 @@ const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runRes
     { k: 'condition',  l: 'Main condition you want to research',   ta: false,
       ph: 'e.g. Retinitis Pigmentosa — then pick a subtype below if you know it', enterSubmits: true,
       subtypePicker: true },
-    { k: 'stage',      l: 'Stage of the disease (if you know it)',     ta: false, ph: 'e.g. GAP Stage II, metastatic' },
+    { k: 'stage',      l: 'Stage of the disease (if you know it)',     ta: false, ph: clinicalPlaceholders.stage },
     { k: 'age',        l: 'Age',                              ta: false, ph: 'e.g. 65', type: 'number' },
     { k: 'gender',     l: 'Sex / Gender',                     ta: false, type: 'select',
       options: [
@@ -4655,18 +4661,12 @@ const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runRes
     { k: 'medicationHistory', l: 'Treatments tried before', ta: true,
       ph: 'Include prior medicines or treatments and why they stopped, if known.' },
     { k: 'symptoms',   l: 'Symptoms you have now',                 ta: true },
-    { k: 'labWork',    l: 'Lab results, breathing tests, or other test results',  ta: true,
-      ph: 'e.g. FVC 58% predicted, DLCO 42%, 6MWT 350m' },
-    { k: 'scans',      l: 'Recent scans or X-rays',           ta: true,
-      ph: 'e.g. HRCT 3/2025: UIP pattern, honeycombing basal/peripheral' },
-    { k: 'renalFunction', l: 'Kidney / renal function', ta: true,
-      ph: 'e.g. eGFR 38 mL/min/1.73m², CKD stage 3b, normal, or unknown' },
-    { k: 'hepaticFunction', l: 'Liver / hepatic function', ta: true,
-      ph: 'e.g. ALT/AST results, cirrhosis status, normal, or unknown' },
-    { k: 'pregnancyStatus', l: 'Pregnancy / breastfeeding status', ta: false,
-      ph: 'e.g. pregnant, breastfeeding, not pregnant, not applicable, or unknown' },
+    { k: 'labWork',    l: 'Relevant test results',  ta: true,
+      ph: clinicalPlaceholders.labWork },
+    { k: 'scans',      l: 'Relevant scans or imaging',           ta: true,
+      ph: clinicalPlaceholders.scans },
     { k: 'geneticVariant', l: 'Gene test result (if you have one)', ta: true,
-      ph: 'You can enter a result three ways: (1) a specific change, e.g. "USH2A compound heterozygous", "RPE65 biallelic", "SOD1 A4V", "BRCA1 pathogenic"; (2) a NEGATIVE result you were given, e.g. "Genetic testing done — no known pathogenic variant found" or "no genetic component"; or (3) "Not tested". This matters for gene therapy (treatments that fix or replace faulty genes) — and a negative result is a real finding we will keep.' }
+      ph: clinicalPlaceholders.geneticVariant }
   ];
   return (
     <div style={panelStyle}>
@@ -4791,7 +4791,9 @@ const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runRes
               padding: '0.2rem 0.45rem', borderRadius: 4,
               background: `${theme.green}18`, border: `1px solid ${theme.green}44`, color: theme.green
             }}>
-              Local development — usage limits disabled
+              {(typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(location.hostname))
+                ? 'Local development — usage limits disabled'
+                : 'Private preview — unlimited runs'}
             </span>
           )}
         </div>
@@ -4950,6 +4952,34 @@ const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runRes
           </div>
         ))}
       </div>
+      {safetyFields.length > 0 && (
+        <details style={{
+          marginTop: '1rem', padding: '0.8rem 0.9rem', borderRadius: 8,
+          border: `1px solid ${theme.border}`, background: `${theme.panel}99`
+        }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 700, color: theme.text }}>
+            Additional medicine-safety details (optional)
+          </summary>
+          <p style={{ margin: '0.55rem 0 0.8rem', color: theme.textDim, fontSize: '0.8rem', lineHeight: 1.5 }}>
+            These are not separate research topics. Add them only if they are relevant to checking medicine safety or dosing.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+            {safetyFields.map(f => (
+              <div key={f.k} style={{ display: 'flex', flexDirection: 'column' }}>
+                <label htmlFor={`mrt-profile-${f.k}`} style={labelStyle}>{f.l}</label>
+                {f.ta ? (
+                  <textarea id={`mrt-profile-${f.k}`} value={patient[f.k] || ''} placeholder={f.ph || ''}
+                    onChange={e => set(f.k, e.target.value)}
+                    style={{ ...inputStyle, minHeight: 90, resize: 'vertical' }} />
+                ) : (
+                  <input id={`mrt-profile-${f.k}`} value={patient[f.k] || ''} placeholder={f.ph || ''}
+                    onChange={e => set(f.k, e.target.value)} style={inputStyle} />
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
 
       {/* Primary action: explicit submit so users aren't left wondering
           how to kick off research after filling the form. Scrolling
