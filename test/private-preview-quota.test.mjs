@@ -27,9 +27,12 @@ test('only an authenticated private-preview request receives the explicit unlimi
 test('authenticated preview bypasses quota but retains normal request accounting path', async () => {
   const usageSource = await readFile(new URL('../lib/usage-store.js', import.meta.url), 'utf8');
   const researchSource = await readFile(new URL('../api/research.js', import.meta.url), 'utf8');
+  const appSource = await readFile(new URL('../src/app.jsx', import.meta.url), 'utf8');
 
   assert.match(usageSource, /consumeResearchCredit = async \(ip, \{ authenticatedPreview = false \}/);
   assert.match(researchSource, /consumeResearchCredit\(ip, \{ authenticatedPreview \}\)/);
   assert.match(researchSource, /reserveProviderBudget\(/);
   assert.match(researchSource, /beginBillableRequest\(/);
+  assert.match(researchSource, /privatePreviewUnlimited,/);
+  assert.match(appSource, /\{!privatePreviewUnlimited && <div/);
 });

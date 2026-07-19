@@ -4629,6 +4629,7 @@ const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runRes
     { id: 'max', label: 'Max', runsPerMonth: runtimeConfig?.monetization?.maxRunsPerMonth ?? 500, priceUsd: runtimeConfig?.monetization?.maxPriceUsd ?? 79 }
   ];
   const upgradeUrl = approvedUpgradeUrl(runtimeConfig?.monetization?.upgradeUrl);
+  const privatePreviewUnlimited = runtimeConfig?.monetization?.privatePreviewUnlimited === true;
   const fmtTierPrice = (t) => t.priceUsd ? `$${t.priceUsd}/mo` : 'Free';
   const clinicalPlaceholders = profileClinicalPlaceholders(patient);
   const safetyFields = profileSafetyFields(patient);
@@ -4776,7 +4777,7 @@ const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runRes
           }}>Terms of Use</button>
         </p>
       </div>
-      <div style={{
+      {!privatePreviewUnlimited && <div style={{
         marginBottom: '1rem',
         padding: '0.8rem 0.9rem',
         borderRadius: 8,
@@ -4851,7 +4852,7 @@ const PatientTab = ({ patient, setPatient, audience, setAudience, setTab, runRes
             {upgradeBusy ? <><Loader size={14} className="spin" /> Activating…</> : 'Activate code'}
           </button>
         </div>
-      </div>
+      </div>}
       <div style={{
         display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center',
         padding: '0.6rem 0.8rem', background: `${theme.accent}0e`,

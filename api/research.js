@@ -1990,8 +1990,9 @@ export default async function handler(req, res) {
       const adsenseClient = String(process.env.MRT_ADSENSE_CLIENT || '').trim();
       const prices = usagePricing();
       const lim = usageLimits();
+      const privatePreviewUnlimited = isPrivatePreviewUnlimited(req);
       const devUnlimited =
-        isPrivatePreviewUnlimited(req) ||
+        privatePreviewUnlimited ||
         isUsageLimitBypassed(getClientIp(req));
       const hasPerplexity = !!process.env.PERPLEXITY_API_KEY;
       const hasOpenAI = !!process.env.OPENAI_API_KEY;
@@ -2018,6 +2019,7 @@ export default async function handler(req, res) {
         },
         monetization: {
           devUnlimited,
+          privatePreviewUnlimited,
           freeRunsPerMonth: devUnlimited ? 999999 : lim.free,
           proRunsPerMonth: devUnlimited ? 999999 : lim.pro,
           maxRunsPerMonth: devUnlimited ? 999999 : lim.max,
@@ -2028,7 +2030,12 @@ export default async function handler(req, res) {
           paidPriceUsd: prices.proPriceUsd,
           upgradeUrl: approvedUpgradeUrl(process.env.MRT_UPGRADE_URL),
           tiers: devUnlimited
-            ? [{ id: 'dev', label: 'Development', runsPerMonth: 999999, priceUsd: 0 }]
+            ? [{
+                id: privatePreviewUnlimited ? 'private-preview' : 'dev',
+                label: privatePreviewUnlimited ? 'Private preview' : 'Development',
+                runsPerMonth: 'Unlimited',
+                priceUsd: 0
+              }]
             : [
                 { id: 'free', label: 'Free', runsPerMonth: lim.free, priceUsd: 0 },
                 { id: 'pro', label: 'Pro', runsPerMonth: lim.pro, priceUsd: prices.proPriceUsd },
