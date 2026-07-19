@@ -181,6 +181,29 @@ test('numeric reference markers use the source title as their link label', () =>
   assert.doesNotMatch(output, /\[source ↗\]/i);
 });
 
+test('already-formatted generic source links use the matching source title', () => {
+  const output = resolveInlineReferenceMarkers(
+    'A measured claim ([source ↗](https://pubmed.ncbi.nlm.nih.gov/12345678/)).',
+    {
+      groundedForPrompt: [{
+        title: 'Named Clinical Study',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/12345678/'
+      }]
+    }
+  );
+  assert.match(output, /\[Named Clinical Study ↗\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/12345678\/\)/);
+  assert.doesNotMatch(output, /\[(?:source|citation|reference|link)\s*↗?\]/i);
+});
+
+test('generic links without matching metadata use the source hostname', () => {
+  const output = resolveInlineReferenceMarkers(
+    'Background ([SOURCE](https://www.fda.gov/example)).',
+    {}
+  );
+  assert.match(output, /\[fda\.gov ↗\]\(https:\/\/www\.fda\.gov\/example\)/);
+  assert.doesNotMatch(output, /\[source\]/i);
+});
+
 test('identifier-less evidence records do not collapse into one row', () => {
   const rows = dedupeArticles([
     { source: 'OpenAlex', title: 'First distinct paper' },
