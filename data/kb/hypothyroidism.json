@@ -10,31 +10,12 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "L-selenomethionine",
     "Vitamin D"
   ],
   "items": [
-    {
-      "id": "hypothyroidism-1",
-      "category": "expert-consensus",
-      "tier": "A+",
-      "title": "Diagnosis and management of treatment-refractory hypothyroidism: an expert consensus report.",
-      "authors": [
-        "Centanni M",
-        "Benvenga S",
-        "Sachmechi I"
-      ],
-      "journal": "Journal of endocrinological investigation",
-      "year": "2017",
-      "doi": "10.1007/s40618-017-0706-y",
-      "pmid": "28695483",
-      "url": "https://doi.org/10.1007/s40618-017-0706-y",
-      "accessLevel": "abstract",
-      "summary": "Expert consensus on diagnosis and management of treatment-refractory hypothyroidism requiring unexpectedly high levothyroxine doses.",
-      "keyPassages": []
-    },
     {
       "id": "hypothyroidism-2",
       "category": "review",
@@ -249,42 +230,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Levothyroxine monotherapy is the standard treatment for hypothyroidism, but 10-15% of patients have persistent symptoms despite normalizing thyroid hormone levels",
-      "evidenceRefs": [
-        "hypothyroidism-5",
-        "hypothyroidism-2"
-      ]
-    },
-    {
-      "claim": "Treatment-refractory hypothyroidism may require unexpectedly high levothyroxine doses due to impaired absorption or other factors",
-      "evidenceRefs": [
-        "hypothyroidism-1"
-      ]
-    },
-    {
-      "claim": "Myxedema coma is an endocrine emergency with high mortality risk that commonly presents with altered mental status, hypothermia, and depressed vital signs",
-      "evidenceRefs": [
-        "hypothyroidism-6",
-        "hypothyroidism-4"
-      ]
-    },
-    {
-      "claim": "The lifetime risk of overt hypothyroidism is around 5%, usually preceded by subclinical hypothyroidism with prevalence up to 9%",
-      "evidenceRefs": [
-        "hypothyroidism-7"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Aromatherapy inhalation may help reduce fatigue symptoms in women with hypothyroidism",
-      "evidenceRefs": [
-        "hypothyroidism-11"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Myxedema coma is an endocrine emergency requiring immediate medical attention",
     "Overtreatment with thyroid hormones can cause adverse cardiovascular effects"
@@ -301,5 +248,7 @@
       "reason": "Weekly vitamin D supplementation (20,000 IU) showed no significant effect on muscle function in patients with I131-induced hypothyroidism in pilot randomized trial",
       "evidenceRef": "hypothyroidism-10"
     }
-  ]
+  ],
+  "failedTreatments": [],
+  "references": []
 }

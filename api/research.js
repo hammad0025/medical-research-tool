@@ -108,6 +108,11 @@ import {
   checkDossierProfileCoherence
 } from '../lib/profile-coherence.js';
 import { createGatherSeal, verifyGatherSeal } from '../lib/gather-seal.js';
+import {
+  sealTrialRegistryPayload,
+  verifyTrialRegistryPayload
+} from '../lib/trial-registry-gate.js';
+import { filterVerifiedFdaEvidence } from '../lib/fda-label-gate.js';
 import { fetchWithTimeout, isTimeoutError, timeoutFor } from '../lib/fetch-timeout.js';
 import {
   sealTranslationSource,
@@ -115,6 +120,7 @@ import {
 } from '../lib/translation-gate.js';
 import { logError, safeErrorMessage } from '../lib/privacy-redaction.js';
 import { installPublicJsonBoundary } from '../lib/public-language.js';
+import { admitEvidencePools } from '../lib/source-admission-gate.js';
 
 import {
   DEFAULT_RESEARCH_MODEL,
@@ -387,10 +393,13 @@ const enrichFdaLabelsForCards = async (text, existing) => {
 // shape the synthesis prompt expects.
 const toGroundedItem = (a, { isCuratedKB = false, kbCategory = null, conditionSlug = null } = {}) => ({
   id: a.id || a.doi || a.pmid || null,
+  pmid: a.pmid || null,
+  doi: a.doi || null,
   // Provenance tag (Pillar 3): which source paper this row came from and which
   // condition build emitted it. Threaded from the KB/fallback so a rendered
   // claim can be traced back to its origin and never silently re-attributed.
   provenanceId: a.provenanceId || a.id || a.doi || a.pmid || null,
+  kbCondition: a.kbCondition || null,
   conditionSlug: a.conditionSlug || conditionSlug || null,
   title: a.title,
   journal: a.journal || '',
@@ -410,7 +419,16 @@ const toGroundedItem = (a, { isCuratedKB = false, kbCategory = null, conditionSl
   // Option B: prefer a reader-verifiable link (PMC/PubMed/DOI/OA) over a
   // paywalled publisher page among the URLs the item already carries.
   url: preferVerifiableUrl(a),
-  text: (a.abstract || a.fullText || a.summary || '').slice(0, 3500)
+  text: [
+    a.fullText,
+    a.abstract,
+    a.text,
+    a.summary,
+    ...(Array.isArray(a.keyPassages)
+      ? a.keyPassages.map((passage) =>
+          typeof passage === 'string' ? passage : passage?.quote)
+      : [])
+  ].filter(Boolean).join(' ').slice(0, 3500)
 });
 
 // KB-ONLY EVIDENCE FALLBACK.
@@ -668,18 +686,25 @@ const buildDossierFallbackEvidence = async (condition, dossier = null) => {
 };
 
 const ensureGroundedEvidence = async (condition, dossier, evidence, hints = {}) => {
-  if (evidenceIsUsable(evidence)) return evidence;
+  const admissionOptions = {
+    condition: dossier?.canonical || condition,
+    aliases: dossier?.synonyms || []
+  };
+  const admittedEvidence = admitEvidencePools(evidence, admissionOptions);
+  if (evidenceIsUsable(admittedEvidence)) return admittedEvidence;
   const kbFallback = await buildKbFallbackEvidence(condition, dossier, hints);
-  if (evidenceIsUsable(kbFallback)) {
-    console.warn(`[research] KB fallback (${kbFallback.groundedForPrompt.length} curated refs)`);
-    return kbFallback;
+  const admittedKbFallback = admitEvidencePools(kbFallback, admissionOptions);
+  if (evidenceIsUsable(admittedKbFallback)) {
+    console.warn(`[research] KB fallback (${admittedKbFallback.groundedForPrompt.length} curated refs)`);
+    return admittedKbFallback;
   }
   const dossierFallback = await buildDossierFallbackEvidence(condition, dossier);
-  if (evidenceIsUsable(dossierFallback)) {
-    console.warn(`[research] dossier fallback (${dossierFallback.groundedForPrompt.length} refs, no static KB)`);
-    return dossierFallback;
+  const admittedDossierFallback = admitEvidencePools(dossierFallback, admissionOptions);
+  if (evidenceIsUsable(admittedDossierFallback)) {
+    console.warn(`[research] verified web fallback (${admittedDossierFallback.groundedForPrompt.length} refs, no static KB)`);
+    return admittedDossierFallback;
   }
-  return evidence;
+  return admittedEvidence || admittedKbFallback || admittedDossierFallback || evidence;
 };
 
 // Gather returns pools to the browser, which POSTs them back for synthesize.
@@ -690,7 +715,7 @@ const ensureGroundedEvidence = async (condition, dossier, evidence, hints = {}) 
 const trimTrialPool = (trials, limit) => {
   if (!trials) return null;
   const coverage = normalizeTrialCoverage(trials);
-  return {
+  const trimmed = {
     total: trials.total,
     returned: trials.returned,
     breakdown: trials.breakdown,
@@ -702,6 +727,8 @@ const trimTrialPool = (trials, limit) => {
     providerErrors: coverage.providerErrors,
     studies: (trials.studies || []).slice(0, limit)
   };
+  trimmed.registrySeal = sealTrialRegistryPayload(trimmed);
+  return trimmed;
 };
 
 export const trimSynthPools = (pools = {}) => {
@@ -718,6 +745,7 @@ export const trimSynthPools = (pools = {}) => {
         accessBreakdown: evidence.accessBreakdown,
         promptPackBreakdown: evidence.promptPackBreakdown,
         qualityBreakdown: evidence.qualityBreakdown,
+        sourceAdmissionAudit: evidence.sourceAdmissionAudit,
         knowledgeBase: evidence.knowledgeBase,
         fdaLabels: (evidence.fdaLabels || []).slice(0, 4),
         fdaManufacturers: (evidence.fdaManufacturers || []).slice(0, 3),
@@ -765,6 +793,7 @@ export const trimGatherPools = ({ dossier, evidence, trials, gatherFingerprint =
         accessBreakdown: evidence.accessBreakdown,
         promptPackBreakdown: evidence.promptPackBreakdown,
         qualityBreakdown: evidence.qualityBreakdown,
+        sourceAdmissionAudit: evidence.sourceAdmissionAudit,
         knowledgeBase: evidence.knowledgeBase,
         topRanked: (evidence.topRanked || []).slice(0, 25).map((a) => ({
           ...a,
@@ -1204,9 +1233,15 @@ const buildGroundingBlock = (evidence, opts = {}) => {
     if (!f.label) return;
     fdaBits.push(
       `FDA LABEL · ${f.drug || (f.label.genericName || []).join(', ')}
+      Identity: set ID ${f.label.splSetId || '(missing)'}; application ${(
+        f.label.applicationNumbers || []
+      ).join(', ') || '(not present)'}; brand ${(f.label.brandName || []).join(', ') || '(not present)'}; generic ${(f.label.genericName || []).join(', ') || '(not present)'}; active ingredient ${(f.label.activeIngredient || []).join(', ') || '(not present)'}
       Indications: ${(f.label.indications || '').slice(0, 900)}
+      Dosage and administration: ${(f.label.dosage || '').slice(0, 900)}
+      Boxed warning: ${(f.label.boxedWarning || '').slice(0, 700)}
       Warnings: ${(f.label.warnings || '').slice(0, 900)}
       Contraindications: ${(f.label.contraindications || '').slice(0, 600)}
+      Adverse reactions: ${(f.label.adverseReactions || '').slice(0, 900)}
       Drug interactions: ${(f.label.drugInteractions || '').slice(0, 900)}
       Top FAERS reactions: ${(f.topAdverseEvents || []).map((e) => `${e.reaction} (${e.reports})`).join(', ')}
       Source: ${f.label.url}`
@@ -2079,6 +2114,22 @@ export default async function handler(req, res) {
       }
     }
 
+    // Resolve ambiguous disease names before validating condition-bound trial
+    // data, so the user receives the actionable clarification response first.
+    if (mode === 'trials') {
+      const registryCheck = verifyTrialRegistryPayload(trialsData);
+      if (!registryCheck.ok) {
+        return res.status(registryCheck.code === 'GATHER_SEAL_CONFIG' ? 503 : 409).json({
+          error: registryCheck.code === 'GATHER_SEAL_CONFIG'
+            ? 'Clinical-trial verification is not configured.'
+            : 'ClinicalTrials.gov data is invalid or expired. Refresh the trial search.',
+          code: registryCheck.code === 'GATHER_SEAL_CONFIG'
+            ? 'TRIAL_REGISTRY_SEAL_CONFIG'
+            : 'TRIAL_REGISTRY_DATA_INVALID'
+        });
+      }
+    }
+
     // Spend kill — blocks paid API before any Anthropic/Perplexity calls.
     if (pipelineMode && !isResearchPipelineEnabled()) {
       return res.status(503).json({
@@ -2518,6 +2569,7 @@ export default async function handler(req, res) {
         groundedForPrompt: req.body?.evidencePack || [],
         topRanked: req.body?.evidencePack || [],
         pipelineDrugs: req.body?.pipelineDrugs || [],
+        fdaLabels: req.body?.fdaLabels || [],
         canonicalFacts: req.body?.canonicalFacts || clientKb.canonicalFacts || [],
         knowledgeBase: {
           canonicalFacts: req.body?.canonicalFacts || clientKb.canonicalFacts || [],
@@ -2525,7 +2577,11 @@ export default async function handler(req, res) {
           redFlags: req.body?.redFlags || clientKb.redFlags || []
         }
       };
-      const trials = req.body?.trials || null;
+      let trials = req.body?.trials || null;
+      if (!verifyTrialRegistryPayload(trials).ok) {
+        if (trials) console.warn('[research] polish-report rejected unsealed trial data');
+        trials = { studies: [], query: { condition: req.body?.condition || req.body?.patient?.condition || '' } };
+      }
       const patientProfile = req.body?.patient || null;
       let polished = finalizeReportText(analysisText, { evidence, trials, patient: patientProfile });
       let validation = req.body?.validation || null;
@@ -2758,7 +2814,7 @@ export default async function handler(req, res) {
       // curated KB so the candidate lanes still get the excludedAgents guardrail,
       // pipeline drugs, and real citable papers. Prevents the "3 candidates / no
       // links / metformin mislabeled" failure even when gather degraded.
-      if ((mode === 'research' || mode === 'repurpose') && !evidenceIsUsable(evidence)) {
+      if (mode === 'research' || mode === 'repurpose') {
         evidence = await ensureGroundedEvidence(effectiveCondition, dossier, evidence, groundingHints);
       }
     } else {
@@ -2844,7 +2900,7 @@ export default async function handler(req, res) {
       // SAFETY NET: if the live evidence fetch timed out or errored (withDeadline
       // → null) OR came back with zero grounded papers, fall back to curated KB
       // or dossier+Perplexity so synthesis never runs fully ungrounded.
-      if (needsEvidence && !evidenceIsUsable(evidence)) {
+      if (needsEvidence) {
         evidence = await ensureGroundedEvidence(gatherCondition, dossier, evidence, groundingHints);
       }
     }
@@ -2875,6 +2931,17 @@ export default async function handler(req, res) {
           topRanked: merged.slice(0, 28)
         };
       }
+    }
+
+    // Final universal boundary immediately before gather sealing or synthesis.
+    // This also covers chat/client pools and any future retrieval mode that
+    // populates these arrays without going through evidence.js.
+    if (evidence) {
+      evidence = admitEvidencePools(evidence, {
+        condition: dossier?.canonical || effectiveCondition || gatherCondition,
+        aliases: dossier?.synonyms || []
+      });
+      evidence = filterVerifiedFdaEvidence(evidence);
     }
 
     // Grade the assembled grounding (Pillar 1). Never blocks — only classifies
@@ -3159,8 +3226,12 @@ ${SHARED_GUARDRAILS}
       if (mode === 'research' || mode === 'repurpose') {
         try {
           const fdaForCards = await enrichFdaLabelsForCards(claudeText, evidence?.fdaLabels);
+          evidence = filterVerifiedFdaEvidence({
+            ...(evidence || {}),
+            fdaLabels: fdaForCards
+          });
           claudeText = injectSafetyBands(claudeText, {
-            fdaLabels: fdaForCards,
+            fdaLabels: evidence.fdaLabels,
             patientMeds: patient?.medications,
             patientContext: patient
           });

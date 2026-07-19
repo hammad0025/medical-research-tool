@@ -11,7 +11,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Psilocybin",
     "Esketamine",
@@ -208,10 +208,10 @@
       "year": "2021",
       "doi": "10.1002/da.23135",
       "pmid": "33528865",
-      "url": "https://doi.org/10.1002/da.23135",
       "accessLevel": "metadata-only",
       "summary": "Canadian expert consensus provided standardized definition and assessment criteria for treatment-resistant major depressive disorder.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://onlinelibrary.wiley.com/doi/10.1002/da.23135"
     },
     {
       "id": "major-depressive-disorder-9",
@@ -436,36 +436,10 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Ketamine and esketamine are effective rapid-acting treatments for treatment-resistant depression",
-      "evidenceRefs": [
-        "major-depressive-disorder-1",
-        "major-depressive-disorder-2"
-      ]
-    },
-    {
       "claim": "Psilocybin-assisted therapy shows promise for treatment-resistant depression with rapid and sustained effects",
       "evidenceRefs": [
         "major-depressive-disorder-4",
         "major-depressive-disorder-3"
-      ]
-    },
-    {
-      "claim": "Aripiprazole augmentation is effective for depression but discontinuation after remission increases recurrence risk",
-      "evidenceRefs": [
-        "major-depressive-disorder-5"
-      ]
-    },
-    {
-      "claim": "Antidepressant discontinuation symptoms are common and clinically significant",
-      "evidenceRefs": [
-        "major-depressive-disorder-7"
-      ]
-    },
-    {
-      "claim": "Treatment-resistant depression affects approximately 30% of patients and requires specialized approaches",
-      "evidenceRefs": [
-        "major-depressive-disorder-8",
-        "major-depressive-disorder-12"
       ]
     }
   ],
@@ -474,12 +448,6 @@
       "recommendation": "Physical activity can be used as a clinical tool against depression",
       "evidenceRefs": [
         "major-depressive-disorder-13"
-      ]
-    },
-    {
-      "recommendation": "Online mindfulness-based cognitive behavioral therapy may be beneficial for young adults with depression",
-      "evidenceRefs": [
-        "major-depressive-disorder-6"
       ]
     }
   ],

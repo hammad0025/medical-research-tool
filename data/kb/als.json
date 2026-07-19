@@ -14,7 +14,7 @@
   ],
   "version": "2026-04a",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-23",
+  "lastUpdated": "2026-07-19",
   "editorialNote": "Focused KB for ALS. CRITICAL 2024 CHANGE: Amylyx voluntarily WITHDREW Relyvrio/Albrioza (AMX0035, sodium phenylbutyrate + taurursodiol) from US and Canadian markets in April 2024 after the confirmatory PHOENIX phase 3 failed. Any ALS output discussing current therapy that still recommends Relyvrio is out of date. Current approved disease-specific therapies: riluzole (1995), edaravone (IV 2017, oral 2022 Radicava ORS), and tofersen (Qalsody 2023 — SOD1-mutation-specific).",
   "subspecialty": "Neurology / Neuromuscular",
   "icd10": "G12.21",
@@ -265,21 +265,6 @@
       ]
     },
     {
-      "id": "als-aan-guideline-2009",
-      "category": "clinical-guideline",
-      "tier": "A",
-      "title": "Practice parameter update: The care of the patient with amyotrophic lateral sclerosis (American Academy of Neurology)",
-      "authors": "Miller RG, Jackson CE, Kasarskis EJ, et al.",
-      "journal": "Neurology",
-      "year": 2009,
-      "doi": "10.1212/WNL.0b013e3181bc0141",
-      "pmid": "19822872",
-      "url": "https://pubmed.ncbi.nlm.nih.gov/19822872/",
-      "accessLevel": "abstract",
-      "summary": "AAN practice parameter on ALS care: multidisciplinary clinic (level B), NIV when FVC <50% or symptomatic (level A), PEG placement before severe respiratory compromise, cough augmentation for secretions, riluzole, vitamin E supplementation did not show benefit. Now being revised but remains the most-cited systematic ALS care standard.",
-      "keyPassages": []
-    },
-    {
       "id": "als-edaravone-writing-group-2017",
       "category": "rct",
       "tier": "A",
@@ -308,57 +293,13 @@
       ]
     },
     {
-      "claim": "Tofersen (Qalsody) is FDA-approved (accelerated approval April 2023) for SOD1-mutation ALS, based on plasma neurofilament light biomarker reduction.",
-      "evidenceRefs": [
-        "als-tofersen-miller-2022",
-        "als-fda-label-qalsody-2023"
-      ]
-    },
-    {
       "claim": "Edaravone (Radicava IV 2017; Radicava ORS oral 2022) is approved but eligibility reflects the narrower MCI186-19 trial population.",
       "evidenceRefs": [
         "als-edaravone-writing-group-2017"
       ]
-    },
-    {
-      "claim": "Multidisciplinary ALS clinic attendance is associated with ~7-8 months longer survival than general-neurology care (observational).",
-      "evidenceRefs": [
-        "als-aan-guideline-2009"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Enroll in a multidisciplinary ALS Center of Excellence (ALSA) or MDA ALS Care Center as soon as diagnosis is confirmed.",
-      "evidenceRefs": [
-        "als-aan-guideline-2009"
-      ]
-    },
-    {
-      "recommendation": "Start non-invasive ventilation (BiPAP) when FVC <50% predicted OR when symptomatic (orthopnea, morning headaches, hypersomnolence), whichever comes first.",
-      "evidenceRefs": [
-        "als-aan-guideline-2009"
-      ]
-    },
-    {
-      "recommendation": "Consider PEG placement before FVC falls below ~50% or when weight loss exceeds 10%.",
-      "evidenceRefs": [
-        "als-aan-guideline-2009"
-      ]
-    },
-    {
-      "recommendation": "High-calorie, high-fat diet to counter cachexia.",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Early palliative-care referral (not end-stage-only).",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Speech-language pathology for augmentative-communication planning before speech deteriorates.",
-      "evidenceRefs": []
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Physicians generally caution against prescribing Relyvrio/Albrioza (AMX0035) to newly diagnosed patients — Amylyx WITHDREW this product from the US and Canadian markets in April 2024.",
     "Literature warns against stem-cell clinics (China, Vietnam, Mexico, India) offering IV MSC infusions — no peer-reviewed ALS efficacy data. FDA warning letters. NurOwn (BrainStorm) failed phase 3 and is NOT approved.",
@@ -531,5 +472,7 @@
       "reason": "Voluntarily WITHDRAWN from US and Canadian markets April 2024 following PHOENIX phase 3 failure. No longer a commercial product.",
       "evidenceRef": "als-phoenix-withdrawal-2024"
     }
-  ]
+  ],
+  "failedTreatments": [],
+  "references": []
 }

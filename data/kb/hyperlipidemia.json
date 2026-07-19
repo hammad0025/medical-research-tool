@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "inclisiran",
     "bempedoic acid",
@@ -172,10 +172,10 @@
       "year": "2021",
       "doi": "10.1016/j.jacc.2021.01.027",
       "pmid": "33736827",
-      "url": "https://doi.org/10.1016/j.jacc.2021.01.027",
       "accessLevel": "abstract",
       "summary": "Study of 13,015 statin-treated patients showing apolipoprotein B and non-HDL cholesterol better reflect residual cardiovascular risk than LDL cholesterol.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S0735109721001911"
     },
     {
       "id": "hyperlipidemia-8",
@@ -209,10 +209,10 @@
       "year": "2024",
       "doi": "10.1016/j.ihj.2023.11.269",
       "pmid": "38599724",
-      "url": "https://doi.org/10.1016/j.ihj.2023.11.269",
       "accessLevel": "abstract",
       "summary": "Clinical review emphasizing diagnosis and management of pediatric hyperlipidemia with reference to recent guidelines.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S0019483223004674"
     },
     {
       "id": "hyperlipidemia-10",
@@ -268,10 +268,10 @@
       "year": "2022",
       "doi": "10.1097/MED.0000000000000764",
       "pmid": "35938780",
-      "url": "https://doi.org/10.1097/MED.0000000000000764",
       "accessLevel": "abstract",
       "summary": "Clinical opinion examining whether statin therapy is warranted for individuals with high LDL cholesterol on low-carbohydrate diets.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://journals.lww.com/10.1097/MED.0000000000000764"
     },
     {
       "id": "hyperlipidemia-13",
@@ -353,56 +353,13 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Statins are the treatment of choice for hypercholesterolemia with proven efficacy in reducing cardiovascular events",
-      "evidenceRefs": [
-        "hyperlipidemia-13",
-        "hyperlipidemia-1",
-        "hyperlipidemia-8"
-      ]
-    },
-    {
-      "claim": "PCSK9 inhibitors (evolocumab, alirocumab) significantly reduce LDL cholesterol by approximately 60% and improve cardiovascular outcomes",
-      "evidenceRefs": [
-        "hyperlipidemia-2",
-        "hyperlipidemia-5",
-        "hyperlipidemia-4"
-      ]
-    },
-    {
-      "claim": "Atherosclerotic plaques originate early in childhood, making pediatric hyperlipidemia screening and management important",
-      "evidenceRefs": [
-        "hyperlipidemia-9",
-        "hyperlipidemia-14"
-      ]
-    },
-    {
       "claim": "Apolipoprotein B and non-HDL cholesterol may better reflect residual cardiovascular risk than LDL cholesterol in statin-treated patients",
       "evidenceRefs": [
         "hyperlipidemia-7"
       ]
-    },
-    {
-      "claim": "Bempedoic acid can be an alternative for statin-intolerant patients",
-      "evidenceRefs": [
-        "hyperlipidemia-6"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Implement calorie-restricted diet for weight management in obese patients with hyperlipidemia",
-      "evidenceRefs": [
-        "hyperlipidemia-15"
-      ]
-    },
-    {
-      "recommendation": "Consider dietary modifications as part of comprehensive hyperlipidemia management",
-      "evidenceRefs": [
-        "hyperlipidemia-9",
-        "hyperlipidemia-8"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Statin-fibrate combination therapy increases risk of severe myopathy and rhabdomyolysis",
     "Bezafibrate can cause rhabdomyolysis, especially when combined with other medications"

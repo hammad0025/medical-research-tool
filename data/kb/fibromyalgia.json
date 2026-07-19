@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "duloxetine",
     "pregabalin",
@@ -34,30 +34,6 @@
       "url": "https://doi.org/10.1007/s11916-016-0556-x",
       "accessLevel": "abstract",
       "summary": "Comprehensive review of fibromyalgia pathogenesis, clinical manifestations, diagnostic criteria, and current treatment options.",
-      "keyPassages": []
-    },
-    {
-      "id": "fibromyalgia-2",
-      "category": "clinical-guideline",
-      "tier": "A+",
-      "title": "EULAR revised recommendations for the management of fibromyalgia.",
-      "authors": [
-        "Macfarlane GJ",
-        "Kronisch C",
-        "Dean LE",
-        "Atzeni F",
-        "Häuser W",
-        "Fluß E",
-        "Choy E",
-        "Kosek E"
-      ],
-      "journal": "Annals of the rheumatic diseases",
-      "year": "2017",
-      "doi": "10.1136/annrheumdis-2016-209724",
-      "pmid": "27377815",
-      "url": "https://doi.org/10.1136/annrheumdis-2016-209724",
-      "accessLevel": "abstract",
-      "summary": "EULAR revised recommendations for fibromyalgia management based on systematic review of evidence through 2015.",
       "keyPassages": []
     },
     {
@@ -267,57 +243,13 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Fibromyalgia is characterized by chronic widespread pain often accompanied by sleep problems, fatigue, and poor health-related quality of life.",
-      "evidenceRefs": [
-        "fibromyalgia-3",
-        "fibromyalgia-1"
-      ]
-    },
-    {
-      "claim": "Current fibromyalgia treatment focuses on reducing key symptoms and disability while improving health-related quality of life.",
-      "evidenceRefs": [
-        "fibromyalgia-3",
-        "fibromyalgia-1",
-        "fibromyalgia-2"
-      ]
-    },
-    {
-      "claim": "Nonpharmacological self-management strategies including exercise, cognitive behavioral therapy, and mindfulness-based approaches are recommended for fibromyalgia.",
-      "evidenceRefs": [
-        "fibromyalgia-11",
-        "fibromyalgia-2"
-      ]
-    },
-    {
       "claim": "Physiotherapy treatments can provide medium and long-term benefits for adults with fibromyalgia.",
       "evidenceRefs": [
         "fibromyalgia-4"
       ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Engage in regular exercise as part of fibromyalgia management",
-      "evidenceRefs": [
-        "fibromyalgia-4",
-        "fibromyalgia-2",
-        "fibromyalgia-12"
-      ]
-    },
-    {
-      "recommendation": "Consider cognitive behavioral therapy and mindfulness-based approaches for symptom management",
-      "evidenceRefs": [
-        "fibromyalgia-11",
-        "fibromyalgia-2"
-      ]
-    },
-    {
-      "recommendation": "Utilize digital self-management programs and apps to improve access to treatment strategies",
-      "evidenceRefs": [
-        "fibromyalgia-11"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Fibromyalgia has limited consistently effective treatment options",
     "Many treatment approaches show mixed or uncertain results requiring careful evaluation"
@@ -357,5 +289,7 @@
       "evidenceRef": "fibromyalgia-12"
     }
   ],
-  "excludedAgents": []
+  "excludedAgents": [],
+  "failedTreatments": [],
+  "references": []
 }

@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Eplerenone",
     "Beta-blockers"
@@ -155,10 +155,10 @@
       "year": "2024",
       "doi": "10.1161/HYPERTENSIONAHA.124.23276",
       "pmid": "39247961",
-      "url": "https://doi.org/10.1161/HYPERTENSIONAHA.124.23276",
       "accessLevel": "abstract",
       "summary": "Observational cohort study examining mortality risks in resistant hypertension compared to controlled hypertension.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://ahajournals.org/doi/10.1161/HYPERTENSIONAHA.124.23276"
     },
     {
       "id": "hypertension-8",
@@ -248,12 +248,6 @@
       "evidenceRefs": [
         "hypertension-6"
       ]
-    },
-    {
-      "claim": "ACE inhibitors and ARBs need to be withdrawn in women planning pregnancy",
-      "evidenceRefs": [
-        "hypertension-6"
-      ]
     }
   ],
   "lifestyleRecommendations": [
@@ -267,12 +261,6 @@
       "recommendation": "Engage in regular aerobic exercise as adjunctive therapy",
       "evidenceRefs": [
         "hypertension-4"
-      ]
-    },
-    {
-      "recommendation": "Implement intensive lifestyle interventions including weight reduction in obese hypertensive patients",
-      "evidenceRefs": [
-        "hypertension-5"
       ]
     }
   ],

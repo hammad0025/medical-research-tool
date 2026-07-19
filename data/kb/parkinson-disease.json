@@ -208,8 +208,8 @@
       "journal": "New England Journal of Medicine",
       "year": 2013,
       "doi": "10.1056/NEJMoa1205158",
-      "pmid": "23406025",
-      "url": "https://pubmed.ncbi.nlm.nih.gov/23406025/",
+      "pmid": "23406026",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/23406026/",
       "accessLevel": "abstract",
       "summary": "RCT of subthalamic-nucleus DBS added to best medical therapy vs best medical therapy alone in 251 PD patients with early motor complications (mean 7.5 years disease, mean age 52). DBS improved PDQ-39 QoL by 7.8 points, more off-time reduction, fewer dyskinesias. Established that DBS need not wait until end-stage disease.",
       "keyPassages": [
@@ -301,8 +301,8 @@
       "journal": "New England Journal of Medicine",
       "year": 2022,
       "doi": "10.1056/NEJMoa2203395",
-      "pmid": "35921452",
-      "url": "https://pubmed.ncbi.nlm.nih.gov/35921452/",
+      "pmid": "35921450",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/35921450/",
       "accessLevel": "abstract",
       "summary": "Phase 2 RCT of cinpanemab (anti-α-synuclein antibody, Biogen) in 357 patients with early PD. Did NOT meet primary endpoint (MDS-UPDRS parts II + III change at week 52). Biogen halted the cinpanemab PD program.",
       "keyPassages": [
@@ -314,12 +314,6 @@
     }
   ],
   "canonicalFacts": [
-    {
-      "claim": "Levodopa-carbidopa (oral) remains the most effective symptomatic therapy for PD motor symptoms; ELLDOPA refuted the concern that levodopa accelerates disease.",
-      "evidenceRefs": [
-        "pd-fahn-elldopa-2004"
-      ]
-    },
     {
       "claim": "Subthalamic-nucleus DBS benefits PD patients with motor fluctuations well before end-stage disease (EARLYSTIM).",
       "evidenceRefs": [
@@ -340,44 +334,7 @@
       ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Structured, progressive aerobic exercise (e.g., SPARX 'moderate-to-high intensity treadmill 3×/week') slows motor decline vs usual care.",
-      "evidenceRefs": [
-        "pd-sparx-schenkman-2018"
-      ]
-    },
-    {
-      "recommendation": "Refer for LSVT BIG (motor) and LSVT LOUD (dysarthria) therapy.",
-      "evidenceRefs": [
-        "pd-mds-guideline-2018"
-      ]
-    },
-    {
-      "recommendation": "Consider protein redistribution diet (limit protein intake to dinner) if motor response fluctuates with meals.",
-      "evidenceRefs": [
-        "pd-mds-guideline-2018"
-      ]
-    },
-    {
-      "recommendation": "Evaluate and treat constipation aggressively; optimize bowel regimen.",
-      "evidenceRefs": [
-        "pd-mds-guideline-2018"
-      ]
-    },
-    {
-      "recommendation": "Fall-prevention assessment; physical therapy with balance training.",
-      "evidenceRefs": [
-        "pd-mds-guideline-2018"
-      ]
-    },
-    {
-      "recommendation": "Treat REM sleep behavior disorder (clonazepam or melatonin) if bed-partner safety at risk.",
-      "evidenceRefs": [
-        "pd-mds-guideline-2018"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Physicians generally caution against prescribing anti-dopaminergic antiemetics (metoclopramide, prochlorperazine) to PD patients — use ondansetron or trimethobenzamide instead.",
     "Physicians generally caution against prescribing typical antipsychotics (haloperidol, risperidone) for PD psychosis — use pimavanserin, quetiapine, or clozapine.",

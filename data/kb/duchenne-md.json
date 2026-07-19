@@ -10,7 +10,7 @@
   ],
   "version": "2026-04a",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-23",
+  "lastUpdated": "2026-07-19",
   "editorialNote": "Focused KB for Duchenne muscular dystrophy. The DMD pipeline is dominated by exon-skipping antisense oligonucleotides (eteplirsen exon 51, golodirsen/viltolarsen exon 53, casimersen exon 45), corticosteroid regimens (prednisone, deflazacort, vamorolone), HDAC inhibition (givinostat Duvyzat approved 2024), and AAV microdystrophin gene therapy (delandistrogene moxeparvovec / Elevidys, approved 2023 with expanded indication 2024 that generated safety concerns). Any DMD output that fails to mention Elevidys or Duvyzat is AI slop. Pfizer's fordadistrogene movaparvovec (PF-06939926) was discontinued in 2024 following the CIFFREO phase 3 failure.",
   "subspecialty": "Pediatric Neurology / Neuromuscular",
   "icd10": "G71.01",
@@ -230,20 +230,25 @@
       "title": "ELEVIDYS (delandistrogene moxeparvovec-rokl) — US FDA Prescribing Information",
       "authors": "Sarepta Therapeutics",
       "journal": "US FDA",
-      "year": 2024,
-      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Elevidys",
+      "year": 2025,
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3525abcd-fbd2-46c5-9706-cffdf2e8a361",
       "accessLevel": "full-text",
-      "summary": "First AAV-based gene therapy for DMD. Delivers Elevidys micro-dystrophin transgene. Accelerated approval June 2023 for ambulatory patients 4-5 years; label EXPANDED June 2024 to all ambulatory patients ≥4 years (traditional approval) and non-ambulatory patients ≥4 years (accelerated approval) despite primary endpoint miss in EMBARK. Two deaths in non-ambulatory patients post-expansion triggered safety review. Boxed/warning concerns include acute liver injury, immune-mediated myositis, myocarditis.",
+      "summary": "Current US prescribing information: ELEVIDYS is indicated for ambulatory patients 4 years of age and older with DMD and a confirmed DMD-gene mutation. The November 2025 revision removed the non-ambulatory indication and carries a boxed warning for acute serious liver injury and acute liver failure.",
       "keyPassages": [
         {
           "topic": "indication",
-          "quote": "ELEVIDYS is indicated for the treatment of Duchenne muscular dystrophy (DMD) in ambulatory and non-ambulatory pediatric patients aged 4 years and older with a confirmed mutation in the DMD gene."
+          "quote": "ELEVIDYS is indicated for the treatment of patients 4 years of age and older with Duchenne muscular dystrophy (DMD), who are ambulatory and have a confirmed mutation in the DMD gene."
         },
         {
           "topic": "warnings",
           "quote": "Acute serious liver injury, immune-mediated myositis, myocarditis, and acute respiratory failure have been reported with ELEVIDYS."
         }
-      ]
+      ],
+      "canonicalUrl": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=3525abcd-fbd2-46c5-9706-cffdf2e8a361",
+      "publicationDate": "2025-11-26",
+      "effectiveDate": "2025-11-21",
+      "splSetId": "3525abcd-fbd2-46c5-9706-cffdf2e8a361",
+      "splVersion": 11
     },
     {
       "id": "dmd-fda-label-duvyzat-2024",
@@ -252,8 +257,8 @@
       "title": "DUVYZAT (givinostat) — US FDA Prescribing Information",
       "authors": "Italfarmaco",
       "journal": "US FDA",
-      "year": 2024,
-      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Duvyzat",
+      "year": 2026,
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1a28a3db-7880-4ac2-a2f2-2b4e362aafb6",
       "accessLevel": "full-text",
       "summary": "First FDA-approved non-steroid disease-modifying DMD therapy (March 2024). Oral HDAC inhibitor given twice daily. Approved for ambulatory patients ≥6 years with confirmed DMD mutation. EPIDYS phase 3 showed slowing of 4-stair climb decline. Key monitoring: platelet count (thrombocytopenia), triglycerides, QT interval.",
       "keyPassages": [
@@ -261,7 +266,12 @@
           "topic": "indication",
           "quote": "DUVYZAT is indicated for the treatment of Duchenne muscular dystrophy (DMD) in patients 6 years of age and older."
         }
-      ]
+      ],
+      "canonicalUrl": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=1a28a3db-7880-4ac2-a2f2-2b4e362aafb6",
+      "publicationDate": "2026-01-26",
+      "effectiveDate": "2024-11-21",
+      "splSetId": "1a28a3db-7880-4ac2-a2f2-2b4e362aafb6",
+      "splVersion": 2
     },
     {
       "id": "dmd-fda-label-agamree-2023",
@@ -270,8 +280,8 @@
       "title": "AGAMREE (vamorolone) — US FDA Prescribing Information",
       "authors": "Catalyst Pharmaceuticals / Santhera",
       "journal": "US FDA",
-      "year": 2023,
-      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Agamree",
+      "year": 2026,
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=fb376f09-cf9c-42b5-b4dd-02d5bcd73211",
       "accessLevel": "full-text",
       "summary": "Dissociative steroid that retains efficacy of prednisone/deflazacort on motor outcomes but with reduced growth suppression and bone-mineral-density loss. FDA-approved October 2023 for DMD in patients ≥2 years. VISION-DMD pivotal trial basis. Alternative to prednisone/deflazacort where growth/bone side effects are intolerable.",
       "keyPassages": [
@@ -279,7 +289,12 @@
           "topic": "indication",
           "quote": "AGAMREE is indicated for the treatment of Duchenne muscular dystrophy in patients 2 years of age and older."
         }
-      ]
+      ],
+      "canonicalUrl": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=fb376f09-cf9c-42b5-b4dd-02d5bcd73211",
+      "publicationDate": "2026-04-08",
+      "effectiveDate": "2026-01-22",
+      "splSetId": "fb376f09-cf9c-42b5-b4dd-02d5bcd73211",
+      "splVersion": 10
     },
     {
       "id": "dmd-pfizer-ciffreo-2024",
@@ -327,39 +342,9 @@
   ],
   "lifestyleRecommendations": [
     {
-      "recommendation": "Start corticosteroid therapy (prednisone, deflazacort, or vamorolone) at ~age 4-6 years per current consensus; vamorolone when growth/bone side effects of prednisone/deflazacort are prohibitive.",
-      "evidenceRefs": [
-        "dmd-birnkrant-lancet-neurol-2018-part1"
-      ]
-    },
-    {
-      "recommendation": "Cardiac surveillance: echo/MRI yearly; initiate ACE inhibitor or ARB by age 10 (or earlier per cardiologist) regardless of symptoms.",
-      "evidenceRefs": [
-        "dmd-birnkrant-lancet-neurol-2018-part2"
-      ]
-    },
-    {
-      "recommendation": "Pulmonary function testing yearly after loss of ambulation; non-invasive ventilation when indicated.",
-      "evidenceRefs": [
-        "dmd-birnkrant-lancet-neurol-2018-part2"
-      ]
-    },
-    {
       "recommendation": "Bone health: vitamin D, calcium, yearly DXA on steroids; bisphosphonate for vertebral compression fractures.",
       "evidenceRefs": [
         "dmd-birnkrant-lancet-neurol-2018-part2"
-      ]
-    },
-    {
-      "recommendation": "Physical therapy with stretching; avoid eccentric (resistive) exercise that may worsen muscle damage.",
-      "evidenceRefs": [
-        "dmd-birnkrant-lancet-neurol-2018-part1"
-      ]
-    },
-    {
-      "recommendation": "Genetic counseling for mothers (carrier testing + cardiac evaluation) and sisters.",
-      "evidenceRefs": [
-        "dmd-birnkrant-lancet-neurol-2018-part1"
       ]
     }
   ],

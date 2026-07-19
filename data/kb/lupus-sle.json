@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "CAR-T cell therapy",
     "Anifrolumab",
@@ -40,10 +40,10 @@
       "year": "2019",
       "doi": "10.1136/annrheumdis-2019-215089",
       "pmid": "30926722",
-      "url": "https://doi.org/10.1136/annrheumdis-2019-215089",
       "accessLevel": "abstract",
       "summary": "2019 EULAR recommendations for SLE management emphasizing hydroxychloroquine for all patients, glucocorticoid minimization, and treat-to-target approach.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S0003496724006423"
     },
     {
       "id": "lupus-sle-2",
@@ -367,53 +367,7 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Hydroxychloroquine is recommended for all SLE patients at doses not exceeding 5 mg/kg real body weight",
-      "evidenceRefs": [
-        "lupus-sle-1"
-      ]
-    },
-    {
-      "claim": "Treatment goals in SLE include achieving remission or low disease activity and preventing flares",
-      "evidenceRefs": [
-        "lupus-sle-1"
-      ]
-    },
-    {
-      "claim": "Glucocorticoids should be minimized to less than 7.5 mg/day prednisone equivalent during chronic maintenance treatment",
-      "evidenceRefs": [
-        "lupus-sle-1"
-      ]
-    },
-    {
-      "claim": "Belimumab is the first biological agent approved for treatment of systemic lupus erythematosus",
-      "evidenceRefs": [
-        "lupus-sle-3"
-      ]
-    },
-    {
-      "claim": "SLE predominantly affects women of reproductive age and shows higher prevalence in certain ethnic groups including African American, Hispanic, and Asian populations",
-      "evidenceRefs": [
-        "lupus-sle-14",
-        "lupus-sle-15"
-      ]
-    },
-    {
-      "claim": "Lupus nephritis is a common major organ manifestation causing significantly increased morbidity and mortality",
-      "evidenceRefs": [
-        "lupus-sle-16"
-      ]
-    },
-    {
-      "claim": "CAR-T cell therapy targeting CD19+ B cells has shown promising early results in severe autoimmune diseases including SLE",
-      "evidenceRefs": [
-        "lupus-sle-6",
-        "lupus-sle-7",
-        "lupus-sle-8"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
   "lifestyleRecommendations": [],
   "redFlags": [
     "Hydroxychloroquine can rarely cause erythroderma requiring drug withdrawal",

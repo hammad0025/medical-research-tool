@@ -318,59 +318,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Melanoma incidence continues to increase annually despite improvements in therapeutics and identification",
-      "evidenceRefs": [
-        "melanoma-11",
-        "melanoma-7"
-      ]
-    },
-    {
-      "claim": "Uveal melanomas represent 5% of all melanoma diagnoses in the United States with age-adjusted risk of 5 per 1 million population",
-      "evidenceRefs": [
-        "melanoma-8"
-      ]
-    },
-    {
-      "claim": "Thin melanomas as a group are associated with very good prognosis, though a subset may metastasize and cause death",
-      "evidenceRefs": [
-        "melanoma-12"
-      ]
-    },
-    {
-      "claim": "Brain metastases are a common site of metastasis from malignant melanoma and are associated with poor prognosis",
-      "evidenceRefs": [
-        "melanoma-13"
-      ]
-    },
-    {
-      "claim": "Metastatic uveal melanoma is refractory to immune checkpoint inhibitors",
-      "evidenceRefs": [
-        "melanoma-10"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Use sunscreens, hats, and other protective measures to counteract ultraviolet light exposure",
-      "evidenceRefs": [
-        "melanoma-14"
-      ]
-    },
-    {
-      "recommendation": "Avoid excessive sun exposure as UV radiation acts as a mutagenic risk factor for melanoma development",
-      "evidenceRefs": [
-        "melanoma-9"
-      ]
-    },
-    {
-      "recommendation": "Children at high risk for melanoma should have at least annual cutaneous examinations",
-      "evidenceRefs": [
-        "melanoma-14"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Suspicious skin lesions should be surgically removed and submitted for pathologic examination",
     "Brain metastases from melanoma progress rapidly and are resistant to conventional therapies"

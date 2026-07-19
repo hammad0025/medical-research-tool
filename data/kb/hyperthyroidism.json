@@ -11,35 +11,11 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "teprotumumab"
   ],
   "items": [
-    {
-      "id": "hyperthyroidism-1",
-      "category": "clinical-guideline",
-      "tier": "A+",
-      "title": "2016 American Thyroid Association Guidelines for Diagnosis and Management of Hyperthyroidism and Other Causes of Thyrotoxicosis.",
-      "authors": [
-        "Ross DS",
-        "Burch HB",
-        "Cooper DS",
-        "Greenlee MC",
-        "Laurberg P",
-        "Maia AL",
-        "Rivkees SA",
-        "Samuels M"
-      ],
-      "journal": "Thyroid : official journal of the American Thyroid Association",
-      "year": "2016",
-      "doi": "10.1089/thy.2016.0229",
-      "pmid": "27521067",
-      "url": "https://doi.org/10.1089/thy.2016.0229",
-      "accessLevel": "abstract",
-      "summary": "2016 American Thyroid Association guidelines for diagnosis and management of hyperthyroidism and other causes of thyrotoxicosis.",
-      "keyPassages": []
-    },
     {
       "id": "hyperthyroidism-2",
       "category": "review",
@@ -288,34 +264,9 @@
       "evidenceRefs": [
         "hyperthyroidism-3"
       ]
-    },
-    {
-      "claim": "Multiple treatment modalities are effective for active, moderate-to-severe Graves' orbitopathy including teprotumumab, mycophenolate plus IV glucocorticoids, and rituximab",
-      "evidenceRefs": [
-        "hyperthyroidism-4"
-      ]
-    },
-    {
-      "claim": "Lithium carbonate as add-on therapy to radioiodine increases treatment-response rates and decreases T4 levels compared to radioiodine alone",
-      "evidenceRefs": [
-        "hyperthyroidism-5"
-      ]
-    },
-    {
-      "claim": "Subclinical hyperthyroidism is associated with increased risk of atrial fibrillation, heart failure, cardiovascular mortality and all-cause mortality",
-      "evidenceRefs": [
-        "hyperthyroidism-11"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Smoking cessation is important in Graves' orbitopathy to avoid prolonged disease",
-      "evidenceRefs": [
-        "hyperthyroidism-12"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Risk of thyroid storm in hyperthyroid patients undergoing surgery",
     "Subclinical hyperthyroidism increases cardiovascular and fracture risks",
@@ -334,5 +285,7 @@
       "evidenceRef": "hyperthyroidism-4"
     }
   ],
-  "excludedAgents": []
+  "excludedAgents": [],
+  "failedTreatments": [],
+  "references": []
 }

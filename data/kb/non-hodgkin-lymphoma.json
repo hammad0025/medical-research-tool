@@ -11,7 +11,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Brentuximab vedotin",
     "Pralatrexate",
@@ -44,7 +44,7 @@
     },
     {
       "id": "non-hodgkin-lymphoma-2",
-      "category": "clinical-guideline",
+      "category": "prognostic-model",
       "tier": "A+",
       "title": "A predictive model for aggressive non-Hodgkin's lymphoma.",
       "authors": [
@@ -78,10 +78,10 @@
       "year": "2022",
       "doi": "10.1186/s13045-022-01356-7",
       "pmid": "36176002",
-      "url": "https://doi.org/10.1186/s13045-022-01356-7",
       "accessLevel": "abstract",
       "summary": "Evidence-based expert consensus on management of primary central nervous system lymphoma in China.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9524012/"
     },
     {
       "id": "non-hodgkin-lymphoma-4",
@@ -308,28 +308,9 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Non-Hodgkin lymphoma comprises distinct tumor subtypes with different clinical behaviors and treatment responses",
-      "evidenceRefs": [
-        "non-hodgkin-lymphoma-1",
-        "non-hodgkin-lymphoma-10"
-      ]
-    },
-    {
       "claim": "The International Prognostic Index (IPI) uses clinical characteristics to predict outcomes in aggressive non-Hodgkin's lymphoma",
       "evidenceRefs": [
         "non-hodgkin-lymphoma-2"
-      ]
-    },
-    {
-      "claim": "Rituximab introduction around 2000 led to a paradigm shift in NHL treatment and reversed mortality trends",
-      "evidenceRefs": [
-        "non-hodgkin-lymphoma-11"
-      ]
-    },
-    {
-      "claim": "Bispecific antibodies targeting CD3 on T-cells and CD19/CD20 on malignant B-cells show promise as novel immunotherapy for NHL",
-      "evidenceRefs": [
-        "non-hodgkin-lymphoma-4"
       ]
     },
     {

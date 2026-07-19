@@ -338,19 +338,6 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Multiple sclerosis is an autoimmune demyelinating and neurodegenerative disease of the central nervous system and the leading cause of nontraumatic neurological disability in young adults",
-      "evidenceRefs": [
-        "multiple-sclerosis-2",
-        "multiple-sclerosis-3"
-      ]
-    },
-    {
-      "claim": "About 10-15% of patients with multiple sclerosis present with primary-progressive disease characterized by gradually increasing neurological disability",
-      "evidenceRefs": [
-        "multiple-sclerosis-10"
-      ]
-    },
-    {
       "claim": "Four sphingosine 1-phosphate receptor modulators (fingolimod, ozanimod, ponesimod, and siponimod) are approved by the FDA for multiple sclerosis treatment",
       "evidenceRefs": [
         "multiple-sclerosis-4"
@@ -361,22 +348,9 @@
       "evidenceRefs": [
         "multiple-sclerosis-1"
       ]
-    },
-    {
-      "claim": "Clinically significant depression can affect up to 50% of patients with multiple sclerosis over their lifetime",
-      "evidenceRefs": [
-        "multiple-sclerosis-13"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Address low vitamin D levels, cigarette smoking cessation, and obesity management as environmental factors that drive multiple sclerosis",
-      "evidenceRefs": [
-        "multiple-sclerosis-3"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Daclizumab was withdrawn from the market due to safety concerns",
     "Natalizumab carries risk of progressive multifocal leukoencephalopathy requiring careful monitoring",

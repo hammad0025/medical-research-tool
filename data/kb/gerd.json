@@ -11,7 +11,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Tegoprazan",
     "DA-5204",
@@ -73,10 +73,10 @@
       "year": "2018",
       "doi": "10.1053/j.gastro.2017.07.049",
       "pmid": "28827081",
-      "url": "https://doi.org/10.1053/j.gastro.2017.07.049",
       "accessLevel": "abstract",
       "summary": "Comprehensive management guidelines for GERD including empiric PPI therapy, lifestyle measures, and advanced treatment options.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S0016508517359899"
     },
     {
       "id": "gerd-4",
@@ -245,46 +245,9 @@
       "evidenceRefs": [
         "gerd-5"
       ]
-    },
-    {
-      "claim": "Management commonly starts with empiric PPI therapy and lifestyle measures for patients without alarm symptoms",
-      "evidenceRefs": [
-        "gerd-3"
-      ]
-    },
-    {
-      "claim": "Potassium-competitive acid blockers (PCABs) have emerged as an alternative to PPIs for GERD management",
-      "evidenceRefs": [
-        "gerd-1"
-      ]
-    },
-    {
-      "claim": "Coexistent dysphagia is considered an alarm symptom prompting evaluation",
-      "evidenceRefs": [
-        "gerd-5"
-      ]
-    },
-    {
-      "claim": "Risk factors for GERD complications include advanced age, male sex, white race, abdominal obesity, and tobacco use",
-      "evidenceRefs": [
-        "gerd-5"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Dietary interventions are recommended as one of the most important treatments for GERD patients",
-      "evidenceRefs": [
-        "gerd-4"
-      ]
-    },
-    {
-      "recommendation": "Complementary lifestyle measures should be implemented alongside PPI therapy",
-      "evidenceRefs": [
-        "gerd-3"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Dysphagia with GERD symptoms requires prompt evaluation as an alarm symptom",
     "Antireflux surgery carries risks of wrap disruption, herniation, and adverse events"

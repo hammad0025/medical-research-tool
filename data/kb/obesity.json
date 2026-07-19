@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "tirzepatide",
     "retatrutide",
@@ -240,10 +240,10 @@
       "year": "2018",
       "doi": "10.1016/S2213-8587(18)30288-2",
       "pmid": "30389323",
-      "url": "https://doi.org/10.1016/S2213-8587(18)30288-2",
       "accessLevel": "abstract",
       "summary": "Population-based cohort study of 3.6 million UK adults examining BMI associations with overall and cause-specific mortality.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S2213858718302882"
     },
     {
       "id": "obesity-11",
@@ -261,10 +261,10 @@
       "year": "2019",
       "doi": "10.1136/bmj.l5584",
       "pmid": "31619383",
-      "url": "https://doi.org/10.1136/bmj.l5584",
       "accessLevel": "abstract",
       "summary": "Prospective cohort study investigating weight changes across adulthood in relation to all-cause and cause-specific mortality.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://bmj.com/lookup/doi/10.1136/bmj.l5584"
     },
     {
       "id": "obesity-12",
@@ -372,41 +372,9 @@
       "evidenceRefs": [
         "obesity-13"
       ]
-    },
-    {
-      "claim": "Sustained weight loss of more than 10% overall bodyweight improves many obesity-related complications",
-      "evidenceRefs": [
-        "obesity-2"
-      ]
-    },
-    {
-      "claim": "Orlistat demonstrates efficacy for weight loss and can reduce serum uric acid levels in overweight/obese patients with hyperuricemia",
-      "evidenceRefs": [
-        "obesity-8"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Lifestyle interventions should always be the first-line treatment for obesity, though results are typically modest",
-      "evidenceRefs": [
-        "obesity-15",
-        "obesity-1"
-      ]
-    },
-    {
-      "recommendation": "Lifestyle interventions can lead to mean weight loss of 2% to 9% of initial weight at 1 year",
-      "evidenceRefs": [
-        "obesity-1"
-      ]
-    },
-    {
-      "recommendation": "Obesity management requires a long-term, multimodal approach taking into account individual treatment goals",
-      "evidenceRefs": [
-        "obesity-2"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Many historical anti-obesity drugs have been withdrawn due to severe side effects",
     "Weight regain is common after discontinuation of effective obesity medications",

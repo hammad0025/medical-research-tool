@@ -292,47 +292,10 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "IBS prevalence in the United States is between 7% and 16%, most common in women and young people",
-      "evidenceRefs": [
-        "irritable-bowel-syndrome-1"
-      ]
-    },
-    {
-      "claim": "Annual direct costs of IBS are estimated at more than $1 billion in the United States",
-      "evidenceRefs": [
-        "irritable-bowel-syndrome-1"
-      ]
-    },
-    {
-      "claim": "IBS diagnosis is based on positive identification of symptoms correlating with different syndromes including IBS-D, IBS-C, functional diarrhea, and chronic functional abdominal pain",
-      "evidenceRefs": [
-        "irritable-bowel-syndrome-1"
-      ]
-    },
-    {
-      "claim": "Dysbiosis or alteration in normal intestinal flora modulates intestinal permeability, inflammation, gut motility and quality of life in IBS",
-      "evidenceRefs": [
-        "irritable-bowel-syndrome-12"
-      ]
-    },
-    {
-      "claim": "IBS patients display poor quality of life measures and are at increased risk of depression and anxiety compared to healthy controls",
-      "evidenceRefs": [
-        "irritable-bowel-syndrome-12"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
   "lifestyleRecommendations": [
     {
       "recommendation": "Lifestyle modification as part of novel treatment approaches for IBS",
-      "evidenceRefs": [
-        "irritable-bowel-syndrome-13"
-      ]
-    },
-    {
-      "recommendation": "Changes in diet as part of comprehensive IBS management",
       "evidenceRefs": [
         "irritable-bowel-syndrome-13"
       ]

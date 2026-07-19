@@ -357,34 +357,6 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Ulcerative colitis is a chronic inflammatory disease affecting the colon with rising worldwide incidence",
-      "evidenceRefs": [
-        "ulcerative-colitis-1",
-        "ulcerative-colitis-9"
-      ]
-    },
-    {
-      "claim": "The pathogenesis involves genetic predisposition, epithelial barrier defects, dysregulated immune responses, and environmental factors",
-      "evidenceRefs": [
-        "ulcerative-colitis-1",
-        "ulcerative-colitis-10"
-      ]
-    },
-    {
-      "claim": "Current treatments include 5-aminosalicylic acids, corticosteroids, immunosuppressants, and biologics with one-year clinical remission rates around 40%",
-      "evidenceRefs": [
-        "ulcerative-colitis-10",
-        "ulcerative-colitis-11"
-      ]
-    },
-    {
-      "claim": "Patients with ulcerative colitis have an increased risk of colorectal cancer, particularly with longer disease duration and greater anatomical extent",
-      "evidenceRefs": [
-        "ulcerative-colitis-12",
-        "ulcerative-colitis-13"
-      ]
-    },
-    {
       "claim": "Concomitant 5-aminosalicylates provide no additional benefit in patients escalated to biologic therapy",
       "evidenceRefs": [
         "ulcerative-colitis-4"

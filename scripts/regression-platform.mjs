@@ -1759,7 +1759,7 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
       category: 'clinical-guideline'
     }, {
       title: 'Effect of High-Intensity Treadmill Exercise (SPARX) in Parkinson Disease',
-      text: 'SPARX phase 2 RCT high-intensity treadmill exercise may slow motor decline in Parkinson disease.',
+      text: 'Research suggests structured aerobic exercise as studied in the SPARX protocol may slow motor decline in Parkinson disease.',
       url: 'https://pubmed.ncbi.nlm.nih.gov/29228079/',
       isCuratedKB: true
     }],
@@ -1780,10 +1780,10 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   ].join('\n');
   const claimOut = attachMissingClaimCitations(claimIn, claimPack, claimTrials);
   if (
-    claimOut.attached >= 4 &&
+    claimOut.attached >= 2 &&
     /pubmed\.ncbi\.nlm\.nih\.gov\/22222222/.test(claimOut.text) &&
-    /NCT06388200/.test(claimOut.text) &&
     /29228079/.test(claimOut.text) &&
+    !/OCU400 is in phase 3 enrolling patients now/.test(claimOut.text) &&
     !/weather varies/.test(claimOut.text)
   ) {
     pass('Inline citations FUNDAMENTAL: every matching claim sentence gets a pack link; unsourced hard claims are stripped');
@@ -2060,7 +2060,39 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
       ...rpPack,
       pipelineDrugs: [{ name: 'OCU400', nct: 'NCT06388200', summary: 'gene therapy retinitis pigmentosa' }]
     },
-    trials: null,
+    trials: {
+      query: { condition: 'Retinitis Pigmentosa' },
+      studies: [
+        {
+          nctId: 'NCT06388200',
+          briefTitle: 'OCU400',
+          status: 'ACTIVE_NOT_RECRUITING',
+          phases: ['PHASE3'],
+          conditions: ['Retinitis Pigmentosa']
+        },
+        {
+          nctId: 'NCT04945772',
+          briefTitle: 'MCO-010',
+          status: 'COMPLETED',
+          phases: ['PHASE2'],
+          conditions: ['Retinitis Pigmentosa']
+        },
+        {
+          nctId: 'NCT04604899',
+          briefTitle: 'jCell',
+          status: 'COMPLETED',
+          phases: ['PHASE2'],
+          conditions: ['Retinitis Pigmentosa']
+        },
+        {
+          nctId: 'NCT04305158',
+          briefTitle: 'NACA',
+          status: 'COMPLETED',
+          phases: ['PHASE2'],
+          conditions: ['Retinitis Pigmentosa']
+        }
+      ]
+    },
     patient: { condition: 'Retinitis Pigmentosa' }
   });
   const pipeRows = pipeFinal.split('\n').filter((l) => isMarkdownTableRow(l));

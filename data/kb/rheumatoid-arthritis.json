@@ -9,7 +9,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Upadacitinib",
     "Otilimab",
@@ -53,10 +53,10 @@
       "year": "2022",
       "doi": "10.1016/j.rdc.2022.03.005",
       "pmid": "35953230",
-      "url": "https://doi.org/10.1016/j.rdc.2022.03.005",
       "accessLevel": "abstract",
       "summary": "Treatment guidelines recommend starting effective DMARD treatment immediately, using methotrexate as initial therapy, and employing a treat-to-target strategy with rapid escalation if needed.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S0889857X22000308"
     },
     {
       "id": "rheumatoid-arthritis-3",
@@ -296,13 +296,6 @@
       ]
     },
     {
-      "claim": "Early diagnosis and treat-to-target approach with tight monitoring can increase likelihood of remission",
-      "evidenceRefs": [
-        "rheumatoid-arthritis-2",
-        "rheumatoid-arthritis-3"
-      ]
-    },
-    {
       "claim": "Rheumatoid arthritis-associated interstitial lung disease significantly increases mortality risk",
       "evidenceRefs": [
         "rheumatoid-arthritis-11",
@@ -324,14 +317,7 @@
       ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Smoking cessation is important as smoking is associated with increased risk of RA-associated interstitial lung disease",
-      "evidenceRefs": [
-        "rheumatoid-arthritis-11"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "JAK inhibitors may increase risk of major adverse cardiovascular events",
     "RA-associated interstitial lung disease significantly increases mortality risk",

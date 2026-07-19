@@ -340,19 +340,7 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Colorectal cancer is the third most common cause of cancer mortality worldwide with over 1.85 million cases and 850,000 deaths annually",
-      "evidenceRefs": [
-        "colorectal-cancer-1"
-      ]
-    },
-    {
       "claim": "20% of colorectal cancer patients present with metastatic disease and another 25% with localized disease will later develop metastases",
-      "evidenceRefs": [
-        "colorectal-cancer-1"
-      ]
-    },
-    {
-      "claim": "Among metastatic colorectal cancer patients, approximately 70-75% survive beyond 1 year, 30-35% beyond 3 years, and fewer than 20% beyond 5 years",
       "evidenceRefs": [
         "colorectal-cancer-1"
       ]
@@ -375,18 +363,6 @@
       "recommendation": "Aspirin may reduce colorectal cancer risk in high-risk populations such as Lynch syndrome patients",
       "evidenceRefs": [
         "colorectal-cancer-2"
-      ]
-    },
-    {
-      "recommendation": "Address modifiable risk factors including smoking, low physical exercise, and obesity",
-      "evidenceRefs": [
-        "colorectal-cancer-8"
-      ]
-    },
-    {
-      "recommendation": "Consider dietary modifications as unfavorable modern dietary habits contribute to increased colorectal cancer risk",
-      "evidenceRefs": [
-        "colorectal-cancer-8"
       ]
     }
   ],

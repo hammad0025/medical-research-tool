@@ -281,34 +281,7 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "GAD is characterized by excessive worry or anxiety about everyday events and problems with a lifetime prevalence of 17% in the general population",
-      "evidenceRefs": [
-        "generalized-anxiety-disorder-7",
-        "generalized-anxiety-disorder-5"
-      ]
-    },
-    {
-      "claim": "Current pharmacological management of GAD includes various antidepressants and anxiolytics with many patients not responding to first-line treatments",
-      "evidenceRefs": [
-        "generalized-anxiety-disorder-2"
-      ]
-    },
-    {
-      "claim": "Cognitive behavioral therapy is the most studied psychological intervention for GAD with demonstrated efficacy",
-      "evidenceRefs": [
-        "generalized-anxiety-disorder-3",
-        "generalized-anxiety-disorder-4"
-      ]
-    },
-    {
-      "claim": "Second-generation antipsychotics have been investigated as potential treatments for anxiety disorders including GAD",
-      "evidenceRefs": [
-        "generalized-anxiety-disorder-7"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
   "lifestyleRecommendations": [],
   "redFlags": [
     "Antidepressant discontinuation symptoms can occur when stopping treatment",

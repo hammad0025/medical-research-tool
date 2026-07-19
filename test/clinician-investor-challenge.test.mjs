@@ -32,6 +32,7 @@ import { assessReportCompletion } from '../lib/report-completion.js';
 import { parsePatientMessage } from '../lib/patient-intake.js';
 import { redactSensitive } from '../lib/privacy-redaction.js';
 import { validateTranslatedOutput } from '../lib/translation-gate.js';
+import { dailyMedLabelUrl, sealFdaLabel } from '../lib/fda-label-gate.js';
 
 const passingValidation = () => ({
   primary: {
@@ -427,13 +428,27 @@ test('CLINICIAN-INVESTOR-016 finalized output rejects diagnosis and prescription
 });
 
 test('CLINICIAN-INVESTOR-016A every direct treatment command is naturalized but descriptive regimens remain', () => {
+  const setId = '2e8c3537-36d7-4de5-9b5c-7a624b9a9e6e';
+  const label = {
+    requestedDrug: 'Nintedanib',
+    splSetId: setId,
+    applicationNumbers: ['NDA205832'],
+    genericName: ['Nintedanib'],
+    brandName: ['Ofev'],
+    activeIngredient: ['Nintedanib'],
+    indications: 'Nintedanib is indicated to treat idiopathic pulmonary fibrosis (IPF).',
+    dosage: 'The FDA label describes a 150 mg twice-daily regimen.',
+    dailyMedUrl: dailyMedLabelUrl(setId),
+    url: dailyMedLabelUrl(setId)
+  };
+  label.labelSeal = sealFdaLabel(label);
   const input = [
     'Stop warfarin now.',
     'You should increase metformin to 2,000 mg tomorrow.',
     'Take nintedanib twice daily.',
     'Change your insulin dose based on this plan.',
     'Trial participants with IPF received nintedanib 150 mg twice daily.',
-    'The FDA label describes a 150 mg twice-daily regimen.'
+    'The nintedanib FDA label describes a 150 mg twice-daily regimen.'
   ].join('\n');
   const output = finalizeReportText(input, {
     evidence: {
@@ -443,9 +458,8 @@ test('CLINICIAN-INVESTOR-016A every direct treatment command is naturalized but 
         url: 'https://pubmed.ncbi.nlm.nih.gov/23456789/'
       }],
       fdaLabels: [{
-        dailyMedUrl: 'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=clinician-dose',
-        genericName: ['Nintedanib'],
-        dosageAndAdministration: 'The FDA label describes a 150 mg twice-daily regimen.'
+        drug: 'Nintedanib',
+        label
       }]
     },
     trials: {},

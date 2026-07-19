@@ -269,37 +269,11 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Heart failure with preserved ejection fraction (HFpEF) represents at least half of all heart failure cases and has a rising prevalence",
-      "evidenceRefs": [
-        "heart-failure-2",
-        "heart-failure-3"
-      ]
-    },
-    {
-      "claim": "Large trials testing neurohumoral inhibition in HFpEF have failed to reach positive outcomes, unlike in HFrEF",
-      "evidenceRefs": [
-        "heart-failure-3"
-      ]
-    },
-    {
-      "claim": "Acute decompensated heart failure has high in-hospital morbidity and mortality with frequent rehospitalizations",
-      "evidenceRefs": [
-        "heart-failure-4"
-      ]
-    },
-    {
       "claim": "Withdrawal of heart failure medications in patients with recovered function leads to high relapse rates",
       "evidenceRefs": [
         "heart-failure-5",
         "heart-failure-6",
         "heart-failure-7"
-      ]
-    },
-    {
-      "claim": "SGLT2 inhibitors have demonstrated benefits in heart failure patients with and without diabetes",
-      "evidenceRefs": [
-        "heart-failure-10",
-        "heart-failure-11"
       ]
     }
   ],

@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Vernakalant",
     "Shensong Yangxin",
@@ -40,10 +40,10 @@
       "year": "2023",
       "doi": "10.1161/CIR.0000000000001133",
       "pmid": "36912134",
-      "url": "https://doi.org/10.1161/CIR.0000000000001133",
       "accessLevel": "abstract",
       "summary": "American Heart Association scientific statement defining acute atrial fibrillation and providing management framework for hospitalized patients.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://ahajournals.org/doi/10.1161/CIR.0000000000001133"
     },
     {
       "id": "atrial-fibrillation-2",
@@ -396,38 +396,11 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Atrial fibrillation is the most common cardiac arrhythmia and a major cause of ischemic stroke",
-      "evidenceRefs": [
-        "atrial-fibrillation-2",
-        "atrial-fibrillation-1",
-        "atrial-fibrillation-4"
-      ]
-    },
-    {
       "claim": "New-onset atrial fibrillation during hospitalization is associated with increased mortality and stroke risk",
       "evidenceRefs": [
         "atrial-fibrillation-8",
         "atrial-fibrillation-11",
         "atrial-fibrillation-1"
-      ]
-    },
-    {
-      "claim": "Rate control is central to atrial fibrillation management, even for patients requiring rhythm control",
-      "evidenceRefs": [
-        "atrial-fibrillation-3"
-      ]
-    },
-    {
-      "claim": "Direct oral anticoagulants have transformed cardioembolic stroke prevention with better safety profiles than warfarin",
-      "evidenceRefs": [
-        "atrial-fibrillation-12",
-        "atrial-fibrillation-2"
-      ]
-    },
-    {
-      "claim": "Atrial fibrillation incidence increases dramatically with age, with 35 new cases per 1,000 annually in those ≥85 years",
-      "evidenceRefs": [
-        "atrial-fibrillation-13"
       ]
     }
   ],

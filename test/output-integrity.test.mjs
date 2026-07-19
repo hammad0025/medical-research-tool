@@ -17,8 +17,11 @@ import {
 import {
   attachMissingClaimCitations,
   enforceConditionCitationRelevance,
+  enforceQuantitativeCitationSupport,
+  hasQuantitativeClaim,
   resolveInlineReferenceMarkers,
-  sanitizeMarkdownLinks
+  sanitizeMarkdownLinks,
+  stripInvalidMarkdownAnchors
 } from '../lib/report-polish.js';
 import { buildPromptPackBreakdown, dedupeArticles } from '../lib/evidence.js';
 
@@ -153,21 +156,21 @@ test('structured card and table claims receive adjacent title-labeled citations'
   const evidence = {
     groundedForPrompt: [{
       title: 'Mortality Reduction Randomized Trial',
-      summary: 'Treatment reduced mortality by 48% in 500 patients.',
+      summary: 'Nintedanib reduced mortality by 48% in 500 patients.',
       url: 'https://pubmed.ncbi.nlm.nih.gov/12345678/'
     }]
   };
   const input = [
-    'CANDIDATE: Example treatment',
-    'EFFICACY_HYPOTHESIS: Treatment reduced mortality by 48% in 500 patients.',
+    'CANDIDATE: Nintedanib',
+    'EFFICACY_HYPOTHESIS: Nintedanib reduced mortality by 48% in 500 patients.',
     '| Treatment | Result |',
     '|---|---|',
-    '| Example treatment | Reduced mortality by 48% in 500 patients. |'
+    '| Nintedanib | Reduced mortality by 48% in 500 patients. |'
   ].join('\n');
   const result = attachMissingClaimCitations(input, evidence);
   assert.equal(result.attached, 2);
   assert.match(result.text, /EFFICACY_HYPOTHESIS:.*\[Mortality Reduction Randomized Trial ↗\]/);
-  assert.match(result.text, /\| Example treatment \| Reduced mortality.*\[Mortality Reduction Randomized Trial ↗\].*\|/);
+  assert.match(result.text, /\| Nintedanib \| Reduced mortality.*\[Mortality Reduction Randomized Trial ↗\].*\|/);
 });
 
 test('numeric reference markers use the source title as their link label', () => {
@@ -202,6 +205,106 @@ test('generic links without matching metadata use the source hostname', () => {
   );
   assert.match(output, /\[fda\.gov ↗\]\(https:\/\/www\.fda\.gov\/example\)/);
   assert.doesNotMatch(output, /\[source\]/i);
+});
+
+test('citation labels cannot contain nested markdown links', () => {
+  const output = resolveInlineReferenceMarkers(
+    'A measured claim [#1].',
+    {
+      groundedForPrompt: [{
+        title: 'Named study ([duplicate](https://pubmed.ncbi.nlm.nih.gov/12345678/))',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/12345678/'
+      }]
+    }
+  );
+  assert.match(output, /\[Named study duplicate ↗\]\(https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/12345678\/?\)/);
+  assert.doesNotMatch(output, /\[\[/);
+});
+
+test('claim citation attachment preserves vs. as an abbreviation', () => {
+  const result = attachMissingClaimCitations(
+    'Pirfenidone reduced FVC decline vs. placebo over 52 weeks.',
+    {
+      groundedForPrompt: [{
+        title: 'Pirfenidone randomized trial',
+        summary: 'Pirfenidone reduced FVC decline versus placebo over 52 weeks in IPF.',
+        url: 'https://doi.org/10.1000/ipf-trial'
+      }]
+    }
+  );
+  assert.match(result.text, /vs\. placebo/);
+  assert.doesNotMatch(result.text, /vs \(\[/);
+});
+
+test('claim citation attachment never modifies markdown table headers', () => {
+  const result = attachMissingClaimCitations(
+    [
+      '| Center | City | Why it leads |',
+      '|---|---|---|',
+      '| Example Center | Boston | Runs IPF trials |'
+    ].join('\n'),
+    {
+      groundedForPrompt: [{
+        title: 'IPF center report',
+        summary: 'Example Center in Boston runs IPF trials.',
+        url: 'https://example.org/ipf-center'
+      }]
+    }
+  );
+  assert.equal(result.text.split('\n')[0], '| Center | City | Why it leads |');
+});
+
+test('plain orphan citation markers are removed globally', () => {
+  const output = stripInvalidMarkdownAnchors(
+    'Still investigational (source ↗). Another statement [Citation ↗].'
+  );
+  assert.doesNotMatch(output, /\b(?:source|citation)\s*↗/i);
+});
+
+test('percentage and metre claims enter the quantitative citation boundary', () => {
+  assert.equal(hasQuantitativeClaim('Hospital mortality is roughly 50%.'), true);
+  assert.equal(hasQuantitativeClaim('The walking distance improved by 40 metres.'), true);
+  assert.equal(hasQuantitativeClaim('The walking distance improved by 40 meters.'), true);
+});
+
+test('an IPF guideline cannot support an unrelated 50 percent mortality claim', () => {
+  const url = 'https://pubmed.ncbi.nlm.nih.gov/35486072/';
+  const evidence = {
+    groundedForPrompt: [{
+      title: '2022 IPF clinical practice guideline',
+      summary: 'Guideline recommendations for diagnosis and treatment of idiopathic pulmonary fibrosis.',
+      url
+    }]
+  };
+  const linked = enforceQuantitativeCitationSupport(
+    `Acute exacerbations carry hospital mortality of roughly 50% ([Guideline](${url})).`,
+    evidence
+  );
+  assert.equal(linked.text, '');
+  assert.equal(linked.stripped, 1);
+
+  const unlinked = attachMissingClaimCitations(
+    'Acute exacerbations carry hospital mortality of roughly 50%.',
+    evidence
+  );
+  assert.equal(unlinked.text, '');
+  assert.equal(unlinked.attached, 0);
+});
+
+test('a nintedanib paper cannot support a pirfenidone percentage claim', () => {
+  const url = 'https://pubmed.ncbi.nlm.nih.gov/24836310/';
+  const result = enforceQuantitativeCitationSupport(
+    `Pirfenidone reduced decline or death by 48% ([Nintedanib trial](${url})).`,
+    {
+      groundedForPrompt: [{
+        title: 'Efficacy and safety of nintedanib in idiopathic pulmonary fibrosis',
+        summary: 'Nintedanib reduced annual FVC decline in INPULSIS trials.',
+        url
+      }]
+    }
+  );
+  assert.equal(result.text, '');
+  assert.equal(result.stripped, 1);
 });
 
 test('identifier-less evidence records do not collapse into one row', () => {

@@ -315,12 +315,6 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Prostate cancer is the most common cancer in two thirds of the world, with expected doubling in both incidence and mortality in the next two decades.",
-      "evidenceRefs": [
-        "prostate-cancer-2"
-      ]
-    },
-    {
       "claim": "Six systemic agents have been approved for castration-resistant prostate cancer treatment in the last decade.",
       "evidenceRefs": [
         "prostate-cancer-1"
@@ -336,12 +330,6 @@
       "claim": "Personalized therapeutics targeting genomic alterations in DNA repair pathways are now clinically validated for prostate cancer treatment.",
       "evidenceRefs": [
         "prostate-cancer-3"
-      ]
-    },
-    {
-      "claim": "Antiandrogen withdrawal can cause PSA reduction and clinical improvement in approximately 30-50% of patients with hormone-resistant prostate cancer.",
-      "evidenceRefs": [
-        "prostate-cancer-13"
       ]
     }
   ],

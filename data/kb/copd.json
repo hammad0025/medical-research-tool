@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Nemiralisib",
     "N-acetylcysteine",
@@ -188,14 +188,14 @@
       "year": "2020",
       "doi": "10.7326/AITC202008040",
       "pmid": "32745458",
-      "url": "https://doi.org/10.7326/AITC202008040",
       "accessLevel": "abstract",
       "summary": "Comprehensive clinical review of COPD diagnosis, management, and treatment recommendations.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://acpjournals.org/doi/10.7326/AITC202008040"
     },
     {
       "id": "copd-9",
-      "category": "clinical-guideline",
+      "category": "review",
       "tier": "A+",
       "title": "Chronic obstructive pulmonary disease.",
       "authors": [
@@ -218,7 +218,7 @@
     },
     {
       "id": "copd-10",
-      "category": "clinical-guideline",
+      "category": "review",
       "tier": "A+",
       "title": "Chronic obstructive pulmonary disease.",
       "authors": [
@@ -236,64 +236,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "COPD is characterized by progressive airflow obstruction confirmed by post-bronchodilator FEV1/FVC ratio less than 0.70",
-      "evidenceRefs": [
-        "copd-8",
-        "copd-9",
-        "copd-10"
-      ]
-    },
-    {
-      "claim": "Tobacco smoking is the leading cause of COPD but other environmental factors including indoor air pollutants contribute to risk",
-      "evidenceRefs": [
-        "copd-9",
-        "copd-10"
-      ]
-    },
-    {
-      "claim": "COPD exacerbations are associated with worse quality of life, increased hospitalizations, and increased mortality",
-      "evidenceRefs": [
-        "copd-2",
-        "copd-10"
-      ]
-    },
-    {
-      "claim": "Inhaler therapy is the backbone of COPD treatment and should be complemented by smoking cessation, pulmonary rehabilitation, and treatment of comorbidities",
-      "evidenceRefs": [
-        "copd-8"
-      ]
-    },
-    {
-      "claim": "Up to 78% of COPD exacerbations are due to bacterial infections, viral infections, or both",
-      "evidenceRefs": [
-        "copd-10"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Smoking cessation counseling and pharmacotherapy",
-      "evidenceRefs": [
-        "copd-8",
-        "copd-9",
-        "copd-10"
-      ]
-    },
-    {
-      "recommendation": "Pulmonary rehabilitation programs",
-      "evidenceRefs": [
-        "copd-8"
-      ]
-    },
-    {
-      "recommendation": "Influenza and pneumococcal immunizations",
-      "evidenceRefs": [
-        "copd-8"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Long-term oxygen therapy indicated only in hypoxemic patients",
     "Target oxygen saturations 88-92% in COPD exacerbations unless CO2 levels normal"

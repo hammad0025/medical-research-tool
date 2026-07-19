@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "GLP-1 receptor agonists",
     "N-acetylcysteine"
@@ -33,10 +33,10 @@
       "year": "2024",
       "doi": "10.1161/JAHA.123.033572",
       "pmid": "39119982",
-      "url": "https://doi.org/10.1161/JAHA.123.033572",
       "accessLevel": "abstract",
       "summary": "2023 International Evidence-Based PCOS Guideline Update with systematic review and meta-analysis on cardiovascular disease risk in PCOS.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://ahajournals.org/doi/10.1161/JAHA.123.033572"
     },
     {
       "id": "polycystic-ovary-syndrome-2",
@@ -396,24 +396,10 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "PCOS is the most common endocrine disorder in women of reproductive age with prevalence up to 10-15%",
-      "evidenceRefs": [
-        "polycystic-ovary-syndrome-11",
-        "polycystic-ovary-syndrome-16"
-      ]
-    },
-    {
       "claim": "PCOS is characterized by hyperandrogenism, ovulation abnormalities, and polycystic ovarian morphology",
       "evidenceRefs": [
         "polycystic-ovary-syndrome-11",
         "polycystic-ovary-syndrome-14"
-      ]
-    },
-    {
-      "claim": "Insulin resistance is present in majority of PCOS cases with compensatory hyperinsulinemia contributing to hyperandrogenism",
-      "evidenceRefs": [
-        "polycystic-ovary-syndrome-11",
-        "polycystic-ovary-syndrome-12"
       ]
     },
     {
@@ -438,33 +424,7 @@
       ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Weight reduction can help manage metabolic complications in overweight or obese women with PCOS",
-      "evidenceRefs": [
-        "polycystic-ovary-syndrome-17",
-        "polycystic-ovary-syndrome-18"
-      ]
-    },
-    {
-      "recommendation": "Various dietary patterns including Mediterranean diet, ketogenic diet, and DASH diet can impact weight loss and insulin resistance in PCOS",
-      "evidenceRefs": [
-        "polycystic-ovary-syndrome-18"
-      ]
-    },
-    {
-      "recommendation": "Exercise training positively affects improvement of pathogenic factors in women with PCOS",
-      "evidenceRefs": [
-        "polycystic-ovary-syndrome-13"
-      ]
-    },
-    {
-      "recommendation": "Proper diet and maintenance of adequate nutritional status are important in PCOS prevention and treatment",
-      "evidenceRefs": [
-        "polycystic-ovary-syndrome-18"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "PCOS substantially increases lifetime risk of type 2 diabetes, psychiatric disorders, and gynecological cancers",
     "Women with PCOS have increased risk of ovarian hyperstimulation syndrome during IVF treatment",

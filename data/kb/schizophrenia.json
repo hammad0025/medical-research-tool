@@ -11,7 +11,7 @@
   ],
   "version": "2026-04a",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-23",
+  "lastUpdated": "2026-07-19",
   "editorialNote": "Focused KB for schizophrenia. CRITICAL 2024 CHANGE: FDA approved xanomeline-trospium (KarXT, Cobenfy, BMS) September 2024 — FIRST new-mechanism antipsychotic in ~70 years, a muscarinic M1/M4 agonist that does not block dopamine D2. Any schizophrenia output that fails to mention Cobenfy is out of date. Two other recent muscarinic/novel-mechanism agents to flag: emraclidine (AbbVie/Cerevel M4 agonist) FAILED phase 2 EMPOWER trials November 2024; ulotaront (SEP-363856, TAAR1 agonist, Sumitomo) FAILED DIAMOND phase 3 July 2023. Clozapine remains unique for treatment-resistant schizophrenia.",
   "subspecialty": "Psychiatry / Early Psychosis / Schizophrenia Spectrum Disorders",
   "icd10": "F20.9",
@@ -196,16 +196,15 @@
       "id": "sz-apa-guideline-2020",
       "category": "clinical-guideline",
       "tier": "A+",
-      "title": "The American Psychiatric Association Practice Guideline for the Treatment of Patients With Schizophrenia (Third Edition)",
+      "title": "The American Psychiatric Association Practice Guideline for the Treatment of Patients With Schizophrenia, Third Edition",
       "authors": "Keepers GA, Fochtmann LJ, Anzia JM, et al. (APA)",
       "journal": "American Journal of Psychiatry / APA Publishing",
       "year": 2020,
       "doi": "10.1176/appi.books.9780890424841",
-      "pmid": "32911828",
-      "url": "https://pubmed.ncbi.nlm.nih.gov/32911828/",
-      "accessLevel": "abstract",
+      "accessLevel": "full-text",
       "summary": "Current APA guideline on schizophrenia pharmacotherapy + psychosocial interventions. Evidence-graded recommendations. Still the primary reference for US practice alongside 2009 Schizophrenia PORT and 2021 Royal Australian/New Zealand guideline.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://psychiatryonline.org/doi/book/10.1176/appi.books.9780890424841"
     },
     {
       "id": "sz-catie-lieberman-2005",
@@ -234,8 +233,8 @@
       "title": "COBENFY (xanomeline and trospium chloride) — US FDA Prescribing Information",
       "authors": "Karuna Therapeutics / Bristol Myers Squibb",
       "journal": "US FDA",
-      "year": 2024,
-      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Cobenfy",
+      "year": 2026,
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=8f0e73bf-6025-44f6-ab64-0983322de0df",
       "accessLevel": "full-text",
       "summary": "FDA-approved September 26, 2024. First antipsychotic with a non-D2 mechanism of action (muscarinic M1/M4 agonist xanomeline) combined with peripheral anticholinergic trospium to mitigate GI/urinary side effects. Indication: treatment of schizophrenia in adults. Dose-titration from 50/20 to 125/30 mg BID. Not approved in pediatric or for adjunctive use. Warnings: cholinergic/anticholinergic effects, urinary retention, hepatic dysfunction.",
       "keyPassages": [
@@ -247,7 +246,12 @@
           "topic": "mechanism",
           "quote": "Xanomeline is a muscarinic agonist with preferential activity at M1 and M4 receptors. The mechanism of action of xanomeline in the treatment of schizophrenia is not fully understood."
         }
-      ]
+      ],
+      "canonicalUrl": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=8f0e73bf-6025-44f6-ab64-0983322de0df",
+      "publicationDate": "2026-06-11",
+      "effectiveDate": "2026-01-16",
+      "splSetId": "8f0e73bf-6025-44f6-ab64-0983322de0df",
+      "splVersion": 5
     },
     {
       "id": "sz-emergent2-kaul-2024",
@@ -258,8 +262,8 @@
       "journal": "The Lancet",
       "year": 2024,
       "doi": "10.1016/S0140-6736(23)02190-6",
-      "pmid": "38103588",
-      "url": "https://pubmed.ncbi.nlm.nih.gov/38103588/",
+      "pmid": "38104575",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/38104575/",
       "accessLevel": "abstract",
       "summary": "5-week phase 3 RCT in 252 acute schizophrenia inpatients. Primary endpoint (PANSS total change at week 5) significantly improved with KarXT vs placebo (-9.6 point adjusted difference, P<0.0001). Key nondopaminergic profile: no significant weight gain, no prolactin increase, no extrapyramidal symptoms. Most common AEs were cholinergic (constipation, dyspepsia, nausea, vomiting, dry mouth) and anticholinergic at titration.",
       "keyPassages": [
@@ -327,13 +331,6 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Xanomeline-trospium (Cobenfy, Karuna/BMS) was FDA-approved September 26, 2024 as the first antipsychotic with a non-D2 primary mechanism (muscarinic M1/M4 agonism) — first new mechanism approved in ~70 years.",
-      "evidenceRefs": [
-        "sz-fda-label-cobenfy-2024",
-        "sz-emergent2-kaul-2024"
-      ]
-    },
-    {
       "claim": "Clozapine is the unique evidence-based therapy for treatment-resistant schizophrenia; ~30% response rate in patients who have failed ≥2 other antipsychotics.",
       "evidenceRefs": [
         "sz-clozaril-kane-1988"
@@ -350,60 +347,9 @@
       "evidenceRefs": [
         "sz-emraclidine-failure-2024"
       ]
-    },
-    {
-      "claim": "Outside of clozapine, no single antipsychotic is clearly superior; choice is driven by side-effect profile, formulation (LAI vs oral), and patient-specific factors (CATIE/CUtLASS).",
-      "evidenceRefs": [
-        "sz-catie-lieberman-2005"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Coordinated specialty care (NAVIGATE / OnTrackNY) for first-episode psychosis — RAISE-ETP showed superiority over usual care.",
-      "evidenceRefs": [
-        "sz-apa-guideline-2020"
-      ]
-    },
-    {
-      "recommendation": "Consider long-acting injectable antipsychotic early if adherence is a concern; especially relevant after first hospitalization.",
-      "evidenceRefs": [
-        "sz-apa-guideline-2020"
-      ]
-    },
-    {
-      "recommendation": "CBT for psychosis (CBTp) as adjunct to medication for persistent positive symptoms.",
-      "evidenceRefs": [
-        "sz-apa-guideline-2020"
-      ]
-    },
-    {
-      "recommendation": "Family psychoeducation.",
-      "evidenceRefs": [
-        "sz-apa-guideline-2020"
-      ]
-    },
-    {
-      "recommendation": "Supported employment (IPS model) for vocational recovery.",
-      "evidenceRefs": [
-        "sz-apa-guideline-2020"
-      ]
-    },
-    {
-      "recommendation": "Metabolic monitoring (weight, waist, fasting glucose or HbA1c, lipids, BP) at baseline, 3 months, then yearly on antipsychotics — weight gain and dysglycemia are major contributors to excess cardiovascular mortality.",
-      "evidenceRefs": [
-        "sz-apa-guideline-2020"
-      ]
-    },
-    {
-      "recommendation": "Smoking cessation with varenicline and NRT; ~80% of patients smoke and life-expectancy gap is dominated by cardiopulmonary disease.",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Treat cannabis use disorder aggressively; cannabis use worsens psychosis trajectory.",
-      "evidenceRefs": []
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Physicians generally caution against delaying clozapine initiation once treatment-resistance criteria are met (≥2 adequate antipsychotic trials) — delayed clozapine is a documented practice-quality gap.",
     "Physicians generally caution against discontinuing clozapine without psychiatric input — abrupt stop is associated with cholinergic rebound and relapse. Re-titration after gaps >48 hours requires slow re-initiation.",
@@ -424,7 +370,7 @@
       "sponsor": "Karuna Therapeutics / Bristol Myers Squibb",
       "status": "FDA-approved September 26, 2024 for schizophrenia in adults",
       "approvalStatus": "approved",
-      "pmid": "38103588",
+      "pmid": "38104575",
       "doi": "10.1016/S0140-6736(23)02190-6",
       "whyItMatters": "FIRST new-mechanism antipsychotic in ~70 years. Omitting this is the textbook AI-slop failure for schizophrenia."
     },

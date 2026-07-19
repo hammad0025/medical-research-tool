@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Runcaciguat",
     "Molidustat",
@@ -53,10 +53,10 @@
       "year": "2025",
       "doi": "10.1093/ndt/gfae258",
       "pmid": "39907542",
-      "url": "https://doi.org/10.1093/ndt/gfae258",
       "accessLevel": "abstract",
       "summary": "Expert consensus on combination therapy as emerging standard of care for CKD, targeting multiple mechanisms including immune responses, inflammation, and blood pressure control.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://academic.oup.com/ndt/article/40/Supplement_1/i59/8002192"
     },
     {
       "id": "chronic-kidney-disease-3",
@@ -71,10 +71,10 @@
       "year": "2020",
       "doi": "10.1016/j.pop.2020.08.001",
       "pmid": "33121630",
-      "url": "https://doi.org/10.1016/j.pop.2020.08.001",
       "accessLevel": "abstract",
       "summary": "Primary care guideline emphasizing the importance of understanding CKD epidemiology, pathophysiology, and evaluation methods given high rates of hypertension and diabetes as leading causes.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S0095454320300555"
     },
     {
       "id": "chronic-kidney-disease-4",
@@ -345,38 +345,13 @@
       ]
     },
     {
-      "claim": "Hypertension and diabetes are the two most common etiologies of chronic kidney disease in the United States",
-      "evidenceRefs": [
-        "chronic-kidney-disease-3"
-      ]
-    },
-    {
-      "claim": "CKD patients are at increased risk of premature cardiovascular disease, with most patients dying from cardiovascular causes rather than progressing to kidney failure",
-      "evidenceRefs": [
-        "chronic-kidney-disease-1"
-      ]
-    },
-    {
       "claim": "Combination therapy targeting multiple mechanisms is becoming a new standard of care for CKD",
       "evidenceRefs": [
         "chronic-kidney-disease-2"
       ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Dietary modifications including low-protein and gluten-free diets can modulate microbial diversity and improve renal biomarkers",
-      "evidenceRefs": [
-        "chronic-kidney-disease-11"
-      ]
-    },
-    {
-      "recommendation": "Prebiotics such as resistant starch have been shown to lower uremic toxins and reduce inflammation",
-      "evidenceRefs": [
-        "chronic-kidney-disease-11"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "CKD patients remain asymptomatic most of the time, presenting complications only in advanced stages",
     "CKD patients have significantly increased mortality risk with COVID-19 infection",

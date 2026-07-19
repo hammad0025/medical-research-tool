@@ -263,18 +263,6 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "AMD is subdivided into early, intermediate, and late stages, with the early stage often being asymptomatic",
-      "evidenceRefs": [
-        "macular-degeneration-5"
-      ]
-    },
-    {
-      "claim": "Anti-VEGF therapy has become the standard treatment for neovascular AMD and dramatically changed the disease prognosis",
-      "evidenceRefs": [
-        "macular-degeneration-7"
-      ]
-    },
-    {
       "claim": "Two complement inhibitors, pegcetacoplan and avacincaptad pegol, were approved in the USA in 2023 for geographic atrophy treatment",
       "evidenceRefs": [
         "macular-degeneration-3"
@@ -285,12 +273,6 @@
       "evidenceRefs": [
         "macular-degeneration-1",
         "macular-degeneration-2"
-      ]
-    },
-    {
-      "claim": "Advanced dry AMD characterized by geographic atrophy is a leading cause of blindness in the developed world",
-      "evidenceRefs": [
-        "macular-degeneration-6"
       ]
     }
   ],

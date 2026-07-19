@@ -18,8 +18,8 @@
   ],
   "version": "2026-04a",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-23",
-  "editorialNote": "Focused KB for type 1 diabetes. The therapeutic landscape split: (1) insulin therapy + automated insulin delivery (closed-loop pumps: Medtronic 780G, Tandem Control-IQ, Omnipod 5, iLet Bionic Pancreas); (2) continuous glucose monitors (Dexcom G6/G7, Libre 2/3, Medtronic Guardian 4); (3) FIRST-EVER disease-modifying therapy — teplizumab (Tzield, FDA 2022) for delaying T1D onset in at-risk individuals; (4) allogeneic islet cell therapy — donislecel (Lantidra, FDA 2023) for labile-T1D adults; (5) stem-cell-derived islet cell therapy in clinical trials — Vertex VX-880 / VX-264 with dramatic 2024 results showing insulin independence. Any T1D output that fails to mention teplizumab or VX-880 is out of date.",
+  "lastUpdated": "2026-07-19",
+  "editorialNote": "Focused KB for type 1 diabetes. The therapeutic landscape split: (1) insulin therapy + automated insulin delivery (closed-loop pumps: Medtronic 780G, Tandem Control-IQ, Omnipod 5, iLet Bionic Pancreas); (2) continuous glucose monitors (Dexcom G6/G7, Libre 2/3, Medtronic Guardian 4); (3) FIRST-EVER disease-modifying therapy — teplizumab (Tzield, FDA 2022) for delaying T1D onset in at-risk individuals; (4) allogeneic islet cell therapy — donislecel (Lantidra, FDA 2023) for labile-T1D adults. Any T1D output that fails to mention teplizumab is out of date.",
   "subspecialty": "Endocrinology / Diabetes / Immunology",
   "icd10": "E10.9",
   "meshTerms": [
@@ -160,11 +160,6 @@
       "topic": "Phase 3 positive on C-peptide preservation 2023; Tzield pediatric indication pursued."
     },
     {
-      "acronym": "VX-880 / VX-264",
-      "name": "Vertex stem-cell-derived islet cell therapy",
-      "topic": "2024 interim data: multiple patients achieving insulin independence with VX-880 (with immunosuppression); VX-264 testing encapsulated delivery without immunosuppression."
-    },
-    {
       "acronym": "DiViDe / TEDDY",
       "name": "Environmental triggers in T1D",
       "topic": "Enterovirus and other candidate triggers; T1D screening cohort."
@@ -210,10 +205,10 @@
       "journal": "Diabetes Care",
       "year": 2025,
       "doi": "10.2337/dc25-SINT",
-      "url": "https://doi.org/10.2337/dc25-SINT",
       "accessLevel": "abstract",
       "summary": "Annual ADA Standards of Care — the single most cited US diabetes guideline. Chapter 7 (diabetes technology) endorses CGM and AID for all T1D; chapter 9 covers pharmacologic approaches. Updated annually.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://diabetesjournals.org/care/article/48/Supplement_1/S1/157562/Introduction-and-Methodology-Standards-of-Care-in"
     },
     {
       "id": "t1d-dcct-1993",
@@ -280,7 +275,7 @@
       "title": "LANTIDRA (donislecel-jujn) — US FDA Prescribing Information",
       "authors": "CellTrans",
       "journal": "US FDA",
-      "year": 2023,
+      "year": 2026,
       "accessLevel": "full-text",
       "summary": "First FDA-approved allogeneic pancreatic islet cellular therapy for adults with T1D who experience severe hypoglycemia and impaired awareness of hypoglycemia despite intensive management. Approved June 2023. Requires chronic immunosuppression. Complicated logistics limit real-world use.",
       "keyPassages": [
@@ -288,19 +283,13 @@
           "topic": "indication",
           "quote": "LANTIDRA is an allogeneic pancreatic islet cellular therapy indicated for the treatment of adults with type 1 diabetes who are unable to approach target HbA1c because of current repeated episodes of severe hypoglycemia despite intensive diabetes management."
         }
-      ]
-    },
-    {
-      "id": "t1d-vertex-vx880-2024",
-      "category": "expert-consensus",
-      "tier": "B",
-      "title": "Vertex VX-880 (stem-cell-derived islet cell therapy) — interim phase 1/2 data 2024",
-      "authors": "Vertex Pharmaceuticals / ADA and EASD conference updates",
-      "journal": "Vertex / conference proceedings",
-      "year": 2024,
-      "accessLevel": "metadata-only",
-      "summary": "VX-880 uses stem-cell-derived pancreatic islet cells delivered by infusion into the hepatic portal vein, with chronic immunosuppression. 2024 interim data from phase 1/2 trial showed majority of patients achieving insulin independence with restoration of endogenous C-peptide. VX-264 is the companion program using encapsulated delivery to avoid the need for immunosuppression. Considered the most consequential non-insulin T1D therapeutic advance in development.",
-      "keyPassages": []
+      ],
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=24610d9f-0c5a-4f55-93b3-d456300bfd5d",
+      "canonicalUrl": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=24610d9f-0c5a-4f55-93b3-d456300bfd5d",
+      "publicationDate": "2026-01-15",
+      "effectiveDate": "2026-01-13",
+      "splSetId": "24610d9f-0c5a-4f55-93b3-d456300bfd5d",
+      "splVersion": 3
     }
   ],
   "canonicalFacts": [
@@ -312,92 +301,18 @@
       ]
     },
     {
-      "claim": "Intensive glycemic control (HbA1c target ~7%) reduces microvascular complications by 40-60% and has durable 'metabolic memory' benefit (DCCT/EDIC).",
-      "evidenceRefs": [
-        "t1d-dcct-1993"
-      ]
-    },
-    {
       "claim": "Donislecel (Lantidra, CellTrans) — first FDA-approved allogeneic pancreatic islet cellular therapy (June 2023) for hypoglycemia-unaware adults with T1D.",
       "evidenceRefs": [
         "t1d-fda-label-lantidra-2023"
       ]
-    },
-    {
-      "claim": "Vertex VX-880 stem-cell-derived islet cell therapy has shown insulin independence in early clinical trials (2024 interim), signaling a potential future disease-modifying pathway.",
-      "evidenceRefs": [
-        "t1d-vertex-vx880-2024"
-      ]
-    },
-    {
-      "claim": "Continuous glucose monitors (Dexcom G7, Libre 3, Medtronic Guardian 4) and automated insulin delivery systems (Tandem Control-IQ, Medtronic 780G, Omnipod 5, iLet Bionic Pancreas) are now standard of care per ADA.",
-      "evidenceRefs": [
-        "t1d-ada-sc-2025"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Structured diabetes self-management education (DSMES) at diagnosis and annually.",
-      "evidenceRefs": [
-        "t1d-ada-sc-2025"
-      ]
-    },
-    {
-      "recommendation": "Use a continuous glucose monitor — ADA standard of care for all T1D patients.",
-      "evidenceRefs": [
-        "t1d-ada-sc-2025"
-      ]
-    },
-    {
-      "recommendation": "Consider automated insulin delivery (hybrid closed-loop) — reduces severe hypoglycemia and improves time-in-range.",
-      "evidenceRefs": [
-        "t1d-ada-sc-2025"
-      ]
-    },
-    {
-      "recommendation": "Screen first-degree relatives for islet autoantibodies via TrialNet — if 2+ autoantibodies + dysglycemia (stage 2), consider teplizumab.",
-      "evidenceRefs": [
-        "t1d-fda-label-tzield-2022"
-      ]
-    },
-    {
-      "recommendation": "Glucagon (nasal Baqsimi, auto-injector Gvoke) prescribed for every patient and family member/caregiver.",
-      "evidenceRefs": [
-        "t1d-ada-sc-2025"
-      ]
-    },
-    {
-      "recommendation": "Screen for celiac disease (TTG-IgA) at diagnosis and periodically.",
-      "evidenceRefs": [
-        "t1d-ada-sc-2025"
-      ]
-    },
-    {
-      "recommendation": "Screen thyroid (TSH, anti-TPO) at diagnosis and yearly.",
-      "evidenceRefs": [
-        "t1d-ada-sc-2025"
-      ]
-    },
-    {
-      "recommendation": "Annual retinal exam starting ~5 years after diagnosis or from puberty.",
-      "evidenceRefs": [
-        "t1d-ada-sc-2025"
-      ]
-    },
-    {
-      "recommendation": "Mental health screening; inquire directly about insulin restriction for weight control ('diabulimia').",
-      "evidenceRefs": [
-        "t1d-ada-sc-2025"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Evidence does not support relying on 'honeymoon' remission or low insulin requirement to defer standard T1D management — beta-cell loss continues regardless.",
     "Literature does not support recommending low-carb 'cure T1D' diets as replacement for insulin — T1D is not a diet-controlled disease.",
     "Physicians generally caution against prescribing SGLT2 inhibitors for T1D without specialist co-management — increased risk of euglycemic DKA.",
     "Literature warns against metformin monotherapy for T1D — it does not substitute for insulin; may be used as adjunct for insulin resistance in some adults.",
-    "Stem-cell clinics (China, Mexico, Panama) offering IV MSC 'cure for T1D' — no peer-reviewed efficacy data. Vertex VX-880 is the only credible stem-cell-derived approach and requires FDA-regulated clinical trial enrollment.",
     "Physicians generally caution against initiate teplizumab without confirming stage 2 T1D (≥2 islet autoantibodies + dysglycemia); it is not indicated in new-onset stage 3 T1D as of Nov 2022 approval (though PROTECT data supports that indication; regulatory status evolving)."
   ],
   "pipelineDrugs": [
@@ -477,28 +392,6 @@
       "whyItMatters": "Current standard of T1D self-monitoring."
     },
     {
-      "name": "VX-880",
-      "aliases": [
-        "Vertex stem-cell-derived islet therapy"
-      ],
-      "mechanism": "Pluripotent-stem-cell-derived pancreatic islet cells; hepatic portal infusion; requires chronic immunosuppression",
-      "sponsor": "Vertex Pharmaceuticals",
-      "status": "Phase 1/2 ongoing; 2024 interim update showed multiple patients achieving insulin independence",
-      "approvalStatus": "investigational",
-      "whyItMatters": "Potentially curative approach in late clinical stage. Must be included in any modern T1D pipeline discussion."
-    },
-    {
-      "name": "VX-264",
-      "aliases": [
-        "Vertex encapsulated stem-cell islet therapy"
-      ],
-      "mechanism": "Stem-cell-derived islet cells inside immunoprotective device — no immunosuppression required",
-      "sponsor": "Vertex Pharmaceuticals",
-      "status": "Phase 1/2 ongoing 2024",
-      "approvalStatus": "investigational",
-      "whyItMatters": "If effective, removes the immunosuppression barrier that limits VX-880/Lantidra adoption."
-    },
-    {
       "name": "Sernova Cell Pouch",
       "aliases": [
         "Sernova islet cell implant device"
@@ -543,5 +436,7 @@
       "whyItMatters": "Off-label interest for T1D patients with obesity. Not a substitute for insulin."
     }
   ],
-  "excludedAgents": []
+  "excludedAgents": [],
+  "failedTreatments": [],
+  "references": []
 }

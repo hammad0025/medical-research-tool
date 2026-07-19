@@ -15,7 +15,7 @@ import {
   allApprovedDrugsRendered,
   drugKeysMatch,
   injectApprovedTreatmentStubs
-} from "../lib/report-polish.js";
+} from "../lib/drug-card-utils.js";
 import { sanitizePublicText } from "../lib/public-language.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
@@ -2845,7 +2845,9 @@ const App = () => {
         pubmedUrl: a.pubmedUrl,
         doiUrl: a.doiUrl,
         accessLevel: a.accessLevel,
-        text: (a.fullText || a.abstract || a.text || '').slice(0, 2000)
+        summary: String(a.summary || '').slice(0, 2000),
+        keyPassages: Array.isArray(a.keyPassages) ? a.keyPassages.slice(0, 8) : [],
+        text: (a.fullText || a.abstract || a.text || a.summary || '').slice(0, 2000)
       }));
     };
     const polishMergedReport = async (text, reportData) => {
@@ -2866,6 +2868,7 @@ const App = () => {
           excludedAgents: reportData?.evidence?.excludedAgents || [],
           evidencePack: packForPolish(reportData?.evidence),
           pipelineDrugs: reportData?.evidence?.pipelineDrugs || [],
+          fdaLabels: reportData?.evidence?.fdaLabels || [],
           canonicalFacts: kbForPolish.canonicalFacts || reportData?.evidence?.canonicalFacts || [],
           lifestyle: kbForPolish.lifestyleRecommendations || [],
           redFlags: kbForPolish.redFlags || [],
@@ -3378,6 +3381,7 @@ const App = () => {
               lifestyle: evidenceSummary?.knowledgeBase?.lifestyleRecommendations || [],
               redFlags: evidenceSummary?.knowledgeBase?.redFlags || [],
               pipelineDrugs: evidenceSummary?.pipelineDrugs || [],
+              fdaLabels: evidenceSummary?.fdaLabels || [],
               trials: trialsData || null,
               patient,
               audience,

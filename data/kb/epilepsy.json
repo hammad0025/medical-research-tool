@@ -9,7 +9,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Cannabidiol",
     "Fenfluramine",
@@ -22,30 +22,6 @@
     "Ezogabine"
   ],
   "items": [
-    {
-      "id": "epilepsy-1",
-      "category": "clinical-guideline",
-      "tier": "A+",
-      "title": "Evidence-Based Guideline: Treatment of Convulsive Status Epilepticus in Children and Adults: Report of the Guideline Committee of the American Epilepsy Society.",
-      "authors": [
-        "Glauser T",
-        "Shinnar S",
-        "Gloss D",
-        "Alldredge B",
-        "Arya R",
-        "Bainbridge J",
-        "Bare M",
-        "Bleck T"
-      ],
-      "journal": "Epilepsy currents",
-      "year": "2016",
-      "doi": "10.5698/1535-7597-16.1.48",
-      "pmid": "26900382",
-      "url": "https://doi.org/10.5698/1535-7597-16.1.48",
-      "accessLevel": "abstract",
-      "summary": "Evidence-based guideline for treatment of convulsive status epilepticus in children and adults from the American Epilepsy Society.",
-      "keyPassages": []
-    },
     {
       "id": "epilepsy-2",
       "category": "clinical-guideline",
@@ -65,10 +41,13 @@
       "year": "2017",
       "doi": "10.1212/WNL.0000000000003685",
       "pmid": "28438841",
-      "url": "https://doi.org/10.1212/WNL.0000000000003685",
       "accessLevel": "abstract",
       "summary": "Practice guideline on sudden unexpected death in epilepsy (SUDEP) incidence rates and risk factors from the American Academy of Neurology and American Epilepsy Society.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://www.aan.com/Guidelines/home/GuidelineDetail/850",
+      "publicationDate": "2017-04-24",
+      "reviewDate": "2023-10-21",
+      "guidanceVersion": "AAN GuidelineDetail 850; reaffirmed 2023-10-21"
     },
     {
       "id": "epilepsy-3",
@@ -344,30 +323,6 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "SUDEP risk in children with epilepsy (aged 0-17 years) is 0.22/1,000 patient-years",
-      "evidenceRefs": [
-        "epilepsy-2"
-      ]
-    },
-    {
-      "claim": "Cannabidiol significantly reduces drop seizures in Lennox-Gastaut syndrome when added to conventional antiepileptic medications",
-      "evidenceRefs": [
-        "epilepsy-3"
-      ]
-    },
-    {
-      "claim": "Approximately 30% of patients with epilepsy have treatment-resistant forms associated with severe morbidity and increased mortality",
-      "evidenceRefs": [
-        "epilepsy-4"
-      ]
-    },
-    {
-      "claim": "Two-thirds of patients with epilepsy are controlled with established antiseizure medications",
-      "evidenceRefs": [
-        "epilepsy-8"
-      ]
-    },
-    {
       "claim": "Stiripentol, fenfluramine, and cannabidiol are licensed add-on therapies for treating seizures in Dravet syndrome",
       "evidenceRefs": [
         "epilepsy-5"
@@ -447,5 +402,7 @@
       "reason": "Kv7 potassium channel activator was withdrawn from market in 2017 due to safety concerns including retinal pigmentation changes",
       "evidenceRef": "epilepsy-15"
     }
-  ]
+  ],
+  "failedTreatments": [],
+  "references": []
 }

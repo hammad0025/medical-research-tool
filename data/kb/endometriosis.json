@@ -8,7 +8,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Quinagolide vaginal ring",
     "Quinagolide vaginal ring"
@@ -188,10 +188,10 @@
       "year": "2024",
       "doi": "10.1136/bmj-2023-078797",
       "pmid": "39567014",
-      "url": "https://doi.org/10.1136/bmj-2023-078797",
       "accessLevel": "abstract",
       "summary": "Prospective cohort study from Nurses' Health Study II examining endometriosis and uterine fibroids association with premature mortality risk.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://bmj.com/lookup/doi/10.1136/bmj-2023-078797"
     },
     {
       "id": "endometriosis-9",
@@ -282,30 +282,6 @@
       "claim": "90% of people with endometriosis report pelvic pain including dysmenorrhea, nonmenstrual pelvic pain, and dyspareunia, while 26% report infertility",
       "evidenceRefs": [
         "endometriosis-1"
-      ]
-    },
-    {
-      "claim": "Risk factors include younger age at menarche, shorter menstrual cycle length, lower body mass index, nulliparity, and congenital obstructive müllerian anomalies",
-      "evidenceRefs": [
-        "endometriosis-1"
-      ]
-    },
-    {
-      "claim": "Endometriosis-associated infertility involves complex interactions between disease subtype, pain, inflammation, altered pelvic anatomy, adhesions, disrupted ovarian function, and compromised endometrial receptivity",
-      "evidenceRefs": [
-        "endometriosis-10"
-      ]
-    },
-    {
-      "claim": "Currently available medications are only effective in treating endometriosis-related pain but are not targeted treatments for the underlying disease",
-      "evidenceRefs": [
-        "endometriosis-11"
-      ]
-    },
-    {
-      "claim": "Medical therapies provide symptom relief but are unsuitable for women wishing to conceive, while surgery may enhance natural conception but can negatively impact ovarian reserve",
-      "evidenceRefs": [
-        "endometriosis-12"
       ]
     }
   ],

@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Ferric carboxymaltose",
     "Iron sucrose",
@@ -34,10 +34,10 @@
       "year": "2024",
       "doi": "10.1016/j.cgh.2024.03.046",
       "pmid": "38864796",
-      "url": "https://doi.org/10.1016/j.cgh.2024.03.046",
       "accessLevel": "abstract",
       "summary": "AGA Clinical Practice Update providing expert guidance on appropriate management of iron deficiency anemia.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S1542356524004105"
     },
     {
       "id": "iron-deficiency-anemia-2",
@@ -113,27 +113,20 @@
     },
     {
       "id": "iron-deficiency-anemia-6",
-      "category": "expert-consensus",
-      "tier": "A",
-      "title": "Iron deficiency across chronic inflammatory conditions: International expert opinion on definition, diagnosis, and management.",
-      "authors": [
-        "Cappellini MD",
-        "Comin-Colet J",
-        "de Francisco A",
-        "Dignass A",
-        "Doehner W",
-        "Lam CS",
-        "Macdougall IC",
-        "Rogler G"
-      ],
-      "journal": "American journal of hematology",
-      "year": "2017",
-      "doi": "10.1002/ajh.24820",
-      "pmid": "28612425",
-      "url": "https://doi.org/10.1002/ajh.24820",
-      "accessLevel": "abstract",
-      "summary": "International expert consensus on definition, diagnosis, and management of iron deficiency across chronic inflammatory conditions.",
-      "keyPassages": []
+      "category": "clinical-guideline",
+      "tier": "A+",
+      "title": "British Society of Gastroenterology guidelines for the management of iron deficiency anaemia in adults",
+      "authors": "Snook J, Bhala N, Beales ILP, et al.",
+      "journal": "British Society of Gastroenterology / Gut",
+      "year": 2021,
+      "doi": "10.1136/gutjnl-2021-325210",
+      "pmid": "34497146",
+      "accessLevel": "full-text",
+      "summary": "Current BSG guideline for investigating and treating iron deficiency anaemia in adults; the official BSG record states that it was updated in 2021 and is due for update in 2026.",
+      "keyPassages": [],
+      "canonicalUrl": "https://www.bsg.org.uk/clinical-resource/guidelines-iron-deficiency-anaemia-in-adults",
+      "publicationDate": "2021-09-08",
+      "guidanceVersion": "BSG adult iron deficiency anaemia guideline 2021"
     },
     {
       "id": "iron-deficiency-anemia-7",
@@ -432,60 +425,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Iron deficiency anemia is the most common cause of anemia globally, particularly affecting women of childbearing age",
-      "evidenceRefs": [
-        "iron-deficiency-anemia-11",
-        "iron-deficiency-anemia-10",
-        "iron-deficiency-anemia-12"
-      ]
-    },
-    {
-      "claim": "Iron deficiency in chronic kidney disease involves both absolute and functional iron deficiency due to increased hepcidin levels",
-      "evidenceRefs": [
-        "iron-deficiency-anemia-13",
-        "iron-deficiency-anemia-14"
-      ]
-    },
-    {
-      "claim": "Maternal iron deficiency anemia is associated with adverse perinatal outcomes including preterm labor and increased maternal-fetal mortality",
-      "evidenceRefs": [
-        "iron-deficiency-anemia-15",
-        "iron-deficiency-anemia-4"
-      ]
-    },
-    {
-      "claim": "Iron deficiency is present in approximately 50% of heart failure patients regardless of left ventricular function",
-      "evidenceRefs": [
-        "iron-deficiency-anemia-16",
-        "iron-deficiency-anemia-7"
-      ]
-    },
-    {
-      "claim": "Intravenous iron preparations demonstrate superior clinical effects compared to oral iron in heart failure patients",
-      "evidenceRefs": [
-        "iron-deficiency-anemia-16",
-        "iron-deficiency-anemia-7"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Dietary assessment and optimization of iron-rich foods should be part of comprehensive management",
-      "evidenceRefs": [
-        "iron-deficiency-anemia-10",
-        "iron-deficiency-anemia-6"
-      ]
-    },
-    {
-      "recommendation": "Regular screening for anemia should be performed in high-risk populations including children, menstruating persons, and pregnant women",
-      "evidenceRefs": [
-        "iron-deficiency-anemia-3",
-        "iron-deficiency-anemia-10"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Severe anemia with cardiovascular compromise may require blood transfusion along with iron therapy",
     "Chronic blood loss should be investigated as the underlying cause in most cases",

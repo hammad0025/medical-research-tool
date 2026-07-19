@@ -42,6 +42,7 @@ export const extractKbCitationUrls = (kb, slug = '') => {
 
   const addFromItem = (item, kind) => {
     if (!item || typeof item !== 'object') return;
+    if (item.quarantined === true) return;
     const preferred = preferVerifiableUrl(item, item.url || '');
     if (preferred) add(preferred, { kind, id: item.id || item.name || '' });
     for (const f of ['url', 'link', 'pmcUrl', 'pubmedUrl', 'doiUrl', 'sourceUrl', 'fullTextUrl', 'dailyMedUrl', 'evidenceUrl']) {
@@ -87,7 +88,10 @@ export const extractKbCitationUrls = (kb, slug = '') => {
   for (const r of kb.references || []) addFromItem(r, 'reference');
 
   // Also scrape any leftover https in the raw JSON (belt + suspenders).
-  const raw = JSON.stringify(kb);
+  const raw = JSON.stringify({
+    ...kb,
+    items: (kb.items || []).filter((item) => item?.quarantined !== true)
+  });
   const bare = raw.match(/https?:\\\/\\\/[^"\\]+/g) || [];
   for (const esc of bare) {
     const u = esc.replace(/\\\//g, '/');

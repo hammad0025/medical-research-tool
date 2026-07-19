@@ -9,7 +9,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Trastuzumab deruxtecan",
     "Datopotamab deruxtecan",
@@ -159,7 +159,7 @@
     },
     {
       "id": "breast-cancer-7",
-      "category": "clinical-guideline",
+      "category": "review",
       "tier": "A",
       "title": "Treatment of breast cancer.",
       "authors": [
@@ -389,44 +389,13 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Breast cancer incidence rates were stable among all racial/ethnic groups from 2004 to 2008, with approximately 230,480 new cases expected in 2011",
-      "evidenceRefs": [
-        "breast-cancer-11"
-      ]
-    },
-    {
-      "claim": "Breast cancer death rates have been declining since the early 1990s for all women except American Indians/Alaska Natives",
-      "evidenceRefs": [
-        "breast-cancer-11"
-      ]
-    },
-    {
       "claim": "Aromatase inhibitors are more effective than tamoxifen in postmenopausal women but are ineffective in premenopausal women when used without ovarian suppression",
       "evidenceRefs": [
         "breast-cancer-6"
       ]
-    },
-    {
-      "claim": "Radiation therapy following breast-conserving surgery decreases mortality and recurrence in early-stage breast cancer",
-      "evidenceRefs": [
-        "breast-cancer-7"
-      ]
-    },
-    {
-      "claim": "Sentinel lymph node removal is now standard of care for patients with early stage breast cancer without sentinel lymph node metastases",
-      "evidenceRefs": [
-        "breast-cancer-8"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Patient education and early surveillance for breast cancer-related lymphedema to reduce incidence and progression",
-      "evidenceRefs": [
-        "breast-cancer-8"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Menopausal hormone therapy increases breast cancer risk and mortality",
     "Denosumab discontinuation may increase risk of multiple vertebral fractures"

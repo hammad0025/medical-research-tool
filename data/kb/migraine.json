@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "zavegepant",
     "atogepant",
@@ -38,10 +38,10 @@
       "year": "2026",
       "doi": "10.1111/head.70016",
       "pmid": "41321235",
-      "url": "https://doi.org/10.1111/head.70016",
       "accessLevel": "abstract",
       "summary": "2025 American Headache Society evidence-based guideline update for parenteral pharmacotherapies in emergency department migraine treatment.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://headachejournal.onlinelibrary.wiley.com/doi/10.1111/head.70016"
     },
     {
       "id": "migraine-2",
@@ -324,25 +324,6 @@
     }
   ],
   "canonicalFacts": [
-    {
-      "claim": "Triptans are first-line treatments for moderate to severe migraines",
-      "evidenceRefs": [
-        "migraine-14"
-      ]
-    },
-    {
-      "claim": "Acetaminophen and NSAIDs are first-line treatments for mild to moderate migraines",
-      "evidenceRefs": [
-        "migraine-14"
-      ]
-    },
-    {
-      "claim": "CGRP receptor antagonists (gepants) represent a new class of acute migraine treatment",
-      "evidenceRefs": [
-        "migraine-8",
-        "migraine-3"
-      ]
-    },
     {
       "claim": "Topiramate, botulinum toxin type A, and CGRP monoclonal antibodies are effective for chronic migraine with medication overuse headache",
       "evidenceRefs": [

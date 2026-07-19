@@ -11,7 +11,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Filgotinib",
     "Vedolizumab",
@@ -284,10 +284,10 @@
       "year": "2024",
       "doi": "10.3748/wjg.v30.i1.50",
       "pmid": "38293329",
-      "url": "https://doi.org/10.3748/wjg.v30.i1.50",
       "accessLevel": "abstract",
       "summary": "Practical guide for clinicians on treat-to-target approach in Crohn's disease based on STRIDE-II guidelines.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://wjgnet.com/1007-9327/full/v30/i1/50.htm"
     },
     {
       "id": "crohns-disease-13",
@@ -332,36 +332,9 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Crohn's disease is a chronic, relapsing and remitting inflammatory bowel disease with increasing global incidence and prevalence.",
-      "evidenceRefs": [
-        "crohns-disease-13",
-        "crohns-disease-14",
-        "crohns-disease-10"
-      ]
-    },
-    {
       "claim": "Early biologic treatment decreases the risk of surgery in Crohn's disease patients.",
       "evidenceRefs": [
         "crohns-disease-11"
-      ]
-    },
-    {
-      "claim": "Anti-TNF agents play a fundamental role in Crohn's disease treatment, especially in fistulizing disease.",
-      "evidenceRefs": [
-        "crohns-disease-4",
-        "crohns-disease-10"
-      ]
-    },
-    {
-      "claim": "Treat-to-target approach with combination clinical and endoscopic targets is recommended for optimal long-term outcomes.",
-      "evidenceRefs": [
-        "crohns-disease-12"
-      ]
-    },
-    {
-      "claim": "Surgery rates have declined over time in Europe, with 10-30% of Crohn's disease patients requiring surgery within 5 years.",
-      "evidenceRefs": [
-        "crohns-disease-14"
       ]
     }
   ],

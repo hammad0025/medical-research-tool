@@ -9,7 +9,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "ibrutinib",
     "idelalisib",
@@ -42,7 +42,7 @@
     },
     {
       "id": "chronic-lymphocytic-leukemia-2",
-      "category": "expert-consensus",
+      "category": "review",
       "tier": "A",
       "title": "Chronic lymphocytic leukemia treatment algorithm 2018.",
       "authors": [
@@ -52,10 +52,11 @@
       "year": "2018",
       "doi": "10.1038/s41408-018-0131-2",
       "pmid": "30283014",
-      "url": "https://doi.org/10.1038/s41408-018-0131-2",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/30283014/",
       "accessLevel": "abstract",
       "summary": "2018 treatment algorithm for CLL incorporating oral targeted therapies (ibrutinib, idelalisib, venetoclax) and next-generation anti-CD20 antibodies for improved outcomes.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://pubmed.ncbi.nlm.nih.gov/30283014/"
     },
     {
       "id": "chronic-lymphocytic-leukemia-3",
@@ -112,10 +113,10 @@
       "year": "2023",
       "doi": "10.1016/j.leukres.2023.107016",
       "pmid": "36634577",
-      "url": "https://doi.org/10.1016/j.leukres.2023.107016",
       "accessLevel": "abstract",
       "summary": "2022 Canadian evidence-based guideline update for frontline CLL treatment incorporating new targeted therapies and treatment approaches.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S0145212623000012"
     },
     {
       "id": "chronic-lymphocytic-leukemia-6",
@@ -331,46 +332,12 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "CLL is the most common adult leukemia in Western countries with a median age at diagnosis of 70-72 years",
-      "evidenceRefs": [
-        "chronic-lymphocytic-leukemia-11",
-        "chronic-lymphocytic-leukemia-1",
-        "chronic-lymphocytic-leukemia-3",
-        "chronic-lymphocytic-leukemia-5"
-      ]
-    },
-    {
-      "claim": "Standard management for early-stage asymptomatic CLL is careful observation until patients meet IWCLL criteria for active disease requiring treatment",
-      "evidenceRefs": [
-        "chronic-lymphocytic-leukemia-12",
-        "chronic-lymphocytic-leukemia-1",
-        "chronic-lymphocytic-leukemia-3"
-      ]
-    },
-    {
       "claim": "Targeted therapies including BTK inhibitors, BCL2 inhibitors, and CD20 monoclonal antibodies have shown improved progression-free survival and overall survival compared to chemoimmunotherapy",
       "evidenceRefs": [
         "chronic-lymphocytic-leukemia-1",
         "chronic-lymphocytic-leukemia-2",
         "chronic-lymphocytic-leukemia-3",
         "chronic-lymphocytic-leukemia-4"
-      ]
-    },
-    {
-      "claim": "Patients with TP53 deletion/mutation represent a high-risk subgroup where ibrutinib is the preferred primary treatment choice",
-      "evidenceRefs": [
-        "chronic-lymphocytic-leukemia-10",
-        "chronic-lymphocytic-leukemia-13",
-        "chronic-lymphocytic-leukemia-2"
-      ]
-    },
-    {
-      "claim": "CLL is characterized by immune dysfunction including hypogammaglobulinemia and increased susceptibility to infections",
-      "evidenceRefs": [
-        "chronic-lymphocytic-leukemia-9",
-        "chronic-lymphocytic-leukemia-14",
-        "chronic-lymphocytic-leukemia-11",
-        "chronic-lymphocytic-leukemia-15"
       ]
     }
   ],

@@ -253,39 +253,7 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Psoriasis affects approximately 125 million people worldwide and is associated with increased rates of inflammatory arthritis, cardiometabolic diseases, and mental health disorders",
-      "evidenceRefs": [
-        "psoriasis-1"
-      ]
-    },
-    {
-      "claim": "The IL23/IL17 axis plays a central role in psoriasis pathogenesis, validated by the effectiveness of targeted biologic treatments",
-      "evidenceRefs": [
-        "psoriasis-8",
-        "psoriasis-1"
-      ]
-    },
-    {
-      "claim": "Plaque psoriasis is the most common variant of psoriasis",
-      "evidenceRefs": [
-        "psoriasis-1"
-      ]
-    },
-    {
-      "claim": "For mild psoriasis, topical agents remain the mainstay of treatment",
-      "evidenceRefs": [
-        "psoriasis-1"
-      ]
-    },
-    {
-      "claim": "Nail psoriasis is associated with significant disease burden and potential progression to psoriatic arthritis",
-      "evidenceRefs": [
-        "psoriasis-9"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
   "lifestyleRecommendations": [],
   "redFlags": [
     "JAK-STAT inhibitors may carry increased cardiovascular and thrombotic risks in dermatologic patients",

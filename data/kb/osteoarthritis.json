@@ -333,53 +333,12 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Osteoarthritis is the most common form of arthritis and a leading cause of disability in elderly populations",
-      "evidenceRefs": [
-        "osteoarthritis-12",
-        "osteoarthritis-13",
-        "osteoarthritis-14"
-      ]
-    },
-    {
-      "claim": "Exercise therapy provides pain relief comparable to pharmacological medications without serious adverse effects",
-      "evidenceRefs": [
-        "osteoarthritis-9",
-        "osteoarthritis-11"
-      ]
-    },
-    {
-      "claim": "Risk factors for osteoarthritis include age, gender, obesity, genetics, joint injury, and malalignment",
-      "evidenceRefs": [
-        "osteoarthritis-12"
-      ]
-    },
-    {
-      "claim": "Most dietary supplements lack strong evidence for osteoarthritis treatment effectiveness",
-      "evidenceRefs": [
-        "osteoarthritis-1"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
   "lifestyleRecommendations": [
     {
       "recommendation": "Engage in supervised exercise therapy and physical activity programs as first-line treatment",
       "evidenceRefs": [
         "osteoarthritis-9",
-        "osteoarthritis-11"
-      ]
-    },
-    {
-      "recommendation": "Maintain healthy weight to reduce joint loading and osteoarthritis progression risk",
-      "evidenceRefs": [
-        "osteoarthritis-12",
-        "osteoarthritis-11"
-      ]
-    },
-    {
-      "recommendation": "Participate in patient education programs alongside exercise therapy",
-      "evidenceRefs": [
         "osteoarthritis-11"
       ]
     }

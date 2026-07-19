@@ -13,8 +13,8 @@
   ],
   "version": "2026-04a",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-23",
-  "editorialNote": "Focused KB for Leber Congenital Amaurosis. LCA is a genetic early-onset severe retinal dystrophy with ~25 causative genes. Gene-specific therapies dominate: (1) voretigene neparvovec (Luxturna, FDA 2017) for biallelic RPE65 LCA/IRD — first FDA-approved gene therapy for an inherited disease; (2) EDIT-101 (brilliant, Editas) — first-ever in-vivo CRISPR clinical trial, for CEP290 p.Cys998X (LCA10); Editas discontinued late 2022 and transitioned trial assets to Eyedocs/academic hands. (3) Sepofarsen (QR-110, ProQR) antisense oligonucleotide for same CEP290 LCA10 splice-site variant — phase 2/3 ILLUMINATE FAILED 2022, program halted. (4) Atsena AT-GTR (ATSN-101) AAV for GUCY2D-associated LCA1 — positive phase 1/2 2024 data, phase 3 planned. Any LCA output that fails to mention Luxturna for RPE65 or discuss the CEP290 therapeutic history (BRILLIANCE paused + sepofarsen failed) is AI slop.",
+  "lastUpdated": "2026-07-19",
+  "editorialNote": "Focused KB for Leber Congenital Amaurosis. LCA is a genetic early-onset severe retinal dystrophy with ~25 causative genes. Gene-specific therapies dominate: (1) voretigene neparvovec (Luxturna, FDA 2017) for biallelic RPE65 LCA/IRD — first FDA-approved gene therapy for an inherited disease; (2) EDIT-101 (brilliant, Editas) — first-ever in-vivo CRISPR clinical trial, for CEP290 p.Cys998X (LCA10); Editas discontinued late 2022 and transitioned trial assets to Eyedocs/academic hands. (3) Sepofarsen (QR-110, ProQR) antisense oligonucleotide for same CEP290 LCA10 splice-site variant — phase 2/3 ILLUMINATE FAILED 2022, program halted. Any LCA output that fails to mention Luxturna for RPE65 or discuss the CEP290 therapeutic history (BRILLIANCE paused + sepofarsen failed) is AI slop.",
   "subspecialty": "Ophthalmology / Inherited Retinal Disease / Pediatric Ophthalmology",
   "icd10": "H35.50",
   "meshTerms": [
@@ -155,16 +155,6 @@
       "topic": "Phase 2/3 antisense oligonucleotide trial FAILED 2022; ProQR discontinued the program."
     },
     {
-      "acronym": "Atsena AT-GTR (ATSN-101)",
-      "name": "GUCY2D gene therapy for LCA1",
-      "topic": "Phase 1/2 positive 2024; phase 3 planned."
-    },
-    {
-      "acronym": "Opus Genetics OPGx-LCA5",
-      "name": "LCA5 gene therapy",
-      "topic": "Phase 1/2 ongoing; academic-origin (CHOP/Penn) program."
-    },
-    {
       "acronym": "MeiraGTx / Janssen AAV5-hCNGB1",
       "name": "CNGB1 retinitis pigmentosa",
       "topic": "Not LCA — but adjacent IRD gene therapy."
@@ -222,8 +212,8 @@
       "title": "LUXTURNA (voretigene neparvovec-rzyl) — US FDA Prescribing Information",
       "authors": "Spark Therapeutics",
       "journal": "US FDA",
-      "year": 2017,
-      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Luxturna",
+      "year": 2026,
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=08313a24-e7ce-457a-bb3f-161bc45517ee",
       "accessLevel": "full-text",
       "summary": "First FDA-approved gene therapy for an inherited disease. Indication: biallelic RPE65 mutation-associated retinal dystrophy. AAV2-hRPE65v2 delivered via subretinal injection under general anesthesia in each eye, separated by 6-18 days. Covers only the ~0.3-1% of IRD patients with biallelic RPE65 mutations. List price ~$850,000 for both eyes.",
       "keyPassages": [
@@ -231,7 +221,12 @@
           "topic": "indication",
           "quote": "LUXTURNA is indicated for the treatment of patients with confirmed biallelic RPE65 mutation-associated retinal dystrophy."
         }
-      ]
+      ],
+      "canonicalUrl": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=08313a24-e7ce-457a-bb3f-161bc45517ee",
+      "publicationDate": "2026-01-16",
+      "effectiveDate": "2022-05-01",
+      "splSetId": "08313a24-e7ce-457a-bb3f-161bc45517ee",
+      "splVersion": 13
     },
     {
       "id": "lca-maeder-nat-med-2019",
@@ -242,8 +237,8 @@
       "journal": "Nature Medicine",
       "year": 2019,
       "doi": "10.1038/s41591-018-0327-9",
-      "pmid": "30617334",
-      "url": "https://pubmed.ncbi.nlm.nih.gov/30617334/",
+      "pmid": "30664785",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/30664785/",
       "accessLevel": "abstract",
       "summary": "Preclinical foundation paper for EDIT-101 (AGN-151587): CRISPR-Cas9 in-vivo excision of the CEP290 intronic IVS26 c.2991+1655A>G variant that creates a cryptic splice site in ~15-20% of LCA10 patients. Led to BRILLIANCE first in-vivo CRISPR human trial.",
       "keyPassages": []
@@ -272,31 +267,6 @@
       "accessLevel": "full-text",
       "summary": "February 2022 — ProQR reported that the phase 2/3 ILLUMINATE trial of sepofarsen (QR-110) — an intravitreal antisense oligonucleotide restoring CEP290 mRNA splicing in patients with the c.2991+1655A>G variant — did NOT meet its primary endpoint (BCVA change at 12 months). ProQR halted development and ultimately reprioritized its pipeline (acquired by Laboratoires Théa 2024 for axiomabtagene cost-effective pathway).",
       "keyPassages": []
-    },
-    {
-      "id": "lca-atsena-gucy2d-2024",
-      "category": "expert-consensus",
-      "tier": "B",
-      "title": "Atsena Therapeutics announces positive phase 1/2 AT-GTR (ATSN-101) data for GUCY2D-associated LCA1",
-      "authors": "Atsena Therapeutics / conference presentations",
-      "journal": "Atsena / ARVO / AAO meeting updates",
-      "year": 2024,
-      "accessLevel": "metadata-only",
-      "summary": "ATSN-101 (formerly AT-GTR) is an AAV-based gene therapy delivering GUCY2D for LCA1 (GUCY2D-associated Leber congenital amaurosis). 2024 interim phase 1/2 data showed improvements in full-field stimulus test (FST) sensitivity consistent with biological activity. Phase 3 program planned. Atsena is one of the primary remaining LCA gene therapy developers after EDIT-101 and sepofarsen setbacks.",
-      "keyPassages": []
-    },
-    {
-      "id": "lca-opgx-lca5-2024",
-      "category": "expert-consensus",
-      "tier": "B",
-      "title": "Opus Genetics OPGx-LCA5 phase 1/2 — LCA5 gene therapy",
-      "authors": "Opus Genetics / CHOP / Penn",
-      "journal": "Opus Genetics / ARVO / AAO meeting updates",
-      "year": 2024,
-      "url": "https://opusgtx.com/pipeline/",
-      "accessLevel": "metadata-only",
-      "summary": "OPGx-LCA5 is an AAV-based gene therapy for LCA5 (lebercilin-associated LCA). Phase 1/2 trial ongoing; interim data reported at AAO 2024 showed improvements in visual function consistent with transgene activity. Opus Genetics is the university-to-biotech vehicle for multiple rare-IRD programs (LCA5, BEST1, MERTK, RDH12). Emerging programs like this are where the remaining LCA subtype-specific pipeline lives.",
-      "keyPassages": []
     }
   ],
   "canonicalFacts": [
@@ -319,40 +289,9 @@
         "lca-editas-brilliance-update-2022",
         "lca-maeder-nat-med-2019"
       ]
-    },
-    {
-      "claim": "Atsena ATSN-101 (AT-GTR) for GUCY2D LCA1 showed positive phase 1/2 functional signals in 2024 and is advancing to phase 3.",
-      "evidenceRefs": [
-        "lca-atsena-gucy2d-2024"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Obtain free genetic testing via Foundation Fighting Blindness My Retina Tracker or a clinical IRD panel — gene identification is mandatory for therapy eligibility.",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Early pediatric ophthalmology and low-vision rehabilitation referral — orientation + mobility, assistive technology, Braille readiness.",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "School-based IEP for visual impairment; qualify for accommodations.",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "UV protection (sunglasses, hats) and avoid eye rubbing (keratoconus association).",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Monitor for cataract in older LCA patients; surgery can improve residual vision.",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Family genetic counseling — autosomal recessive inheritance for most LCA types (rarely dominant or X-linked).",
-      "evidenceRefs": []
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Physicians generally caution against considering Luxturna without confirmed BIALLELIC RPE65 mutations on accredited genetic testing.",
     "Literature does not support offering sepofarsen as a treatment option — the ILLUMINATE phase 2/3 failed in 2022 and the program is discontinued.",
@@ -397,28 +336,6 @@
       "status": "ILLUMINATE phase 2/3 FAILED primary endpoint February 2022; program DISCONTINUED",
       "approvalStatus": "discontinued",
       "whyItMatters": "Notable failed program. Must be addressed as discontinued for families still asking."
-    },
-    {
-      "name": "ATSN-101 (AT-GTR)",
-      "aliases": [
-        "Atsena GUCY2D gene therapy"
-      ],
-      "mechanism": "Subretinal AAV delivery of GUCY2D cDNA for LCA1",
-      "sponsor": "Atsena Therapeutics",
-      "status": "Phase 1/2 positive 2024; phase 3 planned",
-      "approvalStatus": "investigational",
-      "whyItMatters": "Most advanced remaining LCA gene-therapy program (other than already-approved Luxturna). LCA1 is the most common LCA subtype (~20%)."
-    },
-    {
-      "name": "OPGx-LCA5 (Opus Genetics LCA5 gene therapy)",
-      "aliases": [
-        "lebercilin gene therapy"
-      ],
-      "mechanism": "AAV-based gene therapy for LCA5 (lebercilin)",
-      "sponsor": "Opus Genetics",
-      "status": "Phase 1/2 ongoing; interim data reported 2024",
-      "approvalStatus": "investigational",
-      "whyItMatters": "Subtype-specific emerging LCA gene therapy; Opus Genetics also develops BEST1, MERTK, RDH12 programs."
     },
     {
       "name": "jCell (human retinal progenitor cells)",
@@ -476,5 +393,7 @@
       "reason": "Editas Medicine discontinued commercial development November 2022. Trial assets transitioned but no commercial product is anticipated.",
       "evidenceRef": "lca-editas-brilliance-update-2022"
     }
-  ]
+  ],
+  "failedTreatments": [],
+  "references": []
 }

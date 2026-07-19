@@ -11,7 +11,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Tirzepatide",
     "Semaglutide",
@@ -34,10 +34,10 @@
       "year": "2019",
       "doi": "10.1001/jama.2019.3805",
       "pmid": "31009043",
-      "url": "https://doi.org/10.1001/jama.2019.3805",
       "accessLevel": "abstract",
       "summary": "Metformin is the first-line pharmacologic treatment for type 2 diabetes and the most commonly prescribed drug for this condition worldwide.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://jamanetwork.com/article.aspx?doi=10.1001%2Fjama.2019.3805"
     },
     {
       "id": "type-2-diabetes-2",
@@ -342,12 +342,6 @@
       ]
     },
     {
-      "claim": "Type 2 diabetes affects 90-95% of all diabetic patients",
-      "evidenceRefs": [
-        "type-2-diabetes-9"
-      ]
-    },
-    {
       "claim": "GLP-1 receptor agonists are effective for glycemic control and weight loss in type 2 diabetes",
       "evidenceRefs": [
         "type-2-diabetes-3",
@@ -359,12 +353,6 @@
       "evidenceRefs": [
         "type-2-diabetes-5"
       ]
-    },
-    {
-      "claim": "Young-onset type 2 diabetes has more rapid β-cell deterioration and higher complication risk",
-      "evidenceRefs": [
-        "type-2-diabetes-10"
-      ]
     }
   ],
   "lifestyleRecommendations": [
@@ -372,12 +360,6 @@
       "recommendation": "Weight management intervention for diabetes remission",
       "evidenceRefs": [
         "type-2-diabetes-5"
-      ]
-    },
-    {
-      "recommendation": "Lifestyle modifications are essential as mono-target drug therapy often fails",
-      "evidenceRefs": [
-        "type-2-diabetes-9"
       ]
     }
   ],

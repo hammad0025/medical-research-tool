@@ -291,40 +291,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Coronary artery disease is the leading global cause of mortality",
-      "evidenceRefs": [
-        "coronary-artery-disease-9"
-      ]
-    },
-    {
-      "claim": "Inflammatory activation and endothelial dysfunction are key events in atherosclerosis development",
-      "evidenceRefs": [
-        "coronary-artery-disease-7"
-      ]
-    },
-    {
-      "claim": "Approximately 60 genetic loci have been linked to coronary risk through common variant association studies",
-      "evidenceRefs": [
-        "coronary-artery-disease-9"
-      ]
-    },
-    {
-      "claim": "Percutaneous coronary intervention in stable angina primarily aims for symptom relief rather than mortality benefit",
-      "evidenceRefs": [
-        "coronary-artery-disease-3"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Secondary prevention measures including effective control of risk factors and concomitant diseases",
-      "evidenceRefs": [
-        "coronary-artery-disease-8"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Morphine administration can delay onset of action of orally administered ticagrelor in STEMI patients",
     "Patients with premature coronary artery disease have increasing mortality trends, particularly in rural women"

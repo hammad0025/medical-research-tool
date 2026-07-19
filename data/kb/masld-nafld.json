@@ -13,7 +13,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Semaglutide",
     "Empagliflozin",
@@ -59,10 +59,10 @@
       "year": "2024",
       "doi": "10.1016/j.jhep.2024.04.031",
       "pmid": "38851997",
-      "url": "https://doi.org/10.1016/j.jhep.2024.04.031",
       "accessLevel": "abstract",
       "summary": "Joint EASL-EASD-EASO clinical practice guidelines on management of MASLD providing updated definitions, prevention, screening, diagnosis and treatment recommendations.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S0168827824003295"
     },
     {
       "id": "masld-nafld-3",
@@ -217,10 +217,10 @@
       "year": "2025",
       "doi": "10.2337/dci24-0094",
       "pmid": "40434108",
-      "url": "https://doi.org/10.2337/dci24-0094",
       "accessLevel": "abstract",
       "summary": "American Diabetes Association consensus report on MASLD screening and intervention needs in people with diabetes.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://diabetesjournals.org/care/article/48/7/1057/160536/Metabolic-Dysfunction-Associated-Steatotic-Liver"
     },
     {
       "id": "masld-nafld-10",
@@ -371,60 +371,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "MASLD affects approximately 30-40% of the general adult population globally and is the most common chronic liver disease worldwide",
-      "evidenceRefs": [
-        "masld-nafld-1",
-        "masld-nafld-8"
-      ]
-    },
-    {
-      "claim": "MASLD encompasses a spectrum from isolated steatosis to MASH, fibrosis, cirrhosis, and hepatocellular carcinoma",
-      "evidenceRefs": [
-        "masld-nafld-1",
-        "masld-nafld-2",
-        "masld-nafld-10"
-      ]
-    },
-    {
-      "claim": "MASLD is associated with increased morbidity and mortality from liver-related complications, cardiovascular disease, and certain cancers",
-      "evidenceRefs": [
-        "masld-nafld-1",
-        "masld-nafld-13"
-      ]
-    },
-    {
-      "claim": "MASLD is defined as steatotic liver disease in the presence of one or more cardiometabolic risk factors and absence of harmful alcohol intake",
-      "evidenceRefs": [
-        "masld-nafld-2",
-        "masld-nafld-14"
-      ]
-    },
-    {
-      "claim": "Liver biopsy remains the gold standard for diagnosing and staging MASH and fibrosis",
-      "evidenceRefs": [
-        "masld-nafld-8",
-        "masld-nafld-15"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Weight loss and lifestyle modifications are first-line interventions for MASLD management",
-      "evidenceRefs": [
-        "masld-nafld-2",
-        "masld-nafld-14"
-      ]
-    },
-    {
-      "recommendation": "Case-finding strategies should focus on identifying MASLD with liver fibrosis in high-risk populations",
-      "evidenceRefs": [
-        "masld-nafld-2",
-        "masld-nafld-14"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "MASLD increases risk of hepatocellular carcinoma and liver-related mortality",
     "10% of children with MASLD present with advanced fibrosis",

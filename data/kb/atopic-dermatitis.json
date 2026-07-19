@@ -9,7 +9,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "rocatinlimab",
     "NuGel",
@@ -159,10 +159,10 @@
       "year": "2024",
       "doi": "10.1093/bjd/ljae344",
       "pmid": "39236226",
-      "url": "https://doi.org/10.1093/bjd/ljae344",
       "accessLevel": "abstract",
       "summary": "Expert consensus on managing dupilumab-related ocular surface disorders in atopic dermatitis patients from British Association of Dermatologists and Royal College of Ophthalmologists.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://academic.oup.com/bjd/article/191/6/865/7749949"
     },
     {
       "id": "atopic-dermatitis-8",
@@ -387,53 +387,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Atopic dermatitis affects approximately 10% of adults and 20% of children globally",
-      "evidenceRefs": [
-        "atopic-dermatitis-11"
-      ]
-    },
-    {
-      "claim": "Dupilumab has dramatically improved outcomes for adults with severe atopic dermatitis since becoming available in 2016",
-      "evidenceRefs": [
-        "atopic-dermatitis-2"
-      ]
-    },
-    {
-      "claim": "Atopic dermatitis is caused by complex interaction of immune dysregulation, epidermal gene mutations, and environmental factors disrupting the epidermis",
-      "evidenceRefs": [
-        "atopic-dermatitis-3"
-      ]
-    },
-    {
-      "claim": "Different phenotypes of atopic dermatitis are defined by patient age at onset, race, ethnic background, disease duration, and other characteristics",
-      "evidenceRefs": [
-        "atopic-dermatitis-4"
-      ]
-    },
-    {
-      "claim": "Dupilumab treatment is associated with increased frequency of ocular adverse effects in clinical practice",
-      "evidenceRefs": [
-        "atopic-dermatitis-7"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Liberal use of emollients as maintenance therapy",
-      "evidenceRefs": [
-        "atopic-dermatitis-3"
-      ]
-    },
-    {
-      "recommendation": "Avoid environmental triggers that disrupt the epidermal barrier",
-      "evidenceRefs": [
-        "atopic-dermatitis-3",
-        "atopic-dermatitis-6"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "JAK inhibitors carry FDA boxed warning for cardiovascular events and venous thromboembolism",
     "Dupilumab may cause unpredictable ocular adverse effects requiring ophthalmologic monitoring"

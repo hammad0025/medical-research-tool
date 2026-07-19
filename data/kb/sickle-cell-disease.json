@@ -378,61 +378,7 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Sickle cell disease is one of the most common severe monogenic disorders worldwide, affecting millions of people globally",
-      "evidenceRefs": [
-        "sickle-cell-disease-1",
-        "sickle-cell-disease-2"
-      ]
-    },
-    {
-      "claim": "The pathophysiology involves sickle hemoglobin polymerization leading to erythrocyte rigidity, vaso-occlusion, chronic anemia, hemolysis, and vasculopathy",
-      "evidenceRefs": [
-        "sickle-cell-disease-1",
-        "sickle-cell-disease-2",
-        "sickle-cell-disease-4"
-      ]
-    },
-    {
-      "claim": "Hydroxyurea, L-glutamine, crizanlizumab, and voxelotor have been approved by the FDA for reducing frequency of vaso-occlusive crises",
-      "evidenceRefs": [
-        "sickle-cell-disease-4"
-      ]
-    },
-    {
-      "claim": "The European Medicines Agency has approved only hydroxyurea for sickle cell disease",
-      "evidenceRefs": [
-        "sickle-cell-disease-4"
-      ]
-    },
-    {
-      "claim": "Clinical management remains basic with few treatments having a robust evidence base",
-      "evidenceRefs": [
-        "sickle-cell-disease-1"
-      ]
-    },
-    {
-      "claim": "Cerebrovascular disease and cognitive impairment are major complications in children with sickle cell disease",
-      "evidenceRefs": [
-        "sickle-cell-disease-1",
-        "sickle-cell-disease-16",
-        "sickle-cell-disease-17"
-      ]
-    },
-    {
-      "claim": "Blood transfusion and hydroxycarbamide play important roles in prevention of cerebrovascular complications",
-      "evidenceRefs": [
-        "sickle-cell-disease-1"
-      ]
-    },
-    {
-      "claim": "Neurologic complications include silent cerebral ischemia, ischemic/hemorrhagic stroke, moyamoya syndrome, and posterior reversible encephalopathy syndrome",
-      "evidenceRefs": [
-        "sickle-cell-disease-17"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
   "lifestyleRecommendations": [],
   "redFlags": [
     "Acute chest syndrome requires immediate medical attention",

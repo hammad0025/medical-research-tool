@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Tirzepatide",
     "Solriamfetol",
@@ -21,29 +21,6 @@
     "Soft tissue lubricant"
   ],
   "items": [
-    {
-      "id": "obstructive-sleep-apnea-1",
-      "category": "clinical-guideline",
-      "tier": "A+",
-      "title": "Clinical Practice Guideline for the Treatment of Obstructive Sleep Apnea and Snoring with Oral Appliance Therapy: An Update for 2015.",
-      "authors": [
-        "Ramar K",
-        "Dort LC",
-        "Katz SG",
-        "Lettieri CJ",
-        "Harrod CG",
-        "Thomas SM",
-        "Chervin RD"
-      ],
-      "journal": "Journal of clinical sleep medicine : JCSM : official publication of the American Academy of Sleep Medicine",
-      "year": "2015",
-      "doi": "10.5664/jcsm.4858",
-      "pmid": "26094920",
-      "url": "https://doi.org/10.5664/jcsm.4858",
-      "accessLevel": "abstract",
-      "summary": "AASM/AADSM clinical practice guideline for oral appliance therapy in OSA treatment, providing evidence-based recommendations for mandibular advancement devices.",
-      "keyPassages": []
-    },
     {
       "id": "obstructive-sleep-apnea-2",
       "category": "review",
@@ -444,43 +421,16 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "OSA is characterized by recurrent upper airway collapse during sleep leading to intermittent hypoxia, sleep fragmentation, and cardiovascular consequences",
-      "evidenceRefs": [
-        "obstructive-sleep-apnea-10",
-        "obstructive-sleep-apnea-11",
-        "obstructive-sleep-apnea-12",
-        "obstructive-sleep-apnea-2"
-      ]
-    },
-    {
-      "claim": "OSA is associated with increased risk of cardiovascular morbidity, mortality, stroke, and systemic hypertension",
-      "evidenceRefs": [
-        "obstructive-sleep-apnea-10",
-        "obstructive-sleep-apnea-13",
-        "obstructive-sleep-apnea-7",
-        "obstructive-sleep-apnea-14"
-      ]
-    },
-    {
       "claim": "Positive airway pressure therapy is the primary treatment for OSA",
       "evidenceRefs": [
         "obstructive-sleep-apnea-3",
-        "obstructive-sleep-apnea-1",
         "obstructive-sleep-apnea-2"
       ]
     },
     {
       "claim": "Oral appliance therapy with mandibular advancement devices is an effective alternative treatment for OSA",
       "evidenceRefs": [
-        "obstructive-sleep-apnea-15",
-        "obstructive-sleep-apnea-1"
-      ]
-    },
-    {
-      "claim": "OSA prevalence is increasing worldwide due to the obesity epidemic",
-      "evidenceRefs": [
-        "obstructive-sleep-apnea-11",
-        "obstructive-sleep-apnea-14"
+        "obstructive-sleep-apnea-15"
       ]
     },
     {
@@ -491,19 +441,6 @@
     }
   ],
   "lifestyleRecommendations": [
-    {
-      "recommendation": "Weight reduction for obese patients with OSA",
-      "evidenceRefs": [
-        "obstructive-sleep-apnea-16",
-        "obstructive-sleep-apnea-2"
-      ]
-    },
-    {
-      "recommendation": "Avoid smoking as it is a risk factor for OSA",
-      "evidenceRefs": [
-        "obstructive-sleep-apnea-2"
-      ]
-    },
     {
       "recommendation": "Consider positional therapy for patients with positional sleep apnea",
       "evidenceRefs": [
@@ -566,5 +503,7 @@
       "reason": "While showing some improvement in arousal index, the randomized controlled trial did not demonstrate clinically significant improvement in overall OSA severity",
       "evidenceRef": "obstructive-sleep-apnea-20"
     }
-  ]
+  ],
+  "failedTreatments": [],
+  "references": []
 }

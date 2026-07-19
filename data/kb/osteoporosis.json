@@ -9,7 +9,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "romosozumab",
     "abaloparatide",
@@ -118,10 +118,10 @@
       "year": "2021",
       "doi": "10.1097/GME.0000000000001831",
       "pmid": "34448749",
-      "url": "https://doi.org/10.1097/GME.0000000000001831",
       "accessLevel": "abstract",
       "summary": "2021 North American Menopause Society position statement providing evidence-based recommendations for osteoporosis screening, prevention, diagnosis, and management in postmenopausal women.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://journals.lww.com/10.1097/GME.0000000000001831"
     },
     {
       "id": "osteoporosis-6",
@@ -298,57 +298,13 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Osteoporosis affects 10.2% of adults older than 50 years and is expected to increase to 13.6% by 2030",
-      "evidenceRefs": [
-        "osteoporosis-6"
-      ]
-    },
-    {
-      "claim": "Up to 30% of postmenopausal women, >50% of premenopausal women, and 50-80% of men have secondary osteoporosis",
-      "evidenceRefs": [
-        "osteoporosis-9"
-      ]
-    },
-    {
-      "claim": "Screening with dual energy x-ray absorptiometry should be considered for all women 65 years and older or postmenopausal women with clinical risk factors",
-      "evidenceRefs": [
-        "osteoporosis-6"
-      ]
-    },
-    {
       "claim": "Bisphosphonates, denosumab, selective estrogen receptor modulators, and bone anabolic agents effectively reduce fracture risk in postmenopausal women",
       "evidenceRefs": [
         "osteoporosis-1"
       ]
-    },
-    {
-      "claim": "Denosumab discontinuation increases bone turnover markers and decreases bone mineral density to baseline levels by 12 months",
-      "evidenceRefs": [
-        "osteoporosis-3"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Adequate calcium and vitamin D supplementation as part of comprehensive osteoporosis management",
-      "evidenceRefs": [
-        "osteoporosis-11",
-        "osteoporosis-5"
-      ]
-    },
-    {
-      "recommendation": "Structured physical therapy and exercise programs to support bone health",
-      "evidenceRefs": [
-        "osteoporosis-11"
-      ]
-    },
-    {
-      "recommendation": "Assessment and modification of modifiable risk factors including smoking cessation",
-      "evidenceRefs": [
-        "osteoporosis-12"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Denosumab discontinuation can cause rebound vertebral fractures, including multiple fractures",
     "Medication-related osteonecrosis of the jaw is a severe adverse reaction to bisphosphonates and denosumab",

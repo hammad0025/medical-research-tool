@@ -23,7 +23,7 @@
   ],
   "version": "2026-04a",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-23",
+  "lastUpdated": "2026-07-19",
   "editorialNote": "Focused KB for bipolar disorder. Lithium remains the gold standard for long-term maintenance and is the single intervention with the best mortality (including suicide) evidence. Modern second-generation antipsychotics have FDA approvals across specific phases: quetiapine (mania/depression/maintenance), lurasidone (bipolar depression), cariprazine (mania/depression), lumateperone (bipolar depression, 2021), olanzapine/samidorphan (mania). Lamotrigine is used for maintenance preferentially preventing depressive relapse. Valproate is effective for mania but TERATOGENIC — should not be first-line in women of reproductive potential. Current psychedelic/ketamine hype is mostly MDD-focused; bipolar patients are typically excluded. Any bipolar output that fails to discuss lithium's unique mortality/suicide-prevention benefit or that recommends SSRI monotherapy for bipolar depression is out of date.",
   "subspecialty": "Psychiatry / Mood Disorders",
   "icd10": "F31.9",
@@ -217,18 +217,6 @@
   ],
   "items": [
     {
-      "id": "bd-apa-guideline-2002",
-      "category": "clinical-guideline",
-      "tier": "A",
-      "title": "Practice Guideline for the Treatment of Patients With Bipolar Disorder (Second Edition)",
-      "authors": "American Psychiatric Association Work Group on Bipolar Disorder",
-      "journal": "American Journal of Psychiatry",
-      "year": 2002,
-      "accessLevel": "abstract",
-      "summary": "APA guideline for bipolar disorder (2002 edition; last revision guideline watch 2005). Older but still widely cited; subsequent US-specific guideline updates have been limited. Modern practice is more heavily shaped by CANMAT 2018 (Canadian) and NICE 2014 (UK).",
-      "keyPassages": []
-    },
-    {
       "id": "bd-canmat-2018",
       "category": "clinical-guideline",
       "tier": "A+",
@@ -305,8 +293,8 @@
       "title": "CAPLYTA (lumateperone) bipolar depression label expansion — US FDA",
       "authors": "Intra-Cellular Therapies",
       "journal": "US FDA",
-      "year": 2021,
-      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Caplyta",
+      "year": 2026,
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=db730b06-6351-47fd-8183-e61e61bbead5",
       "accessLevel": "full-text",
       "summary": "December 2021 — Caplyta (lumateperone) received FDA approval for bipolar I and bipolar II depression as monotherapy AND as adjunct to lithium or valproate. Favorable metabolic profile. Based on Calabrese 2021 registrational trials.",
       "keyPassages": [
@@ -314,7 +302,12 @@
           "topic": "indication",
           "quote": "CAPLYTA is indicated for the treatment of depressive episodes associated with bipolar I or II disorder (bipolar depression) in adults, as monotherapy and as adjunctive therapy with lithium or valproate."
         }
-      ]
+      ],
+      "canonicalUrl": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=db730b06-6351-47fd-8183-e61e61bbead5",
+      "publicationDate": "2026-06-01",
+      "effectiveDate": "2025-06-20",
+      "splSetId": "db730b06-6351-47fd-8183-e61e61bbead5",
+      "splVersion": 27
     },
     {
       "id": "bd-lurasidone-loebel-2014",
@@ -325,8 +318,8 @@
       "journal": "American Journal of Psychiatry",
       "year": 2014,
       "doi": "10.1176/appi.ajp.2013.13070984",
-      "pmid": "24170102",
-      "url": "https://pubmed.ncbi.nlm.nih.gov/24170102/",
+      "pmid": "24170180",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24170180/",
       "accessLevel": "abstract",
       "summary": "6-week phase 3 RCT of lurasidone monotherapy (20-60 or 80-120 mg) vs placebo in 505 BD-I depression patients. Both lurasidone groups significantly reduced MADRS vs placebo. Low rates of weight gain and metabolic adverse effects. Basis for FDA indication in bipolar depression (2013). Together with quetiapine, lurasidone is a first-line bipolar depression therapy.",
       "keyPassages": []
@@ -346,61 +339,9 @@
       "evidenceRefs": [
         "bd-fda-label-caplyta-bipolar-2021"
       ]
-    },
-    {
-      "claim": "Lurasidone (Latuda) and quetiapine have the strongest first-line evidence for bipolar depression with favorable metabolic profile (lurasidone).",
-      "evidenceRefs": [
-        "bd-lurasidone-loebel-2014",
-        "bd-canmat-2018"
-      ]
-    },
-    {
-      "claim": "Antidepressant monotherapy (especially SSRIs) is NOT recommended in bipolar depression — risk of switch to mania and mixed features.",
-      "evidenceRefs": [
-        "bd-canmat-2018"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Prioritize medication adherence — long-acting injectable options (aripiprazole LAI, risperidone LAI) are underused in bipolar.",
-      "evidenceRefs": [
-        "bd-canmat-2018"
-      ]
-    },
-    {
-      "recommendation": "Sleep stabilization — sleep deprivation is a documented trigger for mania. Consider Interpersonal and Social Rhythm Therapy (IPSRT).",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Alcohol/cannabis/stimulant cessation — comorbid substance use worsens course dramatically.",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Family-focused therapy for adolescent / young-adult onset (Miklowitz).",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Lithium monitoring: TSH + renal function + lithium level every 6-12 months; calcium periodically (hyperparathyroidism).",
-      "evidenceRefs": [
-        "bd-canmat-2018"
-      ]
-    },
-    {
-      "recommendation": "Suicide-risk assessment at every visit; lethal-means counseling (firearm + medication access).",
-      "evidenceRefs": [
-        "bd-cipriani-lithium-suicide-2013"
-      ]
-    },
-    {
-      "recommendation": "Reproductive counseling — avoid valproate in women of reproductive potential; discuss lithium risks (cardiac anomalies) vs risk of untreated bipolar in pregnancy.",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Metabolic monitoring if on SGAs — weight, fasting glucose or HbA1c, lipids, BP at baseline and yearly.",
-      "evidenceRefs": []
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Physicians generally caution against prescribing SSRI antidepressant monotherapy for bipolar depression — precipitates mania and mixed states. If antidepressant is used, always pair with a mood stabilizer.",
     "Physicians generally caution against prescribing valproate to women of reproductive potential without comprehensive reproductive-risk counseling and contraception plan — highest teratogenic risk among psychotropics.",
@@ -582,5 +523,7 @@
       "reason": "Risk of switch to mania, induction of mixed states, and acceleration of cycling. If an antidepressant is used, it must be paired with a mood stabilizer — and many guidelines recommend against antidepressants in bipolar depression entirely.",
       "evidenceRef": "bd-canmat-2018"
     }
-  ]
+  ],
+  "failedTreatments": [],
+  "references": []
 }

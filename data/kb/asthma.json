@@ -348,22 +348,9 @@
       "evidenceRefs": [
         "asthma-8"
       ]
-    },
-    {
-      "claim": "Allergen immunotherapy has disease-modifying properties unlike conventional pharmacotherapy or biologics",
-      "evidenceRefs": [
-        "asthma-10"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Reduce exposure to household pests, pollutants, and tobacco smoke, particularly in inner-city environments",
-      "evidenceRefs": [
-        "asthma-8"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Leukotriene receptor antagonists may unmask Churg-Strauss syndrome as oral glucocorticoids are withdrawn",
     "Mechanical ventilation in severe asthma requires strategies to avoid ventilator-related complications and excessive hyperinflation"

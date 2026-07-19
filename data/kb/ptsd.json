@@ -9,7 +9,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "MDMA",
     "Losartan",
@@ -197,10 +197,10 @@
       "year": "2023",
       "doi": "10.1016/j.mcna.2022.04.003",
       "pmid": "36402502",
-      "url": "https://doi.org/10.1016/j.mcna.2022.04.003",
       "accessLevel": "abstract",
       "summary": "Comprehensive clinical review of PTSD assessment, evidence-based psychotherapies, and pharmacological treatments.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S0025712522000530"
     },
     {
       "id": "ptsd-9",
@@ -263,46 +263,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Evidence-based psychotherapies including cognitive processing therapy, prolonged exposure, and EMDR are first-line treatments for PTSD",
-      "evidenceRefs": [
-        "ptsd-8"
-      ]
-    },
-    {
-      "claim": "Serotonin reuptake inhibitors are established pharmacological treatments for PTSD",
-      "evidenceRefs": [
-        "ptsd-8"
-      ]
-    },
-    {
-      "claim": "PTSD is characterized by re-experiencing, avoidance, negative alterations in cognition and mood, and marked alterations in arousal and reactivity",
-      "evidenceRefs": [
-        "ptsd-8"
-      ]
-    },
-    {
-      "claim": "Insomnia is among the most reported sleep disturbances in PTSD patients and is associated with reduced quality of life and impaired functioning",
-      "evidenceRefs": [
-        "ptsd-10"
-      ]
-    },
-    {
-      "claim": "PTSD can be assessed by structured interviews and screening measures in both psychiatric and nonpsychiatric settings",
-      "evidenceRefs": [
-        "ptsd-8"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Physical activity may help prevent and manage anxiety disorders based on epidemiological data and systematic reviews",
-      "evidenceRefs": [
-        "ptsd-11"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Antidepressant discontinuation can cause withdrawal symptoms",
     "Sexual side effects of antidepressants are common and may persist after discontinuation"

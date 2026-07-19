@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Palmitoylethanolamide (Levagen+)",
     "Acupuncture",
@@ -188,10 +188,10 @@
       "year": "2024",
       "doi": "10.1016/j.jaip.2024.03.023",
       "pmid": "38851250",
-      "url": "https://doi.org/10.1016/j.jaip.2024.03.023",
       "accessLevel": "abstract",
       "summary": "Current management guidelines for allergic rhinitis including pharmacological treatments, nonpharmacological options, and allergen immunotherapy.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://linkinghub.elsevier.com/retrieve/pii/S2213219824002848"
     },
     {
       "id": "allergic-rhinitis-9",
@@ -237,50 +237,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "Allergic rhinitis prevalence is estimated at 10-40% globally and represents one of the most common chronic diseases",
-      "evidenceRefs": [
-        "allergic-rhinitis-8",
-        "allergic-rhinitis-9"
-      ]
-    },
-    {
-      "claim": "Allergic rhinitis is caused by specific IgE antibody responses to indoor and outdoor environmental allergens",
-      "evidenceRefs": [
-        "allergic-rhinitis-9",
-        "allergic-rhinitis-10"
-      ]
-    },
-    {
-      "claim": "Allergic rhinitis and asthma frequently coexist and share numerous pathogenetic and pathophysiological mechanisms",
-      "evidenceRefs": [
-        "allergic-rhinitis-10"
-      ]
-    },
-    {
-      "claim": "Key outcome measures for allergic rhinitis treatment include symptom control, rescue medication requirements, and quality-of-life measures",
-      "evidenceRefs": [
-        "allergic-rhinitis-9"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Environmental control and allergen avoidance as part of comprehensive management",
-      "evidenceRefs": [
-        "allergic-rhinitis-7",
-        "allergic-rhinitis-8"
-      ]
-    },
-    {
-      "recommendation": "Personalized treatment approaches based on individual patient characteristics and allergen exposure patterns",
-      "evidenceRefs": [
-        "allergic-rhinitis-7",
-        "allergic-rhinitis-9"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Monitor for comorbid asthma development in allergic rhinitis patients",
     "Consider comprehensive evaluation for indoor and outdoor allergen sensitivities"

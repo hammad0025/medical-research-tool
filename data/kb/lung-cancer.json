@@ -363,35 +363,9 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Lung cancer remains the leading cause of cancer mortality worldwide",
-      "evidenceRefs": [
-        "lung-cancer-9",
-        "lung-cancer-8",
-        "lung-cancer-4"
-      ]
-    },
-    {
-      "claim": "About 90% of lung cancer cases are caused by smoking and tobacco use",
-      "evidenceRefs": [
-        "lung-cancer-4"
-      ]
-    },
-    {
-      "claim": "Lung cancer is divided into small-cell lung carcinomas (SCLCs) and non-small cell lung carcinomas (NSCLCs)",
-      "evidenceRefs": [
-        "lung-cancer-4"
-      ]
-    },
-    {
       "claim": "Targeted therapies and immunotherapies have radically improved treatment for advanced NSCLC",
       "evidenceRefs": [
         "lung-cancer-1"
-      ]
-    },
-    {
-      "claim": "Actionable genomic alterations are mostly found in lung adenocarcinomas",
-      "evidenceRefs": [
-        "lung-cancer-2"
       ]
     },
     {
@@ -402,20 +376,7 @@
       ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Avoid smoking and tobacco products as they cause about 90% of lung cancer cases",
-      "evidenceRefs": [
-        "lung-cancer-4"
-      ]
-    },
-    {
-      "recommendation": "Minimize exposure to radon gas, asbestos, and air pollution which can contribute to lung carcinogenesis",
-      "evidenceRefs": [
-        "lung-cancer-4"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Lung cancer often presents at advanced stages with poor prognosis",
     "Drug resistance frequently develops with targeted therapies",

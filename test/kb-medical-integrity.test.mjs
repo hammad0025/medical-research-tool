@@ -3,6 +3,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { loadKb } from '../lib/kb.js';
+import { kbFactGroundingStatus } from '../lib/kb-fact-gate.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KB_DIR = path.join(ROOT, 'data', 'kb');
@@ -27,6 +29,48 @@ const evidenceRefs = (record) => [
   record?.evidenceRef,
   ...(Array.isArray(record?.evidenceRefs) ? record.evidenceRefs : [])
 ].filter(Boolean);
+
+test('quarantined KB evidence never reaches reader-facing load results', async () => {
+  const result = await loadKb('Idiopathic pulmonary fibrosis');
+  assert.equal(result.matched, true);
+  const ids = new Set(result.items.map((item) => item.id));
+  for (const id of [
+    'ipf-vaccine-advisory',
+    'ipf-ptx3-2021',
+    'ipf-stemcells-review-2020'
+  ]) {
+    assert.equal(ids.has(id), false, `${id} escaped quarantine`);
+    for (const record of [
+      ...(result.meta.canonicalFacts || []),
+      ...(result.meta.lifestyleRecommendations || [])
+    ]) {
+      assert.equal(evidenceRefs(record).includes(id), false, `${id} still grounds ${record.claim || record.recommendation}`);
+    }
+  }
+});
+
+test('arbitrary demo conditions expose only source-grounded canonical guidance', async () => {
+  for (const condition of [
+    'Huntington disease',
+    'Sickle cell disease',
+    'Breast cancer'
+  ]) {
+    const result = await loadKb(condition);
+    assert.equal(result.matched, true, `${condition} did not resolve`);
+    const itemsById = new Map(result.items.map((item) => [item.id, item]));
+    const records = [
+      ...(result.meta.canonicalFacts || []),
+      ...(result.meta.lifestyleRecommendations || [])
+    ];
+    for (const record of records) {
+      assert.equal(
+        kbFactGroundingStatus(record, itemsById).grounded,
+        true,
+        `${condition} exposed unsupported text: ${record.claim || record.recommendation}`
+      );
+    }
+  }
+});
 
 test('all KB canonical facts are substantive and locally evidence-linked', async () => {
   for (const { file, kb } of await loadKbs()) {

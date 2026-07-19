@@ -233,24 +233,6 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "BPH is characterized by disorders of urine storage and bladder emptying, affecting most men over age 60 to some degree",
-      "evidenceRefs": [
-        "benign-prostatic-hyperplasia-3"
-      ]
-    },
-    {
-      "claim": "Transurethral resection of the prostate (TURP) has long been considered the gold standard for operative BPH treatment",
-      "evidenceRefs": [
-        "benign-prostatic-hyperplasia-3"
-      ]
-    },
-    {
-      "claim": "Medical management typically starts with tamsulosin and progresses to combination therapy based on patient response",
-      "evidenceRefs": [
-        "benign-prostatic-hyperplasia-4"
-      ]
-    },
-    {
       "claim": "Minimally invasive treatments like PAE, TUNA, TUMT, HIFU, and laser treatments are valid alternatives to surgery for BPH",
       "evidenceRefs": [
         "benign-prostatic-hyperplasia-5"

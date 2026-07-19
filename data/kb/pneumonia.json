@@ -10,7 +10,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Ceftaroline fosamil",
     "Intrapleural streptokinase"
@@ -57,10 +57,10 @@
       "year": "2026",
       "doi": "10.1164/rccm.202507-1692ST",
       "pmid": "40679934",
-      "url": "https://doi.org/10.1164/rccm.202507-1692ST",
       "accessLevel": "abstract",
       "summary": "Official 2026 American Thoracic Society clinical practice guideline for diagnosis and management of community-acquired pneumonia in adults.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://academic.oup.com/ajrccm/advance-article/doi/10.1164/rccm.202507-1692ST/8435770"
     },
     {
       "id": "pneumonia-3",
@@ -374,24 +374,6 @@
       "evidenceRefs": [
         "pneumonia-7",
         "pneumonia-13"
-      ]
-    },
-    {
-      "claim": "Empirical antibiotic selection is the cornerstone of management for patients with pneumonia",
-      "evidenceRefs": [
-        "pneumonia-14"
-      ]
-    },
-    {
-      "claim": "Current guidelines recommend 5-7 days of antibiotic treatment for adults with community-acquired pneumonia",
-      "evidenceRefs": [
-        "pneumonia-13"
-      ]
-    },
-    {
-      "claim": "Nucleic acid amplification tests and point-of-care lung ultrasound allow for rapid pathogen detection and personalized treatment",
-      "evidenceRefs": [
-        "pneumonia-1"
       ]
     }
   ],

@@ -9,7 +9,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "febuxostat",
     "DKB114"
@@ -19,20 +19,18 @@
       "id": "gout-1",
       "category": "clinical-guideline",
       "tier": "A+",
-      "title": "Diagnosis, treatment, and prevention of gout.",
-      "authors": [
-        "Hainer BL",
-        "Matheson E",
-        "Wilkes RT"
-      ],
-      "journal": "American family physician",
-      "year": "2014",
-      "doi": "",
-      "pmid": "25591183",
-      "url": "https://pubmed.ncbi.nlm.nih.gov/25591183/",
-      "accessLevel": "abstract",
-      "summary": "Comprehensive clinical guideline covering diagnosis, treatment, and prevention of gout including acute management and urate-lowering therapy.",
-      "keyPassages": []
+      "title": "2020 American College of Rheumatology Guideline for the Management of Gout",
+      "authors": "FitzGerald JD, Dalbeth N, Mikuls T, et al.",
+      "journal": "American College of Rheumatology",
+      "year": 2020,
+      "doi": "10.1002/acr.24180",
+      "pmid": "32391934",
+      "accessLevel": "full-text",
+      "summary": "Current ACR guideline covering urate-lowering therapy, gout-flare treatment, treat-to-target serum urate management, and lifestyle recommendations.",
+      "keyPassages": [],
+      "canonicalUrl": "https://rheumatology.org/gout-guideline",
+      "publicationDate": "2020-05-11",
+      "guidanceVersion": "2020 ACR Guideline for the Management of Gout"
     },
     {
       "id": "gout-2",
@@ -279,30 +277,9 @@
   ],
   "canonicalFacts": [
     {
-      "claim": "Gout is caused by monosodium urate crystal deposition in joints and tissues",
-      "evidenceRefs": [
-        "gout-5",
-        "gout-1"
-      ]
-    },
-    {
-      "claim": "Risk factors include male sex, obesity, hypertension, alcohol intake, diuretic use, diet rich in meat and seafood, and chronic kidney disease",
-      "evidenceRefs": [
-        "gout-5",
-        "gout-6"
-      ]
-    },
-    {
       "claim": "Acute gout inflammation is mediated by NLRP3 inflammasome activation leading to IL-1β release",
       "evidenceRefs": [
         "gout-2"
-      ]
-    },
-    {
-      "claim": "Diagnosis can be confirmed by identification of monosodium urate crystals in synovial fluid",
-      "evidenceRefs": [
-        "gout-5",
-        "gout-1"
       ]
     },
     {
@@ -310,51 +287,9 @@
       "evidenceRefs": [
         "gout-7"
       ]
-    },
-    {
-      "claim": "Patients with gout have increased risk of cardiovascular disease and all-cause mortality",
-      "evidenceRefs": [
-        "gout-6"
-      ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Limit consumption of purine-rich foods including organ meats and shellfish",
-      "evidenceRefs": [
-        "gout-1",
-        "gout-8"
-      ]
-    },
-    {
-      "recommendation": "Reduce alcohol consumption, particularly beer and spirits",
-      "evidenceRefs": [
-        "gout-6",
-        "gout-8"
-      ]
-    },
-    {
-      "recommendation": "Maintain healthy weight and address obesity",
-      "evidenceRefs": [
-        "gout-5",
-        "gout-6",
-        "gout-8"
-      ]
-    },
-    {
-      "recommendation": "Limit fructose-rich foods and beverages",
-      "evidenceRefs": [
-        "gout-5",
-        "gout-6"
-      ]
-    },
-    {
-      "recommendation": "Follow dietary approaches that address cardiometabolic comorbidities holistically",
-      "evidenceRefs": [
-        "gout-8"
-      ]
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Febuxostat may increase cardiovascular mortality compared to allopurinol in patients with cardiovascular disease",
     "Less than 25% of gout patients with chronic kidney disease achieve target serum urate levels",

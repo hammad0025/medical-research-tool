@@ -12,7 +12,7 @@
   ],
   "version": "2026-04a",
   "curatedBy": "Syed Hammad Haque",
-  "lastUpdated": "2026-04-23",
+  "lastUpdated": "2026-07-19",
   "editorialNote": "Focused KB for Alzheimer disease. The modern pipeline splits into (1) anti-amyloid antibodies (lecanemab approved 2023, donanemab approved 2024, aducanumab withdrawn 2024), (2) symptomatic cholinesterase inhibitors and memantine, and (3) next-wave anti-tau / anti-inflammatory / GLP-1 programs. Any research output that discusses AD but omits lecanemab AND donanemab is AI slop.",
   "subspecialty": "Neurology / Cognitive-Behavioral Neurology",
   "icd10": "G30.9",
@@ -264,8 +264,8 @@
       "title": "KISUNLA (donanemab-azbt) — US FDA Prescribing Information",
       "authors": "Eli Lilly and Company",
       "journal": "US FDA",
-      "year": 2024,
-      "url": "https://www.accessdata.fda.gov/scripts/cder/daf/index.cfm?event=BasicSearch.process&BaseSearchterm=Kisunla",
+      "year": 2026,
+      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=190352d4-ef62-4679-b4fa-e846e2766afa",
       "accessLevel": "full-text",
       "summary": "Indication: AD in patients with MCI or mild dementia stage with confirmed amyloid pathology. Dose: 700 mg IV q4wk x3 then 1400 mg IV q4wk. Can be stopped when amyloid plaques cleared (amyloid PET below threshold) — unique among anti-amyloid agents. Boxed warning for ARIA. Literature warns against use in ApoE ε4 homozygotes without special counseling due to highest ARIA risk.",
       "keyPassages": [
@@ -273,7 +273,12 @@
           "topic": "stopping criterion",
           "quote": "KISUNLA treatment can be stopped based on reduction of amyloid plaques to minimal levels on amyloid PET imaging."
         }
-      ]
+      ],
+      "canonicalUrl": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=190352d4-ef62-4679-b4fa-e846e2766afa",
+      "publicationDate": "2026-01-02",
+      "effectiveDate": "2025-12-30",
+      "splSetId": "190352d4-ef62-4679-b4fa-e846e2766afa",
+      "splVersion": 8
     },
     {
       "id": "ad-lancet-commission-2024",
@@ -300,19 +305,6 @@
       ]
     },
     {
-      "claim": "Donanemab (Kisunla) is FDA-approved (July 2024) for the same stage; slows iADRS decline by ~35% in low/medium-tau patients. It can be discontinued once amyloid plaques clear on PET.",
-      "evidenceRefs": [
-        "ad-trailblazer-sims-2023",
-        "ad-fda-label-donanemab-2024"
-      ]
-    },
-    {
-      "claim": "Aducanumab (Aduhelm) was withdrawn from the US market by Biogen in January 2024. It is NOT a current treatment option.",
-      "evidenceRefs": [
-        "ad-aducanumab-withdrawal-2024"
-      ]
-    },
-    {
       "claim": "APOE ε4 homozygotes have the highest risk of ARIA with anti-amyloid therapy and should receive extra counseling before initiation.",
       "evidenceRefs": [
         "ad-fda-label-lecanemab-2023",
@@ -320,40 +312,7 @@
       ]
     }
   ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Treat hearing loss (amplification/hearing aids) — largest single modifiable population-attributable risk for dementia in the Lancet Commission.",
-      "evidenceRefs": [
-        "ad-lancet-commission-2024"
-      ]
-    },
-    {
-      "recommendation": "Aerobic exercise ~150 min/week.",
-      "evidenceRefs": [
-        "ad-lancet-commission-2024"
-      ]
-    },
-    {
-      "recommendation": "Strict blood-pressure control (target systolic ≲120-130 mm Hg) — SPRINT-MIND.",
-      "evidenceRefs": [
-        "ad-lancet-commission-2024"
-      ]
-    },
-    {
-      "recommendation": "Mediterranean / MIND diet pattern.",
-      "evidenceRefs": [
-        "ad-lancet-commission-2024"
-      ]
-    },
-    {
-      "recommendation": "Avoid anticholinergic-burden medications (diphenhydramine, oxybutynin, TCAs); review with pharmacist.",
-      "evidenceRefs": []
-    },
-    {
-      "recommendation": "Treat obstructive sleep apnea if present.",
-      "evidenceRefs": []
-    }
-  ],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "Physicians generally caution against starting anti-amyloid therapy (lecanemab or donanemab) without confirming amyloid pathology (CSF Aβ42/40 ratio or amyloid PET) — labels require it.",
     "Literature warns against anti-amyloid therapy in patients on anticoagulants — CLARITY-AD and TRAILBLAZER-ALZ 2 data suggest dramatically elevated intracerebral hemorrhage risk.",

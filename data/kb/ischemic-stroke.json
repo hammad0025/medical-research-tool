@@ -11,7 +11,7 @@
   "curatedBy": "auto-grounded generator",
   "generatedBy": "build-kb.mjs (grounded in real PubMed literature)",
   "reviewed": false,
-  "lastUpdated": "2026-06-14",
+  "lastUpdated": "2026-07-19",
   "literatureSearchSeeds": [
     "Tenecteplase",
     "Tirofiban",
@@ -161,10 +161,10 @@
       "year": "2026",
       "doi": "10.1161/STROKEAHA.125.053504",
       "pmid": "41376587",
-      "url": "https://doi.org/10.1161/STROKEAHA.125.053504",
       "accessLevel": "abstract",
       "summary": "Expert guidance for acute treatment of minor ischemic stroke, addressing both disabling and nondisabling presentations.",
-      "keyPassages": []
+      "keyPassages": [],
+      "canonicalUrl": "https://ahajournals.org/doi/10.1161/STROKEAHA.125.053504"
     },
     {
       "id": "ischemic-stroke-8",
@@ -269,25 +269,6 @@
       "claim": "MRI-guided patient selection can extend intravenous thrombolysis to 4.5-9 hours after stroke onset in patients with salvageable penumbral tissue",
       "evidenceRefs": [
         "ischemic-stroke-3"
-      ]
-    },
-    {
-      "claim": "Tenecteplase appears superior to alteplase in meta-analysis of recent trials for stroke thrombolysis",
-      "evidenceRefs": [
-        "ischemic-stroke-5"
-      ]
-    },
-    {
-      "claim": "Endovascular thrombectomy is the standard of care for large vessel occlusion strokes in both anterior and posterior circulation",
-      "evidenceRefs": [
-        "ischemic-stroke-5",
-        "ischemic-stroke-6"
-      ]
-    },
-    {
-      "claim": "Minor ischemic strokes (NIHSS ≤5) account for over half of all stroke cases but up to 30% of patients develop disability within 90 days",
-      "evidenceRefs": [
-        "ischemic-stroke-7"
       ]
     }
   ],

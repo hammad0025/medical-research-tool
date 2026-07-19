@@ -379,53 +379,8 @@
       "keyPassages": []
     }
   ],
-  "canonicalFacts": [
-    {
-      "claim": "ADHD affects approximately 3% of adults globally",
-      "evidenceRefs": [
-        "adhd-1"
-      ]
-    },
-    {
-      "claim": "Methylphenidate is the most frequently used medication to treat ADHD in children and adolescents",
-      "evidenceRefs": [
-        "adhd-2"
-      ]
-    },
-    {
-      "claim": "ADHD is associated with increased risks of adverse health outcomes including premature death",
-      "evidenceRefs": [
-        "adhd-4"
-      ]
-    },
-    {
-      "claim": "Among untreated adults, functional impairments associated with ADHD are widespread and cumulative",
-      "evidenceRefs": [
-        "adhd-13"
-      ]
-    },
-    {
-      "claim": "Several nonstimulants including atomoxetine and viloxazine extended-release are approved by the FDA for ADHD treatment",
-      "evidenceRefs": [
-        "adhd-11"
-      ]
-    }
-  ],
-  "lifestyleRecommendations": [
-    {
-      "recommendation": "Physical exercise shows potential benefits for children with ADHD and may improve cognitive function",
-      "evidenceRefs": [
-        "adhd-10",
-        "adhd-14"
-      ]
-    },
-    {
-      "recommendation": "Omega-3 polyunsaturated fatty acids have potential benefits that seem to outweigh known risks",
-      "evidenceRefs": [
-        "adhd-10"
-      ]
-    }
-  ],
+  "canonicalFacts": [],
+  "lifestyleRecommendations": [],
   "redFlags": [
     "ADHD medications may be associated with cardiovascular effects including changes in blood pressure and heart rate",
     "Stimulant medications carry a risk of misuse and dependence",

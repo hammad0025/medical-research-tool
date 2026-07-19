@@ -43,6 +43,11 @@ import { requireTermsConsent } from '../lib/terms-consent.js';
 import { requireJsonObjectBody } from '../lib/request-boundary.js';
 import { logError } from '../lib/privacy-redaction.js';
 import { enforceDirectPaidHandlerPolicy } from '../lib/spend-controls.js';
+import {
+  registryFactsFromStudy,
+  sealTrialRegistryPayload,
+  validateTrialRecord
+} from '../lib/trial-registry-gate.js';
 
 const CT_API = 'https://clinicaltrials.gov/api/v2/studies';
 const CLINICAL_TRIALS_TIMEOUT_MS = timeoutFor('clinical_trials', 12_000);
@@ -1115,10 +1120,24 @@ export default async function handler(req, res) {
 
     // Classify + dedupe by NCT
     const byNct = new Map();
+    let droppedRegistryMismatch = 0;
     for (const raw of allRaw) {
       const nct = raw?.protocolSection?.identificationModule?.nctId;
       if (!nct || byNct.has(nct)) continue;
-      byNct.set(nct, classifyTrial(raw, isTopCenterExtended));
+      const classified = classifyTrial(raw, isTopCenterExtended);
+      const facts = registryFactsFromStudy(raw);
+      const registryIssues = validateTrialRecord({
+        nctId: classified.nctId,
+        statusText: `${(classified.phases || []).join(' ')} ${classified.status || ''}`,
+        expectedConditions: [primary, condition, ...aliases, ...meshTerms].filter(Boolean)
+      }, facts);
+      if (registryIssues.length) {
+        droppedRegistryMismatch += 1;
+        console.warn(`[trials] dropped registry-mismatched ${nct}: ${registryIssues.join(', ')}`);
+        continue;
+      }
+      classified.registryVerified = true;
+      byNct.set(nct, classified);
     }
     let studies = [...byNct.values()];
 
@@ -1280,6 +1299,7 @@ export default async function handler(req, res) {
       droppedWrongCondition: droppedWrong,
       droppedDemographic,
       droppedEligibility,
+      droppedRegistryMismatch,
       recruiting: studies.filter((s) => s.acceptingNewPatients).length,
       expandedAccess: studies.filter((s) => s.designations.hasExpandedAccess).length,
       openLabelExtension: studies.filter((s) => s.designations.hasOpenLabelExtension).length,
@@ -1293,7 +1313,7 @@ export default async function handler(req, res) {
       }
     };
 
-    return res.status(200).json({
+    const responsePayload = {
       query: { condition, recruitingOnly, treatmentOnly, excludePlacebo, country },
       status: cancelled ? 'cancelled' : degraded ? 'degraded' : 'complete',
       cancelled,
@@ -1333,7 +1353,9 @@ export default async function handler(req, res) {
       total: studies.length,
       returned: studies.length,
       studies
-    });
+    };
+    responsePayload.registrySeal = sealTrialRegistryPayload(responsePayload);
+    return res.status(200).json(responsePayload);
   } catch (error) {
     logError('[trials] request failed', error);
     return res.status(500).json({
