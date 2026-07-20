@@ -173,7 +173,7 @@ test('screen and export share mixed-status and safe coverage presentation', asyn
   assert.ok(source.match(/trialCollectionDescription\(trialsData\)/g)?.length >= 2);
   assert.ok(source.match(/trialCoverageMessage\(trialsData\)/g)?.length >= 2);
   assert.match(source, /trialsData\.status === 'cancelled'/);
-  assert.match(source, /trialsData\?\.studies\?\.length > 0 \|\| trialCoverageMessage\(trialsData\)/);
+  assert.match(source, /trialStudies\.length > 0 \|\| trialCoverageMessage\(trialsData\)/);
   assert.match(source, /s\.overallStatus \|\| s\.status/);
   assert.match(source, /humanizeRegistryValue\(s\.status\)/);
   assert.doesNotMatch(source, /Open-enrollment studies|Studies with open enrollment|Can keep drug after/);

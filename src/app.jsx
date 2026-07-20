@@ -138,6 +138,23 @@ const CHAT_SESSION_FOOTNOTE = 'Answers use this session\u2019s context. Submitte
 const TermsContext = React.createContext({ openTerms: () => {} });
 const __mrtNativeFetch = window.fetch.bind(window);
 const MRT_BROWSER_FETCH_TIMEOUT_MS = 300_000;
+const MRT_GATE_FETCH_TIMEOUT_MS = 12_000;
+const fetchGateRequest = async (input, init = {}) => {
+  const controller = new AbortController();
+  const upstreamSignal = init.signal;
+  const relayAbort = () => controller.abort(upstreamSignal.reason);
+  if (upstreamSignal?.aborted) relayAbort();
+  else upstreamSignal?.addEventListener('abort', relayAbort, { once: true });
+  const timer = setTimeout(() => {
+    controller.abort(new DOMException('Access check timed out.', 'TimeoutError'));
+  }, MRT_GATE_FETCH_TIMEOUT_MS);
+  try {
+    return await __mrtNativeFetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+    upstreamSignal?.removeEventListener('abort', relayAbort);
+  }
+};
 const MRT_PAID_MODES = new Set([
   'research', 'repurpose', 'trials', 'chat', 'translate',
   'benchmark-models', 'validate', 'polish-report'
@@ -231,7 +248,7 @@ const formatApiError = (data, res) => {
   }
   if (/timeout|timed out|gateway/i.test(raw)) return 'The request took too long. Please try again.';
   if (res?.status === 429 || /rate|quota|limit/i.test(raw)) return 'The service is busy or your current search limit has been reached. Please try again later.';
-  if (res?.status === 401 || res?.status === 403) return 'Your access could not be confirmed. Please sign in again or request a new invitation.';
+  if (res?.status === 401 || res?.status === 403) return 'Your access could not be confirmed. Re-enter the private-preview passcode.';
   return 'We could not complete that request. Please try again.';
 };
 
@@ -1157,9 +1174,9 @@ const buildAllowedUrlSet = (trialsData, evidenceOrPack) => {
       add(`https://clinicaltrials.gov/study/${String(a.nct || a.nctId).toUpperCase()}`);
     }
   };
-  (trialsData?.studies || []).forEach((s) => {
-    add(s.url);
-    if (s.nctId) add(`https://clinicaltrials.gov/study/${String(s.nctId).toUpperCase()}`);
+  (Array.isArray(trialsData?.studies) ? trialsData.studies : []).forEach((s) => {
+    const exact = exactClinicalTrialUrl(s);
+    if (exact) add(exact);
   });
   const lists = [];
   if (Array.isArray(evidenceOrPack)) {
@@ -1185,6 +1202,14 @@ const buildAllowedUrlSet = (trialsData, evidenceOrPack) => {
 const urlIsAllowed = (href, allowedUrls) => {
   return !!allowedReportUrl(href, allowedUrls);
 };
+
+function exactClinicalTrialUrl(study = {}) {
+  const nctId = String(study.nctId || study.nct || '').trim().toUpperCase();
+  if (!/^NCT\d{8}$/.test(nctId)) return null;
+  const expected = canonicalReportUrl(`https://clinicaltrials.gov/study/${nctId}`);
+  const supplied = study.url ? canonicalReportUrl(String(study.url).trim()) : expected;
+  return expected && supplied === expected ? expected : null;
+}
 
 // True for a Google-search fallback URL (the model emits these for
 // centers/orgs that have no canonical page — api/research.js).
@@ -4266,7 +4291,7 @@ const TermsAcceptanceGate = ({ children }) => {
 
   const checkTerms = async () => {
     try {
-      const r = await __mrtNativeFetch('/api/terms-consent', { cache: 'no-store' });
+      const r = await fetchGateRequest('/api/terms-consent', { cache: 'no-store' });
       const data = await r.json().catch(() => null);
       if (!r.ok) throw new Error(data?.error || `Terms check failed (HTTP ${r.status})`);
       setAccepted(data.accepted === true);
@@ -4287,7 +4312,7 @@ const TermsAcceptanceGate = ({ children }) => {
   const acceptTerms = async () => {
     setError('');
     try {
-      const r = await __mrtNativeFetch('/api/terms-consent', {
+      const r = await fetchGateRequest('/api/terms-consent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accepted: true, termsVersion: MRT_TERMS_VERSION })
@@ -6156,19 +6181,59 @@ const buildFullReportBody = ({ reportModel }) => {
       parts.push(`<p><strong>Incomplete trial coverage:</strong> ${escapeHtmlForExport(trialCoverage)}</p>`);
     }
     if (studies.length) {
-      parts.push('<table><thead><tr><th>Study</th><th>Phase</th><th>Status</th><th>Link</th></tr></thead><tbody>');
-      studies.slice(0, 40).forEach((s) => {
-        const title = escapeHtmlForExport(s.briefTitle || s.title || s.nctId || 'Study');
-        const phase = escapeHtmlForExport((s.phases || []).join(', ') || '—');
-        const status = escapeHtmlForExport(s.overallStatus || s.status || '—');
-      const url = allowedReportUrl(
-        s.url || (s.nctId ? `https://clinicaltrials.gov/study/${s.nctId}` : ''),
-        allowedUrls
-      );
+      const headers = ['Study', 'Study stage', 'Study status', 'Accepting inquiries', 'Eligibility review', 'Placebo listed', 'Access notes', 'Countries', 'Monitoring', 'Why this order', 'Open link'];
+      parts.push(`<table><caption>First ${Math.min(25, studies.length)} clinical trial records shown in the report</caption><thead><tr>${headers.map((header) => `<th scope="col">${header}</th>`).join('')}</tr></thead><tbody>`);
+      studies.slice(0, 25).forEach((s) => {
+        const assessment = s.eligibilityAssessment;
+        const eligibilityLabel = {
+          unknown: 'Eligibility unknown',
+          'hard-mismatch': 'Likely not eligible based on provided facts',
+          'criteria-unavailable': 'Criteria unavailable',
+          'criteria-unchecked': 'Eligibility not fully checked'
+        }[assessment?.status] || 'Eligibility not assessed';
+        const unknownFacts = (assessment?.checks || [])
+          .filter((check) => check?.status === 'unknown')
+          .map((check) => check.reason)
+          .filter(Boolean);
+        const eligibility = [eligibilityLabel, ...(unknownFacts.length
+          ? unknownFacts
+          : [assessment?.caution || 'Patient-specific facts needed to determine eligibility were not provided.'])]
+          .join(' — ');
+        const accessNotes = [
+          s.designations?.hasOpenLabelExtension ? 'Open-label extension' : '',
+          s.isExpandedAccessStudy ? 'Expanded Access' : '',
+          s.designations?.hasPostTrialAccess ? 'Post-trial access noted' : '',
+          s.designations?.hasPayToAccess ? 'You may have to pay' : ''
+        ].filter(Boolean).join('; ') || '—';
+        const monitoring = [
+          s.oversight?.oversightHasDMC ? 'Independent safety monitoring' : '',
+          s.oversight?.fdaRegulatedDrug ? 'FDA-regulated drug' : ''
+        ].filter(Boolean).join('; ') || '—';
+        const studySummary = [
+          s.briefTitle || s.title || s.nctId || 'Study',
+          s.nctId,
+          s.sponsor,
+          s.relevanceLabel ? `Match: ${s.relevanceLabel}` : '',
+          s.stoppedNegative && s.caution ? `Stopped / negative: ${s.caution}` : ''
+        ].filter(Boolean).join(' — ');
+        const why = trialOrderingBreakdown(s).map((item) => `${item.label}: ${item.why}`).join('; ') || 'No ranking details listed.';
+        const url = exactClinicalTrialUrl(s);
         const link = url
           ? `<a href="${escapeHtmlForExport(url)}">${escapeHtmlForExport(s.nctId || 'View study')}</a>`
           : '—';
-        parts.push(`<tr><td>${title}</td><td>${phase}</td><td>${status}</td><td>${link}</td></tr>`);
+        const cells = [
+          studySummary,
+          (s.phases || []).map(humanizeRegistryValue).join(', ') || 'Not listed',
+          humanizeRegistryValue(s.overallStatus || s.status) || 'Not listed',
+          s.acceptingNewPatients ? 'Yes' : 'No',
+          eligibility,
+          s.hasPlacebo ? 'Yes' : 'No',
+          accessNotes,
+          (s.countries || []).join(', ') || '—',
+          monitoring,
+          why
+        ].map((value) => `<td>${escapeHtmlForExport(value)}</td>`).join('');
+        parts.push(`<tr>${cells}<td>${link}</td></tr>`);
       });
       parts.push('</tbody></table>');
     }
@@ -6265,6 +6330,27 @@ const buildFullReportBody = ({ reportModel }) => {
   return parts.join('\n');
 };
 
+const exportHtmlToPlainText = (html) => {
+  const root = document.createElement('div');
+  root.innerHTML = String(html || '');
+  root.querySelectorAll('a[href]').forEach((anchor) => {
+    const label = String(anchor.textContent || '').trim();
+    const href = String(anchor.getAttribute('href') || '').trim();
+    anchor.replaceWith(document.createTextNode(label && label !== href ? `${label} (${href})` : href));
+  });
+  root.querySelectorAll('br').forEach((node) => node.replaceWith(document.createTextNode('\n')));
+  root.querySelectorAll('th,td').forEach((node) => node.appendChild(document.createTextNode('\t')));
+  root.querySelectorAll('h1,h2,h3,h4,p,li,tr,caption,div').forEach((node) => {
+    if (node.tagName === 'LI') node.insertBefore(document.createTextNode('• '), node.firstChild);
+    node.appendChild(document.createTextNode('\n'));
+  });
+  return String(root.textContent || '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\t+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
 const FullReportExportButton = (props) => {
   const [busy, setBusy] = useState(false);
   const complete = !props.appBusy;
@@ -6298,12 +6384,7 @@ const FullReportExportButton = (props) => {
       setBusy(false);
     }
   };
-  const fullText = [
-    `Full Research Report — ${props.reportModel.patient?.condition || 'your condition'}`,
-    polishReportForDisplay(props.reportModel.sections.researchText),
-    props.reportModel.sections.trialsText,
-    polishReportForDisplay(props.reportModel.sections.repurposeText)
-  ].filter(Boolean).join('\n\n');
+  const fullText = exportHtmlToPlainText(buildFullReportBody({ reportModel: props.reportModel }));
   return (
     <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
       <button
@@ -6639,7 +6720,9 @@ const KBPanel = ({ kb }) => {
           <ul style={{ margin: 0, paddingLeft: '1.1rem', color: theme.textDim, fontSize: '0.85rem', lineHeight: 1.55 }}>
             {kb.trialHighlights.slice(0, expanded ? 99 : 4).map((t, i) => (
               <li key={i}>
-                {t.url ? <a href={t.url} target="_blank" rel="noopener noreferrer" style={{ color: theme.accent }}>{t.nctId}</a> : t.nctId}
+                {exactClinicalTrialUrl(t)
+                  ? <a href={exactClinicalTrialUrl(t)} target="_blank" rel="noopener noreferrer" style={{ color: theme.accent }}>{t.nctId}</a>
+                  : t.nctId}
                 {' — '}{t.title?.slice(0, 100)}{t.title?.length > 100 ? '…' : ''}
               </li>
             ))}
@@ -7002,9 +7085,7 @@ const DossierPanel = ({ dossier, conditionResolution }) => {
               <div style={{ display: 'grid', gap: '0.3rem' }}>
                 {dossier.patientAdvocacy.map((a, i) => (
                   <div key={i} style={{ fontSize: '0.82rem' }}>
-                    {a.url
-                      ? <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ color: theme.accent, fontWeight: 700 }}>{a.name}</a>
-                      : <strong style={{ color: theme.accent }}>{a.name}</strong>}
+                    <strong style={{ color: theme.accent }}>{a.name}</strong>
                     {a.why && <span style={{ color: theme.textDim }}> — {a.why}</span>}
                   </div>
                 ))}
@@ -7418,6 +7499,7 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
                         getCompletionContract }) => {
   const cond = patient.condition || 'this condition';
   const savedDemo = trialsData?.savedDemo === true;
+  const trialStudies = Array.isArray(trialsData?.studies) ? trialsData.studies : [];
   const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
   const [translatedText, setTranslatedText] = useState('');
   const reportAllowedUrls = useMemo(() => {
@@ -7446,7 +7528,7 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
     // Research prose and citations are server-sealed. The browser must never
     // attach a "closest" source after finalization because generic token
     // overlap cannot establish support for an exact quantitative claim.
-    const studies = trialsData?.studies || [];
+    const studies = Array.isArray(trialsData?.studies) ? trialsData.studies : [];
     if (!txt || !studies.length) return txt;
     const totalTrials = studies.length;
     const acceptingCount = studies.filter((s) => s.acceptingNewPatients === true).length;
@@ -7628,10 +7710,16 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
               <button
                 onClick={async () => {
                   try {
-                    await navigator.clipboard.writeText(publicTextOrFallback(`${MEDICAL_DISCLAIMER}\n\n${renderedResearchText}`));
+                    const contract = await getCompletionContract();
+                    const coverage = contract.coverageMessages?.length
+                      ? `\nWhat may be missing: ${contract.coverageMessages.join(' ')}`
+                      : '';
+                    await navigator.clipboard.writeText(publicTextOrFallback(
+                      `${contract.label}${coverage}\n\n${MEDICAL_DISCLAIMER}\n\n${renderedResearchText}`
+                    ));
                     notifyUser('Report copied to the clipboard.', 'success');
                   } catch (e) {
-                    notifyUser('Could not copy the report. Select the text and copy it manually.', 'error');
+                    notifyUser(e?.message || 'This report is not ready to copy.', 'error');
                   }
                 }}
                 style={{ background: 'transparent', border: `1px solid ${theme.border}`, color: theme.textDim, padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.75rem', cursor: 'pointer' }}
@@ -7658,10 +7746,10 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
         </div>
       )}
 
-      {(trialsData?.studies?.length > 0 || trialCoverageMessage(trialsData)) && (
+      {(trialStudies.length > 0 || trialCoverageMessage(trialsData)) && (
         <div id="clinical-trials" style={panelStyle}>
           <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem' }}>
-            {savedDemo ? 'Saved demo — not live trial list' : 'Clinical trials'} ({trialsData.returned || trialsData.studies.length})
+            {savedDemo ? 'Saved demo — not live trial list' : 'Clinical trials'} ({Number.isFinite(Number(trialsData?.returned)) ? Number(trialsData.returned) : trialStudies.length})
           </h3>
           <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
             {trialCollectionDescription(trialsData)} Searches include all years, not just 2025.
@@ -7891,6 +7979,7 @@ const humanizeRegistryValue = (value) => String(value || '')
 const TrialScoreExplainer = ({ trial, onClose }) => {
   if (!trial) return null;
   const chunks = trialOrderingBreakdown(trial);
+  const trialUrl = exactClinicalTrialUrl(trial);
   return (
     <div id="mrt-trial-why-panel" style={{
       ...panelStyle,
@@ -7934,11 +8023,13 @@ const TrialScoreExplainer = ({ trial, onClose }) => {
       <p style={{ marginTop: '0.75rem', marginBottom: 0, fontSize: '0.76rem', color: theme.textDim, lineHeight: 1.45 }}>
         These attributes determine list order. They do not predict treatment benefit or personal eligibility.
       </p>
-      <div style={{ marginTop: '0.6rem' }}>
-        <a href={trial.url} target="_blank" rel="noopener noreferrer" style={{ color: theme.accent, fontWeight: 600, fontSize: '0.85rem' }}>
-          Open on ClinicalTrials.gov ↗
-        </a>
-      </div>
+      {trialUrl && (
+        <div style={{ marginTop: '0.6rem' }}>
+          <a href={trialUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${trial.nctId} on ClinicalTrials.gov`} style={{ color: theme.accent, fontWeight: 600, fontSize: '0.85rem' }}>
+            Open on ClinicalTrials.gov ↗
+          </a>
+        </div>
+      )}
     </div>
   );
 };
@@ -7961,7 +8052,7 @@ const TrialsTable = ({ data }) => {
     if (s.oversight?.oversightHasDMC) n += 6;
     return n;
   };
-  const rows = [...(data.studies || [])].sort((a, b) => {
+  const rows = [...(Array.isArray(data?.studies) ? data.studies : [])].sort((a, b) => {
     if (sortMode === 'efficacy') return efficacyProxyScore(b) - efficacyProxyScore(a);
     if (sortMode === 'access') {
       const aScore = (a.isExpandedAccessStudy ? 3 : 0) + (a.designations?.hasOpenLabelExtension ? 2 : 0) + (a.designations?.hasPostTrialAccess ? 1 : 0) + (a.acceptingNewPatients ? 2 : 0);
@@ -8000,7 +8091,7 @@ const TrialsTable = ({ data }) => {
   <div style={panelStyle}>
     <TrialScoreExplainer trial={whyTrial} onClose={() => setWhyTrial(null)} />
       <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-      First {Math.min(25, rows.length)} studies · {data.total} matched your search
+      First {Math.min(25, rows.length)} studies · {Number.isFinite(Number(data?.total)) ? Number(data.total) : rows.length} matched your search
     </h3>
     {(data.breakdown?.droppedWrongCondition || 0) > 0 && (
       <p style={{ margin: '0 0 0.65rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.45 }}>
@@ -8043,6 +8134,7 @@ const TrialsTable = ({ data }) => {
             const rowKey = s.nctId || `${s.briefTitle || 'trial'}-${idx}`;
             const isSelected = whyTrial?.nctId === s.nctId;
             const eligibility = eligibilitySummary(s);
+            const trialUrl = exactClinicalTrialUrl(s);
             return (
                 <tr key={rowKey} style={{
                   borderBottom: `1px solid ${theme.border}`,
@@ -8130,9 +8222,11 @@ const TrialsTable = ({ data }) => {
                     </button>
                   </td>
                   <td style={{ padding: '0.6rem' }}>
-                    <a href={s.url} target="_blank" rel="noopener" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
-                      Open <ExternalLink size={12} />
-                    </a>
+                    {trialUrl
+                      ? <a href={trialUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8rem' }}>
+                          Open {s.nctId} <ExternalLink size={12} />
+                        </a>
+                      : '—'}
                   </td>
                 </tr>
             );
@@ -8168,9 +8262,9 @@ const RankedTrialsForPatient = ({ blocks }) => (
               ⚠ Interactions: {b.interactions}
             </div>
           )}
-          {b.url && (
+          {exactClinicalTrialUrl({ ...b, nctId: b.nct }) && (
             <div style={{ marginTop: '0.5rem' }}>
-              <a href={b.url.trim()} target="_blank" rel="noopener" style={{ fontSize: '0.85rem' }}>
+              <a href={exactClinicalTrialUrl({ ...b, nctId: b.nct })} target="_blank" rel="noopener noreferrer" aria-label={`Open ${b.nct} on ClinicalTrials.gov`} style={{ fontSize: '0.85rem' }}>
                 Open on ClinicalTrials.gov ↗
               </a>
             </div>
@@ -8840,7 +8934,7 @@ const probeAccessGate = async () => {
   // Cheap GET-like probe via the runtime-config mode of /api/research.
   // Returns 200 when gate is off or passcode is valid, 401 when blocked.
   try {
-    const r = await __mrtNativeFetch('/api/research', {
+    const r = await fetchGateRequest('/api/research', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: 'runtime-config' })
@@ -8849,10 +8943,10 @@ const probeAccessGate = async () => {
       const body = await r.json().catch(() => null);
       return { ok: false, gateEnabled: true, reason: body?.error || 'Access denied.' };
     }
-    if (!r.ok) return { ok: false, gateEnabled: false, reason: 'The service is temporarily unavailable.' };
+    if (!r.ok) return { ok: false, gateEnabled: true, reason: 'Access could not be verified because the service is temporarily unavailable.' };
     return { ok: true, gateEnabled: false };
   } catch (e) {
-    return { ok: false, gateEnabled: false, reason: 'The service could not be reached.' };
+    return { ok: false, gateEnabled: true, reason: 'Access could not be verified. Check your connection and try again.' };
   }
 };
 
@@ -8870,9 +8964,7 @@ const AccessGate = () => {
     } else if (result.gateEnabled) {
       setState({ status: 'blocked', reason: result.reason });
     } else {
-      // Network error or non-gate failure — let the app render
-      // anyway so the existing in-app error UI can surface details.
-      setState({ status: 'allowed' });
+      setState({ status: 'blocked', reason: result.reason || 'Access could not be verified.' });
     }
   };
 
@@ -8893,7 +8985,7 @@ const AccessGate = () => {
     setSubmitting(true);
     setError('');
     try {
-      const r = await __mrtNativeFetch('/api/access-session', {
+      const r = await fetchGateRequest('/api/access-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passcode: v })
