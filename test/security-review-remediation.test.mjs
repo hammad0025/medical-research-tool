@@ -172,7 +172,7 @@ test('rate-limited upgrade requests consume neither usage credit nor provider bu
   });
 });
 
-test('release preflight requires the dedicated report seal and smoke checks its safe contract', async () => {
+test('release preflight requires the dedicated report seal and smoke checks forged and server-owned contracts', async () => {
   const env = {
     ...process.env,
     MRT_BASE_URL: 'https://offline.example.test',
@@ -202,6 +202,8 @@ test('release preflight requires the dedicated report seal and smoke checks its 
 
   const smoke = await readFile(new URL('../scripts/postdeploy-smoke.mjs', import.meta.url), 'utf8');
   assert.match(smoke, /request\('\/api\/report-completion'/);
-  assert.match(smoke, /response\.status !== 409/);
-  assert.match(smoke, /body\?\.contract\?\.eligible !== false/);
+  assert.match(smoke, /response\.status !== 400/);
+  assert.match(smoke, /body\?\.code !== 'REPORT_SURFACE_REQUIRED'/);
+  assert.match(smoke, /demo\?\.provenanceSeal/);
+  assert.match(smoke, /completion\?\.contract\?\.eligible !== true/);
 });
