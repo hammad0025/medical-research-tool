@@ -618,6 +618,7 @@ const PARSER_LABEL_ALIASES = {
   'STRENGTH OF RESEARCH': 'EVIDENCE_STRENGTH',
   'WHAT THE RESEARCH SAYS': 'SUPPORTING_EVIDENCE',
   'THEORETICAL BENEFIT': 'EFFICACY_HYPOTHESIS',
+  'SAFETY CONCERN': 'SAFETY',
   'RISKS FOR THIS PATIENT': 'PATIENT_SPECIFIC_RISKS',
   'QUESTIONS FOR YOUR DOCTOR': 'HOW_TO_DISCUSS_WITH_DOCTOR'
 };
@@ -2574,7 +2575,14 @@ const App = () => {
       return urls;
     };
     const hasCitation = (c) =>
-      extractCitationUrls(`${c.references || ''} ${c.supporting_evidence || ''}`)
+      extractCitationUrls([
+        c.references,
+        c.supporting_evidence,
+        c.repurpose_rationale,
+        c.efficacy_hypothesis,
+        c.why_for_this_condition,
+        c.what_it_does
+      ].filter(Boolean).join(' '))
         .some((u) =>
           /^https?:\/\//i.test(u) &&
           !isGoogleSearchCitation(u) &&
@@ -2972,7 +2980,7 @@ const App = () => {
       return { text: out, validation, validationMismatch, citationAudit, outputArtifact: null };
     };
     const countCandidateBlocks = (text) =>
-      (String(text || '').match(/^CANDIDATE:/gm) || []).length;
+      (String(text || '').match(/^(?:CANDIDATE|Drug or supplement idea):/gim) || []).length;
     // Retry transport/model truncation only. Candidate count is not a
     // quality signal and must never trigger quota-driven generation.
     const laneNeedsRetry = (result, text) => {
@@ -3174,13 +3182,13 @@ const App = () => {
           const blockHasRealLink = (block) =>
             urlsInBlob(block).some((u) => /^https?:\/\//i.test(u) && !isGoogleUrl(u) && !isDailyMedSearchUrlC(u));
           const splitCandBlocks = (txt) =>
-            String(txt || '').split(/(?=^CANDIDATE:\s)/gim)
-              .map((p) => p.trim()).filter((p) => /^CANDIDATE:/im.test(p));
+            String(txt || '').split(/(?=^(?:CANDIDATE|Drug or supplement idea):\s)/gim)
+              .map((p) => p.trim()).filter((p) => /^(?:CANDIDATE|Drug or supplement idea):/im.test(p));
           const distinctLinkedCount = (txt) => {
             const keys = new Set();
             for (const block of splitCandBlocks(txt)) {
               if (!blockHasRealLink(block)) continue;
-              const nm = (block.match(/^CANDIDATE:\s*(.+)$/im) || [])[1];
+              const nm = (block.match(/^(?:CANDIDATE|Drug or supplement idea):\s*(.+)$/im) || [])[1];
               const k = dedupKey(nm);
               if (k) keys.add(k);
             }
@@ -3242,6 +3250,7 @@ const App = () => {
       if (currentProfileKeyRef.current && currentProfileKeyRef.current !== runProfileKey) {
         throw new Error('Your profile changed while this report was running. The outdated result was not shown; run again for the current profile.');
       }
+      const prePolishText = text;
       if (mode === 'research' || mode === 'repurpose' || mode === 'trials') {
         setValidations((v) => ({ ...v, [mode]: { _auditing: true } }));
         updateStep('synth', {
@@ -3256,15 +3265,29 @@ const App = () => {
         data.outputArtifact = polished.outputArtifact;
       }
       if (mode === 'repurpose') {
-        const finalCandidates = parseCandidates(text);
-        const linkedCandidates = finalCandidates.filter((candidate) =>
+        const linkedFrom = (body) => parseCandidates(body).filter((candidate) =>
           /\[[^\]]+\]\(https?:\/\/[^)]+\)/i.test([
             candidate.references,
             candidate.supporting_evidence,
             candidate.repurpose_rationale,
-            candidate.efficacy_hypothesis
+            candidate.efficacy_hypothesis,
+            candidate.why_for_this_condition,
+            candidate.what_it_does
           ].filter(Boolean).join(' '))
         );
+        let finalCandidates = parseCandidates(text);
+        let linkedCandidates = linkedFrom(text);
+        // A late polish pass can rewrite/strip card labels and leave zero
+        // parseable ideas even though the sealed synthesis still had them.
+        // Prefer the pre-polish body when it still has linked cards.
+        if (linkedCandidates.length === 0) {
+          const salvage = linkedFrom(prePolishText);
+          if (salvage.length > 0) {
+            text = prePolishText;
+            finalCandidates = parseCandidates(text);
+            linkedCandidates = salvage;
+          }
+        }
         data.repurposeQuality = {
           ...(data.repurposeQuality || {}),
           totalCandidates: finalCandidates.length,
