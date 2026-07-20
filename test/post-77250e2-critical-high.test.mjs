@@ -17,9 +17,10 @@ import {
 } from '../lib/research-request.js';
 import { _alertsCronTest } from '../api/alerts-cron.js';
 import completionHandler from '../api/report-completion.js';
-import researchHandler from '../api/research.js';
+import researchHandler, { RESEARCH_GATHER_SEAL_TTL_MS } from '../api/research.js';
 import { createReportOutputArtifact } from '../lib/report-artifact.js';
 import { sealTrialRegistryPayload } from '../lib/trial-registry-gate.js';
+import { createGatherSeal, verifyGatherSeal } from '../lib/gather-seal.js';
 import { establishTermsConsent, TERMS_VERSION } from '../lib/terms-consent.js';
 
 const response = () => {
@@ -104,6 +105,25 @@ test('research accepts a sub-megabyte sealed-gather shape above the generic node
   await researchHandler(req, out.res);
   assert.equal(out.status, 200, JSON.stringify(out.body));
   assert.equal(out.body?.build?.sha !== undefined, true);
+});
+
+test('research retries retain signed gathers for two hours without changing default seal freshness', () => {
+  const now = 1_700_000_000_000;
+  const input = {
+    gatherFingerprint: 'parkinson-retry-fixture',
+    dossier: { canonical: 'Parkinson Disease' },
+    evidence: { groundedForPrompt: [], topRanked: [] },
+    trials: { studies: [] },
+    now,
+    secret: 'research-retry-gather-secret'
+  };
+  const seal = createGatherSeal(input);
+  const afterOneHour = { ...input, seal, now: now + 60 * 60 * 1000 };
+  assert.equal(verifyGatherSeal(afterOneHour).code, 'GATHER_SEAL_EXPIRED');
+  assert.equal(verifyGatherSeal({
+    ...afterOneHour,
+    ttlMs: RESEARCH_GATHER_SEAL_TTL_MS
+  }).ok, true);
 });
 
 test('scheduled-alert internal dispatch reaches JSON data handlers', async () => {
@@ -210,7 +230,7 @@ test('authenticated private preview derives a stable server key for stale browse
     authenticatedPreview: true
   });
   assert.equal(first, retry);
-  assert.match(first, /^mrt-private-preview-v1:[a-f0-9]{64}$/);
+  assert.match(first, /^mrt-private-preview-v2:[a-f0-9]{64}$/);
   assert.equal(resolvePaidRequestIdempotencyKey({
     requestFingerprint: fingerprint,
     authenticatedPreview: false

@@ -2860,7 +2860,10 @@ const App = () => {
         return callResearch(payload, retriesLeft - 1);
       }
       if (!res.ok) {
-        if (res.status === 409 && data?.code === 'GATHER_STALE') {
+        if (
+          res.status === 409 &&
+          ['GATHER_STALE', 'GATHER_SEAL_EXPIRED', 'GATHER_SEAL_INVALID', 'GATHER_POOL_INVALID'].includes(data?.code)
+        ) {
           const err = new Error(data.error || 'Profile changed — re-gathering.');
           err.code = 'GATHER_STALE';
           throw err;

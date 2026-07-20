@@ -141,6 +141,7 @@ import {
 } from '../lib/anthropic-models.js';
 
 const DEFAULT_MODEL = DEFAULT_RESEARCH_MODEL;
+export const RESEARCH_GATHER_SEAL_TTL_MS = 2 * 60 * 60 * 1000;
 const ANTHROPIC_TIMEOUT_MS = timeoutFor('anthropic', 120_000);
 
 // Temperature 0 so the same search returns stable results run-to-run.
@@ -2618,7 +2619,8 @@ export default async function handler(req, res) {
           gatherFingerprint: req.body?.gatherFingerprint,
           dossier: req.body?.providedDossier,
           evidence: req.body?.providedEvidence,
-          trials: req.body?.providedTrials
+          trials: req.body?.providedTrials,
+          ttlMs: RESEARCH_GATHER_SEAL_TTL_MS
         });
         if (!verifiedGather.ok) {
           return res.status(409).json({
@@ -2839,7 +2841,8 @@ export default async function handler(req, res) {
           gatherFingerprint: clientGatherFingerprint,
           dossier: providedDossier,
           evidence: providedEvidence,
-          trials: providedTrials
+          trials: providedTrials,
+          ttlMs: RESEARCH_GATHER_SEAL_TTL_MS
         });
         if (!sealCheck.ok) {
           return res.status(sealCheck.code === 'GATHER_SEAL_CONFIG' ? 503 : 409).json({
