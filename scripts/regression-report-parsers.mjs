@@ -588,6 +588,50 @@ head('8 — excluded-agent filter scopes to the candidate name, not its prose');
   }
 }
 
+// ---------------------------------------------------------------------------
+// 9 — parseTreatments must never let an orphaned, nameless card's fields
+//     overwrite a previously-named card's own fields. Live production defect
+//     (2026-07-20, Retinitis Pigmentosa): the model dropped a second card's
+//     TREATMENT: line, leaving a bare "FDA_STATUS: Unknown..." + safety line
+//     with no name of its own. Because parseTreatments only started a new
+//     block on a fresh TREATMENT:/PROVIDER: line, those orphaned lines
+//     silently overwrote the PRECEDING Luxturna card's real "approved" FDA
+//     status and attached an unrelated N-acetylcysteine trial citation to it.
+// ---------------------------------------------------------------------------
+head('9 — orphaned nameless card fields never overwrite the preceding named card (Luxturna/NAC defect)');
+{
+  const raw = [
+    'TREATMENT: Voretigene neparvovec-rzyl (Luxturna) — subretinal injection of AAV2 viral vector carrying the RPE65 gene',
+    'FDA_STATUS: approved',
+    'REFERENCES: [Lancet Phase 3 RCT — voretigene (2017)](https://pubmed.ncbi.nlm.nih.gov/28712537) | [FDA Label — Luxturna](https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=08313a24-e7ce-457a-bb3f-161bc45517ee)',
+    '',
+    '---',
+    '',
+    'FDA_STATUS: Unknown — insufficient verified FDA/DailyMed label evidence.',
+    '',
+    '---',
+    '',
+    ' Full safety data are not yet published ([Oral N-acetylcysteine improves cone function in retinitis pigmentosa patients in phase I trial](https://pmc.ncbi.nlm.nih.gov/articles/PMC7269599)).'
+  ].join('\n');
+  const cards = parseTreatments(raw);
+  const luxturna = cards.find((c) => /luxturna/i.test(c.treatment || ''));
+  const orphanSurvived = cards.some((c) => !String(c.treatment || '').trim());
+  if (
+    cards.length === 1 &&
+    luxturna &&
+    luxturna.fda_status === 'approved' &&
+    !/n-acetylcysteine|NAC trial/i.test(luxturna.risks || luxturna.safety || luxturna.references || '') &&
+    !orphanSurvived
+  ) {
+    pass('AFTER: orphaned nameless fragment dropped — Luxturna card keeps its own "approved" status, no NAC bleed-through');
+  } else {
+    fail(
+      `Luxturna/NAC field-bleed regression — cards=${cards.length} ` +
+      `fda_status=${luxturna?.fda_status} orphanSurvived=${orphanSurvived}`
+    );
+  }
+}
+
 console.log(process.exitCode
   ? '\n\x1b[31mReport-parser regression FAILED\x1b[0m\n'
   : '\n\x1b[32mReport-parser regression passed\x1b[0m\n');

@@ -660,6 +660,16 @@ const parseTreatments = (text) => {
     } else if (key === 'TREATMENT:' && (!cur || cur.treatment)) {
       if (cur) blocks.push(cur);
       cur = { _type: 'treatment' };
+    } else if (cur && cur.treatment && cur[key.replace(':', '').toLowerCase()] !== undefined) {
+      // This field already has a value on the current, already-named card,
+      // and no new TREATMENT:/PROVIDER: line was seen — the model dropped a
+      // second card's own name line. Never let an orphaned field silently
+      // overwrite the previous card's data (e.g. a Luxturna card ending up
+      // with an unrelated drug's FDA status and safety citation); start a
+      // new nameless block instead, which the treatment-name guard below
+      // drops, same as any other unnamed card.
+      blocks.push(cur);
+      cur = { _type: 'treatment' };
     }
     if (!cur) return;
     const field = key.replace(':', '').toLowerCase();
