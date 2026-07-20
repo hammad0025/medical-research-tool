@@ -136,6 +136,10 @@ test('browser split-synthesis requests satisfy API idempotency policy', async ()
     ...base,
     half: 'back'
   }, { profileKey: 'profile-type-1' }).body).idempotencyKey;
+  const freshGatherKey = JSON.parse(buildBrowserResearchRequest({
+    ...base,
+    gatherSeal: 'sealed-gather-type-1-fresh'
+  }, { profileKey: 'profile-type-1' }).body).idempotencyKey;
   const otherProfileKey = JSON.parse(buildBrowserResearchRequest({
     ...base,
     patient: { condition: 'Type 1 diabetes', age: '63' }
@@ -148,6 +152,7 @@ test('browser split-synthesis requests satisfy API idempotency policy', async ()
     }, { profileKey: 'profile-type-1' }).body).idempotencyKey
   );
   assert.notEqual(body.idempotencyKey, backKey);
+  assert.notEqual(body.idempotencyKey, freshGatherKey);
   assert.notEqual(body.idempotencyKey, otherProfileKey);
   assert.equal(new Set(repurposeLaneKeys).size, 3);
   assert.ok(repurposeLaneKeys.every((key) => key !== body.idempotencyKey));
