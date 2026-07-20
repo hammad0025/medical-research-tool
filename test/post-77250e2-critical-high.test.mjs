@@ -200,6 +200,11 @@ test('authenticated private preview derives a stable server key for stale browse
     suppliedKey: 'browser-supplied-key-0001',
     requestFingerprint: fingerprint,
     authenticatedPreview: true
+  }), first);
+  assert.equal(resolvePaidRequestIdempotencyKey({
+    suppliedKey: 'browser-supplied-key-0001',
+    requestFingerprint: fingerprint,
+    authenticatedPreview: false
   }), 'browser-supplied-key-0001');
 });
 
