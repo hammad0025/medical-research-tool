@@ -1213,6 +1213,13 @@ const buildAllowedUrlSet = (trialsData, evidenceOrPack) => {
       if (d.nct) add(`https://clinicaltrials.gov/study/${String(d.nct).toUpperCase()}`);
       add(d.url);
     }
+    // FDA/DailyMed label citations (e.g. "REFERENCES: [FDA label](...)")
+    // were never added to the allowlist, so a real, server-verified label
+    // link would fail allowedReportUrl and render as inert "(FDA label)"
+    // text instead of a clickable anchor.
+    for (const f of evidenceOrPack.fdaLabels || []) {
+      add(f?.dailyMedUrl || f?.url);
+    }
   }
   for (const list of lists) {
     for (const a of list || []) addArticle(a);
