@@ -70,6 +70,18 @@ test('source titles and legitimate clinical terms are negative fixtures', () => 
   }
 });
 
+test('mixed-case trial phase tokens are rewritten before the boundary check, not just fully-uppercase ones', () => {
+  // The rewrite rule for PHASE1..4 lacked the case-insensitive flag every
+  // other rule here has, so "Phase2" (the exact casing the UI's own
+  // registry-value humanizer produces, and a plausible model echo of trial
+  // phase data) reached the case-insensitive prohibited-language check
+  // unrewritten and threw on every retry — a real production outage.
+  assert.equal(sanitizePublicText('Phase2 trial'), 'Phase 2 trial');
+  assert.equal(sanitizePublicText('phase3 status'), 'Phase 3 status');
+  assert.equal(sanitizePublicText('PHASE1 complete'), 'Phase 1 complete');
+  assert.deepEqual(findProhibitedPublicLanguage('Phase2 trial, phase3 status'), ['Phase2']);
+});
+
 test('PARK8 biomedical text does not trigger the standalone K8 wording rule', () => {
   const registryDescription = 'The intervention studies PARK8-associated Parkinson disease.';
   assert.equal(sanitizePublicText(registryDescription), registryDescription);

@@ -124,7 +124,7 @@ import {
   validateSealedTranslation
 } from '../lib/translation-gate.js';
 import { logError, safeErrorMessage } from '../lib/privacy-redaction.js';
-import { installPublicJsonBoundary } from '../lib/public-language.js';
+import { installPublicJsonBoundary, sanitizePublicPayload } from '../lib/public-language.js';
 import { admitEvidencePools } from '../lib/source-admission-gate.js';
 import { canonicalizeReportContent } from '../lib/report-completion.js';
 import {
@@ -3054,12 +3054,27 @@ export default async function handler(req, res) {
       });
       const conditionResolution = conditionResolutionHint;
       let gatherSeal;
+      let sealedPools;
       try {
+        // installPublicJsonBoundary rewrites every outgoing response body —
+        // including this one — through the reader-language boundary before
+        // it reaches the client. Sign the SAME already-boundary-cleaned pools
+        // we are about to return, not the pre-boundary pools: real citation
+        // text routinely contains phrasing the boundary rewrites (e.g. "phase
+        // 3 trial"), and signing before that rewrite made every later
+        // synthesize-phase seal check recompute over different bytes than
+        // what was actually signed — a guaranteed, permanent GATHER_SEAL_INVALID
+        // for any gather whose pools contained such phrasing.
+        sealedPools = {
+          dossier: sanitizePublicPayload(trimmed.dossier),
+          evidence: sanitizePublicPayload(trimmed.evidence),
+          trials: sanitizePublicPayload(trimmed.trials)
+        };
         gatherSeal = createGatherSeal({
           gatherFingerprint: serverGatherFingerprint,
-          dossier: trimmed.dossier,
-          evidence: trimmed.evidence,
-          trials: trimmed.trials
+          dossier: sealedPools.dossier,
+          evidence: sealedPools.evidence,
+          trials: sealedPools.trials
         });
       } catch (error) {
         logError('[research] gather seal failed', error);
@@ -3076,7 +3091,8 @@ export default async function handler(req, res) {
         gatherSeal,
         conditionResolution,
         evidenceGrade,
-        ...trimmed
+        ...trimmed,
+        ...sealedPools
       });
     }
     const gPlan = groundingPlan(mode, phase, half);
