@@ -230,7 +230,7 @@ test('authenticated private preview derives a stable server key for stale browse
     authenticatedPreview: true
   });
   assert.equal(first, retry);
-  assert.match(first, /^mrt-private-preview-v2:[a-f0-9]{64}$/);
+  assert.match(first, /^mrt-private-preview-v3:[a-f0-9]{64}$/);
   assert.equal(resolvePaidRequestIdempotencyKey({
     requestFingerprint: fingerprint,
     authenticatedPreview: false

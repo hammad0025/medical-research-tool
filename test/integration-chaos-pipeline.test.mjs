@@ -240,7 +240,8 @@ test('offline gather → seal → synthesize → finalize → render/export rout
         headers: { 'x-idempotency-key': 'offline-tampered-synthesis-0001' }
       });
       assert.equal(rejected.statusCode, 409);
-      assert.equal(rejected.body.code, 'GATHER_SEAL_INVALID');
+      assert.equal(rejected.body.code, 'GATHER_STALE');
+      assert.equal(rejected.body.gatherVerificationCode, 'GATHER_SEAL_INVALID');
     });
   } finally {
     globalThis.fetch = originalFetch;

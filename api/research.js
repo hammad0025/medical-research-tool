@@ -2849,7 +2849,12 @@ export default async function handler(req, res) {
             error: sealCheck.code === 'GATHER_SEAL_CONFIG'
               ? 'Gather signing is not configured.'
               : 'Gathered evidence is invalid or expired — re-gathering.',
-            code: sealCheck.code
+            // The browser already has a bounded one-time GATHER_STALE recovery
+            // that discards the changed/expired context and performs a clean
+            // gather. Return that public recovery code while retaining the
+            // specific verification reason for server diagnostics.
+            code: sealCheck.code === 'GATHER_SEAL_CONFIG' ? sealCheck.code : 'GATHER_STALE',
+            gatherVerificationCode: sealCheck.code
           });
         }
       }
