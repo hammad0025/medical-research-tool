@@ -120,15 +120,42 @@ try {
   });
   const body = await response.json().catch(() => null);
   if (
-    response.status !== 409 ||
-    body?.contract?.eligible !== false ||
-    typeof body?.seal !== 'string' ||
-    body.seal.length < 32
+    response.status !== 400 ||
+    body?.code !== 'REPORT_SURFACE_REQUIRED' ||
+    body?.seal != null
   ) {
-    failures.push(`report-completion safe contract returned HTTP ${response.status} without a sealed ineligible contract`);
+    failures.push(`report-completion forged request returned HTTP ${response.status} instead of failing closed without a seal`);
   }
 } catch (error) {
-  failures.push(`report-completion contract probe failed: ${error.message}`);
+  failures.push(`report-completion forged-request probe failed: ${error.message}`);
+}
+
+try {
+  const demoResponse = await request('/api/demo-readiness?action=saved-report', {
+    headers: { Cookie: authenticatedCookies }
+  });
+  const demo = await demoResponse.json().catch(() => null);
+  const completionResponse = await request('/api/report-completion', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: authenticatedCookies },
+    body: JSON.stringify({
+      surface: 'full',
+      termsVersion: TERMS_VERSION,
+      savedDemo: { provenanceSeal: demo?.provenanceSeal }
+    })
+  });
+  const completion = await completionResponse.json().catch(() => null);
+  if (
+    !demoResponse.ok ||
+    completionResponse.status !== 200 ||
+    completion?.contract?.eligible !== true ||
+    typeof completion?.seal !== 'string' ||
+    completion.seal.length < 32
+  ) {
+    failures.push(`saved-demo completion returned HTTP ${completionResponse.status} without a valid sealed contract`);
+  }
+} catch (error) {
+  failures.push(`saved-demo completion probe failed: ${error.message}`);
 }
 
 try {
