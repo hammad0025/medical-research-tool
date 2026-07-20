@@ -1900,7 +1900,14 @@ export default async function handler(req, res) {
   if (!requireTermsConsent(req, res)) return;
 
   try {
-    const body = requireJsonObjectBody(req, res, { maxBytes: 1024 * 1024 });
+    const body = requireJsonObjectBody(req, res, {
+      maxBytes: 1024 * 1024,
+      // A sealed gather containing detailed criteria for 25 trials is normally
+      // ~700–800 KB but can exceed the generic 10k-node boundary. Keep every
+      // byte/depth/array/string/key limit in place while allowing that known,
+      // bounded synthesis shape.
+      maxNodes: 25_000
+    });
     if (!body) return;
     const {
       mode = 'research',

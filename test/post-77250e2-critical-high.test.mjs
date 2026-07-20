@@ -17,6 +17,7 @@ import {
 } from '../lib/research-request.js';
 import { _alertsCronTest } from '../api/alerts-cron.js';
 import completionHandler from '../api/report-completion.js';
+import researchHandler from '../api/research.js';
 import { createReportOutputArtifact } from '../lib/report-artifact.js';
 import { sealTrialRegistryPayload } from '../lib/trial-registry-gate.js';
 import { establishTermsConsent, TERMS_VERSION } from '../lib/terms-consent.js';
@@ -85,6 +86,24 @@ test('internal fan-out supplies JSON media type and retains unforgeable marker',
   assert.equal(response, null);
   assert.equal(req.headers['content-type'], 'application/json');
   assert.equal(req[INTERNAL_CALL], true);
+});
+
+test('research accepts a sub-megabyte sealed-gather shape above the generic node count', async () => {
+  const structuralProbe = Object.fromEntries(
+    Array.from({ length: 40 }, (_, group) => [
+      `trial-${group}`,
+      Array.from({ length: 300 }, (_, criterion) => criterion)
+    ])
+  );
+  const out = response();
+  const req = asInternalReq({
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: { mode: 'runtime-config', structuralProbe }
+  });
+  await researchHandler(req, out.res);
+  assert.equal(out.status, 200, JSON.stringify(out.body));
+  assert.equal(out.body?.build?.sha !== undefined, true);
 });
 
 test('scheduled-alert internal dispatch reaches JSON data handlers', async () => {
