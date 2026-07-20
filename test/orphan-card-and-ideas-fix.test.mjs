@@ -93,6 +93,6 @@ test('ideas parser and lane splitter recognize rewritten Drug or supplement idea
   assert.match(app, /SAFETY CONCERN': 'SAFETY'/);
   assert.match(app, /CANDIDATE\|Drug or supplement idea/);
   assert.match(app, /prePolishText/);
-  assert.match(app, /linkedFrom\(prePolishText\)/);
+  assert.match(app, /survivingFrom\(prePolishText\)/);
   assert.match(app, /why_for_this_condition/);
 });

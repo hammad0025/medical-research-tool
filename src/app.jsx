@@ -2588,13 +2588,18 @@ const App = () => {
           !isGoogleSearchCitation(u) &&
           !/^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(u)
         );
+    // A "never-researched" idea is allowed to ship with no link at all — the
+    // prompt tells the model to say so honestly rather than invent one for a
+    // drug that has zero published research on this condition or pathway.
+    // Only ideas claiming actual (even preclinical) condition-specific
+    // research need a surviving citation to avoid an unsourced claim.
     let parsed = parseCandidates(repurposeText)
       .map((c) => ({
         ...c,
         _repurpose_section: resolveRepurposeSection(c),
         _item_kind: resolveItemKind(c)
       }))
-      .filter(hasCitation);
+      .filter((c) => c._repurpose_section === 'no-condition-study-identified' || hasCitation(c));
     const excluded = evidenceSummary?.excludedAgents || [];
     if (excluded.length) {
       const blockNames = excluded.flatMap((x) =>
@@ -3265,7 +3270,7 @@ const App = () => {
         data.outputArtifact = polished.outputArtifact;
       }
       if (mode === 'repurpose') {
-        const linkedFrom = (body) => parseCandidates(body).filter((candidate) =>
+        const candidateHasLink = (candidate) =>
           /\[[^\]]+\]\(https?:\/\/[^)]+\)/i.test([
             candidate.references,
             candidate.supporting_evidence,
@@ -3273,28 +3278,36 @@ const App = () => {
             candidate.efficacy_hypothesis,
             candidate.why_for_this_condition,
             candidate.what_it_does
-          ].filter(Boolean).join(' '))
-        );
-        let finalCandidates = parseCandidates(text);
-        let linkedCandidates = linkedFrom(text);
+          ].filter(Boolean).join(' '));
+        // "never-researched" ideas are explicitly allowed to ship with no
+        // link (the prompt tells the model to say so honestly instead of
+        // inventing one) — only ideas claiming actual condition-specific
+        // research need a surviving citation. Gating the WHOLE section on
+        // whether at least one candidate happens to carry a link wiped out
+        // every legitimate never-researched idea whenever none of them did.
+        const isSourceSupported = (candidate) =>
+          resolveRepurposeSection(candidate) === 'no-condition-study-identified' ||
+          candidateHasLink(candidate);
+        const survivingFrom = (body) => parseCandidates(body).filter(isSourceSupported);
+
+        let finalCandidates = survivingFrom(text);
         // A late polish pass can rewrite/strip card labels and leave zero
         // parseable ideas even though the sealed synthesis still had them.
-        // Prefer the pre-polish body when it still has linked cards.
-        if (linkedCandidates.length === 0) {
-          const salvage = linkedFrom(prePolishText);
+        // Prefer the pre-polish body when it still has surviving cards.
+        if (finalCandidates.length === 0) {
+          const salvage = survivingFrom(prePolishText);
           if (salvage.length > 0) {
             text = prePolishText;
-            finalCandidates = parseCandidates(text);
-            linkedCandidates = salvage;
+            finalCandidates = salvage;
           }
         }
         data.repurposeQuality = {
           ...(data.repurposeQuality || {}),
           totalCandidates: finalCandidates.length,
-          linkedCandidates: linkedCandidates.length,
-          ok: finalCandidates.length > 0 && linkedCandidates.length === finalCandidates.length
+          linkedCandidates: finalCandidates.filter(candidateHasLink).length,
+          ok: finalCandidates.length > 0
         };
-        if (linkedCandidates.length === 0) {
+        if (finalCandidates.length === 0) {
           setRepurposeText('No source-supported drug or supplement ideas survived verification for this report.');
           setRepurposeForCondition(runPatient.condition.trim());
           throw new Error(
