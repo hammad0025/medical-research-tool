@@ -11,7 +11,10 @@ import {
   beginBillableRequest,
   fingerprintBillableRequest
 } from '../lib/billable-request-store.js';
-import { buildBrowserResearchRequest } from '../lib/research-request.js';
+import {
+  buildBrowserResearchRequest,
+  resolvePaidRequestIdempotencyKey
+} from '../lib/research-request.js';
 import { _alertsCronTest } from '../api/alerts-cron.js';
 import completionHandler from '../api/report-completion.js';
 import { createReportOutputArtifact } from '../lib/report-artifact.js';
@@ -165,6 +168,34 @@ test('browser split-synthesis requests satisfy API idempotency policy', async ()
     fingerprint
   });
   assert.equal(retryReservation.state, 'in-progress');
+});
+
+test('authenticated private preview derives a stable server key for stale browser requests', () => {
+  const fingerprint = fingerprintBillableRequest({
+    mode: 'research',
+    phase: 'synthesize',
+    half: 'front',
+    gatherFingerprint: 'saved-parkinson-gather'
+  });
+  const first = resolvePaidRequestIdempotencyKey({
+    requestFingerprint: fingerprint,
+    authenticatedPreview: true
+  });
+  const retry = resolvePaidRequestIdempotencyKey({
+    requestFingerprint: fingerprint,
+    authenticatedPreview: true
+  });
+  assert.equal(first, retry);
+  assert.match(first, /^mrt-private-preview-v1:[a-f0-9]{64}$/);
+  assert.equal(resolvePaidRequestIdempotencyKey({
+    requestFingerprint: fingerprint,
+    authenticatedPreview: false
+  }), '');
+  assert.equal(resolvePaidRequestIdempotencyKey({
+    suppliedKey: 'browser-supplied-key-0001',
+    requestFingerprint: fingerprint,
+    authenticatedPreview: true
+  }), 'browser-supplied-key-0001');
 });
 
 test('completion endpoint rejects seal-oracle forgery and accepts server artifacts', async () => {

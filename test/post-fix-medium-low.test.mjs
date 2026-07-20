@@ -40,6 +40,14 @@ const response = () => {
 
 test.beforeEach(() => alertsStore._resetForTests());
 
+test('trial eligibility surfaces deduplicate repeated missing-fact messages', async () => {
+  const app = await readFile(new URL('../src/app.jsx', import.meta.url), 'utf8');
+  const dedupeUses = app.match(/const unknown(?:Facts)? = \[\.\.\.new Set\(/g) || [];
+  assert.equal(dedupeUses.length, 2);
+  assert.match(app, /IDEMPOTENCY_KEY_REQUIRED/);
+  assert.match(app, /retry the saved report without running the search again/i);
+});
+
 test('malformed percent-encoded DOI is rejected without escaping the admission boundary', () => {
   assert.doesNotThrow(() => {
     const result = admitSourceRow({

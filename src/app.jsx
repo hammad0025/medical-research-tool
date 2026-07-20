@@ -247,6 +247,9 @@ if (typeof location !== 'undefined' && location.protocol === 'file:') {
 
 const formatApiError = (data, res) => {
   if (!data) return 'We could not complete that request. Please try again.';
+  if (data.code === 'IDEMPOTENCY_KEY_REQUIRED' || data.code === 'IDEMPOTENCY_KEY_CONFLICT') {
+    return 'This page is out of date. Refresh it once, then retry the saved report without running the search again.';
+  }
   const raw = typeof data.error === 'string'
     ? data.error
     : (data.error?.message || data.message || '');
@@ -6219,10 +6222,12 @@ const buildFullReportBody = ({ reportModel }) => {
           'criteria-unavailable': 'Criteria unavailable',
           'criteria-unchecked': 'Eligibility not fully checked'
         }[assessment?.status] || 'Eligibility not assessed';
-        const unknownFacts = (assessment?.checks || [])
-          .filter((check) => check?.status === 'unknown')
-          .map((check) => check.reason)
-          .filter(Boolean);
+        const unknownFacts = [...new Set(
+          (assessment?.checks || [])
+            .filter((check) => check?.status === 'unknown')
+            .map((check) => check.reason)
+            .filter(Boolean)
+        )];
         const eligibility = [eligibilityLabel, ...(unknownFacts.length
           ? unknownFacts
           : [assessment?.caution || 'Patient-specific facts needed to determine eligibility were not provided.'])]
@@ -8117,10 +8122,12 @@ const TrialsTable = ({ data }) => {
   };
   const eligibilitySummary = (study) => {
     const assessment = study.eligibilityAssessment;
-    const unknown = (assessment?.checks || [])
-      .filter((check) => check?.status === 'unknown')
-      .map((check) => check.reason)
-      .filter(Boolean);
+    const unknown = [...new Set(
+      (assessment?.checks || [])
+        .filter((check) => check?.status === 'unknown')
+        .map((check) => check.reason)
+        .filter(Boolean)
+    )];
     const statusLabels = {
       unknown: 'Eligibility unknown',
       'hard-mismatch': 'Likely not eligible based on provided facts',

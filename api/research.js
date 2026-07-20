@@ -73,6 +73,7 @@ import {
   completeBillableRequest,
   fingerprintBillableRequest
 } from '../lib/billable-request-store.js';
+import { resolvePaidRequestIdempotencyKey } from '../lib/research-request.js';
 import {
   estimateProviderCostUsd,
   reconcileProviderBudget,
@@ -2175,12 +2176,14 @@ export default async function handler(req, res) {
     let billableReservation = null;
     let budgetReservation = null;
     if (shouldControlPaidRequest) {
-      const idempotencyKey = String(
-        req.headers?.['x-idempotency-key'] || body.idempotencyKey || ''
-      ).trim();
       const fingerprint = fingerprintBillableRequest({
         ...body,
         idempotencyKey: undefined
+      });
+      const idempotencyKey = resolvePaidRequestIdempotencyKey({
+        suppliedKey: req.headers?.['x-idempotency-key'] || body.idempotencyKey,
+        requestFingerprint: fingerprint,
+        authenticatedPreview
       });
       const reservation = await beginBillableRequest({
         key: idempotencyKey,
