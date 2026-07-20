@@ -18,6 +18,8 @@ const { asInternalReq } = await import('../lib/internal-call.js');
 const researchHandler = (await import('../api/research.js')).default;
 const completionHandler = (await import('../api/report-completion.js')).default;
 const { verifyReportCompletionSeal } = await import('../lib/report-completion.js');
+const { createReportOutputArtifact } = await import('../lib/report-artifact.js');
+const { sealTrialRegistryPayload } = await import('../lib/trial-registry-gate.js');
 const { establishTermsConsent, TERMS_VERSION } = await import('../lib/terms-consent.js');
 const { sanitizeReportHtml } = await import('../lib/report-links.js');
 
@@ -151,6 +153,8 @@ test('offline gather → seal → synthesize → finalize → render/export rout
       providedDossier: gathered.body.dossier,
       providedEvidence: gathered.body.evidence,
       providedTrials: gathered.body.trials
+    }, {
+      headers: { 'x-idempotency-key': 'offline-synthesis-fixture-0001' }
     });
     assert.equal(synthesized.statusCode, 200, JSON.stringify(synthesized.body));
     const finalized = synthesized.body.content?.find((item) => item.type === 'text')?.text;
@@ -172,26 +176,36 @@ test('offline gather → seal → synthesize → finalize → render/export rout
     const consent = response();
     assert.equal(establishTermsConsent(consent.res), true);
     const cookie = String(consent.headers.get('set-cookie')).split(';')[0];
-    const profileKey = 'ipf|male|moderate|61';
+    const artifactFields = {
+      stage: 'final',
+      segment: 'final',
+      patient,
+      validation: passingValidation(),
+      citationAudit: { status: 'passed' },
+      coverageAudit: { finalMissed: [] }
+    };
+    const trialsPayload = {
+      query: { condition: patient.condition },
+      status: 'empty',
+      studies: []
+    };
+    trialsPayload.registrySeal = sealTrialRegistryPayload(trialsPayload);
     const sealed = await invoke(completionHandler, {
-      profileKey,
+      surface: 'full',
       termsVersion: TERMS_VERSION,
-      sections: {
-        research: { text: polishedText, profileKey },
-        repurpose: {
-          text: 'CANDIDATE: Offline idea\nREFERENCES: [Published study](https://pubmed.ncbi.nlm.nih.gov/12345678/)',
-          profileKey
-        }
+      artifacts: {
+        research: createReportOutputArtifact({
+          ...artifactFields,
+          mode: 'research',
+          text: polishedText
+        }),
+        repurpose: createReportOutputArtifact({
+          ...artifactFields,
+          mode: 'repurpose',
+          text: 'CANDIDATE: Offline idea\nREFERENCES: [Published study](https://pubmed.ncbi.nlm.nih.gov/12345678/)'
+        })
       },
-      trials: { status: 'empty', profileKey },
-      audits: {
-        validation: {
-          research: passingValidation(),
-          repurpose: passingValidation()
-        },
-        citations: { research: { status: 'passed' }, repurpose: { status: 'passed' } },
-        coverage: { finalMissed: [] }
-      }
+      trialsPayload
     }, { internal: false, headers: { cookie } });
     assert.equal(sealed.statusCode, 200, JSON.stringify(sealed.body));
     assert.equal(sealed.body.contract.eligible, true);
@@ -222,6 +236,8 @@ test('offline gather → seal → synthesize → finalize → render/export rout
         providedDossier: gathered.body.dossier,
         providedEvidence: tampered,
         providedTrials: gathered.body.trials
+      }, {
+        headers: { 'x-idempotency-key': 'offline-tampered-synthesis-0001' }
       });
       assert.equal(rejected.statusCode, 409);
       assert.equal(rejected.body.code, 'GATHER_SEAL_INVALID');

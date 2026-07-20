@@ -2,7 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-import { assessReportCompletion } from '../lib/report-completion.js';
+import {
+  assessReportCompletion,
+  bindReportContent,
+  sealReportCompletion,
+  verifyReportContentBinding
+} from '../lib/report-completion.js';
 import { TERMS_VERSION } from '../lib/terms-consent.js';
 import {
   allowedReportUrl,
@@ -83,6 +88,51 @@ test('failed validation, citation, or coverage audits block full labeling', () =
     contract.failed.filter((item) => /validation|citations|coverage/.test(item)).sort(),
     ['citations:research', 'coverage', 'validation:repurpose']
   );
+});
+
+test('coverage fails closed for stale or malformed missing arrays', () => {
+  for (const coverage of [
+    { initialMissed: [] },
+    { status: 'passed' },
+    { finalMissed: 'none' },
+    { finalMissed: null },
+    { finalMissed: ['Required agent'] }
+  ]) {
+    const input = validInput();
+    input.audits.coverage = coverage;
+    const contract = assessReportCompletion(input, { termsAccepted: true });
+    assert.equal(contract.eligible, false, JSON.stringify(coverage));
+    assert.ok(contract.failed.includes('coverage'));
+  }
+});
+
+test('report seal is bound to canonical exported content', () => {
+  const now = 1_750_000_000_000;
+  const secret = 'deterministic-report-content-binding-secret';
+  const content = 'Report heading\r\nEvidence-backed finding.  \n';
+  const contract = bindReportContent(
+    assessReportCompletion(validInput(), { termsAccepted: true }),
+    content
+  );
+  const seal = sealReportCompletion(contract, {
+    now,
+    secret,
+    nonce: 'abcdefghijklmnopqrstuv'
+  });
+  assert.equal(verifyReportContentBinding({
+    contract,
+    seal,
+    reportContent: 'Report heading\nEvidence-backed finding.',
+    now,
+    secret
+  }).ok, true);
+  assert.deepEqual(verifyReportContentBinding({
+    contract,
+    seal,
+    reportContent: 'Report heading\nEvidence-backed opposite finding.',
+    now,
+    secret
+  }), { ok: false, code: 'REPORT_CONTENT_MISMATCH' });
 });
 
 test('low, disputed, unsupported, malformed, and partial validation blocks export', () => {

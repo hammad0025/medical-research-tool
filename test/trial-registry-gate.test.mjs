@@ -60,6 +60,23 @@ test('wrong NCT condition phase and status mutations fail', () => {
   ].sort());
 });
 
+test('trial admission rejects cross-subtype diabetes records', () => {
+  const type2Facts = {
+    nctId: 'NCT01234567',
+    title: 'Type 2 diabetes trial',
+    status: 'RECRUITING',
+    phases: ['PHASE2'],
+    conditions: ['Type 2 Diabetes Mellitus'],
+    studyType: 'INTERVENTIONAL'
+  };
+  const issues = validateTrialRecord({
+    nctId: 'NCT01234567',
+    statusText: 'Phase 2 recruiting trial',
+    expectedConditions: ['Type 1 diabetes', 'T1D', 'Diabetes mellitus']
+  }, type2Facts);
+  assert.ok(issues.includes('NCT_CONDITION_MISMATCH'));
+});
+
 test('missing registry record and URL-ID mismatch fail closed', () => {
   assert.deepEqual(validateTrialRecord({
     nctId: 'NCT05321069',
@@ -189,4 +206,9 @@ test('sealed registry payload rejects swapped and stale structured facts', () =>
   const stale = structuredClone(payload);
   stale.studies[0].status = 'RECRUITING';
   assert.equal(verifyTrialRegistryPayload(stale, { secret, now }).ok, false);
+
+  const forgedCoverage = structuredClone(payload);
+  forgedCoverage.status = 'complete';
+  forgedCoverage.degraded = false;
+  assert.equal(verifyTrialRegistryPayload(forgedCoverage, { secret, now }).ok, false);
 });

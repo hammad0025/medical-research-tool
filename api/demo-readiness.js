@@ -1,12 +1,9 @@
-import { readFile } from 'node:fs/promises';
 import { requireAccess } from '../lib/access-gate.js';
 import { setSameOriginCors } from '../lib/cors.js';
 import { buildDemoReadiness } from '../lib/demo-readiness.js';
+import { loadSavedDemo, sealSavedDemo } from '../lib/saved-demo.js';
 import { requireTermsConsent } from '../lib/terms-consent.js';
 import { installPublicJsonBoundary } from '../lib/public-language.js';
-
-const readSavedReport = async () =>
-  JSON.parse(await readFile(new URL('../data/demo/saved-verified-report.json', import.meta.url), 'utf8'));
 
 export default async function handler(req, res) {
   installPublicJsonBoundary(res);
@@ -23,9 +20,10 @@ export default async function handler(req, res) {
 
   const action = String(req.query?.action || 'preflight');
   if (action === 'saved-report') {
-    const report = await readSavedReport();
+    const report = await loadSavedDemo();
     return res.status(200).json({
       ...report,
+      provenanceSeal: sealSavedDemo(report),
       servedAt: new Date().toISOString(),
       live: false
     });

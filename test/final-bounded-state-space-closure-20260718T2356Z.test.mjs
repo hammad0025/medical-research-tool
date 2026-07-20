@@ -226,7 +226,8 @@ const validReportInput = (termsVersion) => ({
     },
     citations: { research: { status: 'passed' }, repurpose: { status: 'passed' } },
     coverage: { finalMissed: [] }
-  }
+  },
+  reportContent: 'Complete research.\n\nCANDIDATE: Example idea'
 });
 
 test('final bounded state-space closure audit', async () => {
@@ -328,8 +329,43 @@ test('final bounded state-space closure audit', async () => {
   });
   assert.equal(runtime.statusCode, 200);
 
+  const reportArtifactLib = await import('../lib/report-artifact.js');
+  const trialGateLib = await import('../lib/trial-registry-gate.js');
+  const completionPatient = { condition: 'Example condition', age: '54', gender: 'female' };
+  const completionArtifactFields = {
+    stage: 'final',
+    segment: 'final',
+    patient: completionPatient,
+    validation: passingValidation(),
+    citationAudit: { status: 'passed' },
+    coverageAudit: { finalMissed: [] }
+  };
+  const completionTrials = {
+    query: { condition: completionPatient.condition },
+    status: 'empty',
+    studies: []
+  };
+  completionTrials.registrySeal = trialGateLib.sealTrialRegistryPayload(completionTrials);
   const completion = await invoke('/api/report-completion', completionApi.default, {
-    method: 'POST', headers: authorizedHeaders, body: validReportInput(termsLib.TERMS_VERSION)
+    method: 'POST',
+    headers: authorizedHeaders,
+    body: {
+      surface: 'full',
+      termsVersion: termsLib.TERMS_VERSION,
+      artifacts: {
+        research: reportArtifactLib.createReportOutputArtifact({
+          ...completionArtifactFields,
+          mode: 'research',
+          text: 'Complete research.'
+        }),
+        repurpose: reportArtifactLib.createReportOutputArtifact({
+          ...completionArtifactFields,
+          mode: 'repurpose',
+          text: 'CANDIDATE: Example idea\nREFERENCES: [Published study](https://pubmed.ncbi.nlm.nih.gov/12345678/)'
+        })
+      },
+      trialsPayload: completionTrials
+    }
   });
   assert.equal(completion.statusCode, 200);
   assert.equal(completion.body.contract.classification, 'full');

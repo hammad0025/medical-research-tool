@@ -111,7 +111,7 @@ const categories = {
     standalone: [{ ...node('scripts/validate-release-config.mjs'), env: releaseEnv }]
   },
   prepush: {
-    tests: [],
+    tests: [test('test/post-fix-medium-low.test.mjs')],
     standalone: [node('scripts/prepush-audit.mjs')]
   },
   infrastructure: {

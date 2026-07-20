@@ -19,6 +19,13 @@ import {
 import { sanitizePublicText } from "../lib/public-language.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
+import { classifyAccessProbeResponse } from "../lib/access-transition.js";
+import {
+  cachedCompletionForClipboard,
+  normalizeTrialStudies,
+  trialBooleanLabel
+} from "../lib/report-surface.js";
+import { buildBrowserResearchRequest } from "../lib/research-request.js";
 import {
   profileClinicalPlaceholders,
   profileSafetyFields
@@ -26,7 +33,7 @@ import {
 
 window.marked = marked;
 
-const { useState, useRef, useEffect, useMemo } = React;
+const { useState, useRef, useEffect, useMemo, useCallback } = React;
 
 const publicTextOrFallback = (value, fallback = 'This information is temporarily unavailable.') => {
   try { return sanitizePublicText(value); }
@@ -2412,7 +2419,8 @@ const App = () => {
         kind: data.kind,
         label: data.label,
         generatedAt: data.generatedAt,
-        reviewedGitSha: data.reviewedGitSha
+        reviewedGitSha: data.reviewedGitSha,
+        provenanceSeal: data.provenanceSeal
       });
       setTab('research');
       notifyUser('Loaded the clearly labeled saved demo. No live research call was made.', 'info');
@@ -2799,11 +2807,9 @@ const App = () => {
       }
       let res, raw;
       try {
-        res = await fetch('/api/research', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+        res = await fetch('/api/research', buildBrowserResearchRequest(payload, {
+          profileKey: buildProfileIdentityKey(payload.patient)
+        }));
         raw = await res.text();
       } catch (netErr) {
         // The fetch PROMISE rejected — the connection dropped before we
@@ -2898,9 +2904,9 @@ const App = () => {
         text: (a.fullText || a.abstract || a.text || a.summary || '').slice(0, 2000)
       }));
     };
-    const polishMergedReport = async (text, reportData) => {
-      if (!text) return { text: '', validation: null, validationMismatch: null, citationAudit: null };
-      let out = polishReportForDisplay(text);
+    const polishMergedReport = async (text, reportData, gatherContext) => {
+      if (!text) return { text: '', validation: null, validationMismatch: null, citationAudit: null, outputArtifact: null };
+      let out = text;
       let validation = null;
       let validationMismatch = null;
       let citationAudit = null;
@@ -2924,15 +2930,30 @@ const App = () => {
           patient: runPatient,
           audience,
           condition: runPatient.condition,
-          silentFix: true
+          silentFix: true,
+          artifactMode: mode,
+          sourceArtifacts: reportData?.sourceArtifacts ||
+            (reportData?.outputArtifact ? [reportData.outputArtifact] : []),
+          gatherSeal: gatherContext?.gatherSeal,
+          gatherFingerprint: gatherContext?.gatherFingerprint,
+          providedDossier: gatherContext?.dossier,
+          providedEvidence: gatherContext?.evidence,
+          providedTrials: gatherContext?.trials
         });
         const polished = (d.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
         if (polished) out = polished;
         validation = d.validation || null;
         validationMismatch = d.validationMismatch || null;
         citationAudit = d.citationAudit || null;
+        return {
+          text: out,
+          validation,
+          validationMismatch,
+          citationAudit,
+          outputArtifact: d.outputArtifact || null
+        };
       } catch (_) {}
-      return { text: out, validation, validationMismatch, citationAudit };
+      return { text: out, validation, validationMismatch, citationAudit, outputArtifact: null };
     };
     const countCandidateBlocks = (text) =>
       (String(text || '').match(/^CANDIDATE:/gm) || []).length;
@@ -2949,10 +2970,20 @@ const App = () => {
       // trials stay single-shot — their pipelines are much shorter.
       const useTwoPhase = (mode === 'research' || mode === 'repurpose');
       let data;
+      let gatherContext = null;
       if (useTwoPhase) {
         const gathered = gatheredPools || await callResearch({
           mode, patient: runPatient, audience, phase: 'gather', ...extra
         });
+        gatherContext = {
+          gatherSeal: gathered.gatherSeal,
+          gatherFingerprint: gathered.gatherFingerprint,
+          dossier: gathered.dossier
+            ? { ...gathered.dossier, poolsFingerprint: gathered.gatherFingerprint }
+            : null,
+          evidence: gathered.evidence,
+          trials: gathered.trials
+        };
         if (currentProfileKeyRef.current && currentProfileKeyRef.current !== runProfileKey) {
           throw new Error('Your profile changed while research was running. The outdated result was discarded; run again for the current profile.');
         }
@@ -3069,7 +3100,8 @@ const App = () => {
             citationAudit: back.citationAudit?.status === 'failed' || front.citationAudit?.status === 'failed'
               ? { status: 'failed' }
               : (back.citationAudit || front.citationAudit || null),
-            validationMismatch: back.validationMismatch || front.validationMismatch || null
+            validationMismatch: back.validationMismatch || front.validationMismatch || null,
+            sourceArtifacts: [front.outputArtifact, back.outputArtifact].filter(Boolean)
           };
         } else if (mode === 'repurpose') {
           const LANE_COUNT = 3;
@@ -3168,6 +3200,10 @@ const App = () => {
               ? { status: 'failed' }
               : (back?.citationAudit || okFronts[0]?.citationAudit || null),
             validationMismatch: back?.validationMismatch || okFronts[0]?.validationMismatch || null,
+            sourceArtifacts: [...okFronts, back]
+              .filter(Boolean)
+              .map((result) => result.outputArtifact)
+              .filter(Boolean),
             repurposeQuality: {
               totalCandidates,
               linkedCandidates,
@@ -3196,11 +3232,12 @@ const App = () => {
           status: 'running',
           detail: 'Checking facts and cleaning up the report…'
         });
-        const polished = await polishMergedReport(text, data);
+        const polished = await polishMergedReport(text, data, gatherContext);
         text = polished.text;
         if (polished.validation) data.validation = polished.validation;
         if (polished.validationMismatch) data.validationMismatch = polished.validationMismatch;
         if (polished.citationAudit) data.citationAudit = polished.citationAudit;
+        data.outputArtifact = polished.outputArtifact;
       }
       if (mode === 'repurpose') {
         const finalCandidates = parseCandidates(text);
@@ -3251,15 +3288,16 @@ const App = () => {
       if (mode !== 'chat' && data.validationMismatch) {
         setValidationMismatch((v) => ({ ...v, [mode]: data.validationMismatch }));
       }
-      if (mode !== 'chat' && data.usage) {
+      if (mode !== 'chat') {
         setLastRunMeta((m) => ({
           ...m,
           [mode]: {
-            inputTokens: data.usage.input_tokens || 0,
-            outputTokens: data.usage.output_tokens || 0,
+            inputTokens: data.usage?.input_tokens || 0,
+            outputTokens: data.usage?.output_tokens || 0,
             model: data.model || '',
             at: Date.now(),
             profileKey: runProfileKey,
+            outputArtifact: data.outputArtifact || null,
             repurposeQuality: data.repurposeQuality || null,
             supplementQueries: data.evidence?.supplementGatherQueries?.length || 0
           }
@@ -3638,34 +3676,21 @@ const App = () => {
     trialsData, trialsText, references, evidenceSummary, evidencePack
   ]);
 
-  const requestReportCompletionContract = async () => {
-    const profileKey = buildProfileIdentityKey(patient);
-    const pipelineCount = evidenceSummary?.pipelineDrugs?.length || 0;
+  const requestReportCompletionContract = useCallback(async (surface = 'full') => {
     const response = await fetch('/api/report-completion', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        profileKey,
+        surface,
         termsVersion: MRT_TERMS_VERSION,
-        sections: {
-          research: { text: researchText, profileKey: lastRunMeta.research?.profileKey },
-          repurpose: { text: repurposeText, profileKey: lastRunMeta.repurpose?.profileKey }
+        artifacts: {
+          research: lastRunMeta.research?.outputArtifact || null,
+          repurpose: lastRunMeta.repurpose?.outputArtifact || null
         },
-        trials: {
-          status: !trialsData
-            ? 'missing'
-            : (trialsData.status === 'cancelled' || trialsData.cancelled ? 'cancelled'
-              : (trialsData.degraded || trialsData.providerErrors?.length ? 'degraded'
-                : ((trialsData.studies || []).length ? 'complete' : 'empty'))),
-          profileKey: lastRunMeta.research?.profileKey
-        },
-        audits: {
-          validation: { research: validations.research, repurpose: validations.repurpose },
-          citations: { research: citationAudits.research, repurpose: citationAudits.repurpose },
-          coverage: coverageAudit || (pipelineCount === 0 ? { status: 'not-applicable' } : null)
-        },
-        evidenceDegraded: evidenceSummary?.knowledgeBase?.degraded === true,
-        savedDemo: savedDemoMeta
+        trialsPayload: trialsData,
+        savedDemo: savedDemoMeta?.provenanceSeal
+          ? { provenanceSeal: savedDemoMeta.provenanceSeal }
+          : null
       })
     });
     const result = await response.json().catch(() => null);
@@ -3678,8 +3703,16 @@ const App = () => {
         ? `This report is not ready to export. ${reasons.join(' ')}`
         : 'The report could not be verified for export. Please try again.');
     }
-    return { ...result.contract, seal: result.seal };
-  };
+    return {
+      ...result.contract,
+      seal: result.seal,
+      canonicalContent: result.canonicalContent
+    };
+  }, [
+    lastRunMeta,
+    trialsData,
+    savedDemoMeta
+  ]);
 
   return (
     <div style={{ minHeight: '100vh', background: theme.bg,
@@ -5908,7 +5941,7 @@ const reportContractHtml = (contract) =>
     : '') +
   '</div>';
 
-const PdfExportButton = ({ getElement, filename, label, disabled, getCompletionContract }) => {
+const PdfExportButton = ({ getElement, filename, label, disabled, getCompletionContract, surface = 'research' }) => {
   const [busy, setBusy] = useState(false);
   const onClick = async () => {
     if (busy || disabled) return;
@@ -5916,15 +5949,11 @@ const PdfExportButton = ({ getElement, filename, label, disabled, getCompletionC
     if (!el) { notifyUser('Nothing to export yet — run the analysis first.', 'error'); return; }
     setBusy(true);
     try {
-      const contract = await getCompletionContract();
-      // Clone so we never mutate the live view, drop UI-only buttons,
-      // and upgrade every reference into a real clickable anchor.
-      const clone = el.cloneNode(true);
-      clone.querySelectorAll('[data-pdf-exclude], button').forEach((n) => n.remove());
-      linkifyExportClone(clone);
+      const contract = await getCompletionContract(surface);
       const title = (filename || 'medical-research-analysis.pdf').replace(/\.pdf$/i, '');
       const html = buildExportDocument({
-        bodyHtml: reportContractHtml(contract) + clone.innerHTML,
+        bodyHtml: reportContractHtml(contract) +
+          renderMarkdownForExport(contract.canonicalContent),
         title,
         verification: contract.seal
       });
@@ -5961,7 +5990,7 @@ const downloadWordDocument = ({ html, filename }) => {
   URL.revokeObjectURL(url);
 };
 
-const WordExportButton = ({ getElement, filename, label, disabled, getCompletionContract }) => {
+const WordExportButton = ({ getElement, filename, label, disabled, getCompletionContract, surface = 'research' }) => {
   const [busy, setBusy] = useState(false);
   const onClick = async () => {
     if (busy || disabled) return;
@@ -5969,13 +5998,11 @@ const WordExportButton = ({ getElement, filename, label, disabled, getCompletion
     if (!el) { notifyUser('Nothing to export yet — run the analysis first.', 'error'); return; }
     setBusy(true);
     try {
-      const contract = await getCompletionContract();
-      const clone = el.cloneNode(true);
-      clone.querySelectorAll('[data-pdf-exclude], button').forEach((n) => n.remove());
-      linkifyExportClone(clone);
+      const contract = await getCompletionContract(surface);
       const title = (filename || 'medical-research-analysis.doc').replace(/\.docx?$/i, '');
       const html = buildExportDocument({
-        bodyHtml: reportContractHtml(contract) + clone.innerHTML,
+        bodyHtml: reportContractHtml(contract) +
+          renderMarkdownForExport(contract.canonicalContent),
         title,
         verification: contract.seal
       });
@@ -6018,14 +6045,14 @@ const AnalysisExportBar = ({ getElement, exportBaseFilename, disabled, text, get
   );
 };
 
-const TextExportButton = ({ text, filename, label, disabled, getCompletionContract }) => {
+const TextExportButton = ({ text, filename, label, disabled, getCompletionContract, surface = 'research' }) => {
   const onClick = async () => {
     if (disabled || !text) return;
     try {
-      const contract = await getCompletionContract();
+      const contract = await getCompletionContract(surface);
       const payload = publicTextOrFallback(`${contract.label}` +
         (contract.coverageMessages?.length ? `\nWhat may be missing: ${contract.coverageMessages.join(' ')}` : '') +
-        `\n\n${MEDICAL_DISCLAIMER}\n\n${text}`);
+        `\n\n${MEDICAL_DISCLAIMER}\n\n${contract.canonicalContent}`);
       const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -6066,20 +6093,20 @@ const escapeHtmlForExport = (s) => String(s == null ? '' : s)
 // Every screen/export representation is derived from the same canonical model.
 const buildFullReportBody = ({ reportModel }) => {
   const {
-    patient,
-    patientFields,
+    patient = {},
+    patientFields = [],
     sections: {
-      researchText,
-      treatments,
-      candidates,
-      combos,
-      trialsData,
-      trialsText,
-      references,
-      evidenceSummary,
-      evidencePack
-    }
-  } = reportModel;
+      researchText = '',
+      treatments = [],
+      candidates = [],
+      combos = [],
+      trialsData = {},
+      trialsText = '',
+      references = [],
+      evidenceSummary = null,
+      evidencePack = []
+    } = {}
+  } = reportModel || {};
   const parts = [];
   const cond = patient?.condition || 'your condition';
   const allowedUrls = buildAllowedUrlSet(trialsData, evidenceSummary || { topRanked: evidencePack || [] });
@@ -6123,7 +6150,8 @@ const buildFullReportBody = ({ reportModel }) => {
     parts.push('<h2>Patient Context Used for This Report</h2>');
     profileDetails.forEach(([label, value]) => parts.push(field(label, value)));
   }
-  const omitted = patientFields
+  const omitted = (Array.isArray(patientFields) ? patientFields : [])
+    .filter((item) => item && typeof item === 'object')
     .filter((item) => item.included && !item.value)
     .map((item) => item.label);
   if (omitted.length) {
@@ -6169,7 +6197,7 @@ const buildFullReportBody = ({ reportModel }) => {
     ));
   }
 
-  const studies = trialsData?.studies || [];
+  const studies = normalizeTrialStudies(trialsData?.studies);
   const trialCoverage = trialCoverageMessage(trialsData);
   if (studies.length || trialCoverage) {
     const trialHeading = trialsData?.savedDemo
@@ -6225,9 +6253,9 @@ const buildFullReportBody = ({ reportModel }) => {
           studySummary,
           (s.phases || []).map(humanizeRegistryValue).join(', ') || 'Not listed',
           humanizeRegistryValue(s.overallStatus || s.status) || 'Not listed',
-          s.acceptingNewPatients ? 'Yes' : 'No',
+          trialBooleanLabel(s.acceptingNewPatients, { unknown: 'Unknown' }),
           eligibility,
-          s.hasPlacebo ? 'Yes' : 'No',
+          trialBooleanLabel(s.hasPlacebo, { unknown: 'Not listed' }),
           accessNotes,
           (s.countries || []).join(', ') || '—',
           monitoring,
@@ -6363,10 +6391,10 @@ const FullReportExportButton = (props) => {
     }
     setBusy(true);
     try {
-      const contract = await props.getCompletionContract();
-      const bodyHtml = buildFullReportBody({ reportModel: props.reportModel });
+      const contract = await props.getCompletionContract('full');
       const html = buildExportDocument({
-        bodyHtml: reportContractHtml(contract) + bodyHtml,
+        bodyHtml: reportContractHtml(contract) +
+          renderMarkdownForExport(contract.canonicalContent),
         title: base,
         verification: contract.seal
       });
@@ -6414,6 +6442,7 @@ const FullReportExportButton = (props) => {
         label="Full Report Text"
         disabled={busy || !complete}
         getCompletionContract={props.getCompletionContract}
+        surface="full"
       />
     </div>
   );
@@ -7499,9 +7528,10 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
                         getCompletionContract }) => {
   const cond = patient.condition || 'this condition';
   const savedDemo = trialsData?.savedDemo === true;
-  const trialStudies = Array.isArray(trialsData?.studies) ? trialsData.studies : [];
+  const trialStudies = normalizeTrialStudies(trialsData?.studies);
   const isIpf = /idiopathic\s*pulmonary\s*fibrosis|\bipf\b|\buip\b/i.test(cond);
   const [translatedText, setTranslatedText] = useState('');
+  const [copyCompletion, setCopyCompletion] = useState(null);
   const reportAllowedUrls = useMemo(() => {
     return buildAllowedUrlSet(trialsData, evidenceSummary || { topRanked: evidencePack });
   }, [evidenceSummary, evidencePack, trialsData]);
@@ -7540,6 +7570,19 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
     if (headingRe.test(txt)) return txt.replace(headingRe, `$1${jumpLine}`);
     return txt;
   }, [renderedResearchTextBase, trialsData, evidenceSummary, evidencePack, patient.condition, savedDemo]);
+  useEffect(() => {
+    let active = true;
+    setCopyCompletion(null);
+    if (!String(renderedResearchText || '').trim()) return () => { active = false; };
+    getCompletionContract('research')
+      .then((contract) => {
+        if (active) setCopyCompletion({ reportContent: 'research', contract });
+      })
+      .catch(() => {
+        if (active) setCopyCompletion(null);
+      });
+    return () => { active = false; };
+  }, [renderedResearchText, getCompletionContract]);
   const profileCoherenceIssue = useMemo(() => checkProfileCoherence(patient), [patient]);
   const baseQuickPrompts = [
     `Why did you rank the top treatment #1 over the others? Walk me through the tradeoff.`,
@@ -7710,13 +7753,17 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
               <button
                 onClick={async () => {
                   try {
-                    const contract = await getCompletionContract();
+                    const contract = cachedCompletionForClipboard(copyCompletion, 'research');
+                    if (!contract) {
+                      throw new Error('This report is still being verified for copying. Please try again.');
+                    }
                     const coverage = contract.coverageMessages?.length
                       ? `\nWhat may be missing: ${contract.coverageMessages.join(' ')}`
                       : '';
-                    await navigator.clipboard.writeText(publicTextOrFallback(
-                      `${contract.label}${coverage}\n\n${MEDICAL_DISCLAIMER}\n\n${renderedResearchText}`
+                    const write = navigator.clipboard.writeText(publicTextOrFallback(
+                      `${contract.label}${coverage}\n\n${MEDICAL_DISCLAIMER}\n\n${contract.canonicalContent}`
                     ));
+                    await write;
                     notifyUser('Report copied to the clipboard.', 'success');
                   } catch (e) {
                     notifyUser(e?.message || 'This report is not ready to copy.', 'error');
@@ -7933,7 +7980,7 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
 };
 
 const trialOrderingBreakdown = (s) => {
-  const phase = (s.phases || []).join(',');
+  const phase = (Array.isArray(s?.phases) ? s.phases : []).join(',');
   const STATUS = String(s.status || '').toUpperCase();
   const accessAvailable = s.acceptingNewPatients === true || STATUS === 'AVAILABLE';
   const chunks = [];
@@ -7953,7 +8000,7 @@ const trialOrderingBreakdown = (s) => {
     why: 'Phase 1 mainly studies safety, dose, and feasibility; it does not establish likely benefit.' });
   if (s.acceptingNewPatients) chunks.push({ label: 'Accepting inquiries', value: '', color: theme.green,
     why: 'A site is accepting inquiries. The study team must still determine eligibility.' });
-  if (!s.hasPlacebo) chunks.push({ label: 'No placebo arm listed', value: '', color: theme.textDim,
+  if (s.hasPlacebo === false) chunks.push({ label: 'No placebo arm listed', value: '', color: theme.textDim,
     why: 'The registry record does not list a placebo arm. This is a design description, not a quality or benefit rating.' });
   if (accessAvailable && s.designations?.hasOpenLabelExtension) chunks.push({ label: 'Available extension record', value: '', color: theme.green,
     why: 'This record is flagged as an Open-Label Extension and its structured status is currently available. Confirm eligibility with the study team.' });
@@ -8047,12 +8094,12 @@ const TrialsTable = ({ data }) => {
   const efficacyProxyScore = (s) => {
     let n = 0;
     n += phaseRank(s) * 30;
-    if (!s.hasPlacebo) n += 15;
+    if (s.hasPlacebo === false) n += 15;
     if (s.acceptingNewPatients) n += 10;
     if (s.oversight?.oversightHasDMC) n += 6;
     return n;
   };
-  const rows = [...(Array.isArray(data?.studies) ? data.studies : [])].sort((a, b) => {
+  const rows = normalizeTrialStudies(data?.studies).sort((a, b) => {
     if (sortMode === 'efficacy') return efficacyProxyScore(b) - efficacyProxyScore(a);
     if (sortMode === 'access') {
       const aScore = (a.isExpandedAccessStudy ? 3 : 0) + (a.designations?.hasOpenLabelExtension ? 2 : 0) + (a.designations?.hasPostTrialAccess ? 1 : 0) + (a.acceptingNewPatients ? 2 : 0);
@@ -8142,7 +8189,7 @@ const TrialsTable = ({ data }) => {
                   background: isSelected ? `${theme.accent}12` : 'transparent'
                 }}>
                   <td style={{ padding: '0.6rem', maxWidth: 360 }}>
-                    <div style={{ color: theme.accent, fontWeight: 600 }}>{s.briefTitle}</div>
+                    <div style={{ color: theme.accent, fontWeight: 600 }}>{s.briefTitle || s.officialTitle || s.title || 'Study title not listed'}</div>
                     <div style={{ color: theme.textDim, fontSize: '0.75rem' }}>{s.nctId} · {s.sponsor || ''}</div>
                     {s.relevanceLabel && (
                       <span style={{
@@ -8168,8 +8215,8 @@ const TrialsTable = ({ data }) => {
                   </td>
                   <td style={{ padding: '0.6rem' }}>{(s.phases || []).map(humanizeRegistryValue).join(', ') || 'Not listed'}</td>
                   <td style={{ padding: '0.6rem' }}>{humanizeRegistryValue(s.status) || 'Not listed'}</td>
-                  <td style={{ padding: '0.6rem', color: s.acceptingNewPatients ? theme.green : theme.textDim }}>
-                    {s.acceptingNewPatients ? 'Yes' : 'No'}
+                  <td style={{ padding: '0.6rem', color: s.acceptingNewPatients === true ? theme.green : theme.textDim }}>
+                    {trialBooleanLabel(s.acceptingNewPatients, { unknown: 'Unknown' })}
                   </td>
                   <td style={{ padding: '0.6rem', minWidth: 210, fontSize: '0.75rem' }}>
                     <strong style={{ color: theme.yellow }}>{eligibility.label}</strong>
@@ -8182,8 +8229,8 @@ const TrialsTable = ({ data }) => {
                       </ul>
                     </div>
                   </td>
-                  <td style={{ padding: '0.6rem', color: s.hasPlacebo ? theme.yellow : theme.green }}>
-                    {s.hasPlacebo ? 'Yes' : 'No'}
+                  <td style={{ padding: '0.6rem', color: s.hasPlacebo === true ? theme.yellow : s.hasPlacebo === false ? theme.green : theme.textDim }}>
+                    {trialBooleanLabel(s.hasPlacebo, { unknown: 'Not listed' })}
                   </td>
                   <td style={{ padding: '0.6rem', fontSize: '0.75rem' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
@@ -8725,12 +8772,15 @@ const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layper
 //      access-level badges (full-text / abstract / metadata-only).
 //   2. The raw URLs Claude's narrative emitted — parsed from its text.
 const RefsTab = ({ references, evidencePack, evidenceSummary, trialsData }) => {
+  const referenceRows = Array.isArray(references) ? references : [];
+  const evidenceRows = (Array.isArray(evidencePack) ? evidencePack : [])
+    .filter((item) => item && typeof item === 'object' && !Array.isArray(item));
   const allowedUrls = useMemo(
-    () => buildAllowedUrlSet(trialsData, evidenceSummary || { topRanked: evidencePack }),
+    () => buildAllowedUrlSet(trialsData, evidenceSummary || { topRanked: evidenceRows }),
     [trialsData, evidenceSummary, evidencePack]
   );
   const safeReferences = useMemo(
-    () => filterAllowedReportLinks(references, allowedUrls),
+    () => filterAllowedReportLinks(referenceRows, allowedUrls),
     [references, allowedUrls]
   );
   const pubmedRefs = safeReferences.filter(r => r.url.includes('pubmed') || r.url.includes('doi.org'));
@@ -8775,25 +8825,28 @@ const RefsTab = ({ references, evidencePack, evidenceSummary, trialsData }) => {
         )}
       </div>
 
-      {evidencePack && evidencePack.length > 0 && (
+      {evidenceRows.length > 0 && (
         <div style={panelStyle}>
           <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem' }}>
-            Sources used in this report ({evidencePack.length})
+            Sources used in this report ({evidenceRows.length})
           </h3>
           <div style={{ display: 'grid', gap: '0.5rem' }}>
-            {evidencePack.slice(0, 40).map((p, i) => {
+            {evidenceRows.map((p, i) => {
               const url = p.pmcUrl || p.pubmedUrl || p.doiUrl || p.oaUrl || p.landingUrl || p.europePmcUrl || p.url
                 || (p.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${String(p.pmid).replace(/\D/g, '')}/` : null)
                 || (p.doi ? `https://doi.org/${String(p.doi).replace(/^https?:\/\/doi\.org\//i, '')}` : null);
               const safeUrl = allowedReportUrl(url, allowedUrls);
-              const excerpt = (p.fullText || p.abstract || '').slice(0, 260);
+              const sourceText = typeof p.fullText === 'string'
+                ? p.fullText
+                : typeof p.abstract === 'string' ? p.abstract : '';
+              const excerpt = sourceText.slice(0, 260);
               return (
                 <div key={i} style={{
                   padding: '0.75rem', background: theme.panel,
                   borderRadius: 8, border: `1px solid ${theme.border}`
                 }}>
                   <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>
-                    {p.title || '(untitled)'}
+                    {typeof p.title === 'string' && p.title.trim() ? p.title : '(untitled)'}
                   </div>
                   <div style={{ fontSize: '0.78rem', color: theme.textDim, marginTop: 2 }}>
                     {p.journal || 'Journal'}{p.year ? ` · ${p.year}` : ''}
@@ -8804,7 +8857,7 @@ const RefsTab = ({ references, evidencePack, evidenceSummary, trialsData }) => {
                       fontSize: '0.82rem', color: theme.text, marginTop: '0.4rem',
                       fontStyle: 'italic', lineHeight: 1.5
                     }}>
-                      “{excerpt}{(p.fullText || p.abstract || '').length > 260 ? '…' : ''}”
+                      “{excerpt}{sourceText.length > 260 ? '…' : ''}”
                     </div>
                   )}
                   {safeUrl && (
@@ -8829,9 +8882,13 @@ const RefsTab = ({ references, evidencePack, evidenceSummary, trialsData }) => {
         <p style={{ color: theme.textDim, fontSize: '0.85rem', marginTop: 0 }}>
           Every link from your report, with duplicates removed.
         </p>
-        {references.length === 0 ? (
+        {referenceRows.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '1.5rem', color: theme.textDim }}>
             No sources yet. Run a Full Report on the Research page to fill this in.
+          </div>
+        ) : safeReferences.length === 0 ? (
+          <div role="status" style={{ textAlign: 'center', padding: '1.5rem', color: theme.textDim }}>
+            Report links were present, but none matched the server-provided source allowlist, so no links are shown.
           </div>
         ) : (
           <div style={{ marginTop: '0.75rem' }}>
@@ -8905,6 +8962,7 @@ const StickyDisclaimer = () => (
     aria-label="Medical disclaimer"
     style={{
       position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 9999,
+      pointerEvents: 'none',
       background: 'rgba(120, 20, 20, 0.96)',
       color: '#fff5f5',
       borderTop: '2px solid rgba(255, 255, 255, 0.25)',
@@ -8939,12 +8997,12 @@ const probeAccessGate = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: 'runtime-config' })
     });
-    if (r.status === 401) {
-      const body = await r.json().catch(() => null);
-      return { ok: false, gateEnabled: true, reason: body?.error || 'Access denied.' };
-    }
-    if (!r.ok) return { ok: false, gateEnabled: true, reason: 'Access could not be verified because the service is temporarily unavailable.' };
-    return { ok: true, gateEnabled: false };
+    const body = r.ok ? null : await r.json().catch(() => null);
+    return classifyAccessProbeResponse({
+      status: r.status,
+      code: body?.code,
+      error: body?.error
+    });
   } catch (e) {
     return { ok: false, gateEnabled: true, reason: 'Access could not be verified. Check your connection and try again.' };
   }

@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   assessReportCompletion,
+  bindReportContent,
   sealReportCompletion,
-  verifyReportCompletionSeal
+  verifyReportContentBinding
 } from '../lib/report-completion.js';
 import { TERMS_VERSION } from '../lib/terms-consent.js';
 
@@ -92,20 +93,32 @@ const runLocal = async () => {
     },
     trials: { status: 'complete', profileKey },
     audits: saved.audits,
-    savedDemo: {
+    outputQualityVersion: '1'
+  }, {
+    termsAccepted: true,
+    savedDemoProvenance: {
       kind: saved.kind,
       generatedAt: saved.generatedAt,
       reviewedGitSha: saved.reviewedGitSha
     }
-  }, { termsAccepted: true });
+  });
   assert.equal(completion.eligible, true);
-  const sealed = { ...completion, issuedAt: saved.generatedAt };
+  const reportContent = `${saved.researchText}\n\n${saved.repurposeText}`;
+  const sealed = bindReportContent({
+    ...completion,
+    issuedAt: saved.generatedAt
+  }, reportContent);
   const now = Date.parse(saved.generatedAt);
   const seal = sealReportCompletion(sealed, {
     now,
     nonce: 'AAAAAAAAAAAAAAAAAAAAAA'
   });
-  assert.equal(verifyReportCompletionSeal({ contract: sealed, seal, now }).ok, true);
+  assert.equal(verifyReportContentBinding({
+    contract: sealed,
+    seal,
+    reportContent,
+    now
+  }).ok, true);
   pass('saved fallback passes the same completion seal contract');
 
   const appSource = await readFile(new URL('../src/app.jsx', import.meta.url), 'utf8');

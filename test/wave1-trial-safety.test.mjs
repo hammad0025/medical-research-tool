@@ -170,9 +170,13 @@ test('trial cancellation survives coverage normalization and pool round trips', 
 
 test('screen and export share mixed-status and safe coverage presentation', async () => {
   const source = await readFile(new URL('../src/app.jsx', import.meta.url), 'utf8');
+  const completion = await readFile(new URL('../api/report-completion.js', import.meta.url), 'utf8');
+  const surface = await readFile(new URL('../lib/report-surface.js', import.meta.url), 'utf8');
   assert.ok(source.match(/trialCollectionDescription\(trialsData\)/g)?.length >= 2);
   assert.ok(source.match(/trialCoverageMessage\(trialsData\)/g)?.length >= 2);
-  assert.match(source, /trialsData\.status === 'cancelled'/);
+  assert.match(completion, /verifyTrialRegistryPayload\(trialsPayload\)/);
+  assert.match(completion, /trialsPayload\.status === 'cancelled'/);
+  assert.match(surface, /line\('Search status', trials\.status/);
   assert.match(source, /trialStudies\.length > 0 \|\| trialCoverageMessage\(trialsData\)/);
   assert.match(source, /s\.overallStatus \|\| s\.status/);
   assert.match(source, /humanizeRegistryValue\(s\.status\)/);

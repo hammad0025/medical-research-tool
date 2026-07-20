@@ -2347,9 +2347,11 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     /Full Report PDF/.test(html) &&
     /Full Report Text/.test(html);
   const completeGate =
-    /const contract = await props\.getCompletionContract\(\)/.test(html) &&
+    /const contract = await props\.getCompletionContract\('full'\)/.test(html) &&
     /getCompletionContract=\{props\.getCompletionContract\}/.test(html) &&
-    /reportContractHtml\(contract\)/.test(html);
+    /reportContractHtml\(contract\)/.test(html) &&
+    /renderMarkdownForExport\(contract\.canonicalContent\)/.test(html) &&
+    /surface="full"/.test(html);
   const exactClientAllowlist =
     /return !!allowedReportUrl\(href, allowedUrls\)/.test(html) &&
     /filterAllowedReportLinks/.test(html);

@@ -41,7 +41,7 @@ const validInput = () => ({
       repurpose: passingValidation()
     },
     citations: { research: { status: 'passed' }, repurpose: { status: 'passed' } },
-    coverage: { status: 'passed' }
+    coverage: { status: 'passed', finalMissed: [] }
   }
 });
 

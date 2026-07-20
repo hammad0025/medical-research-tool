@@ -19,6 +19,8 @@ import evidenceHandler from '../lib/evidence.js';
 import trialsHandler from './trials.js';
 import {
   listSubscriptionsPage,
+  getAlertCronCursor,
+  setAlertCronCursor,
   getSentLedger,
   claimDelivery,
   releaseDeliveryClaim,
@@ -161,7 +163,7 @@ const oneRun = async (sub, {
   // paper IDs.
   const trialList = (trials.body?.trials || trials.body?.studies || []).map((t) => ({
     nctId: t.nctId,
-    title: t.title,
+    title: t.title || t.briefTitle || t.officialTitle,
     phase: t.phase,
     status: t.status || t.recruitingStatus,
     countries: t.countries || [],
@@ -175,7 +177,8 @@ const oneRun = async (sub, {
     (m.enforcementActions || []).slice(0, 3).forEach((a) => {
       fdaActions.push({
         summary: `${m.manufacturer}: Class ${a.classification} recall (${a.recallInitiationDate}) — ${(a.reason || '').slice(0, 140)}`,
-        id: `fda:${m.manufacturer}:${a.recallInitiationDate}:${(a.reason || '').slice(0, 40)}`
+        id: `fda:${m.manufacturer}:${a.recallInitiationDate}:${(a.reason || '').slice(0, 40)}`,
+        url: 'https://www.accessdata.fda.gov/scripts/ires/index.cfm'
       });
     });
   });
@@ -194,7 +197,7 @@ const oneRun = async (sub, {
     unsubscribeUrl
   });
   const subject = renderAlertSubject({
-    condition, newItems: digestItems, trials: newTrials
+    condition, newItems: digestItems, trials: newTrials, fdaActions: newFdaActions
   });
 
   let emailResult = { skipped: true, reason: 'dryRun' };
@@ -274,7 +277,7 @@ const oneRun = async (sub, {
   }
 };
 
-export const _alertsCronTest = { periodKey, isDue, oneRun };
+export const _alertsCronTest = { periodKey, isDue, oneRun, invoke };
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
@@ -310,39 +313,66 @@ export default async function handler(req, res) {
       });
     }
     const onlyEmail = req.query?.onlyEmail; // manual targeted run
-    const cursor = /^\d+$/.test(String(req.query?.cursor || '0'))
-      ? String(req.query?.cursor || '0')
-      : '0';
+    const requestedCursor = req.query?.cursor;
+    const cursor = /^\d+$/.test(String(requestedCursor || ''))
+      ? String(requestedCursor)
+      : await getAlertCronCursor();
     const batchSize = Math.max(1, Math.min(10, Number(req.query?.limit) || 10));
-    const page = await listSubscriptionsPage({ cursor, limit: batchSize });
-    const subs = page.subscriptions.filter((s) =>
-      s.active && (!onlyEmail || s.email === onlyEmail)
-    );
-
     const started = Date.now();
     const deadlineAt = started + 45_000;
     const results = [];
     let deadlineReached = false;
-    for (const sub of subs) {
-      if (Date.now() >= deadlineAt) {
-        deadlineReached = true;
+    let nextCursor = cursor;
+    let malformedSkipped = 0;
+    let scannedSubscriptions = 0;
+    let pagesProcessed = 0;
+    const seenCursors = new Set();
+    do {
+      if (Date.now() >= deadlineAt || seenCursors.has(nextCursor)) {
+        deadlineReached = Date.now() >= deadlineAt;
         break;
       }
-      try {
-        const r = await oneRun(sub, { dryRun, deadlineAt });
-        results.push(r);
-      } catch (e) {
-        logError('[alerts-cron] subscription run failed', e);
-        results.push({
-          subId: sub.id,
-          error: 'Subscription processing failed.',
-          code: 'SUBSCRIPTION_PROCESSING_FAILED',
-          sent: false
-        });
+      seenCursors.add(nextCursor);
+      const pageCursor = nextCursor;
+      const page = await listSubscriptionsPage({ cursor: pageCursor, limit: batchSize });
+      malformedSkipped += page.malformed;
+      scannedSubscriptions += page.subscriptions.length;
+      const subs = page.subscriptions.filter((s) =>
+        s.active && (!onlyEmail || s.email === onlyEmail)
+      );
+      let completedPage = true;
+      for (const sub of subs) {
+        if (Date.now() >= deadlineAt) {
+          deadlineReached = true;
+          completedPage = false;
+          break;
+        }
+        try {
+          const r = await oneRun(sub, { dryRun, deadlineAt });
+          results.push(r);
+        } catch (e) {
+          logError('[alerts-cron] subscription run failed', e);
+          results.push({
+            subId: sub.id,
+            error: 'Subscription processing failed.',
+            code: 'SUBSCRIPTION_PROCESSING_FAILED',
+            sent: false
+          });
+        }
+        if (subs.length > 1 && Date.now() + 800 < deadlineAt) {
+          await new Promise((r) => setTimeout(r, 800));
+        }
       }
-      if (subs.length > 1 && Date.now() + 800 < deadlineAt) {
-        await new Promise((r) => setTimeout(r, 800));
+      if (!completedPage) {
+        nextCursor = pageCursor;
+        break;
       }
+      nextCursor = page.cursor;
+      pagesProcessed += 1;
+      if (!dryRun) await setAlertCronCursor(nextCursor);
+    } while (nextCursor !== '0' && pagesProcessed < 25 && Date.now() < deadlineAt);
+    if (nextCursor !== '0' && (pagesProcessed >= 25 || Date.now() >= deadlineAt)) {
+      deadlineReached = true;
     }
 
     const attempted = results.filter((r) => !r.skipped).length;
@@ -351,7 +381,7 @@ export default async function handler(req, res) {
     const meaningfulFailure =
       (attempted > 0 && failures === attempted) ||
       (failures > 0 && failures >= successes) ||
-      (page.malformed > 0 && page.subscriptions.length === 0);
+      (malformedSkipped > 0 && scannedSubscriptions === 0);
     let monitoring = { sent: false, reason: 'not-needed' };
     if (meaningfulFailure) {
       monitoring = await notifyAlertFailure({
@@ -371,8 +401,9 @@ export default async function handler(req, res) {
       dryRun,
       subsProcessed: results.length,
       failures,
-      malformedSkipped: page.malformed,
-      cursor: deadlineReached ? cursor : page.cursor,
+      malformedSkipped,
+      cursor: nextCursor,
+      pagesProcessed,
       deadlineReached,
       durationMs: Date.now() - started,
       monitoring,

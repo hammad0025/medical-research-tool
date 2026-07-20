@@ -15,7 +15,7 @@ test('private preview startup requests are bounded and fail closed', () => {
 });
 
 test('malformed trial payloads use an array guard before rendering', () => {
-  assert.match(appSource, /const trialStudies = Array\.isArray\(trialsData\?\.studies\)/);
+  assert.match(appSource, /const trialStudies = normalizeTrialStudies\(trialsData\?\.studies\)/);
   assert.match(appSource, /\(trialStudies\.length > 0 \|\| trialCoverageMessage\(trialsData\)\)/);
   assert.doesNotMatch(appSource, /trialsData\.returned \|\| trialsData\.studies\.length/);
 });
@@ -29,8 +29,14 @@ test('direct trial links require exact NCT URL identity', () => {
 });
 
 test('clipboard and full text use the completion contract and canonical report body', () => {
-  assert.match(appSource, /const contract = await getCompletionContract\(\);[\s\S]*navigator\.clipboard\.writeText/);
+  assert.match(appSource, /getCompletionContract\('research'\)[\s\S]*setCopyCompletion/);
+  assert.match(appSource, /cachedCompletionForClipboard\(copyCompletion, 'research'\)[\s\S]*const write = navigator\.clipboard\.writeText/);
+  assert.match(appSource, /navigator\.clipboard\.writeText[\s\S]{0,300}contract\.canonicalContent/);
+  assert.doesNotMatch(appSource, /await getCompletionContract\('research'\);[\s\S]{0,800}navigator\.clipboard\.writeText/);
   assert.match(appSource, /const fullText = exportHtmlToPlainText\(buildFullReportBody\(\{ reportModel: props\.reportModel \}\)\)/);
+  assert.match(appSource, /props\.getCompletionContract\('full'\)/);
+  assert.match(appSource, /renderMarkdownForExport\(contract\.canonicalContent\)/);
+  assert.doesNotMatch(appSource, /getCompletionContract\(\)/);
 });
 
 test('full exports preserve the rendered clinical-trial column set', () => {

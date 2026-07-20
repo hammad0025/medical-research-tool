@@ -17,6 +17,11 @@ Object.assign(process.env, {
 const { buildDemoReadiness, DEMO_REQUIRED_ROUTES } =
   await import(`../lib/demo-readiness.js?test=${Date.now()}`);
 const { assessReportCompletion } = await import('../lib/report-completion.js');
+const {
+  savedDemoMatchesCompletionInput,
+  sealSavedDemo,
+  verifySavedDemo
+} = await import('../lib/saved-demo.js');
 const { TERMS_VERSION } = await import('../lib/terms-consent.js');
 
 test('demo preflight requires exact deployed SHA and operational dependencies', async () => {
@@ -46,7 +51,7 @@ test('SHA mismatch and unavailable model remain hard blockers', async () => {
   assert.ok(readiness.blockers.includes('anthropic-model'));
 });
 
-test('saved demo provenance is explicit and malformed provenance blocks export', async () => {
+test('saved demo provenance is server-owned and the reviewed fixture can export', async () => {
   const saved = JSON.parse(await readFile(
     new URL('../data/demo/saved-verified-report.json', import.meta.url),
     'utf8'
@@ -67,15 +72,40 @@ test('saved demo provenance is explicit and malformed provenance blocks export',
       reviewedGitSha: saved.reviewedGitSha
     }
   };
-  const valid = assessReportCompletion(input, { termsAccepted: true });
+  const callerForged = assessReportCompletion(input, { termsAccepted: true });
+  assert.equal(callerForged.eligible, false);
+  assert.ok(callerForged.failed.includes('validation:research'));
+
+  const provenance = {
+    kind: saved.kind,
+    generatedAt: saved.generatedAt,
+    reviewedGitSha: saved.reviewedGitSha
+  };
+  const valid = assessReportCompletion({
+    ...input,
+    outputQualityVersion: '1'
+  }, {
+    termsAccepted: true,
+    savedDemoProvenance: provenance
+  });
   assert.equal(valid.eligible, true);
   assert.equal(valid.label, 'Saved example report — not live');
   assert.equal(valid.provenance.reviewedGitSha, saved.reviewedGitSha);
 
-  input.savedDemo.reviewedGitSha = 'not-a-sha';
-  const invalid = assessReportCompletion(input, { termsAccepted: true });
+  const invalid = assessReportCompletion(input, {
+    termsAccepted: true,
+    savedDemoProvenance: { ...provenance, reviewedGitSha: 'not-a-sha' }
+  });
   assert.equal(invalid.eligible, false);
   assert.ok(invalid.failed.includes('saved-demo:provenance'));
+
+  const now = Date.now();
+  const seal = sealSavedDemo(saved, { now });
+  assert.equal(verifySavedDemo(saved, seal, { now }).ok, true);
+  const tampered = { ...saved, researchText: `${saved.researchText}\nForged claim.` };
+  assert.equal(verifySavedDemo(tampered, seal, { now }).ok, false);
+  assert.equal(savedDemoMatchesCompletionInput(saved, input), true);
+  assert.equal(savedDemoMatchesCompletionInput(tampered, input), false);
 });
 
 test('browser reset clears local data and both server sessions', async () => {

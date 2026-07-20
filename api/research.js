@@ -66,7 +66,7 @@ import {
   requireReviewerAuthorization,
   reserveUpgradeAttempt
 } from '../lib/security-enforcement.js';
-import { asInternalReq } from '../lib/internal-call.js';
+import { asInternalReq, INTERNAL_CALL } from '../lib/internal-call.js';
 import { getInfraStatus } from '../lib/infra-status.js';
 import {
   beginBillableRequest,
@@ -93,6 +93,7 @@ import {
   isPaidUserMode,
   isPerplexitySpendEnabled,
   isDynamicKbSpendEnabled,
+  paidRequestControlPlan,
   spendControlsConfig,
   spendDisabledMessage
 } from '../lib/spend-controls.js';
@@ -124,6 +125,11 @@ import {
 import { logError, safeErrorMessage } from '../lib/privacy-redaction.js';
 import { installPublicJsonBoundary } from '../lib/public-language.js';
 import { admitEvidencePools } from '../lib/source-admission-gate.js';
+import { canonicalizeReportContent } from '../lib/report-completion.js';
+import {
+  combineVerifiedReportArtifacts,
+  createReportOutputArtifact
+} from '../lib/report-artifact.js';
 
 import {
   DEFAULT_RESEARCH_MODEL,
@@ -2158,14 +2164,17 @@ export default async function handler(req, res) {
     }
     const ip = getClientIp(req);
     const authenticatedPreview = isPrivatePreviewUnlimited(req);
-    const isSplitPipelineContinuation =
-      pipelineMode && phase === 'synthesize' && (mode === 'research' || mode === 'repurpose');
-    const shouldMeter = isPaidUserMode(mode) &&
-      !isSplitPipelineContinuation &&
-      !isUsageLimitBypassed(ip);
+    const controlPlan = paidRequestControlPlan({
+      mode,
+      phase,
+      pipelineMode,
+      usageBypassed: isUsageLimitBypassed(ip)
+    });
+    const shouldMeter = controlPlan.meterUsage;
+    const shouldControlPaidRequest = controlPlan.requireIdempotencyAndBudget;
     let billableReservation = null;
     let budgetReservation = null;
-    if (shouldMeter) {
+    if (shouldControlPaidRequest) {
       const idempotencyKey = String(
         req.headers?.['x-idempotency-key'] || body.idempotencyKey || ''
       ).trim();
@@ -2204,33 +2213,35 @@ export default async function handler(req, res) {
       }
       billableReservation = { ...reservation, fingerprint };
 
-      const quota = await consumeResearchCredit(ip, { authenticatedPreview });
-      if (!quota.allowed) {
-        const lim = usageLimits();
-        const prices = usagePricing();
-        const planLabel = quota.plan === 'max' ? 'Max' : quota.plan === 'pro' ? 'Pro' : 'Free';
-        const payload = {
-          error: `This connection has reached its monthly research limit (${quota.used} of ${quota.limit} on the ${planLabel} plan).`,
-          code: 'USAGE_LIMIT_REACHED',
-          upgradeRequired: true,
-          usage: quota,
-          pricing: {
-            freeRunsPerMonth: lim.free,
-            proRunsPerMonth: lim.pro,
-            maxRunsPerMonth: lim.max,
-            proPriceUsd: prices.proPriceUsd,
-            maxPriceUsd: prices.maxPriceUsd,
-            paidRunsPerMonth: lim.pro,
-            paidPriceUsd: prices.proPriceUsd,
-            upgradeUrl: approvedUpgradeUrl(process.env.MRT_UPGRADE_URL)
-          }
-        };
-        await completeBillableRequest({
-          ...billableReservation,
-          status: 402,
-          body: payload
-        });
-        return res.status(402).json(payload);
+      if (shouldMeter) {
+        const quota = await consumeResearchCredit(ip, { authenticatedPreview });
+        if (!quota.allowed) {
+          const lim = usageLimits();
+          const prices = usagePricing();
+          const planLabel = quota.plan === 'max' ? 'Max' : quota.plan === 'pro' ? 'Pro' : 'Free';
+          const payload = {
+            error: `This connection has reached its monthly research limit (${quota.used} of ${quota.limit} on the ${planLabel} plan).`,
+            code: 'USAGE_LIMIT_REACHED',
+            upgradeRequired: true,
+            usage: quota,
+            pricing: {
+              freeRunsPerMonth: lim.free,
+              proRunsPerMonth: lim.pro,
+              maxRunsPerMonth: lim.max,
+              proPriceUsd: prices.proPriceUsd,
+              maxPriceUsd: prices.maxPriceUsd,
+              paidRunsPerMonth: lim.pro,
+              paidPriceUsd: prices.proPriceUsd,
+              upgradeUrl: approvedUpgradeUrl(process.env.MRT_UPGRADE_URL)
+            }
+          };
+          await completeBillableRequest({
+            ...billableReservation,
+            status: 402,
+            body: payload
+          });
+          return res.status(402).json(payload);
+        }
       }
 
       const estimatedUsd = estimateProviderCostUsd({ mode });
@@ -2572,34 +2583,72 @@ export default async function handler(req, res) {
     }
 
     if (mode === 'polish-report') {
-      const analysisText = String(req.body?.analysisText || '');
+      const artifactMode = String(req.body?.artifactMode || '');
+      let analysisText = String(req.body?.analysisText || '');
+      let verifiedSource = null;
+      let verifiedGather = null;
+      if (req[INTERNAL_CALL] !== true) {
+        verifiedSource = combineVerifiedReportArtifacts(req.body?.sourceArtifacts, {
+          mode: artifactMode
+        });
+        if (!verifiedSource.ok) {
+          return res.status(409).json({
+            error: 'The report output could not be verified.',
+            code: verifiedSource.code
+          });
+        }
+        if (canonicalizeReportContent(analysisText) !== verifiedSource.text) {
+          return res.status(409).json({
+            error: 'The report text does not match the verified server output.',
+            code: 'REPORT_OUTPUT_TEXT_MISMATCH'
+          });
+        }
+        verifiedGather = verifyGatherSeal({
+          seal: req.body?.gatherSeal,
+          gatherFingerprint: req.body?.gatherFingerprint,
+          dossier: req.body?.providedDossier,
+          evidence: req.body?.providedEvidence,
+          trials: req.body?.providedTrials
+        });
+        if (!verifiedGather.ok) {
+          return res.status(409).json({
+            error: 'The report source context could not be verified.',
+            code: verifiedGather.code
+          });
+        }
+        analysisText = verifiedSource.text;
+      }
       // Grounding for the validator gate (lib/grounding-gate.js): thread the
       // condition's canonical facts + KB lifestyle/red-flag guidance through so
       // applyValidationFixes can KEEP a validator-disputed claim that our own
       // ground truth supports (the GERD/87% antacid regression) instead of
       // destructively deleting it.
-      const clientKb = req.body?.knowledgeBase || {};
+      const suppliedEvidence = verifiedGather ? req.body?.providedEvidence : null;
+      const clientKb = suppliedEvidence?.knowledgeBase || req.body?.knowledgeBase || {};
       const evidence = {
-        excludedAgents: req.body?.excludedAgents || [],
-        groundedForPrompt: req.body?.evidencePack || [],
-        topRanked: req.body?.evidencePack || [],
-        pipelineDrugs: req.body?.pipelineDrugs || [],
-        fdaLabels: req.body?.fdaLabels || [],
-        canonicalFacts: req.body?.canonicalFacts || clientKb.canonicalFacts || [],
+        excludedAgents: suppliedEvidence?.excludedAgents || req.body?.excludedAgents || [],
+        groundedForPrompt: suppliedEvidence?.groundedForPrompt || req.body?.evidencePack || [],
+        topRanked: suppliedEvidence?.topRanked || req.body?.evidencePack || [],
+        pipelineDrugs: suppliedEvidence?.pipelineDrugs || req.body?.pipelineDrugs || [],
+        fdaLabels: suppliedEvidence?.fdaLabels || req.body?.fdaLabels || [],
+        canonicalFacts: suppliedEvidence?.canonicalFacts || req.body?.canonicalFacts || clientKb.canonicalFacts || [],
         knowledgeBase: {
-          canonicalFacts: req.body?.canonicalFacts || clientKb.canonicalFacts || [],
-          lifestyleRecommendations: req.body?.lifestyle || clientKb.lifestyleRecommendations || [],
-          redFlags: req.body?.redFlags || clientKb.redFlags || []
+          ...clientKb,
+          canonicalFacts: suppliedEvidence?.canonicalFacts || req.body?.canonicalFacts || clientKb.canonicalFacts || [],
+          lifestyleRecommendations: clientKb.lifestyleRecommendations || req.body?.lifestyle || [],
+          redFlags: clientKb.redFlags || req.body?.redFlags || []
         }
       };
-      let trials = req.body?.trials || null;
+      let trials = verifiedGather ? req.body?.providedTrials : (req.body?.trials || null);
       if (!verifyTrialRegistryPayload(trials).ok) {
         if (trials) console.warn('[research] polish-report rejected unsealed trial data');
         trials = { studies: [], query: { condition: req.body?.condition || req.body?.patient?.condition || '' } };
       }
-      const patientProfile = req.body?.patient || null;
+      const patientProfile = verifiedSource?.patient || req.body?.patient || null;
+      const trustedCondition =
+        patientProfile?.condition || req.body?.condition || '';
       let polished = finalizeReportText(analysisText, { evidence, trials, patient: patientProfile });
-      let validation = req.body?.validation || null;
+      let validation = verifiedSource ? null : (req.body?.validation || null);
       const hasAnyValidatorKey =
         !!process.env.PERPLEXITY_API_KEY ||
         !!process.env.OPENAI_API_KEY ||
@@ -2616,9 +2665,9 @@ export default async function handler(req, res) {
               canonicalFacts: evidence.canonicalFacts,
               lifestyle: evidence.knowledgeBase.lifestyleRecommendations,
               redFlags: evidence.knowledgeBase.redFlags,
-              patient: req.body.patient || {},
-              condition: req.body.condition || req.body.patient?.condition || '',
-              audience: req.body.audience || 'layperson'
+              patient: patientProfile || {},
+              condition: trustedCondition,
+              audience: 'layperson'
             }),
             new Promise((_, reject) =>
               setTimeout(() => reject(new Error('validate timeout')), validateTimeoutMs)
@@ -2657,7 +2706,7 @@ export default async function handler(req, res) {
       if (isLinkCheckEnabled()) {
         try {
           const { text: deadStripped, deadUrls } = await removeDeadLinks(polished, {
-            condition: req.body?.condition || req.body?.patient?.condition || ''
+            condition: trustedCondition
           });
           if (deadUrls.size) {
             console.warn(`[research] polish-report stripped ${deadUrls.size} dead link(s)`);
@@ -2684,16 +2733,29 @@ export default async function handler(req, res) {
       if (citationVerificationFailed) {
         polished = demoteUnverifiedDocumentCitations(polished);
       }
+      const citationAudit = {
+        status: citationVerificationFailed ? 'failed' : (isLinkCheckEnabled() ? 'passed' : 'degraded')
+      };
+      const outputArtifact = createReportOutputArtifact({
+        mode: verifiedSource ? artifactMode : (artifactMode || 'research'),
+        stage: 'final',
+        segment: 'final',
+        patient: patientProfile,
+        text: polished,
+        validation,
+        citationAudit,
+        coverageAudit: verifiedSource?.coverageAudit || req.body?.coverageAudit,
+        evidenceDegraded: verifiedSource?.evidenceDegraded === true
+      });
       return res.status(200).json({
         content: [{ type: 'text', text: polished }],
         validation,
-        citationAudit: {
-          status: citationVerificationFailed ? 'failed' : (isLinkCheckEnabled() ? 'passed' : 'degraded')
-        },
+        citationAudit,
+        outputArtifact,
         validationMismatch: validation
           ? detectValidationMismatch(
               validation,
-              req.body?.condition || req.body?.patient?.condition || ''
+              trustedCondition
             )
           : null
       });
@@ -3506,6 +3568,24 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
       }
     }
 
+    const citationAudit = {
+      status: citationVerificationFailed ? 'failed' : (isLinkCheckEnabled() ? 'passed' : 'degraded')
+    };
+    const outputArtifact = ['research', 'repurpose', 'trials'].includes(mode) && claudeText
+      ? createReportOutputArtifact({
+          mode,
+          stage: 'synthesis',
+          segment: isRepurposeBatch
+            ? `lane-${batchLane}`
+            : (half || 'full'),
+          patient,
+          text: claudeText,
+          validation,
+          citationAudit,
+          coverageAudit,
+          evidenceDegraded: evidence?.knowledgeBase?.degraded === true
+        })
+      : undefined;
     return res.status(200).json({
       ...data,
       model: anthropic.model,
@@ -3557,9 +3637,8 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
           }
         : null,
       coverageAudit,
-      citationAudit: {
-        status: citationVerificationFailed ? 'failed' : (isLinkCheckEnabled() ? 'passed' : 'degraded')
-      },
+      citationAudit,
+      outputArtifact,
       repurposeDrugScreen:
         mode === 'repurpose' && evidence?.repurposeDrugScreen
           ? evidence.repurposeDrugScreen

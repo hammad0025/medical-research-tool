@@ -61,7 +61,7 @@ const validCompletion = () => ({
       research: { status: 'passed' },
       repurpose: { status: 'passed' }
     },
-    coverage: { status: 'passed' }
+    coverage: { status: 'passed', finalMissed: [] }
   }
 });
 
@@ -198,6 +198,7 @@ test('report contract sealing is deterministic and mutation-sensitive', () => {
     ['classification', 'degraded'],
     ['label', 'MUTATED']
   ]) {
+    assert.notDeepEqual(contract[field], value, `${field} mutation must change the field`);
     assert.notEqual(
       sealReportCompletion({ ...contract, [field]: value }, options),
       seal,

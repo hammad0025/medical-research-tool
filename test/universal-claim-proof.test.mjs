@@ -68,6 +68,52 @@ test('value and unit mutations fail despite matching disease and treatment words
   ).reason, 'NUMBER_MISMATCH');
 });
 
+test('reversed clinical outcome direction cannot prove a claim', () => {
+  const source = {
+    title: 'Mortality outcome trial',
+    pmid: '12345678',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/12345678/',
+    accessLevel: 'abstract',
+    summary: 'The intervention increased mortality in adults with severe disease.'
+  };
+  const result = claimSupportedBySource(
+    'The intervention reduced mortality in adults with severe disease.',
+    source
+  );
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'OUTCOME_DIRECTION_MISMATCH');
+});
+
+test('nested risk direction is scoped without weakening reversal checks', () => {
+  const reducedMortality = {
+    title: 'Mortality risk reduction trial',
+    pmid: '22345678',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/22345678/',
+    accessLevel: 'abstract',
+    summary: 'The intervention reduced mortality risk in adults with severe disease.'
+  };
+  const increasedMortality = {
+    ...reducedMortality,
+    pmid: '32345678',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/32345678/',
+    summary: 'The intervention increased mortality in adults with severe disease.'
+  };
+  const scopedClaim =
+    'The intervention reduced the risk of increased mortality in adults with severe disease.';
+
+  assert.equal(claimSupportedBySource(scopedClaim, reducedMortality).ok, true);
+  const reversedScoped = claimSupportedBySource(scopedClaim, increasedMortality);
+  assert.equal(reversedScoped.ok, false);
+  assert.equal(reversedScoped.reason, 'OUTCOME_DIRECTION_MISMATCH');
+
+  const explicitOpposite = claimSupportedBySource(
+    'The intervention reduced symptoms but increased mortality in adults with severe disease.',
+    reducedMortality
+  );
+  assert.equal(explicitOpposite.ok, false);
+  assert.equal(explicitOpposite.reason, 'OUTCOME_DIRECTION_MISMATCH');
+});
+
 test('reader-facing finalization removes related-but-wrong linked papers', () => {
   const claim =
     'VYALEV contains foscarbidopa and foslevodopa and uses continuous subcutaneous ' +
