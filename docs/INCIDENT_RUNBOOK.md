@@ -34,5 +34,8 @@ Verify the deployed SHA matches the reviewed commit. Exercise the public/user/op
 - Record root cause, impact window, affected records/requests, and recovery SHA.
 - Add a behavioral regression that reproduces the incident.
 - Repair corrupted queue, subscription, ledger, usage, or KB state before re-enabling jobs.
+  For stale dynamic-KB index entries specifically (an index pointer with no
+  backing record, from an older non-transactional write), run
+  `npm run repair:kb-store` — it only removes dead pointers, never real data.
 - Notify affected users when required by the facts and applicable obligations.
 - Never resolve an incident by weakening or skipping a release gate.
