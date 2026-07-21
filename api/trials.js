@@ -30,7 +30,7 @@
 // Public API, no key required. Docs: https://clinicaltrials.gov/data-api/api
 import { installPublicJsonBoundary } from '../lib/public-language.js';
 
-import { isTopCenter, buildExtendedCenterMatcher } from '../lib/medical-lexicon.js';
+import { isTopCenter, buildExtendedCenterMatcher, topCenterBoost } from '../lib/medical-lexicon.js';
 import { getDossier } from '../lib/disease-dossier.js';
 import { loadKb } from '../lib/kb.js';
 import { requireAccess } from '../lib/access-gate.js';
@@ -1192,6 +1192,7 @@ export default async function handler(req, res) {
       if (s.designations.hasPostTrialAccess) score += 6;
       if (s.oversight?.oversightHasDMC) score += 4;
       if (s.oversight?.fdaRegulatedDrug || s.oversight?.fdaRegulatedDevice) score += 3;
+      score += topCenterBoost(s.topCenters);
       const hasContact = (s.contacts?.centralContacts || []).some((c) => c.email || c.phone) ||
         (s.contacts?.locations || []).some((location) =>
           (location.contacts || []).some((c) => c.email || c.phone));

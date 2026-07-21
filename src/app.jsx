@@ -8037,6 +8037,8 @@ const trialOrderingBreakdown = (s) => {
     why: 'This Expanded Access record has a currently available structured status. Confirm access terms with the study team.' });
   if (s.oversight?.oversightHasDMC) chunks.push({ label: 'Independent monitoring listed', value: '', color: theme.green,
     why: 'An independent team monitors safety and can stop the study early if needed.' });
+  if (s.hasTopCenter) chunks.push({ label: 'At a major medical center', value: '', color: theme.green,
+    why: 'This study is listed at one or more major academic/research medical centers. This is a facility signal, not a rating of this specific study’s quality or your likely benefit.' });
   if (['COMPLETED'].includes(STATUS)) chunks.push({ label: 'Completed', value: '', color: theme.textDim,
     why: 'This study has finished — you cannot join it. Ranked below trials still taking patients.' });
   else if (['TERMINATED', 'WITHDRAWN', 'SUSPENDED'].includes(STATUS)) chunks.push({ label: 'Stopped / closed', value: '', color: theme.red,
