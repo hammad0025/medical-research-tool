@@ -9116,6 +9116,18 @@ const AccessGate = () => {
         await runProbe();
       } else if (r.status === 401) {
         setError('That passcode was not accepted. Check it and try again.');
+      } else if (r.status === 429) {
+        // Repeated wrong attempts (from this device, this network, or the
+        // site overall) trip a temporary lockout — the server rejects even
+        // a CORRECT passcode with 429 until the window clears. Without this
+        // branch that read like a generic hiccup ("try again in a moment"),
+        // so a locked-out user kept retrying, which cannot ever succeed
+        // during the lockout and only looked like the passcode was wrong.
+        const retryAfterSec = Number(r.headers?.get?.('Retry-After'));
+        const minutes = Number.isFinite(retryAfterSec) && retryAfterSec > 0
+          ? Math.ceil(retryAfterSec / 60)
+          : 15;
+        setError(`Too many rejected attempts. This is temporarily locked — wait about ${minutes} minute${minutes === 1 ? '' : 's'} before trying again (retyping the passcode faster will not help).`);
       } else {
         setError('The service could not confirm access. Try again in a moment.');
       }
