@@ -1595,7 +1595,11 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     !/BACKFILL_MAX_PASSES|registryFilled|Still short of 50 linked ideas|pathway overlap/.test(html) &&
     /const PER_LANE = 8/.test(html) &&
     /no-condition-study-identified['"]?\s*\|\|\s*hasCitation\(c\)/.test(html);
-  const clientHasRealGate = /isGoogleSearchCitation|isGoogleUrl/.test(html) && /!isGoogle/.test(html);
+  // isGoogleSearchCitation / isGoogleUrl were the client's own local, now-
+  // removed duplicates of lib/citation-gate.js's isGoogleSearchUrl (imported
+  // directly since that consolidation) — check for the shared import and its
+  // negated use as a citation-rejection gate instead of the old local names.
+  const clientHasRealGate = /isGoogleSearchUrl/.test(html) && /!isGoogleSearchUrl/.test(html);
   if (clientHasNoQuotaFill && clientHasRealGate) pass('Repurpose UI renders only cited server output and has no quota filler');
   else fail(`Repurpose client policy regression (noQuotaFill=${clientHasNoQuotaFill} gate=${clientHasRealGate})`);
 

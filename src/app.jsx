@@ -18,6 +18,7 @@ import {
 } from "../lib/drug-card-utils.js";
 import { sanitizePublicText } from "../lib/public-language.js";
 import { extractCitationUrls, resolveItemKind, resolveRepurposeSection } from "../lib/repurpose-quality.js";
+import { isGoogleSearchUrl, isDailyMedSearchUrl } from "../lib/citation-gate.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
 import { classifyAccessProbeResponse } from "../lib/access-transition.js";
@@ -1213,18 +1214,11 @@ function exactClinicalTrialUrl(study = {}) {
   return expected && supplied === expected ? expected : null;
 }
 
-// True for a Google-search fallback URL (the model emits these for
-// centers/orgs that have no canonical page — api/research.js).
-const isGoogleSearchUrl = (url) =>
-  /^https?:\/\/(www\.)?google\.[a-z.]+\/search\b/i.test(String(url || ''));
-
 // A DailyMed SEARCH results page is NEVER a citation (client mandate) —
 // only a specific label monograph (drugInfo.cfm?setid=…) is. Strip any
 // DailyMed search link to plain text (keep the anchor label), matching
 // lib/report-polish.js stripDailyMedSearchLinks so client render + exports
 // never surface one even if it slips past the server.
-const isDailyMedSearchUrl = (url) =>
-  /^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(String(url || ''));
 const stripDailyMedSearchLinks = (text) => {
   if (!text) return text;
   let s = String(text);
@@ -2543,8 +2537,6 @@ const App = () => {
     if (repurposeForCondition && repurposeForCondition.toLowerCase() !== cond) return [];
     // Only server-sealed candidates with a specific surviving citation are
     // renderable. Never pad a section or display an uncited idea to hit a count.
-    const isGoogleSearchCitation = (url) =>
-      /^https?:\/\/(www\.)?google\.[a-z.]+\/search\b/i.test(String(url || ''));
     const hasCitation = (c) =>
       extractCitationUrls([
         c.references,
@@ -2556,8 +2548,8 @@ const App = () => {
       ].filter(Boolean).join(' '))
         .some((u) =>
           /^https?:\/\//i.test(u) &&
-          !isGoogleSearchCitation(u) &&
-          !/^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(u)
+          !isGoogleSearchUrl(u) &&
+          !isDailyMedSearchUrl(u)
         );
     // A "never-researched" idea is allowed to ship with no link at all — the
     // prompt tells the model to say so honestly rather than invent one for a
@@ -3139,12 +3131,6 @@ const App = () => {
             .replace(/\(.*?\)/g, ' ')
             .split(/[—–\-:|/]|\d/)[0]
             .toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-          const isGoogleUrl = (url) =>
-            /^https?:\/\/(www\.)?google\.[a-z.]+\/search\b/i.test(String(url || ''));
-          // A DailyMed SEARCH page is not a citation (client mandate); only
-          // a specific label monograph (drugInfo.cfm?setid=…) counts.
-          const isDailyMedSearchUrlC = (url) =>
-            /^https?:\/\/(www\.)?dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(String(url || ''));
           const urlsInBlob = (blob) => {
             const out = [];
             const s = String(blob || '');
@@ -3156,7 +3142,7 @@ const App = () => {
             return out;
           };
           const blockHasRealLink = (block) =>
-            urlsInBlob(block).some((u) => /^https?:\/\//i.test(u) && !isGoogleUrl(u) && !isDailyMedSearchUrlC(u));
+            urlsInBlob(block).some((u) => /^https?:\/\//i.test(u) && !isGoogleSearchUrl(u) && !isDailyMedSearchUrl(u));
           const splitCandBlocks = (txt) =>
             String(txt || '').split(/(?=^(?:CANDIDATE|Drug or supplement idea):\s)/gim)
               .map((p) => p.trim()).filter((p) => /^(?:CANDIDATE|Drug or supplement idea):/im.test(p));
