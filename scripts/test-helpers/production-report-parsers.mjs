@@ -3,7 +3,7 @@ import path from 'path';
 import vm from 'vm';
 import { fileURLToPath } from 'url';
 import { drugKeysMatch } from '../../lib/report-polish.js';
-import { resolveRepurposeSection } from '../../lib/repurpose-quality.js';
+import { resolveItemKind, resolveRepurposeSection } from '../../lib/repurpose-quality.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const APP_SOURCE_PATH = path.join(ROOT, 'src', 'app.jsx');
@@ -28,7 +28,7 @@ export const loadProductionReportParsers = () => {
     '// Loud leak-detector invariant'
   );
 
-  const context = vm.createContext({ drugKeysMatch, resolveRepurposeSection });
+  const context = vm.createContext({ drugKeysMatch, resolveRepurposeSection, resolveItemKind });
   new vm.Script(`
     ${dependencySource}
     ${parserSource}

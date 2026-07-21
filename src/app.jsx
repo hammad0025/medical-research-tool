@@ -17,7 +17,7 @@ import {
   injectApprovedTreatmentStubs
 } from "../lib/drug-card-utils.js";
 import { sanitizePublicText } from "../lib/public-language.js";
-import { resolveRepurposeSection } from "../lib/repurpose-quality.js";
+import { resolveItemKind, resolveRepurposeSection } from "../lib/repurpose-quality.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
 import { classifyAccessProbeResponse } from "../lib/access-transition.js";
@@ -891,20 +891,6 @@ const parseCandidates = (text) => {
 const isMechanisticEvidence = (value) => {
   const v = String(value || '').toUpperCase().trim();
   return v.includes('MECHANISTIC_ONLY');
-};
-const resolveItemKind = (c) => {
-  const tagged = String(c?.item_kind || '').toUpperCase().trim();
-  if (tagged.includes('SUPPORTIVE')) return 'SUPPORTIVE_CARE';
-  if (tagged.includes('SUPPLEMENT')) return 'SUPPLEMENT';
-  if (tagged.includes('MEDICATION') || tagged.includes('DRUG')) return 'MEDICATION';
-  const cls = `${c?.candidate || ''} ${c?.class || ''}`.toLowerCase();
-  if (/\b(rehabilitation|rehab|physical therapy|exercise program|counseling|nutrition service|supportive care)\b/.test(cls)) {
-    return 'SUPPORTIVE_CARE';
-  }
-  if (/\b(supplement|vitamin|mineral|antioxidant|nutraceutical|herbal|otc|over[- ]the[- ]counter)\b/.test(cls)) {
-    return 'SUPPLEMENT';
-  }
-  return 'MEDICATION';
 };
 // Dorothy product sections (Research tab layout):
 //   neverResearched     — no study of this drug for this condition
