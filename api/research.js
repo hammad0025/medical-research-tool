@@ -1528,10 +1528,11 @@ OUTPUT FORMATTING RULES (enforce strictly — the user has explicitly complained
 // part. Break-even is 1 cache hit within 5 minutes.
 const RESEARCH_PROMPT_FRONT_STATIC = `You are a comprehensive medical research assistant. Produce SECTIONS 1-3 of a structured analysis for the patient's primary condition. Sections 4-8 will be produced by a separate call — do NOT write them now.
 
-LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens across 3 sections):
+LENGTH BUDGET (HARD RULE — this call has ~2,400 output tokens across 3 sections, more when Section 3 genuinely needs it for a condition with many approved drugs):
 - Target ~800 output tokens (~600 words) per section on average.
 - Dense bullets / tables. No paragraphs longer than 2 lines. No filler.
 - YOU MUST FINISH ALL 3 SECTIONS. If running long, shorten sections 1–2 — NEVER drop an FDA-approved drug from Section 3 to save space.
+- IF A CONDITION HAS MANY APPROVED DRUGS (7+), do NOT solve the space problem by keeping only PROVIDER/FDA_STATUS and dropping TREATMENT/REFERENCES — a card with no treatment description and no source link is useless to the reader and is a WORSE failure than a short card. Instead, compress: shorten EFFICACY/SAFETY/RISKS/INTERACTIONS/LENGTH_FREQUENCY to one tight clause each (still with a real link where the field requires one), but TREATMENT (what the drug/device is) and REFERENCES (at least one real link) are the two fields that must NEVER be dropped from any card, no matter how many drugs there are. Finish every card you start — a half-written card cut off mid-sentence is also a failure.
 
 Your output MUST include the following 3 sections IN THIS ORDER, and nothing else. Do NOT add sections 4-8 — a separate call handles those.
 
@@ -1993,7 +1994,7 @@ export default async function handler(req, res) {
     const isRepurposeBatch =
       mode === 'repurpose' && phase === 'synthesize' && half === 'front' &&
       batchLane !== null && batchLane !== undefined;
-    const maxTokens = resolveMaxTokens(model, mode, phase, half, isRepurposeBatch);
+    let maxTokens = resolveMaxTokens(model, mode, phase, half, isRepurposeBatch);
 
     // ============================================================
     // Utility modes consolidated into /api/research so we stay
@@ -3043,6 +3044,29 @@ export default async function handler(req, res) {
     // so the client can show an honest "thin / unverified evidence" banner and
     // the synthesis prompt + polish keep the limitation hedge.
     const evidenceGrade = evidence ? assessGroundingSufficiency(evidence) : null;
+
+    // Section 3 (Approved Treatments) must carry one full card per
+    // FDA-approved drug with no cap, but shares one fixed token budget with
+    // Sections 1-2. A condition with many approved drugs/devices (e.g.
+    // Parkinson's has 9+) blew through that budget — cards after the first
+    // few lost their TREATMENT description and REFERENCES links, or got cut
+    // off mid-sentence. Scale the real ceiling up with the actual approved
+    // count (known now that evidence is assembled) instead of a fixed
+    // number sized for a handful of drugs. Only ever raises the budget —
+    // conditions with few approved drugs are unaffected.
+    if (mode === 'research' && phase === 'synthesize' && half === 'front' && evidence) {
+      const approvedCount = (Array.isArray(evidence.pipelineDrugs) ? evidence.pipelineDrugs : [])
+        .filter((d) => /^approved/i.test(String(d?.approvalStatus || ''))).length;
+      const CARDS_BASE_BUDGET_COVERS = 6;
+      const TOKENS_PER_EXTRA_CARD = 220;
+      const MAX_FRONT_TOKENS = 8000;
+      if (approvedCount > CARDS_BASE_BUDGET_COVERS) {
+        maxTokens = Math.min(
+          MAX_FRONT_TOKENS,
+          maxTokens + (approvedCount - CARDS_BASE_BUDGET_COVERS) * TOKENS_PER_EXTRA_CARD
+        );
+      }
+    }
 
     // Phase='gather' short-circuits here. We hand the raw pools back to the
     // client, which will then call us again with phase='synthesize' and the
