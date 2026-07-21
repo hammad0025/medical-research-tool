@@ -3940,10 +3940,10 @@ const Header = ({ patient, audience, setAudience, themeMode, setThemeMode, runti
         <div style={{
           maxWidth: 1400, margin: '0 auto',
           padding: '0.75rem 1.5rem',
-          display: 'flex', alignItems: 'center', gap: '1rem'
+          display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap'
         }}>
           {/* Brand mark + wordmark */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0, flexShrink: 1 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
               background: `linear-gradient(135deg, ${theme.accent} 0%, ${theme.secondary} 100%)`,
@@ -3952,11 +3952,12 @@ const Header = ({ patient, audience, setAudience, themeMode, setThemeMode, runti
             }}>
               <Activity size={20} color={theme.primaryText} />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{
                   fontFamily: '"Crimson Pro", Georgia, serif',
-                  fontWeight: 700, fontSize: '1.1rem', color: theme.text, letterSpacing: '-0.01em'
+                  fontWeight: 700, fontSize: '1.1rem', color: theme.text, letterSpacing: '-0.01em',
+                  overflowWrap: 'anywhere', minWidth: 0
                 }}>
                   {runtimeConfig?.branding?.productName || 'Researching My Condition'}
                 </span>
@@ -3964,12 +3965,13 @@ const Header = ({ patient, audience, setAudience, themeMode, setThemeMode, runti
                   fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em',
                   padding: '0.12rem 0.4rem', borderRadius: 4,
                   background: theme.secondarySoft, color: theme.secondary,
-                  border: `1px solid ${theme.secondary}55`, textTransform: 'uppercase'
+                  border: `1px solid ${theme.secondary}55`, textTransform: 'uppercase',
+                  flexShrink: 0
                 }}>
                   Beta
                 </span>
               </div>
-              <span style={{ fontSize: '0.72rem', color: theme.textDim }}>
+              <span style={{ fontSize: '0.72rem', color: theme.textDim, overflowWrap: 'anywhere' }}>
                 AI-assisted condition research, trials, and treatment discovery
               </span>
             </div>
@@ -3995,7 +3997,8 @@ const Header = ({ patient, audience, setAudience, themeMode, setThemeMode, runti
             display: 'flex', alignItems: 'center', gap: '0.4rem',
             padding: '0.3rem 0.5rem', borderRadius: 8,
             background: softPanelBg,
-            border: `1px solid ${theme.border}`
+            border: `1px solid ${theme.border}`,
+            flexShrink: 0
           }}>
             <label htmlFor="mrt-header-reading-level" style={{ fontSize: '0.72rem', color: theme.textDim, fontWeight: 600 }}>Report style</label>
             <select id="mrt-header-reading-level" value={audience} onChange={e => setAudience(e.target.value)}
@@ -4013,6 +4016,7 @@ const Header = ({ patient, audience, setAudience, themeMode, setThemeMode, runti
               so it stays readable against both backgrounds. */}
           <div style={{
             padding: '0.3rem 0.65rem', borderRadius: 999,
+            flexShrink: 0,
             background: (usageInfo?.usage?.remaining <= 0 && !usageInfo?.usage?.unlimited && usageInfo?.usage?.plan !== 'dev')
               ? `${theme.yellow}22` : `${theme.green}22`,
             border: `1px solid ${(usageInfo?.usage?.remaining <= 0 && !usageInfo?.usage?.unlimited && usageInfo?.usage?.plan !== 'dev')
