@@ -17,7 +17,7 @@ import {
   injectApprovedTreatmentStubs
 } from "../lib/drug-card-utils.js";
 import { sanitizePublicText } from "../lib/public-language.js";
-import { resolveItemKind, resolveRepurposeSection } from "../lib/repurpose-quality.js";
+import { extractCitationUrls, resolveItemKind, resolveRepurposeSection } from "../lib/repurpose-quality.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
 import { classifyAccessProbeResponse } from "../lib/access-transition.js";
@@ -2545,16 +2545,6 @@ const App = () => {
     // renderable. Never pad a section or display an uncited idea to hit a count.
     const isGoogleSearchCitation = (url) =>
       /^https?:\/\/(www\.)?google\.[a-z.]+\/search\b/i.test(String(url || ''));
-    const extractCitationUrls = (blob) => {
-      const urls = [];
-      const s = String(blob || '');
-      const mdRe = /\[[^\]]*\]\((https?:\/\/[^)]+)\)/g;
-      let m;
-      while ((m = mdRe.exec(s)) !== null) urls.push(m[1].trim().replace(/[.,;)]+$/, ''));
-      const bareRe = /(?<![(\[])(https?:\/\/[^\s)\]"'<>]+)/g;
-      while ((m = bareRe.exec(s)) !== null) urls.push(m[1].trim().replace(/[.,;)]+$/, ''));
-      return urls;
-    };
     const hasCitation = (c) =>
       extractCitationUrls([
         c.references,
