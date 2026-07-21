@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { lookupDisease } from '../lib/disease-registry.js';
+import { resolveCondition, conditionsResolveToSameIdentity } from '../lib/condition-resolver.js';
 import {
   getDossier,
   clearDossierCache,
@@ -49,6 +50,36 @@ test('a query that is MORE specific than a core name still matches the core', as
   const r = await lookupDisease('type 2 diabetes');
   assert.ok(r && r.score >= 55);
   assert.match(norm(r.entry.name), /diabetes/);
+});
+
+// ---------------------------------------------------------------------------
+// F2 (resolveCondition) — a GENERAL term must not silently bind to a narrower or
+// adjacent variant; it falls through to the general-concept (LLM) path instead.
+// ---------------------------------------------------------------------------
+test('a general term does not resolve to a more-specific variant', async () => {
+  for (const general of ['diabetes', 'tuberculosis']) {
+    const r = await resolveCondition(general);
+    // Must not have been bound to a specific child like "Prediabetes syndrome"
+    // or "Silicotuberculosis"; the general string is preserved for the dossier.
+    assert.equal(norm(r.resolved), general,
+      `"${general}" should stay general, resolved to "${r.resolved}" via ${r.source}`);
+    assert.equal(r.source, 'user-input');
+  }
+});
+
+test('generic vs subtype are NOT the same identity (trial-binding safety)', async () => {
+  assert.equal(await conditionsResolveToSameIdentity('diabetes', 'Type 1 diabetes'), false);
+  assert.equal(await conditionsResolveToSameIdentity('diabetes', 'Type 2 diabetes'), false);
+});
+
+test('specific terms and abbreviations still resolve (no over-rejection)', async () => {
+  // user typed the specific subtype → keep resolving it
+  assert.match(norm((await resolveCondition('Type 1 diabetes')).resolved), /type\s*1/);
+  assert.match(norm((await resolveCondition('type 2 diabetes')).resolved), /type\s*2/);
+  // an abbreviation is a PREFIX of the full name (same disease) → still resolves
+  assert.equal((await resolveCondition('schizo')).resolved, 'Schizophrenia');
+  // and when the user actually types the specific variant, it resolves to it
+  assert.match(norm((await resolveCondition('prediabetes')).resolved), /prediabetes/);
 });
 
 // ---------------------------------------------------------------------------
