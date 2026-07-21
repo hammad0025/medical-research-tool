@@ -29,6 +29,7 @@ import {
   resolveItemKind,
   REPURPOSE_SECTION_NEVER,
   REPURPOSE_SECTION_RESEARCHED,
+  REPURPOSE_SECTION_UNCLEAR,
   REPURPOSE_BACKFILL_MAX_PASSES
 } from '../lib/repurpose-quality.js';
 import {
@@ -269,8 +270,10 @@ if (/Retrying.*incomplete drug batch/i.test(html) || /MIN_PER_LANE|laneNeedsRetr
   warn('Frontend lane retry not detected — add orchestration in index.html');
 }
 
-// 8b. Only cited, server-sealed candidates render; no count-based padding/cap.
-const citedOnly = /\.filter\(hasCitation\)/.test(html);
+// 8b. Only cited, server-sealed candidates render (never-researched ideas are
+// the sole exception — they are explicitly allowed to ship uncited); no
+// count-based padding/cap.
+const citedOnly = /no-condition-study-identified['"]?\s*\|\|\s*hasCitation\(c\)/.test(html);
 const noQuotaCap = !/SOFT_CAP\s*=\s*50|SECTION_CAP\s*=\s*25|combined\.slice\(0, SOFT_CAP\)/.test(html);
 const twoSections = /neverResearched/.test(html) && /researchedNotApproved/.test(html) && /resolveRepurposeSection/.test(html);
 const itemKindUi = /ItemKindBadge/.test(html) && /ITEM_KIND:/.test(html);
@@ -1570,7 +1573,11 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
   const fillNoSearchLink = !/dailymed\.nlm\.nih\.gov\/dailymed\/search\.cfm/i.test(fillBlock);
   const fillNoInventedPaper = !/pubmed\.ncbi|doi\.org\/10\./i.test(fillBlock);
   const fillNotCounted = !textHasRealCitation(fillBlock);
-  const fillTaggedNever = resolveRepurposeSection(fillBlock) === REPURPOSE_SECTION_NEVER;
+  // buildRegistryFillCandidate is a permanent no-op stub (always returns '') —
+  // an untagged/blank block is honestly "unclear," not an affirmative claim
+  // that this drug was never researched for the condition. Only an EXPLICIT
+  // never-researched/MECHANISTIC_ONLY tag earns the citation-exempt bucket.
+  const fillTaggedUnclear = resolveRepurposeSection(fillBlock) === REPURPOSE_SECTION_UNCLEAR;
   const fillMedication = resolveItemKind(fillBlock) === 'MEDICATION';
   // A registry-fill candidate WITH a resolved specific setid label DOES count.
   const fillWithLabel = buildRegistryFillCandidate(
@@ -1578,16 +1585,16 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     { condition: 'IPF', labelUrl: 'https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=xyz-1' }
   );
   const fillLabelCounted = textHasRealCitation(fillWithLabel);
-  if (fillNoSearchLink && fillNoInventedPaper && fillNotCounted && !fillLabelCounted && fillTaggedNever && fillMedication) {
+  if (fillNoSearchLink && fillNoInventedPaper && fillNotCounted && !fillLabelCounted && fillTaggedUnclear && fillMedication) {
     pass('Registry filler never turns an unrelated product label into condition evidence');
   } else {
-    fail(`Hard 50: registry fill regression (noSearch=${fillNoSearchLink} notCounted=${fillNotCounted} labelCounted=${fillLabelCounted} section=${fillTaggedNever} kind=${fillMedication})`);
+    fail(`Hard 50: registry fill regression (noSearch=${fillNoSearchLink} notCounted=${fillNotCounted} labelCounted=${fillLabelCounted} section=${fillTaggedUnclear} kind=${fillMedication})`);
   }
 
   const clientHasNoQuotaFill =
     !/BACKFILL_MAX_PASSES|registryFilled|Still short of 50 linked ideas|pathway overlap/.test(html) &&
     /const PER_LANE = 8/.test(html) &&
-    /\.filter\(hasCitation\)/.test(html);
+    /no-condition-study-identified['"]?\s*\|\|\s*hasCitation\(c\)/.test(html);
   const clientHasRealGate = /isGoogleSearchCitation|isGoogleUrl/.test(html) && /!isGoogle/.test(html);
   if (clientHasNoQuotaFill && clientHasRealGate) pass('Repurpose UI renders only cited server output and has no quota filler');
   else fail(`Repurpose client policy regression (noQuotaFill=${clientHasNoQuotaFill} gate=${clientHasRealGate})`);

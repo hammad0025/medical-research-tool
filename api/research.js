@@ -135,6 +135,7 @@ import {
 import {
   DEFAULT_RESEARCH_MODEL,
   DEFAULT_DOSSIER_MODEL,
+  DEFAULT_TRANSLATE_MODEL,
   isModelNotFoundError,
   nextFallbackModel,
   resolveResearchModel
@@ -828,7 +829,7 @@ const getClientIp = (req) => {
   return String(req.headers?.['x-real-ip'] || req.socket?.remoteAddress || 'unknown').trim();
 };
 
-const TRANSLATE_MODEL = process.env.ANTHROPIC_TRANSLATE_MODEL || 'claude-3-5-haiku-20241022';
+const TRANSLATE_MODEL = DEFAULT_TRANSLATE_MODEL;
 const TRANSLATE_MAX_CHARS = 65000;
 const sanitize = (v) => (v == null ? '' : String(v).trim());
 
