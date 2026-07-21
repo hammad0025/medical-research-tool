@@ -14,9 +14,10 @@
 //            detector finds NOTHING, there is no raw-blob fallback, and no
 //            half-truncated card renders.
 //
-// The fixed parsers below are a faithful port of the index.html parsers (the
-// file is a no-build static page and cannot import modules); the leak detector,
-// percent, and sentence-clamp helpers are the REAL shared code from
+// The parsers are the ACTUAL src/app.jsx source, extracted and evaluated by
+// loadProductionReportParsers() (scripts/test-helpers/production-report-parsers.mjs)
+// — not a hand-maintained copy, so they cannot drift from what ships. The leak
+// detector, percent, and sentence-clamp helpers are the REAL shared code from
 // lib/report-polish.js, so a future drift there fails this suite.
 
 import { readFileSync, readdirSync } from 'fs';
