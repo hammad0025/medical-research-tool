@@ -17,6 +17,7 @@ import {
   injectApprovedTreatmentStubs
 } from "../lib/drug-card-utils.js";
 import { sanitizePublicText } from "../lib/public-language.js";
+import { resolveRepurposeSection } from "../lib/repurpose-quality.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
 import { classifyAccessProbeResponse } from "../lib/access-transition.js";
@@ -890,19 +891,6 @@ const parseCandidates = (text) => {
 const isMechanisticEvidence = (value) => {
   const v = String(value || '').toUpperCase().trim();
   return v.includes('MECHANISTIC_ONLY');
-};
-// Evidence-status split. Missing tags remain unknown; absence of metadata must
-// never be converted into the absolute claim "never researched."
-const resolveRepurposeSection = (c) => {
-  const tagged = String(c?.repurpose_section || '').toLowerCase().trim();
-  if (tagged.includes('never') || tagged.includes('no-condition')) return 'no-condition-study-identified';
-  if (tagged.includes('researched')) return 'researched-not-approved';
-  const v = String(c?.evidence_strength || '').toUpperCase().trim();
-  if (v.includes('MECHANISTIC_ONLY')) return 'no-condition-study-identified';
-  if (/PRECLINICAL|CASE_REPORT|OBSERVATIONAL|SMALL_RCT|LARGE_RCT/.test(v)) {
-    return 'researched-not-approved';
-  }
-  return 'study-status-unclear';
 };
 const resolveItemKind = (c) => {
   const tagged = String(c?.item_kind || '').toUpperCase().trim();
