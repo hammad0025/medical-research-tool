@@ -317,9 +317,17 @@ const groundingPlan = (mode, phase, half) => {
   return { limit: 14, excerpt: 1800 };
 };
 
-// Dead-link gate toggle. On by default; set MRT_LINKCHECK_ENABLED=0 to skip
-// the outbound HTTP probes (e.g. if a run environment blocks egress).
-const isLinkCheckEnabled = () =>
+const isProductionDeployment = () =>
+  ['production', 'preview'].includes(String(process.env.VERCEL_ENV || '').toLowerCase()) ||
+  String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+
+// Dead-link gate toggle. On by default; MRT_LINKCHECK_ENABLED=0 skips the
+// outbound HTTP probes for local / CI runs whose environment blocks egress
+// (the assurance harness sets it). The toggle is IGNORED in production/preview:
+// a real deployment must never export a report carrying unverified (possibly
+// dead) links just because an env var was set. See audit F8.
+export const isLinkCheckEnabled = () =>
+  isProductionDeployment() ||
   String(process.env.MRT_LINKCHECK_ENABLED ?? '1').trim() !== '0';
 
 // Cross-validation runs automatically on every complete report (Vercel Pro
