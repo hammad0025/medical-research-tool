@@ -1976,12 +1976,15 @@ export default async function handler(req, res) {
 
   try {
     const body = requireJsonObjectBody(req, res, {
-      maxBytes: 1024 * 1024,
-      // A sealed gather containing detailed criteria for 25 trials is normally
-      // ~700–800 KB but can exceed the generic 10k-node boundary. Keep every
-      // byte/depth/array/string/key limit in place while allowing that known,
-      // bounded synthesis shape.
-      maxNodes: 25_000
+      // The synthesize call round-trips the sealed gather (dossier + evidence +
+      // up-to-25-trial criteria). For a data-rich condition (e.g. Type 1
+      // Diabetes) that payload legitimately exceeds the old 1 MB / 25k-node
+      // ceiling and was rejected with 413, which then failed the repurpose step
+      // and surfaced a misleading "profile changed" message. Raise the ceiling
+      // to a bounded 3.5 MB / 60k nodes — still comfortably under Vercel's
+      // 4.5 MB request-body hard limit — while keeping every other shape guard.
+      maxBytes: Math.floor(3.5 * 1024 * 1024),
+      maxNodes: 60_000
     });
     if (!body) return;
     const {
