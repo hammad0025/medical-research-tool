@@ -900,6 +900,9 @@ export const buildDossierBlock = (dossier) => {
   if (dossier.isUmbrella && (dossier.subtypes || []).length) {
     lines.push(`  UMBRELLA CONDITION: "${safe(dossier.canonical)}" is a broad diagnosis with clinically distinct subtypes. The user did not specify one, so research the GENERAL disease: cover what the subtypes share (diagnosis, cross-cutting management), and where they DIVERGE, name the subtype explicitly. Recognized subtypes: ${dossier.subtypes.map(safe).join(', ')}. Do NOT silently collapse the analysis onto a single subtype.`);
   }
+  if ((dossier.approvedDrugs || []).length) {
+    lines.push(`  FDA-APPROVED drugs for this condition (write a Section 3 "Approved Treatments" card for each — but ONLY when the gathered DailyMed / FDA label evidence confirms it, using the real label link. Never assert approval without a verified label; omit the card instead): ${dossier.approvedDrugs.map(safe).join(', ')}.`);
+  }
   if (dossier.notes) lines.push(`  Agent notes: ${dossier.notes}`);
   if (dossier.uncertainty != null && dossier.uncertainty >= 0.6) {
     lines.push(`  IMPORTANT: the dossier agent flagged HIGH UNCERTAINTY for this condition. Treat the dossier as a starting hypothesis, not fact. Prefer grounded evidence and explicitly disclose when you are relying on the dossier for a non-grounded claim.`);

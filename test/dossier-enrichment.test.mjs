@@ -218,3 +218,43 @@ test('buildDossierBlock instructs umbrella research when the dossier flags it', 
   });
   assert.doesNotMatch(specific, /UMBRELLA CONDITION/);
 });
+
+// ---------------------------------------------------------------------------
+// F3 — live approved-drug discovery. The condition's FDA-approved drugs (named
+// by the dossier) join the openFDA label fetch, so Approved Treatments cards get
+// real DailyMed links for ANY condition — not only ones the patient takes.
+// ---------------------------------------------------------------------------
+import { buildFdaLabelTargets } from '../lib/evidence.js';
+
+test('buildFdaLabelTargets unions patient meds with the condition approved drugs', () => {
+  const targets = buildFdaLabelTargets(
+    ['metformin', 'aspirin'],
+    { approvedDrugs: ['pirfenidone', 'Metformin', 'nintedanib'] }
+  );
+  // patient meds first, approved drugs appended, deduped case-insensitively
+  assert.deepEqual(targets, ['metformin', 'aspirin', 'pirfenidone', 'nintedanib']);
+});
+
+test('buildFdaLabelTargets is a no-op passthrough without a dossier', () => {
+  assert.deepEqual(buildFdaLabelTargets(['lisinopril'], null), ['lisinopril']);
+  assert.deepEqual(buildFdaLabelTargets([], { approvedDrugs: [] }), []);
+});
+
+test('mergeRegistryWithDossier carries the approved-drug list', () => {
+  const merged = mergeRegistryWithDossier(
+    { canonical: 'X', synonyms: ['X'], topCenters: [], keyInvestigators: [], patientAdvocacy: [],
+      landmarkTrials: [], meshTerms: [], redFlags: [], uncertainty: 0.12, generatedBy: 'r', source: 'disease-registry' },
+    { approvedDrugs: ['pirfenidone', 'nintedanib'], uncertainty: 0.2 }
+  );
+  assert.deepEqual(merged.approvedDrugs, ['pirfenidone', 'nintedanib']);
+});
+
+test('buildDossierBlock lists approved drugs for Section 3 (label-gated)', () => {
+  const block = buildDossierBlock({
+    canonical: 'Idiopathic Pulmonary Fibrosis', generatedBy: 'test', uncertainty: 0.1,
+    approvedDrugs: ['pirfenidone', 'nintedanib']
+  });
+  assert.match(block, /FDA-APPROVED drugs for this condition/);
+  assert.match(block, /pirfenidone/);
+  assert.match(block, /Never assert approval without a verified label/);
+});
