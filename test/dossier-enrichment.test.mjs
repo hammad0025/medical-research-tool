@@ -9,6 +9,7 @@ import {
   mergeRegistryWithDossier
 } from '../lib/disease-dossier.js';
 import { buildDossierBlock } from '../api/research.js';
+import { ontologyConfirm, confirmSubtypes } from '../lib/condition-umbrella.js';
 
 const norm = (s) => String(s || '').trim().toLowerCase();
 
@@ -167,4 +168,53 @@ test('uncertain dossier centers are flagged UNVERIFIED, not forced', () => {
   });
   assert.match(block, /UNVERIFIED/);
   assert.doesNotMatch(block, /MUST surface these in the "Top Centers/);
+});
+
+// ---------------------------------------------------------------------------
+// Universal resolution — umbrella awareness (agent-primary, ontology-validated).
+// ---------------------------------------------------------------------------
+test('ontologyConfirm attaches a real MONDO id to known diseases and flags unknowns', async () => {
+  const known = await ontologyConfirm('Type 2 diabetes mellitus');
+  assert.equal(known.ontologyConfirmed, true);
+  assert.match(known.mondo, /^MONDO:\d+$/);
+
+  const unknown = await ontologyConfirm('Zzz Not A Real Disease');
+  assert.equal(unknown.ontologyConfirmed, false);
+  assert.equal(unknown.mondo, null);
+});
+
+test('confirmSubtypes annotates agent-provided subtypes without dropping unconfirmed ones', async () => {
+  const rows = await confirmSubtypes(['Type 1 diabetes mellitus', 'A subtype the flat registry lacks']);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].ontologyConfirmed, true);
+  assert.equal(rows[1].ontologyConfirmed, false);
+});
+
+test('mergeRegistryWithDossier carries the agent umbrella signal', () => {
+  const base = {
+    canonical: 'Diabetes', synonyms: ['Diabetes'], subspecialty: 'Endocrinology',
+    topCenters: [], keyInvestigators: [], patientAdvocacy: [], landmarkTrials: [],
+    meshTerms: [], redFlags: [], uncertainty: 0.12,
+    generatedBy: 'disease-registry:diabetes', source: 'disease-registry'
+  };
+  const llm = { isUmbrella: true, subtypes: ['Type 1 diabetes', 'Type 2 diabetes'], uncertainty: 0.2 };
+  const merged = mergeRegistryWithDossier(base, llm);
+  assert.equal(merged.isUmbrella, true);
+  assert.deepEqual(merged.subtypes, ['Type 1 diabetes', 'Type 2 diabetes']);
+});
+
+test('buildDossierBlock instructs umbrella research when the dossier flags it', () => {
+  const umbrella = buildDossierBlock({
+    canonical: 'Diabetes', generatedBy: 'test', uncertainty: 0.2,
+    isUmbrella: true, subtypes: ['Type 1 diabetes', 'Type 2 diabetes']
+  });
+  assert.match(umbrella, /UMBRELLA CONDITION/);
+  assert.match(umbrella, /Type 1 diabetes/);
+  assert.match(umbrella, /Type 2 diabetes/);
+
+  const specific = buildDossierBlock({
+    canonical: 'Idiopathic Pulmonary Fibrosis', generatedBy: 'test', uncertainty: 0.1,
+    isUmbrella: false, subtypes: []
+  });
+  assert.doesNotMatch(specific, /UMBRELLA CONDITION/);
 });

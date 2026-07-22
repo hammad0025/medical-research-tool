@@ -897,6 +897,9 @@ export const buildDossierBlock = (dossier) => {
     lines.push(`  Literature safety considerations (cover these in Section 8 "Safety Considerations Reported in Literature"):`);
     dossier.redFlags.forEach((r) => lines.push(`    - ${r}`));
   }
+  if (dossier.isUmbrella && (dossier.subtypes || []).length) {
+    lines.push(`  UMBRELLA CONDITION: "${safe(dossier.canonical)}" is a broad diagnosis with clinically distinct subtypes. The user did not specify one, so research the GENERAL disease: cover what the subtypes share (diagnosis, cross-cutting management), and where they DIVERGE, name the subtype explicitly. Recognized subtypes: ${dossier.subtypes.map(safe).join(', ')}. Do NOT silently collapse the analysis onto a single subtype.`);
+  }
   if (dossier.notes) lines.push(`  Agent notes: ${dossier.notes}`);
   if (dossier.uncertainty != null && dossier.uncertainty >= 0.6) {
     lines.push(`  IMPORTANT: the dossier agent flagged HIGH UNCERTAINTY for this condition. Treat the dossier as a starting hypothesis, not fact. Prefer grounded evidence and explicitly disclose when you are relying on the dossier for a non-grounded claim.`);
