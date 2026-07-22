@@ -840,7 +840,7 @@ const sanitize = (v) => (v == null ? '' : String(v).trim());
 // advocacy orgs. Without this, Claude researches IPF and Retinitis Pigmentosa
 // with the same generic vocabulary; with this, it knows to talk about
 // Pittsburgh Simmons + UCSF for ILD and Bascom Palmer + Wilmer for RP.
-const buildDossierBlock = (dossier) => {
+export const buildDossierBlock = (dossier) => {
   if (!dossier) return '';
   const safe = (v) => (v == null ? '' : String(v));
   const lines = [];
@@ -854,15 +854,26 @@ const buildDossierBlock = (dossier) => {
     lines.push(`  NCBI MeSH terms used for PubMed fan-out: ${dossier.meshTerms.join(', ')}`);
   }
   if (dossier.icd10) lines.push(`  ICD-10: ${dossier.icd10}`);
+  // Centers and investigators are the fields the dossier agent can most
+  // plausibly hallucinate (real-sounding hospital / researcher names). When the
+  // dossier is not confident, DO NOT force the model to surface them — a wrong
+  // "call this center" is worse than an omitted one. Gate the directive on the
+  // dossier's self-assessed uncertainty (curated KBs resolve near 0; a shaky
+  // dynamic dossier resolves >= 0.5).
+  const centersUnverified = dossier.uncertainty != null && dossier.uncertainty >= 0.5;
   if ((dossier.topCenters || []).length) {
-    lines.push(`  Top centers specific to this disease (dossier — you MUST surface these in the "Top Centers & Experts" section unless you have grounded evidence to override):`);
+    lines.push(centersUnverified
+      ? `  Candidate centers the intake agent SUGGESTED for this disease (UNVERIFIED — surface a center ONLY when grounded evidence in this run corroborates it; it is better to show fewer or no centers than to assert one you cannot support):`
+      : `  Top centers specific to this disease (dossier — you MUST surface these in the "Top Centers & Experts" section unless you have grounded evidence to override):`);
     dossier.topCenters.forEach((c) => {
       const loc = [c.city, c.country].filter(Boolean).join(', ');
       lines.push(`    - ${safe(c.name)}${loc ? ` (${loc})` : ''}${c.why ? ` — ${c.why}` : ''}`);
     });
   }
   if ((dossier.keyInvestigators || []).length) {
-    lines.push(`  Key investigators (dossier):`);
+    lines.push(centersUnverified
+      ? `  Candidate investigators the intake agent SUGGESTED (UNVERIFIED — name one only if grounded evidence in this run supports it; omit rather than guess):`
+      : `  Key investigators (dossier):`);
     dossier.keyInvestigators.forEach((i) => {
       lines.push(`    - ${safe(i.name)}${i.affiliation ? ` (${i.affiliation})` : ''}${i.why ? ` — ${i.why}` : ''}`);
     });
@@ -885,6 +896,9 @@ const buildDossierBlock = (dossier) => {
   if ((dossier.redFlags || []).length) {
     lines.push(`  Literature safety considerations (cover these in Section 8 "Safety Considerations Reported in Literature"):`);
     dossier.redFlags.forEach((r) => lines.push(`    - ${r}`));
+  }
+  if (dossier.isUmbrella && (dossier.subtypes || []).length) {
+    lines.push(`  UMBRELLA CONDITION: "${safe(dossier.canonical)}" is a broad diagnosis with clinically distinct subtypes. The user did not specify one, so research the GENERAL disease: cover what the subtypes share (diagnosis, cross-cutting management), and where they DIVERGE, name the subtype explicitly. Recognized subtypes: ${dossier.subtypes.map(safe).join(', ')}. Do NOT silently collapse the analysis onto a single subtype.`);
   }
   if (dossier.notes) lines.push(`  Agent notes: ${dossier.notes}`);
   if (dossier.uncertainty != null && dossier.uncertainty >= 0.6) {
