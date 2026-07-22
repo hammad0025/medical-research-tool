@@ -258,3 +258,80 @@ test('buildDossierBlock lists approved drugs for Section 3 (label-gated)', () =>
   assert.match(block, /pirfenidone/);
   assert.match(block, /Never assert approval without a verified label/);
 });
+
+// ---------------------------------------------------------------------------
+// F7 — pipeline drugs cite their source by evidenceRef; resolve it to a real
+// link so the Pipeline Watch table populates (never fabricate).
+// ---------------------------------------------------------------------------
+import { resolvePipelineDrugEvidenceLinks } from '../lib/kb.js';
+
+test('resolvePipelineDrugEvidenceLinks attaches the referenced item link', () => {
+  const items = new Map([
+    ['ms-6', { id: 'ms-6', url: 'https://doi.org/10.1056/NEJMoa1901981', pmid: '31075187' }],
+    ['doi-only', { id: 'doi-only', doi: '10.1000/xyz' }]
+  ]);
+  const out = resolvePipelineDrugEvidenceLinks([
+    { name: 'Evobrutinib', evidenceRef: 'ms-6' },
+    { name: 'DoiOnly', evidenceRef: 'doi-only' }
+  ], items);
+  assert.equal(out[0].url, 'https://doi.org/10.1056/NEJMoa1901981');
+  assert.equal(out[0].pmid, '31075187');
+  // doi-only item becomes a doi.org url
+  assert.equal(out[1].url, 'https://doi.org/10.1000/xyz');
+});
+
+test('resolvePipelineDrugEvidenceLinks never overwrites or fabricates', () => {
+  const items = new Map([['x', { id: 'x', url: 'https://example.org/a' }]]);
+  const out = resolvePipelineDrugEvidenceLinks([
+    { name: 'HasNct', nct: 'NCT01234567', evidenceRef: 'x' },     // already linked → untouched
+    { name: 'BadRef', evidenceRef: 'missing' },                    // ref doesn't resolve → stays unlinked
+    { name: 'NoRef' }                                              // no ref → stays unlinked
+  ], items);
+  assert.equal(out[0].url, undefined);            // existing nct kept, no url grafted on
+  assert.equal(out[0].nct, 'NCT01234567');
+  assert.equal(out[1].url, undefined);
+  assert.equal(out[1].pmid, undefined);
+  assert.equal(out[2].url, undefined);
+});
+
+// ---------------------------------------------------------------------------
+// Live pipeline discovery — for a condition with no curated pipeline drugs, the
+// interventions in REAL recruiting/active trials populate Pipeline Watch with
+// genuine NCT links (no model invention).
+// ---------------------------------------------------------------------------
+import { pipelineCandidatesFromTrials, buildPipelineWatchBlock } from '../api/research.js';
+
+const TRIALS_FIXTURE = {
+  studies: [
+    { nctId: 'NCT01234567', isRecruiting: true, phases: ['PHASE2'],
+      url: 'https://clinicaltrials.gov/study/NCT01234567',
+      interventions: [{ type: 'DRUG', name: 'Fenebrutinib' }, { type: 'DRUG', name: 'Placebo' },
+                      { type: 'BEHAVIORAL', name: 'Counseling' }] },
+    { nctId: 'NCT07654321', status: 'ACTIVE_NOT_RECRUITING', phases: ['PHASE3'],
+      interventions: [{ type: 'BIOLOGICAL', name: 'Frexalimab' }] },
+    { nctId: 'NCT00000000', status: 'COMPLETED', interventions: [{ type: 'DRUG', name: 'OldDrug' }] }
+  ]
+};
+
+test('pipelineCandidatesFromTrials extracts only active drug/biological interventions', () => {
+  const c = pipelineCandidatesFromTrials(TRIALS_FIXTURE);
+  const names = c.map((x) => x.name);
+  assert.deepEqual(names, ['Fenebrutinib', 'Frexalimab']); // placebo, behavioral, completed excluded
+  assert.equal(c[0].nct, 'NCT01234567');
+  assert.equal(c[0].approvalStatus, 'investigational');
+});
+
+test('buildPipelineWatchBlock populates from trials when there are no curated pipeline drugs', () => {
+  const block = buildPipelineWatchBlock({ pipelineDrugs: [] }, TRIALS_FIXTURE);
+  assert.match(block, /Fenebrutinib/);
+  assert.match(block, /NCT01234567/);
+  assert.doesNotMatch(block, /No investigational programs/);
+});
+
+test('buildPipelineWatchBlock merges curated + trial-derived, deduped by name', () => {
+  const evidence = { pipelineDrugs: [{ name: 'Fenebrutinib', pmid: '12345678', mechanism: 'BTK inhibitor' }] };
+  const block = buildPipelineWatchBlock(evidence, TRIALS_FIXTURE);
+  // Fenebrutinib appears once (curated wins), Frexalimab added from trials
+  assert.equal((block.match(/Fenebrutinib/g) || []).length, 1);
+  assert.match(block, /Frexalimab/);
+});

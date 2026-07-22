@@ -1080,8 +1080,55 @@ None of the wrong claims above may appear in the new report.
 // Investigational-only list for Section 5 Pipeline Watch (back half).
 // Approved agents (olanzapine, cariprazine, Lybalvi, ECT, etc.) belong
 // in Section 3 — never in "Drugs Still Being Tested".
-const buildPipelineWatchBlock = (evidence) => {
-  const pipelineDrugs = Array.isArray(evidence?.pipelineDrugs) ? evidence.pipelineDrugs : [];
+// Live pipeline discovery. For an uncurated condition there are no curated
+// pipelineDrugs, so the Pipeline Watch table was empty. The interventions in
+// REAL recruiting/active interventional ClinicalTrials.gov studies ARE the live
+// pipeline — each with a genuine NCT link, zero model invention. Extract the
+// drug/biological interventions from the fetched trials as investigational
+// candidates so any condition gets a grounded Pipeline Watch.
+export const pipelineCandidatesFromTrials = (trials) => {
+  const studies = Array.isArray(trials?.studies) ? trials.studies : [];
+  const seen = new Set();
+  const out = [];
+  const SKIP = /\b(placebo|standard of care|best supportive care|saline|sham|no intervention|usual care|control)\b/i;
+  const ACTIVE = new Set(['RECRUITING', 'NOT_YET_RECRUITING', 'ENROLLING_BY_INVITATION', 'ACTIVE_NOT_RECRUITING']);
+  for (const s of studies) {
+    const nct = String(s?.nctId || '').toUpperCase();
+    if (!/^NCT\d{8}$/.test(nct)) continue;
+    if (!(s?.isRecruiting || s?.acceptingNewPatients || ACTIVE.has(String(s?.status || '').toUpperCase()))) continue;
+    const phases = Array.isArray(s?.phases) ? s.phases : [];
+    for (const iv of (s?.interventions || [])) {
+      const type = String(iv?.type || '').toUpperCase();
+      if (type !== 'DRUG' && type !== 'BIOLOGICAL') continue;
+      const name = String(iv?.name || '').trim();
+      if (!name || SKIP.test(name)) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        name,
+        nct,
+        url: s.url || `https://clinicaltrials.gov/study/${nct}`,
+        status: phases.length ? phases.join('/').replace(/_/g, ' ') : (s.status || 'recruiting'),
+        approvalStatus: 'investigational',
+        source: 'clinicaltrials.gov'
+      });
+    }
+  }
+  return out;
+};
+
+export const buildPipelineWatchBlock = (evidence, trials = null) => {
+  // Curated pipeline drugs (with F7-resolved links) first — they carry
+  // mechanism/sponsor detail — then grounded trial-derived candidates, deduped.
+  const curated = Array.isArray(evidence?.pipelineDrugs) ? evidence.pipelineDrugs : [];
+  const merged = new Map();
+  for (const d of [...curated, ...pipelineCandidatesFromTrials(trials)]) {
+    const key = String(d?.name || '').trim().toLowerCase();
+    if (!key || merged.has(key)) continue;
+    merged.set(key, d);
+  }
+  const pipelineDrugs = [...merged.values()];
   const approved = (d) => /^approved/i.test(String(d.approvalStatus || ''));
   // Prefer investigational / discontinued programs that carry a REAL link
   // (NCT or pack URL). Cap at 25 — never invent programs beyond this list.
@@ -3159,7 +3206,7 @@ export default async function handler(req, res) {
     }
     const pipelineWatchBlock =
       mode === 'research' && half === 'back' && evidence
-        ? buildPipelineWatchBlock(evidence)
+        ? buildPipelineWatchBlock(evidence, trials)
         : '';
     const supplementDiscoveryBlock = (mode === 'repurpose' && evidence)
       ? buildSupplementDiscoveryBlock(evidence)
