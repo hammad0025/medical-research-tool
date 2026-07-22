@@ -258,3 +258,38 @@ test('buildDossierBlock lists approved drugs for Section 3 (label-gated)', () =>
   assert.match(block, /pirfenidone/);
   assert.match(block, /Never assert approval without a verified label/);
 });
+
+// ---------------------------------------------------------------------------
+// F7 — pipeline drugs cite their source by evidenceRef; resolve it to a real
+// link so the Pipeline Watch table populates (never fabricate).
+// ---------------------------------------------------------------------------
+import { resolvePipelineDrugEvidenceLinks } from '../lib/kb.js';
+
+test('resolvePipelineDrugEvidenceLinks attaches the referenced item link', () => {
+  const items = new Map([
+    ['ms-6', { id: 'ms-6', url: 'https://doi.org/10.1056/NEJMoa1901981', pmid: '31075187' }],
+    ['doi-only', { id: 'doi-only', doi: '10.1000/xyz' }]
+  ]);
+  const out = resolvePipelineDrugEvidenceLinks([
+    { name: 'Evobrutinib', evidenceRef: 'ms-6' },
+    { name: 'DoiOnly', evidenceRef: 'doi-only' }
+  ], items);
+  assert.equal(out[0].url, 'https://doi.org/10.1056/NEJMoa1901981');
+  assert.equal(out[0].pmid, '31075187');
+  // doi-only item becomes a doi.org url
+  assert.equal(out[1].url, 'https://doi.org/10.1000/xyz');
+});
+
+test('resolvePipelineDrugEvidenceLinks never overwrites or fabricates', () => {
+  const items = new Map([['x', { id: 'x', url: 'https://example.org/a' }]]);
+  const out = resolvePipelineDrugEvidenceLinks([
+    { name: 'HasNct', nct: 'NCT01234567', evidenceRef: 'x' },     // already linked → untouched
+    { name: 'BadRef', evidenceRef: 'missing' },                    // ref doesn't resolve → stays unlinked
+    { name: 'NoRef' }                                              // no ref → stays unlinked
+  ], items);
+  assert.equal(out[0].url, undefined);            // existing nct kept, no url grafted on
+  assert.equal(out[0].nct, 'NCT01234567');
+  assert.equal(out[1].url, undefined);
+  assert.equal(out[1].pmid, undefined);
+  assert.equal(out[2].url, undefined);
+});
