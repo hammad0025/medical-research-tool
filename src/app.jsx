@@ -2606,11 +2606,38 @@ const App = () => {
 
   /* -------- Actions -------- */
   const runResearch = async (mode, extra = {}) => {
+    // The research->repurpose auto-chain (see chainRepurpose below) calls
+    // back into runResearch('repurpose', { _autoChained: true, ... }) after
+    // the main report already finished and its own progress card is showing
+    // "complete". Every early-return guard below used to just notifyUser()
+    // (a toast) and sometimes redirect to the Profile tab — both silent to
+    // anyone looking at the finished report, and the tab redirect is doubly
+    // confusing right after a successful run. When _autoChained is set, we
+    // instead flip the still-visible progress card into an explicit
+    // "Drug and supplement ideas · failed" state so the drug-ideas step
+    // never just silently vanishes.
+    const failAutoChainedRepurpose = (message) => {
+      setProgress({
+        active: false,
+        mode: 'repurpose',
+        startedAt: Date.now(),
+        error: message,
+        steps: [
+          { id: 'gather', label: 'Gather research',
+            desc: 'Reused the research already gathered for this report.', status: 'skipped' },
+          { id: 'synth', label: 'Look at drug ideas',
+            desc: 'Reviews treatments and supportive care for repurposing candidates.',
+            status: 'error', detail: message }
+        ]
+      });
+    };
     if (
       (mode === 'research' || mode === 'repurpose' || mode === 'trials') &&
       runtimeConfig?.spendControls?.researchPipeline === false
     ) {
-      notifyUser('Research is temporarily unavailable. Please try again later.', 'error');
+      const message = 'Research is temporarily unavailable. Please try again later.';
+      if (extra._autoChained) { failAutoChainedRepurpose(message); return; }
+      notifyUser(message, 'error');
       return;
     }
     // Research / Repurpose / Trials still require a condition (they
@@ -2618,7 +2645,9 @@ const App = () => {
     // Chat mode is allowed to start cold — the backend will detect
     // a disease name in the user's first message.
     if (mode !== 'chat' && !patient.condition.trim()) {
-      notifyUser('Enter a primary condition in the Profile tab first.', 'error');
+      const message = 'Enter a primary condition in the Profile tab first.';
+      if (extra._autoChained) { failAutoChainedRepurpose(message); return; }
+      notifyUser(message, 'error');
       setTab('profile');
       return;
     }
@@ -2630,7 +2659,14 @@ const App = () => {
     let runPatient = patient;
     let runResolution = conditionResolution;
     let pendingPatientCanonical = extra._pendingPatientCanonical || null;
-    if (mode === 'research' || mode === 'repurpose' || mode === 'trials') {
+    if (extra._autoChained && extra._resolvedPatient && extra._resolvedCondition) {
+      // The research call that's chaining into us just resolved this exact
+      // condition moments ago — reuse it instead of re-hitting resolve-condition
+      // (a second live lookup that has no reason to disagree with the first,
+      // but occasionally can, which used to make the chain flaky).
+      runPatient = extra._resolvedPatient;
+      runResolution = extra._resolvedCondition;
+    } else if (mode === 'research' || mode === 'repurpose' || mode === 'trials') {
       const typed = patient.condition.trim();
       try {
         const resolution = await callResearchMode('resolve-condition', { condition: typed });
@@ -2640,10 +2676,9 @@ const App = () => {
           const alternatives = Array.isArray(resolution.alternatives)
             ? resolution.alternatives.join(', ')
             : '';
-          notifyUser(
-            `“${typed}” can mean more than one condition. Please enter or select the full condition name${alternatives ? `, such as ${alternatives}` : ''}.`,
-            'error'
-          );
+          const message = `“${typed}” can mean more than one condition. Please enter or select the full condition name${alternatives ? `, such as ${alternatives}` : ''}.`;
+          if (extra._autoChained) { failAutoChainedRepurpose(message); return; }
+          notifyUser(message, 'error');
           setTab('profile');
           return;
         }
@@ -2660,9 +2695,13 @@ const App = () => {
       } catch (_) { /* proceed with typed condition */ }
     }
 
-    if (mode === 'research' || mode === 'repurpose') {
+    if (
+      (mode === 'research' || mode === 'repurpose') &&
+      !(extra._autoChained && extra._resolvedPatient)
+    ) {
       const coherence = checkProfileCoherence(runPatient);
       if (!coherence.ok) {
+        if (extra._autoChained) { failAutoChainedRepurpose(coherence.message); return; }
         notifyUser(coherence.message, 'error');
         return;
       }
@@ -3330,7 +3369,10 @@ const App = () => {
       }
       if (pendingPatientCanonical) setPatient(pendingPatientCanonical);
       if (mode === 'research' && extra.chainRepurpose) {
-        await runResearch('repurpose', { skipGather: true, reuseGather: true });
+        await runResearch('repurpose', {
+          skipGather: true, reuseGather: true, _autoChained: true,
+          _resolvedPatient: runPatient, _resolvedCondition: runResolution
+        });
       }
       try {
         setUsageInfo(await callResearchMode('usage'));
