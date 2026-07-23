@@ -828,7 +828,7 @@ export const trimGatherPools = ({ dossier, evidence, trials, gatherFingerprint =
         fdaManufacturers: evidence.fdaManufacturers
       }
     : null,
-  trials: trimTrialPool(trials, 50)
+  trials: trimTrialPool(trials, 25)
 });
 
 const getClientIp = (req) => {
@@ -3767,7 +3767,7 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
             total: trials.total,
             breakdown: trials.breakdown,
             subQueries: trials.subQueries,
-            studies: (trials.studies || []).slice(0, 50)
+            studies: (trials.studies || []).slice(0, 25)
           }
         : null,
       coverageAudit,
