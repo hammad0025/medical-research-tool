@@ -1195,6 +1195,15 @@ const buildAllowedUrlSet = (trialsData, evidenceOrPack) => {
     for (const f of evidenceOrPack.fdaLabels || []) {
       add(f?.dailyMedUrl || f?.url);
     }
+    // Repurpose drug pool and screen — URLs from drug registry evidence.
+    for (const d of evidenceOrPack.repurposeDrugPool || []) {
+      if (d.pmid) addArticle({ pmid: d.pmid });
+      add(d.dailyMedUrl);
+      add(d.url);
+    }
+    for (const d of evidenceOrPack.repurposeDrugScreen?.fillPool || []) {
+      add(d.dailyMedUrl);
+    }
   }
   for (const list of lists) {
     for (const a of list || []) addArticle(a);
@@ -1236,7 +1245,11 @@ const stripDailyMedSearchLinks = (text) => {
 // bare "Google search" anchor, relabel to a clean "Search ↗" so the words
 // "Google search" never render as a user-facing link label.
 const cleanAnchorLabel = (label, url) => {
-  const stripped = String(label == null ? '' : label).replace(/\*\*|__|\*|_/g, '').trim();
+  const stripped = String(label == null ? '' : label)
+    .replace(/\*\*|__|\*|_/g, '')
+    .replace(/[[\]()↗]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (isGoogleSearchUrl(url) && (!stripped || /^google\s*search$/i.test(stripped))) {
     return 'Search ↗';
   }
@@ -7686,6 +7699,8 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
       <DeepResearchProgress progress={progress} onRetrySynth={onRetrySynth} canRetrySynth={canRetrySynth} />
 
       <EvidenceGradeBanner grade={evidenceGrade} />
+
+      <DossierPanel dossier={dossier} conditionResolution={conditionResolution} />
 
       <ValidationMismatchBanner />
 
