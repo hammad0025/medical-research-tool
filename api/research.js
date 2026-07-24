@@ -3785,6 +3785,9 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
     });
   } catch (error) {
     logError('[research] request failed', error);
+    if (error?.code === 'PUBLIC_LANGUAGE_REJECTED') {
+      console.error('[research] PUBLIC_LANGUAGE_REJECTED matches:', error.matches);
+    }
     if (error?.code === 'DURABLE_ENFORCEMENT_UNAVAILABLE') {
       return res.status(503).json({
         error: 'This action is temporarily unavailable. Please try again later.',
