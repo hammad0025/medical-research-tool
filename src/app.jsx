@@ -6236,8 +6236,8 @@ const buildFullReportBody = ({ reportModel }) => {
     }
     if (studies.length) {
       const headers = ['Study', 'Study stage', 'Study status', 'Accepting inquiries', 'Eligibility review', 'Placebo listed', 'Access notes', 'Countries', 'Monitoring', 'Why this order', 'Open link'];
-      parts.push(`<table><caption>First ${Math.min(25, studies.length)} clinical trial records shown in the report</caption><thead><tr>${headers.map((header) => `<th scope="col">${header}</th>`).join('')}</tr></thead><tbody>`);
-      studies.slice(0, 25).forEach((s) => {
+      parts.push(`<table><caption>First ${Math.min(50, studies.length)} clinical trial records shown in the report</caption><thead><tr>${headers.map((header) => `<th scope="col">${header}</th>`).join('')}</tr></thead><tbody>`);
+      studies.slice(0, 50).forEach((s) => {
         const assessment = s.eligibilityAssessment;
         const eligibilityLabel = {
           unknown: 'Eligibility unknown',
@@ -8172,7 +8172,7 @@ const TrialsTable = ({ data }) => {
   <div style={panelStyle}>
     <TrialScoreExplainer trial={whyTrial} onClose={() => setWhyTrial(null)} />
       <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-      First {Math.min(25, rows.length)} studies · {Number.isFinite(Number(data?.total)) ? Number(data.total) : rows.length} matched your search
+      First {Math.min(50, rows.length)} studies · {Number.isFinite(Number(data?.total)) ? Number(data.total) : rows.length} matched your search
     </h3>
     {(data.breakdown?.droppedWrongCondition || 0) > 0 && (
       <p style={{ margin: '0 0 0.65rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.45 }}>
@@ -8211,7 +8211,7 @@ const TrialsTable = ({ data }) => {
           </tr>
         </thead>
         <tbody>
-          {rows.slice(0, 25).map((s, idx) => {
+          {rows.slice(0, 50).map((s, idx) => {
             const rowKey = s.nctId || `${s.briefTitle || 'trial'}-${idx}`;
             const isSelected = whyTrial?.nctId === s.nctId;
             const eligibility = eligibilitySummary(s);

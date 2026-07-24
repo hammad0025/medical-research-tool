@@ -51,7 +51,7 @@ test('full exports preserve the rendered clinical-trial column set', () => {
   ]) {
     assert.match(appSource, new RegExp(`['"]${header}['"]`));
   }
-  assert.match(appSource, /studies\.slice\(0, 25\)/);
+  assert.match(appSource, /studies\.slice\(0, 50\)/);
 });
 
 test('plain-text alerts retain source and unsubscribe destinations', () => {
