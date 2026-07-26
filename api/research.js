@@ -307,7 +307,7 @@ const groundingPlan = (mode, phase, half) => {
     if (half === 'back') return { limit: 4, excerpt: 550 };
     return { limit: 8, excerpt: 950 };
   }
-  if (mode === 'repurpose') return { limit: 12, excerpt: 2000 };
+  if (mode === 'repurpose') return { limit: 25, excerpt: 2000 };
   // Research front/back: denser pack so every significant claim can carry an
   // inline pack URL (client mandate). Was 6 — too thin; markers [#7]+ dropped.
   if (mode === 'research' && phase === 'synthesize') {
@@ -1840,7 +1840,7 @@ One sentence: hypothesis-generation only — discuss with a physician before any
 const REPURPOSE_PROMPT_FRONT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
 THIS IS PART 1 OF 2. Output ONLY individual CANDIDATE blocks — no combination section, no reasoning summary.
-Produce ~24 candidates balanced across the two sections (~12 never-researched FIRST, then ~12 researched-not-approved). Returning fewer than 16 total is a FAILURE when the sources support more.
+Produce ~50 candidates balanced across the two sections (~25 never-researched FIRST, then ~25 researched-not-approved). Returning fewer than 40 total is a FAILURE when the sources support more.
 Keep EVERY field short (≤25 words where possible). Every candidate MUST include ITEM_KIND, REPURPOSE_SECTION, WHY_FOR_THIS_CONDITION, and a real drug-specific link in REFERENCES when one exists.
 
 ${REPURPOSE_CANDIDATE_FORMAT}
@@ -1885,7 +1885,7 @@ ${SHARED_GUARDRAILS}`;
 // Single-shot fallback (API backward compat). UI uses gather → synth front → synth back.
 const REPURPOSE_PROMPT_STATIC = `${REPURPOSE_PROMPT_INTRO}
 
-Produce a ranked list of ~24 candidate repurposed drugs or supplements total (~12 never-researched, ~12 researched-not-approved; 16 minimum when sources allow).
+Produce a ranked list of ~50 candidate repurposed drugs or supplements total (~25 never-researched, ~25 researched-not-approved; 40 minimum when sources allow).
 
 ${REPURPOSE_CANDIDATE_FORMAT}
 
@@ -3231,10 +3231,10 @@ export default async function handler(req, res) {
     if (mode === 'repurpose' && dossier) {
       const lane = isRepurposeBatch ? Number(batchLane) : null;
       const pool = (lane != null && !Number.isNaN(lane))
-        ? await selectRepurposeDrugs(dossier, { lane, limit: 14 })
+        ? await selectRepurposeDrugs(dossier, { lane, limit: 28 })
         : (evidence?.repurposeDrugPool?.length
           ? evidence.repurposeDrugPool
-          : await selectRepurposeDrugs(dossier, { limit: 20 }));
+          : await selectRepurposeDrugs(dossier, { limit: 55 }));
       repurposeLibraryBlock = buildRepurposeDrugLibraryBlock(pool, {
         lane: lane != null && !Number.isNaN(lane) ? lane : null,
         condition: dossier.canonical || effectiveCondition
