@@ -7710,22 +7710,43 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
       {dossier?.topCenters?.length > 0 && (
         <div style={panelStyle}>
           <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Building size={18} /> Condition-Focused Centers & Experts ({dossier.topCenters.length})
+            <Building size={18} /> Condition-Focused Centers ({dossier.topCenters.length})
           </h3>
           <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
             Academic medical centers identified for specialized expertise in {patient.condition || 'this condition'}. This is not a quality ranking.
           </p>
-          <div style={{ display: 'grid', gap: '0.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.75rem' }}>
             {dossier.topCenters.map((c, i) => (
-              <div key={`center-${i}`} style={{ padding: '0.6rem 0.8rem', borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.panel }}>
-                <div style={{ fontWeight: 700, color: theme.text, fontSize: '0.92rem' }}>{c.name}</div>
-                {(c.city || c.country) && (
-                  <div style={{ color: theme.textDim, fontSize: '0.82rem', marginTop: 2 }}>
-                    {[c.city, c.country].filter(Boolean).join(', ')}
+              <div key={`center-${i}`} style={{
+                padding: '0.9rem 1rem',
+                borderRadius: 10,
+                border: `1px solid ${theme.accent}33`,
+                background: `linear-gradient(135deg, ${theme.panel} 0%, ${theme.accentSoft || theme.panel} 100%)`,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.6rem' }}>
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 8,
+                    background: `${theme.accent}18`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <Building size={16} color={theme.accent} />
                   </div>
-                )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: theme.text, fontSize: '0.92rem', lineHeight: 1.3 }}>{c.name}</div>
+                    {(c.city || c.country) && (
+                      <div style={{ color: theme.textDim, fontSize: '0.78rem', marginTop: 3, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                        <span style={{ opacity: 0.7 }}>📍</span> {[c.city, c.country].filter(Boolean).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                </div>
                 {c.why && (
-                  <div style={{ color: theme.textDim, fontSize: '0.82rem', marginTop: 4, lineHeight: 1.45 }}>
+                  <div style={{
+                    color: theme.textDim, fontSize: '0.8rem', marginTop: 8, lineHeight: 1.5,
+                    padding: '0.5rem 0.6rem', background: `${theme.text}08`, borderRadius: 6
+                  }}>
                     {c.why}
                   </div>
                 )}
@@ -7733,16 +7754,25 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
             ))}
           </div>
           {dossier?.keyInvestigators?.length > 0 && (
-            <div style={{ marginTop: '1rem' }}>
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: theme.textDim, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
-                Key Researchers
-              </div>
-              <div style={{ display: 'grid', gap: '0.35rem' }}>
+            <div style={{ marginTop: '1.25rem' }}>
+              <h4 style={{ margin: '0 0 0.6rem', color: theme.accent, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <User size={16} /> Key Researchers ({dossier.keyInvestigators.length})
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.6rem' }}>
                 {dossier.keyInvestigators.map((inv, i) => (
-                  <div key={`inv-${i}`} style={{ fontSize: '0.85rem' }}>
-                    <strong style={{ color: theme.text }}>{inv.name}</strong>
-                    {inv.affiliation && <span style={{ color: theme.textDim }}> · {inv.affiliation}</span>}
-                    {inv.why && <span style={{ color: theme.textDim }}> — {inv.why}</span>}
+                  <div key={`inv-${i}`} style={{
+                    padding: '0.7rem 0.85rem',
+                    borderRadius: 8,
+                    border: `1px solid ${theme.border}`,
+                    background: theme.panel
+                  }}>
+                    <div style={{ fontWeight: 600, color: theme.text, fontSize: '0.88rem' }}>{inv.name}</div>
+                    {inv.affiliation && (
+                      <div style={{ color: theme.textDim, fontSize: '0.78rem', marginTop: 2 }}>{inv.affiliation}</div>
+                    )}
+                    {inv.why && (
+                      <div style={{ color: theme.textDim, fontSize: '0.78rem', marginTop: 4, fontStyle: 'italic' }}>{inv.why}</div>
+                    )}
                   </div>
                 ))}
               </div>
