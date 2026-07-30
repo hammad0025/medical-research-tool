@@ -461,6 +461,15 @@ const Sun = mkIcon(<>
 const Moon = mkIcon(<>
   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
 </>);
+const Building = mkIcon(<>
+  <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+  <path d="M9 22v-4h6v4" />
+  <path d="M8 6h.01" /><path d="M16 6h.01" />
+  <path d="M12 6h.01" /><path d="M12 10h.01" />
+  <path d="M12 14h.01" /><path d="M16 10h.01" />
+  <path d="M16 14h.01" /><path d="M8 10h.01" />
+  <path d="M8 14h.01" />
+</>);
 
 /* ==================== Theme ==================== */
 // Two palettes. Identity choices (why this isn't a ChatGPT / IBM
@@ -7087,53 +7096,6 @@ const DossierPanel = ({ dossier, conditionResolution }) => {
               </div>
             </div>
           )}
-          {dossier.topCenters?.length > 0 && (
-            <div>
-              <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                Condition-focused centers found
-                <span
-                  title="These centers were identified for condition-specific work. This is not a quality, safety, or reputation ranking."
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 15, height: 15, borderRadius: '50%',
-                    border: `1px solid ${theme.border}`, color: theme.textDim,
-                    fontSize: '0.65rem', cursor: 'help', lineHeight: 1
-                  }}
-                >
-                  ?
-                </span>
-              </div>
-              <div style={{ display: 'grid', gap: '0.3rem' }}>
-                {dossier.topCenters.map((c, i) => (
-                  <div key={i} style={{ fontSize: '0.82rem' }}>
-                    <strong style={{ color: theme.accent }}>{c.name}</strong>
-                    {(c.city || c.country) && (
-                      <span style={{ color: theme.textDim }}>
-                        {' '}· {[c.city, c.country].filter(Boolean).join(', ')}
-                      </span>
-                    )}
-                    {c.why && <span style={{ color: theme.textDim }}> — {c.why}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {dossier.keyInvestigators?.length > 0 && (
-            <div>
-              <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
-                Researchers identified in sources
-              </div>
-              <div style={{ display: 'grid', gap: '0.3rem' }}>
-                {dossier.keyInvestigators.map((i, idx) => (
-                  <div key={idx} style={{ fontSize: '0.82rem' }}>
-                    <strong style={{ color: theme.accent }}>{i.name}</strong>
-                    {i.affiliation && <span style={{ color: theme.textDim }}> · {i.affiliation}</span>}
-                    {i.why && <span style={{ color: theme.textDim }}> — {i.why}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           {dossier.patientAdvocacy?.length > 0 && (
             <div>
               <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
@@ -7738,6 +7700,51 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
               </div>
               <div style={{ fontSize: '0.75rem', color: theme.textDim, marginTop: 6, lineHeight: 1.5 }}>
                 These entries are shown only when an exact FDA label was available. No efficacy or safety score is inferred from the label alone.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Centers & Experts section */}
+      {dossier?.topCenters?.length > 0 && (
+        <div style={panelStyle}>
+          <h3 style={{ margin: '0 0 0.35rem', color: theme.accent, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Building size={18} /> Condition-Focused Centers & Experts ({dossier.topCenters.length})
+          </h3>
+          <p style={{ margin: '0 0 0.75rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
+            Academic medical centers identified for specialized expertise in {patient.condition || 'this condition'}. This is not a quality ranking.
+          </p>
+          <div style={{ display: 'grid', gap: '0.5rem' }}>
+            {dossier.topCenters.map((c, i) => (
+              <div key={`center-${i}`} style={{ padding: '0.6rem 0.8rem', borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.panel }}>
+                <div style={{ fontWeight: 700, color: theme.text, fontSize: '0.92rem' }}>{c.name}</div>
+                {(c.city || c.country) && (
+                  <div style={{ color: theme.textDim, fontSize: '0.82rem', marginTop: 2 }}>
+                    {[c.city, c.country].filter(Boolean).join(', ')}
+                  </div>
+                )}
+                {c.why && (
+                  <div style={{ color: theme.textDim, fontSize: '0.82rem', marginTop: 4, lineHeight: 1.45 }}>
+                    {c.why}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {dossier?.keyInvestigators?.length > 0 && (
+            <div style={{ marginTop: '1rem' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: theme.textDim, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
+                Key Researchers
+              </div>
+              <div style={{ display: 'grid', gap: '0.35rem' }}>
+                {dossier.keyInvestigators.map((inv, i) => (
+                  <div key={`inv-${i}`} style={{ fontSize: '0.85rem' }}>
+                    <strong style={{ color: theme.text }}>{inv.name}</strong>
+                    {inv.affiliation && <span style={{ color: theme.textDim }}> · {inv.affiliation}</span>}
+                    {inv.why && <span style={{ color: theme.textDim }}> — {inv.why}</span>}
+                  </div>
+                ))}
               </div>
             </div>
           )}
