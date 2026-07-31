@@ -919,7 +919,7 @@ const isMechanisticEvidence = (value) => {
 // Dorothy product sections (Research tab layout):
 //   neverResearched     — no study of this drug for this condition
 //   researchedNotApproved — researched for the condition, not FDA-approved
-const partitionCandidates = (candidates) => {
+const partitionCandidates = (candidates, condition = '') => {
   const neverResearched = [];
   const researchedNotApproved = [];
   const evidenceStatusUnknown = [];
@@ -928,7 +928,7 @@ const partitionCandidates = (candidates) => {
   const preclinical = [];
   const mechanistic = [];
   (candidates || []).forEach(c => {
-    const section = resolveRepurposeSection(c);
+    const section = resolveRepurposeSection(c, { condition });
     const enriched = { ...c, _repurpose_section: section, _item_kind: resolveItemKind(c) };
     if (section === 'researched-not-approved') researchedNotApproved.push(enriched);
     else if (section === 'no-condition-study-identified') neverResearched.push(enriched);
@@ -6336,7 +6336,8 @@ const buildFullReportBody = ({ reportModel }) => {
     parts.push(renderMarkdownForExport(trialsText, allowedUrls));
   }
 
-  const { neverResearched, researchedNotApproved, evidenceStatusUnknown } = partitionCandidates(candidates || []);
+  const { neverResearched, researchedNotApproved, evidenceStatusUnknown } =
+    partitionCandidates(candidates || [], patient?.condition || '');
   if (neverResearched.length || researchedNotApproved.length || evidenceStatusUnknown.length) {
     parts.push(`<h2>Treatment and supportive-care research ideas (${neverResearched.length + researchedNotApproved.length + evidenceStatusUnknown.length})</h2>`);
     parts.push(`<p class="mrt-export-meta">Grouped by whether this search identified condition-specific research. These are discussion topics, not benefit or eligibility predictions.</p>`);
@@ -7616,8 +7617,8 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
   // sections (~25 never-researched + ~25 researched-not-approved) — never
   // one flat "Drug & supplement ideas (N)" pile with a tab pointer.
   const { neverResearched, researchedNotApproved, evidenceStatusUnknown } = useMemo(
-    () => partitionCandidates(candidates),
-    [candidates]
+    () => partitionCandidates(candidates, patient?.condition || ''),
+    [candidates, patient?.condition]
   );
   // Count what the reader can actually see. Reporting every parsed candidate
   // disagreed with the per-section breakdown underneath it once the sections
@@ -8697,7 +8698,7 @@ const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layper
     () => auditAndScrubCard(rawC, CANDIDATE_LEAK_FIELDS, { kind: 'repurposing-candidate', label: rawC?.candidate }),
     [rawC]
   );
-  const section = resolveRepurposeSection(c);
+  const section = resolveRepurposeSection(c, { condition: conditionLabel });
   const itemKind = resolveItemKind(c);
   const mechanistic = highlightMechanistic || section === 'no-condition-study-identified' || isMechanisticEvidence(c.evidence_strength);
   const lay = audience !== 'medical';
