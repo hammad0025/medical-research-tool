@@ -3251,7 +3251,8 @@ export default async function handler(req, res) {
     // trials for vitamin A, DHA, NAC and TUDCA.
     const researchedAgentBlock = (mode === 'repurpose' && evidence)
       ? buildResearchedAgentBlock(
-        (evidence.groundedForPrompt || []).filter((it) => it?.isCuratedKB)
+        (evidence.groundedForPrompt || []).filter((it) => it?.isCuratedKB),
+        evidence.excludedAgents || []
       )
       : '';
     const supplementDiscoveryBlock = (mode === 'repurpose' && evidence)
