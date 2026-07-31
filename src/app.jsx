@@ -19,7 +19,8 @@ import {
 import { sanitizePublicText } from "../lib/public-language.js";
 import {
   extractCitationUrls, resolveItemKind, resolveRepurposeSection,
-  REPURPOSE_LANE_COUNT, REPURPOSE_PER_LANE, REPURPOSE_SECTION_DISPLAY_CAP
+  REPURPOSE_LANE_COUNT, REPURPOSE_PER_LANE, REPURPOSE_SECTION_DISPLAY_CAP,
+  REPURPOSE_RESEARCHED_LANE
 } from "../lib/repurpose-quality.js";
 import { isGoogleSearchUrl, isDailyMedSearchUrl } from "../lib/citation-gate.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
@@ -3160,8 +3161,13 @@ const App = () => {
           // ceiling stayed at 3x8 regardless of what the constant said.
           const LANE_COUNT = REPURPOSE_LANE_COUNT;
           const PER_LANE = REPURPOSE_PER_LANE;
+          // The researched-agents lane fills a whole section on its own, so it
+          // asks for the section's cap; the category lanes split their output
+          // across both sections and stay smaller.
+          const laneSize = (lane) =>
+            lane === REPURPOSE_RESEARCHED_LANE ? REPURPOSE_SECTION_DISPLAY_CAP : PER_LANE;
           const runLane = (lane) => callResearch({
-            ...synthBase, half: 'front', batchLane: lane, batchSize: PER_LANE
+            ...synthBase, half: 'front', batchLane: lane, batchSize: laneSize(lane)
           });
           const textOf = (r) => (r?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
 

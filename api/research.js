@@ -1879,7 +1879,13 @@ ${SHARED_GUARDRAILS}`;
 const REPURPOSE_LANES = [
   'LANE A — anti-inflammatory & immune-modulating drugs (prescription medications; ITEM_KIND: MEDICATION). Emit BOTH sections: (1) never-researched = approved for OTHER inflammatory/autoimmune conditions with ZERO studies for THIS condition — MECHANISTIC_ONLY, cite the OTHER-condition article about the drug; (2) researched-not-approved = agents with preclinical/early clinical research FOR THIS condition that are NOT FDA-approved for it. Skip EXCLUDED AGENTS, already-approved SOC for this condition, and FAILED-TRIAL DISQUALIFIER agents.',
   'LANE B — metabolic, antifibrotic, hormonal, cardiovascular, and cell/stem-cell drug approaches (ITEM_KIND: MEDICATION). Same TWO-SECTION mix as Lane A. never-researched = pathway overlap from OTHER diseases with no study for THIS condition; researched-not-approved = condition-specific research, not FDA-approved. Skip EXCLUDED AGENTS / SOC / failed trials.',
-  'LANE C — over-the-counter supplements, vitamins, antioxidants, and non-prescription medicines (ITEM_KIND: SUPPLEMENT). Read the OTC / SUPPLEMENT LITERATURE block when present. Emit BOTH sections: never-researched supplements with only OTHER-context mechanism papers, AND supplements with researched-but-not-approved evidence for THIS condition. Plain-English names (e.g. "Goji berries"). Skip EXCLUDED AGENTS and failed-trial supplements.'
+  'LANE C — over-the-counter supplements, vitamins, antioxidants, and non-prescription medicines (ITEM_KIND: SUPPLEMENT). Read the OTC / SUPPLEMENT LITERATURE block when present. Emit BOTH sections: never-researched supplements with only OTHER-context mechanism papers, AND supplements with researched-but-not-approved evidence for THIS condition. Plain-English names (e.g. "Goji berries"). Skip EXCLUDED AGENTS and failed-trial supplements.',
+  // Lane D exists because every agent with condition-specific research tends to
+  // land in one category (for an inherited retinal disease they are all
+  // supplements), so they competed for Lane C's slots against never-researched
+  // ideas and only two or three ever survived. Given its own lane they no
+  // longer compete.
+  'LANE D — agents that have ALREADY been studied for THIS condition. Emit ONE candidate for EVERY agent listed in the AGENTS WITH CONDITION-SPECIFIC RESEARCH block, each with REPURPOSE_SECTION: researched-not-approved and the exact link given for that agent. Then add any FURTHER agents the evidence pack shows were studied for THIS condition, up to the requested count. Report what each study actually found, including negative or mixed results. Every candidate in this lane is researched-not-approved — emit NO never-researched candidates here. Skip EXCLUDED AGENTS, agents already FDA-approved for this condition, and failed-trial agents.'
 ];
 
 // Batched front prompt: one lane, a handful of candidates, finishes fast.
@@ -3249,7 +3255,8 @@ export default async function handler(req, res) {
     // this the "researched" section depended entirely on retrieval luck and
     // returned 3 ideas for a condition whose knowledge base pins landmark
     // trials for vitamin A, DHA, NAC and TUDCA.
-    const researchedAgentBlock = (mode === 'repurpose' && evidence)
+    const isResearchedAgentLane = isRepurposeBatch && Number(batchLane) === 3;
+    const researchedAgentBlock = (mode === 'repurpose' && evidence && (isResearchedAgentLane || !isRepurposeBatch))
       ? buildResearchedAgentBlock(
         (evidence.groundedForPrompt || []).filter((it) => it?.isCuratedKB),
         evidence.excludedAgents || []
