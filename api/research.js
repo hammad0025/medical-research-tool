@@ -82,6 +82,7 @@ import {
 import { registryStats as diseaseRegistryStats } from '../lib/disease-registry.js';
 import { registryStats as drugRegistryStats, selectRepurposeDrugs, buildRepurposeDrugLibraryBlock } from '../lib/drug-registry.js';
 import { buildSupplementDiscoveryBlock } from '../lib/supplement-discovery.js';
+import { buildResearchedAgentBlock } from '../lib/researched-agent-seeds.js';
 import { countCandidateBlocks, isLaneTruncated } from '../lib/repurpose-quality.js';
 import { resolveCondition, detectValidationMismatch } from '../lib/condition-resolver.js';
 import { normalizeTrialCoverage, trialCoverageMessage } from '../lib/trial-coverage.js';
@@ -3244,6 +3245,15 @@ export default async function handler(req, res) {
       mode === 'research' && half === 'back' && evidence
         ? buildPipelineWatchBlock(evidence, trials)
         : '';
+    // Curated agents that already have condition-specific research. Without
+    // this the "researched" section depended entirely on retrieval luck and
+    // returned 3 ideas for a condition whose knowledge base pins landmark
+    // trials for vitamin A, DHA, NAC and TUDCA.
+    const researchedAgentBlock = (mode === 'repurpose' && evidence)
+      ? buildResearchedAgentBlock(
+        (evidence.groundedForPrompt || []).filter((it) => it?.isCuratedKB)
+      )
+      : '';
     const supplementDiscoveryBlock = (mode === 'repurpose' && evidence)
       ? buildSupplementDiscoveryBlock(evidence)
       : '';
@@ -3273,7 +3283,7 @@ export default async function handler(req, res) {
     // access), then repurpose drug library (open curated drug list),
     // then the REQUIRED MENTIONS list last so Claude sees the
     // anti-omission constraint immediately before starting to write.
-    const extraContext = [evidenceGradeBlock, dossierBlock, groundingBlock, trialsBlock, repurposeLibraryBlock, requiredMentionsBlock, learnedErrorsBlock, pipelineWatchBlock, supplementDiscoveryBlock]
+    const extraContext = [evidenceGradeBlock, dossierBlock, groundingBlock, trialsBlock, repurposeLibraryBlock, requiredMentionsBlock, learnedErrorsBlock, pipelineWatchBlock, supplementDiscoveryBlock, researchedAgentBlock]
       .filter(Boolean)
       .join('\n\n');
 

@@ -39,6 +39,9 @@ import {
 // Rows shown in the clinical-trials list and in exports. Kept modest: the
 // full result set is a research dump, and every extra row also enlarges the
 // payload handed to the synthesis step.
+const linkLabelText = (value) =>
+  String(value || '').replace(/\s*↗\s*$/, '').trim();
+
 const TRIAL_ROW_DISPLAY_LIMIT = 25;
 
 window.marked = marked;
@@ -777,7 +780,10 @@ const splitMeterJustification = (raw) => {
 // the wrong drug (the "Magnesium card shows Lumateperone's risks" bug).
 const CANDIDATE_SELF_FIELDS = [
   'patient_specific_risks', 'safety', 'confidence',
-  'efficacy_hypothesis', 'how_to_discuss_with_doctor'
+  'efficacy_hypothesis', 'how_to_discuss_with_doctor',
+  // Describe this card's own drug: "Usually used for: ... (SPIRONOLACTONE)"
+  // on a Candesartan card is another drug's indication and source.
+  'approved_for', 'what_it_does', 'class'
 ];
 const candidateIdentityKey = (name) =>
   String(name || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '').trim();
@@ -5797,7 +5803,7 @@ const SourceLinks = ({ text, label = 'Sources', allowedUrls = new Set() }) => {
         {links.map((l, i) => (
           <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
             style={{ fontSize: '0.78rem', color: theme.accent, wordBreak: 'break-all' }}>
-            {l.label} ↗
+            {linkLabelText(l.label)} ↗
           </a>
         ))}
       </div>
@@ -7613,6 +7619,11 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
     () => partitionCandidates(candidates),
     [candidates]
   );
+  // Count what the reader can actually see. Reporting every parsed candidate
+  // disagreed with the per-section breakdown underneath it once the sections
+  // became capped ("Found 14" above "10 + 3 + 0").
+  const shownIdeaCount =
+    neverResearched.length + researchedNotApproved.length + evidenceStatusUnknown.length;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <AdSlot runtimeConfig={runtimeConfig} slotKey="researchTop" />
@@ -7651,9 +7662,9 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
               : <>✓ Found {stubTreatments.length} FDA-approved option{stubTreatments.length === 1 ? '' : 's'} for this condition (listed for reference — see guidelines for per-drug details).</>}
           </p>
         )}
-        {candidates.length > 0 && (
+        {shownIdeaCount > 0 && (
           <p style={{ color: theme.green, fontSize: '0.85rem' }}>
-            ✓ Found {candidates.length} drug &amp; supplement idea{candidates.length === 1 ? '' : 's'} (OTC supplements and prescription ideas with source links).
+            ✓ Found {shownIdeaCount} drug &amp; supplement idea{shownIdeaCount === 1 ? '' : 's'} (OTC supplements and prescription ideas with source links).
           </p>
         )}
         {runMeta?.repurposeQuality && (
@@ -8574,7 +8585,7 @@ const TreatmentCard = ({ t: rawT, rank, allowedUrls = null }) => {
               {cardLinks.slice(0, 4).map((l, i) => (
                 <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
                   style={{ display: 'block', fontSize: '0.84rem', color: theme.accent, marginBottom: 4 }}>
-                  {l.label} ↗
+                  {linkLabelText(l.label)} ↗
                 </a>
               ))}
             </div>
@@ -8654,7 +8665,7 @@ const ComboCard = ({ c: rawC, rank, allowedUrls = null }) => {
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {cardLinks.slice(0, 3).map((l, i) => (
                 <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: '0.82rem', color: theme.accent }}>{l.label} ↗</a>
+                  style={{ fontSize: '0.82rem', color: theme.accent }}>{linkLabelText(l.label)} ↗</a>
               ))}
             </div>
           )}
@@ -8788,7 +8799,7 @@ const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layper
                 {cardLinks.slice(0, 4).map((l, i) => (
                   <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
                     style={{ fontSize: '0.84rem', color: theme.accent, fontWeight: 600, lineHeight: 1.4 }}>
-                    {l.label} ↗
+                    {linkLabelText(l.label)} ↗
                   </a>
                 ))}
               </div>
