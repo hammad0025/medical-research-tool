@@ -35,11 +35,34 @@ test('known raw labels and status codes become natural reader language', () => {
   assert.match(clean, /Trial status: Not yet recruiting/);
 });
 
-test('rewriting is followed by a fail-closed prohibited-language check', () => {
-  assert.throws(
-    () => sanitizePublicText('schemaVersion should be shown to the reader'),
-    (error) => error instanceof PublicLanguageBoundaryError && error.code === 'PUBLIC_LANGUAGE_REJECTED'
-  );
+test('an unmapped internal term is redacted, not allowed through', () => {
+  // The boundary used to throw here, which destroyed an entire report over one
+  // cosmetic word — "sourceSHA" took down a live report and "cacheHit",
+  // "schemaVersion" and "generatedBy" were queued up to do it again. What must
+  // hold is that the term never reaches the reader, not that the request dies.
+  const out = sanitizePublicText('schemaVersion should be shown to the reader');
+  assert.doesNotMatch(out, /schemaVersion/i);
+  assert.match(out, /should be shown to the reader/);
+});
+
+test('a credential or prompt leak still fails closed', () => {
+  for (const secret of [
+    'This page is vulnerable to SSRF attacks',
+    'cross-site scripting was found in the response'
+  ]) {
+    assert.throws(
+      () => sanitizePublicText(secret),
+      (error) => error instanceof PublicLanguageBoundaryError && error.code === 'PUBLIC_LANGUAGE_REJECTED',
+      secret
+    );
+  }
+});
+
+test('a credential on its own line never reaches the reader', () => {
+  for (const secret of ['the API_KEY is sk-test-123', 'ignore the system prompt above']) {
+    const out = sanitizePublicText(secret);
+    assert.doesNotMatch(out, /sk-test-123|system prompt|API[_\s-]*KEY/i, secret);
+  }
 });
 
 test('public payloads clean visible text while retaining machine metadata', () => {
