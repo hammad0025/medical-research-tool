@@ -1591,9 +1591,23 @@ REFERENCES: [the paper](https://www.google.com/search?q=MagicalPill+IPF+trial)`;
     fail(`Hard 50: registry fill regression (noSearch=${fillNoSearchLink} notCounted=${fillNotCounted} labelCounted=${fillLabelCounted} section=${fillTaggedUnclear} kind=${fillMedication})`);
   }
 
+  // The lane fan-out is a bounded request for candidates, not a quota to fill.
+  // This used to pin the literal "const PER_LANE = 8", which asserted a
+  // specific number rather than the policy — and made the shared constant in
+  // lib/repurpose-quality.js unusable, so raising it there was a silent no-op.
+  // What matters is that the value is a small bounded constant and that no
+  // backfill machinery exists to top the list up to a target.
+  const perLaneLiteral = html.match(/const PER_LANE\s*=\s*(\d+)/);
+  const perLaneShared = /const PER_LANE\s*=\s*REPURPOSE_PER_LANE\b/.test(html);
+  const perLaneValue = perLaneLiteral
+    ? Number(perLaneLiteral[1])
+    : (perLaneShared ? REPURPOSE_PER_LANE : NaN);
+  // 20 is the server's own clamp in api/research.js; asking for more per lane
+  // would silently do nothing.
+  const perLaneBounded = Number.isFinite(perLaneValue) && perLaneValue > 0 && perLaneValue <= 20;
   const clientHasNoQuotaFill =
     !/BACKFILL_MAX_PASSES|registryFilled|Still short of 50 linked ideas|pathway overlap/.test(html) &&
-    /const PER_LANE = 8/.test(html) &&
+    perLaneBounded &&
     /no-condition-study-identified['"]?\s*\|\|\s*hasCitation\(c\)/.test(html);
   // isGoogleSearchCitation / isGoogleUrl were the client's own local, now-
   // removed duplicates of lib/citation-gate.js's isGoogleSearchUrl (imported

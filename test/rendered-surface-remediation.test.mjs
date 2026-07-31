@@ -51,7 +51,13 @@ test('full exports preserve the rendered clinical-trial column set', () => {
   ]) {
     assert.match(appSource, new RegExp(`['"]${header}['"]`));
   }
-  assert.match(appSource, /studies\.slice\(0, 50\)/);
+  // Exports must use the same bounded row cap as the on-screen table. This
+  // used to pin the literal 50, which asserted a specific number rather
+  // than the policy and broke the moment the cap became a named constant.
+  assert.match(appSource, /const TRIAL_ROW_DISPLAY_LIMIT = (\d+);/);
+  const cap = Number(appSource.match(/const TRIAL_ROW_DISPLAY_LIMIT = (\d+);/)[1]);
+  assert.ok(cap > 0 && cap <= 50, `trial row cap out of range: ${cap}`);
+  assert.match(appSource, /studies\.slice\(0, TRIAL_ROW_DISPLAY_LIMIT\)/);
 });
 
 test('plain-text alerts retain source and unsubscribe destinations', () => {

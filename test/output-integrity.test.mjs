@@ -199,9 +199,35 @@ test('clinical-trial section is rendered from structured registry records', () =
       phases: ['PHASE2']
     }]
   });
-  assert.match(output, /Verified Parkinson Study — Phase 2 — Recruiting — NCT01234567/);
+  // Multi-column on purpose: a single-column table is not recognised as a
+  // table by the claim/citation passes, which then deleted every row as
+  // unsourced prose and left a bare separator under the heading.
+  assert.match(output, /\| Study \| Study stage \| Study status \| Record \|/);
+  assert.match(output, /\|---\|---\|---\|---\|/);
+  assert.match(output, /\[Verified Parkinson Study\]\(https:\/\/clinicaltrials\.gov\/study\/NCT01234567\)/);
+  assert.match(output, /\| Phase 2 \| Recruiting \|/);
   assert.match(output, /https:\/\/clinicaltrials\.gov\/study\/NCT01234567/);
   assert.doesNotMatch(output, /outside trial finder/);
+});
+
+test('a rendered trial table survives the claim-citation passes intact', () => {
+  const rendered = replaceClinicalTrialsSection([
+    '## 4. Clinical Trials',
+    'placeholder prose',
+    '',
+    '## 5. Treatments in development',
+    'Next section.'
+  ].join('\n'), {
+    studies: [{
+      nctId: 'NCT01234567',
+      briefTitle: 'Verified Parkinson Study',
+      status: 'RECRUITING',
+      phases: ['PHASE2']
+    }]
+  });
+  const { text } = attachMissingClaimCitations(rendered, { groundedForPrompt: [] });
+  assert.match(text, /Verified Parkinson Study/, 'trial row must not be stripped as unsourced prose');
+  assert.doesNotMatch(text, /^\|---\|$/m, 'no bare separator may survive without its rows');
 });
 
 test('missing trial retrieval is reported as unavailable, not zero matching trials', () => {

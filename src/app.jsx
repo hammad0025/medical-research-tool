@@ -17,7 +17,10 @@ import {
   injectApprovedTreatmentStubs
 } from "../lib/drug-card-utils.js";
 import { sanitizePublicText } from "../lib/public-language.js";
-import { extractCitationUrls, resolveItemKind, resolveRepurposeSection } from "../lib/repurpose-quality.js";
+import {
+  extractCitationUrls, resolveItemKind, resolveRepurposeSection,
+  REPURPOSE_LANE_COUNT, REPURPOSE_PER_LANE, REPURPOSE_SECTION_DISPLAY_CAP
+} from "../lib/repurpose-quality.js";
 import { isGoogleSearchUrl, isDailyMedSearchUrl } from "../lib/citation-gate.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
@@ -32,6 +35,11 @@ import {
   profileClinicalPlaceholders,
   profileSafetyFields
 } from "../lib/profile-field-config.js";
+
+// Rows shown in the clinical-trials list and in exports. Kept modest: the
+// full result set is a research dump, and every extra row also enlarges the
+// payload handed to the synthesis step.
+const TRIAL_ROW_DISPLAY_LIMIT = 25;
 
 window.marked = marked;
 
@@ -924,7 +932,18 @@ const partitionCandidates = (candidates) => {
     else if (v.includes('MECHANISTIC_ONLY') || c._uncited) mechanistic.push(enriched);
     else human.push(enriched);
   });
-  return { neverResearched, researchedNotApproved, evidenceStatusUnknown, human, preclinical, mechanistic };
+  // Hard product cap: 10 ideas with condition-specific research and 10 without.
+  // Extra candidates are dropped, never shown — the sections are a shortlist to
+  // take to a clinician, not an exhaustive dump.
+  const cap = (list) => list.slice(0, REPURPOSE_SECTION_DISPLAY_CAP);
+  return {
+    neverResearched: cap(neverResearched),
+    researchedNotApproved: cap(researchedNotApproved),
+    evidenceStatusUnknown: cap(evidenceStatusUnknown),
+    human,
+    preclinical,
+    mechanistic
+  };
 };
 
 // Combination cards. The combo back-call sometimes emits field labels
@@ -3118,8 +3137,11 @@ const App = () => {
             sourceArtifacts: [front.outputArtifact, back.outputArtifact].filter(Boolean)
           };
         } else if (mode === 'repurpose') {
-          const LANE_COUNT = 3;
-          const PER_LANE = 8;
+          // Use the shared constants — these were previously hardcoded here,
+          // so every change to REPURPOSE_PER_LANE was a no-op and the real
+          // ceiling stayed at 3x8 regardless of what the constant said.
+          const LANE_COUNT = REPURPOSE_LANE_COUNT;
+          const PER_LANE = REPURPOSE_PER_LANE;
           const runLane = (lane) => callResearch({
             ...synthBase, half: 'front', batchLane: lane, batchSize: PER_LANE
           });
@@ -6245,8 +6267,8 @@ const buildFullReportBody = ({ reportModel }) => {
     }
     if (studies.length) {
       const headers = ['Study', 'Study stage', 'Study status', 'Accepting inquiries', 'Eligibility review', 'Placebo listed', 'Access notes', 'Countries', 'Monitoring', 'Why this order', 'Open link'];
-      parts.push(`<table><caption>First ${Math.min(50, studies.length)} clinical trial records shown in the report</caption><thead><tr>${headers.map((header) => `<th scope="col">${header}</th>`).join('')}</tr></thead><tbody>`);
-      studies.slice(0, 50).forEach((s) => {
+      parts.push(`<table><caption>First ${Math.min(TRIAL_ROW_DISPLAY_LIMIT, studies.length)} clinical trial records shown in the report</caption><thead><tr>${headers.map((header) => `<th scope="col">${header}</th>`).join('')}</tr></thead><tbody>`);
+      studies.slice(0, TRIAL_ROW_DISPLAY_LIMIT).forEach((s) => {
         const assessment = s.eligibilityAssessment;
         const eligibilityLabel = {
           unknown: 'Eligibility unknown',
@@ -7096,21 +7118,6 @@ const DossierPanel = ({ dossier, conditionResolution }) => {
               </div>
             </div>
           )}
-          {dossier.patientAdvocacy?.length > 0 && (
-            <div>
-              <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
-                Patient support groups
-              </div>
-              <div style={{ display: 'grid', gap: '0.3rem' }}>
-                {dossier.patientAdvocacy.map((a, i) => (
-                  <div key={i} style={{ fontSize: '0.82rem' }}>
-                    <strong style={{ color: theme.accent }}>{a.name}</strong>
-                    {a.why && <span style={{ color: theme.textDim }}> — {a.why}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           {dossier.landmarkTrials?.length > 0 && (
             <div>
               <div style={{ fontWeight: 700, color: theme.textDim, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
@@ -7550,8 +7557,12 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
     // overlap cannot establish support for an exact quantitative claim.
     const studies = Array.isArray(trialsData?.studies) ? trialsData.studies : [];
     if (!txt || !studies.length) return txt;
-    const totalTrials = studies.length;
-    const acceptingCount = studies.filter((s) => s.acceptingNewPatients === true).length;
+    // "N of M shown" must describe the rows actually on screen. Counting the
+    // whole result set while displaying a capped subset made the two numbers
+    // disagree with the table underneath them.
+    const shownStudies = studies.slice(0, TRIAL_ROW_DISPLAY_LIMIT);
+    const totalTrials = shownStudies.length;
+    const acceptingCount = shownStudies.filter((s) => s.acceptingNewPatients === true).length;
     const summary = acceptingCount > 0
       ? `**${acceptingCount} of ${totalTrials} shown** ${acceptingCount === 1 ? 'study is' : 'studies are'} currently accepting new patients.`
       : `**0 of ${totalTrials} shown** studies are currently accepting new patients.`;
@@ -8087,10 +8098,36 @@ const trialOrderingBreakdown = (s) => {
   return chunks;
 };
 
-const humanizeRegistryValue = (value) => String(value || '')
-  .replace(/_/g, ' ')
-  .toLowerCase()
-  .replace(/\b\w/g, (letter) => letter.toUpperCase());
+// Registry enums that don't survive naive underscore-splitting: "PHASE1"
+// became "Phase1" and "NA" became "Na". Explicit spellings first, then the
+// generic path for anything not listed.
+const REGISTRY_VALUE_LABELS = {
+  NA: 'Not applicable',
+  EARLY_PHASE1: 'Early phase 1',
+  PHASE1: 'Phase 1',
+  PHASE2: 'Phase 2',
+  PHASE3: 'Phase 3',
+  PHASE4: 'Phase 4',
+  ACTIVE_NOT_RECRUITING: 'Active, not recruiting',
+  NOT_YET_RECRUITING: 'Not yet recruiting',
+  ENROLLING_BY_INVITATION: 'Enrolling by invitation',
+  NO_LONGER_AVAILABLE: 'No longer available',
+  APPROVED_FOR_MARKETING: 'Approved for marketing',
+  TEMPORARILY_NOT_AVAILABLE: 'Temporarily not available',
+  WITHHELD: 'Withheld',
+  UNKNOWN: 'Unknown status'
+};
+const humanizeRegistryValue = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const key = raw.toUpperCase().replace(/\s+/g, '_');
+  if (REGISTRY_VALUE_LABELS[key]) return REGISTRY_VALUE_LABELS[key];
+  return raw
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b(\w)/g, (letter) => letter.toUpperCase())
+    .replace(/\bPhase\s*(\d)/gi, 'Phase $1');
+};
 
 const TrialScoreExplainer = ({ trial, onClose }) => {
   if (!trial) return null;
@@ -8168,7 +8205,19 @@ const TrialsTable = ({ data }) => {
     if (s.oversight?.oversightHasDMC) n += 6;
     return n;
   };
+  // Condition relevance leads every sort mode. Without this the client threw
+  // away the server's relevance ranking entirely, so a loosely-related study
+  // could sit at the top of the list purely on study stage.
+  const relevanceTier = (s) => {
+    const score = s.relevanceScore ?? 0;
+    if (score >= 45) return 3;
+    if (score >= 18) return 2;
+    if (score >= 8) return 1;
+    return 0;
+  };
   const rows = normalizeTrialStudies(data?.studies).sort((a, b) => {
+    const tierDiff = relevanceTier(b) - relevanceTier(a);
+    if (tierDiff !== 0) return tierDiff;
     if (sortMode === 'efficacy') return efficacyProxyScore(b) - efficacyProxyScore(a);
     if (sortMode === 'access') {
       const aScore = (a.isExpandedAccessStudy ? 3 : 0) + (a.designations?.hasOpenLabelExtension ? 2 : 0) + (a.designations?.hasPostTrialAccess ? 1 : 0) + (a.acceptingNewPatients ? 2 : 0);
@@ -8209,7 +8258,7 @@ const TrialsTable = ({ data }) => {
   <div style={panelStyle}>
     <TrialScoreExplainer trial={whyTrial} onClose={() => setWhyTrial(null)} />
       <h3 style={{ marginTop: 0, color: theme.accent, fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-      First {Math.min(50, rows.length)} studies · {Number.isFinite(Number(data?.total)) ? Number(data.total) : rows.length} matched your search
+      First {Math.min(TRIAL_ROW_DISPLAY_LIMIT, rows.length)} studies · {Number.isFinite(Number(data?.total)) ? Number(data.total) : rows.length} matched your search
     </h3>
     {(data.breakdown?.droppedWrongCondition || 0) > 0 && (
       <p style={{ margin: '0 0 0.65rem', fontSize: '0.82rem', color: theme.textDim, lineHeight: 1.45 }}>
@@ -8248,7 +8297,7 @@ const TrialsTable = ({ data }) => {
           </tr>
         </thead>
         <tbody>
-          {rows.slice(0, 50).map((s, idx) => {
+          {rows.slice(0, TRIAL_ROW_DISPLAY_LIMIT).map((s, idx) => {
             const rowKey = s.nctId || `${s.briefTitle || 'trial'}-${idx}`;
             const isSelected = whyTrial?.nctId === s.nctId;
             const eligibility = eligibilitySummary(s);

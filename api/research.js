@@ -216,9 +216,22 @@ export const settleGatherTask = (task, {
   );
 });
 
-const callAnthropicMessages = async ({ model, maxTokens, system, messages, apiKey, temperature = DEFAULT_GEN_TEMPERATURE }) => {
+// 408/429/5xx are transient: the same request usually succeeds moments later.
+// These previously fell through the model-fallback branch and gave up on the
+// first response, so a brief upstream wobble failed whole lanes and sections
+// of a report that had already cost minutes of gathering.
+const isTransientProviderStatus = (status) =>
+  status === 408 || status === 429 || (status >= 500 && status <= 599);
+
+// Bounded so worst-case retry time stays well inside the serverless limit.
+const TRANSIENT_RETRY_LIMIT = 2;
+const transientBackoffMs = (attempt) => 600 * (2 ** attempt) + Math.floor(Math.random() * 400);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const callAnthropicMessages = async ({ model, maxTokens, system, messages, apiKey, temperature = DEFAULT_GEN_TEMPERATURE }) => {
   let activeModel = model;
   let lastError = null;
+  let transientRetries = 0;
   for (let attempt = 0; attempt < 4; attempt++) {
     let response;
     try {
@@ -245,6 +258,18 @@ const callAnthropicMessages = async ({ model, maxTokens, system, messages, apiKe
     }
     const errorData = await response.json().catch(() => ({}));
     lastError = { response, errorData, model: activeModel };
+    if (isTransientProviderStatus(response.status) && transientRetries < TRANSIENT_RETRY_LIMIT) {
+      const retryAfterHeader = Number(response.headers?.get?.('retry-after'));
+      const waitMs = Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+        ? Math.min(retryAfterHeader * 1000, 10_000)
+        : transientBackoffMs(transientRetries);
+      transientRetries += 1;
+      console.warn(
+        `[research] Anthropic ${response.status} (transient) — retry ${transientRetries}/${TRANSIENT_RETRY_LIMIT} in ${waitMs}ms`
+      );
+      await sleep(waitMs);
+      continue;
+    }
     const fallback = isModelNotFoundError(response.status, errorData)
       ? nextFallbackModel(activeModel)
       : null;
@@ -3786,7 +3811,10 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
   } catch (error) {
     logError('[research] request failed', error);
     if (error?.code === 'PUBLIC_LANGUAGE_REJECTED') {
-      console.error('[research] PUBLIC_LANGUAGE_REJECTED matches:', error.matches);
+      // The matches are fragments of report text and can carry patient-derived
+      // content, so they go through the redacting logger like every other
+      // diagnostic rather than straight to the console.
+      logError('[research] PUBLIC_LANGUAGE_REJECTED matches', error, { matches: error.matches });
     }
     if (error?.code === 'DURABLE_ENFORCEMENT_UNAVAILABLE') {
       return res.status(503).json({

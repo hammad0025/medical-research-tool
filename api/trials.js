@@ -618,9 +618,20 @@ export const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
   const phases = design.phases || [];
   const allocation = design.designInfo?.allocation;
   const masking = design.designInfo?.maskingInfo?.masking;
-  const hasPlacebo = (arms.interventions || []).some(i =>
-    i.type === 'OTHER' && /placebo/i.test(i.name || '')
-  ) || /placebo/i.test(masking || '');
+  // Ophthalmology, surgery and device trials say "sham", not "placebo", and
+  // register it as PROCEDURE/DEVICE rather than OTHER. Matching only
+  // OTHER+"placebo" reported sham-controlled trials as having no placebo arm,
+  // which both misinforms the reader and hands the trial a ranking bonus.
+  const CONTROL_ARM_RE = /\b(?:placebo|sham|mock|vehicle[- ]control|dummy)\b/i;
+  const hasPlacebo = (arms.interventions || []).some((i) =>
+    CONTROL_ARM_RE.test(i.name || '') || CONTROL_ARM_RE.test(i.description || '')
+  ) ||
+    CONTROL_ARM_RE.test(masking || '') ||
+    (arms.armGroups || []).some((g) =>
+      g.type === 'PLACEBO_COMPARATOR' ||
+      g.type === 'SHAM_COMPARATOR' ||
+      CONTROL_ARM_RE.test(g.label || '')
+    );
 
   // Expanded Access — ONLY definitive CT.gov signals. Text hints like
   // "compassionate use" in a regular trial description caused false
@@ -667,10 +678,22 @@ export const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
                  containsAny(desc.briefSummary, ORPHAN_HINTS);
 
   const contacts = extractContacts(protocol.contactsLocationsModule);
-  const countries = [...new Set(contacts.locations.map(l => l.country).filter(Boolean))];
+  // Records that post only a central contact carry no contactsLocationsModule
+  // facilities, which rendered the Countries column as "—" for real
+  // multi-country trials. Fall back to any other location the record exposes.
+  const countries = [...new Set([
+    ...contacts.locations.map((l) => l.country),
+    ...(protocol.contactsLocationsModule?.locations || []).map((l) => l.country),
+    ...(protocol.locationsModule?.locations || []).map((l) => l.country)
+  ].filter(Boolean))];
 
   const conditionsModule = protocol.conditionsModule || {};
-  const conditions = [...(conditionsModule.conditions || []), ...(conditionsModule.keywords || [])].filter(Boolean);
+  // Keywords are sponsor-supplied free text, NOT the registry's condition
+  // list. Merging them meant an unrelated trial whose keyword happened to be
+  // "RP" scored as though ClinicalTrials.gov had listed it under this
+  // condition. They stay available for weaker title/summary matching.
+  const conditions = (conditionsModule.conditions || []).filter(Boolean);
+  const keywords = (conditionsModule.keywords || []).filter(Boolean);
 
   // Top-center detection looks at sponsor, organization, every facility, and
   // every overall official affiliation. Any single match is enough to flag
@@ -771,6 +794,7 @@ export const classifyTrial = (study, isTopCenterFn = isTopCenter) => {
     detailedDescription: desc.detailedDescription,
     primaryOutcomes,
     conditions,
+    keywords,
 
     contacts,
     countries
@@ -811,11 +835,18 @@ const buildRelevanceMatcher = (primary, aliases, meshTerms, kbMeta) => {
   };
 };
 
+// A short alias like "RP" or "RCD" collides across unrelated diseases
+// ("relapsing polychondritis", "radical prostatectomy", a drug code). It may
+// contribute a weak signal, but on its own it must never be treated as proof
+// that a record is about this condition.
+const AMBIGUOUS_ALIAS_MAX_LEN = 4;
+
 const scoreTrialRelevance = (study, matcher) => {
   const text = [
     study.briefTitle,
     study.officialTitle,
     ...(study.conditions || []),
+    ...(study.keywords || []),
     ...(study.interventions || []).map((i) => i.name),
     study.briefSummary
   ].filter(Boolean).join(' ').toLowerCase();
@@ -824,16 +855,28 @@ const scoreTrialRelevance = (study, matcher) => {
   const condBlob = listedConds.join(' ');
 
   let score = 0;
+  // Score from unambiguous disease names only. This is what decides whether a
+  // record with no condition match is merely worded differently or is about a
+  // different disease entirely.
+  let substantiveScore = 0;
   for (const phrase of matcher.phrases) {
     if (phraseMatches(text, phrase)) {
-      score += phrase.length >= 12 ? 18 : phrase.length >= 6 ? 12 : 8;
+      const points = phrase.length >= 12 ? 18 : phrase.length >= 6 ? 12 : 8;
+      score += points;
+      if (phrase.length > AMBIGUOUS_ALIAS_MAX_LEN) substantiveScore += points;
     }
   }
-  if (matcher.primary && phraseMatches(text, matcher.primary)) score += 25;
+  if (matcher.primary && phraseMatches(text, matcher.primary)) {
+    score += 25;
+    if (matcher.primary.length > AMBIGUOUS_ALIAS_MAX_LEN) substantiveScore += 25;
+  }
 
   // When CT.gov lists explicit conditions, they are the strongest signal.
   if (listedConds.length > 0) {
     const condMatch = matcher.phrases.some((p) => {
+      // A short acronym counts here only as a whole listed condition, never as
+      // a substring or a word buried in a longer disease name.
+      if (p.length <= AMBIGUOUS_ALIAS_MAX_LEN) return listedConds.includes(p);
       if (phraseMatches(condBlob, p)) return true;
       // Substring match: "pulmonary fibrosis" inside "idiopathic pulmonary fibrosis"
       if (p.length >= 5) {
@@ -842,9 +885,10 @@ const scoreTrialRelevance = (study, matcher) => {
       return false;
     });
     if (condMatch) score += 30;
-    // Only flag wrong-disease when the title/summary also lacks any connection.
-    // Previously score < 20 dropped too many valid trials (different CT.gov wording).
-    else if (score < 5) {
+    // The registry named this study's conditions and none of them is ours. A
+    // stray acronym in the summary is not enough to keep it: that is exactly
+    // how "RP" pulled in relapsing polychondritis and radical prostatectomy.
+    else if (substantiveScore < 12) {
       const named = listedConds.slice(0, 2).join('; ');
       return {
         score: -100,
@@ -853,6 +897,10 @@ const scoreTrialRelevance = (study, matcher) => {
       };
     }
   }
+
+  // A study registered against a long grab-bag of conditions is not focused on
+  // this one, however cleanly the name matches.
+  if (listedConds.length >= 8) score = Math.min(score, 40);
 
   if (score >= 45) {
     return {
@@ -1004,8 +1052,12 @@ export default async function handler(req, res) {
         : {})
     }, req.signal));
 
-    // (b) Synonym fan-out (first 3 dossier-supplied aliases)
-    for (const alias of aliases.slice(0, 3)) {
+    // (b) Synonym fan-out (first 3 dossier-supplied aliases).
+    // Bare short acronyms are excluded: querying CT.gov for cond="RP" returns
+    // relapsing polychondritis, radical prostatectomy and unrelated drug codes,
+    // and every one of them then has to be caught downstream.
+    const queryableAliases = aliases.filter((a) => String(a).trim().length > AMBIGUOUS_ALIAS_MAX_LEN);
+    for (const alias of queryableAliases.slice(0, 3)) {
       queries.push(queryCtGov({
         'query.cond': alias,
         'pageSize': Math.min(30, perSource),
@@ -1060,12 +1112,17 @@ export default async function handler(req, res) {
     }
     const pipelineDrugs = Array.isArray(kb.meta?.pipelineDrugs) ? kb.meta.pipelineDrugs : [];
     const pipelineDrugQueryLabels = [];
-    for (const drug of pipelineDrugs.slice(0, 6)) {
-      if (drug.nct) {
-        // Direct NCT lookup — guaranteed match.
-        queries.push(queryCtGov({ 'query.id': drug.nct, 'pageSize': 5 }, req.signal));
-        pipelineDrugQueryLabels.push(`nct:${drug.nct}:${drug.name}`);
-      }
+    // Every curated NCT is looked up — these are single-record queries and the
+    // list is hand-curated, so truncating it only guarantees we miss trials we
+    // already know about. Truncating at 6 is what dropped NAC Attack
+    // (NCT05537220), a phase 3 trial named in our own knowledge base, from an
+    // RP report. Name searches are broader, so those stay bounded.
+    const nctSeeded = pipelineDrugs.filter((d) => d.nct);
+    for (const drug of nctSeeded) {
+      queries.push(queryCtGov({ 'query.id': drug.nct, 'pageSize': 5 }, req.signal));
+      pipelineDrugQueryLabels.push(`nct:${drug.nct}:${drug.name}`);
+    }
+    for (const drug of pipelineDrugs.slice(0, 8)) {
       if (drug.name) {
         // Intervention-text search. CT.gov's `query.intr` is the
         // intervention field — guaranteed to hit trials that administer
@@ -1174,10 +1231,14 @@ export default async function handler(req, res) {
       s.relevanceLabel = rel.label;
       s.relevanceReason = rel.reason;
 
+      // Relevance has to outweigh study-stage bonuses, not merely nudge them.
+      // At +12 against phase 3's +40 and recruiting's +25, a loosely-related
+      // recruiting phase 2 study outranked squarely on-condition phase 3 work.
       let score = 0;
-      if (rel.score >= 45) score += 12;
-      else if (rel.score >= 15) score += 4;
-      else if (rel.score < 0) score -= 50;
+      if (rel.score >= 45) score += 45;
+      else if (rel.score >= 18) score += 15;
+      else if (rel.score >= 8) score += 4;
+      else if (rel.score < 0) score -= 120;
 
       const phase = (s.phases || []).join(',');
       if (phase.includes('PHASE3')) score += 40;
