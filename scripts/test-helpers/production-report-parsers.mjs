@@ -6,7 +6,10 @@ import { drugKeysMatch } from '../../lib/report-polish.js';
 import {
   resolveItemKind,
   resolveRepurposeSection,
-  REPURPOSE_SECTION_DISPLAY_CAP
+  REPURPOSE_SECTION_DISPLAY_CAP,
+  extractCitationUrls,
+  isGoogleSearchUrl,
+  isDailyMedSearchUrl
 } from '../../lib/repurpose-quality.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -36,8 +39,12 @@ export const loadProductionReportParsers = () => {
     drugKeysMatch,
     resolveRepurposeSection,
     resolveItemKind,
-    // partitionCandidates caps each section with this shared constant.
-    REPURPOSE_SECTION_DISPLAY_CAP
+    // partitionCandidates caps each section with this shared constant and
+    // checks whether a candidate still carries a usable citation.
+    REPURPOSE_SECTION_DISPLAY_CAP,
+    extractCitationUrls,
+    isGoogleSearchUrl,
+    isDailyMedSearchUrl
   });
   new vm.Script(`
     ${dependencySource}

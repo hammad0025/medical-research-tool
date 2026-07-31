@@ -781,9 +781,11 @@ const splitMeterJustification = (raw) => {
 const CANDIDATE_SELF_FIELDS = [
   'patient_specific_risks', 'safety', 'confidence',
   'efficacy_hypothesis', 'how_to_discuss_with_doctor',
-  // Describe this card's own drug: "Usually used for: ... (SPIRONOLACTONE)"
-  // on a Candesartan card is another drug's indication and source.
-  'approved_for', 'what_it_does', 'class'
+  // "Usually used for: ... (SPIRONOLACTONE)" on a Candesartan card is another
+  // drug's indication and source. CLASS / WHAT_IT_DOES are deliberately NOT
+  // here: they legitimately name a comparator ("same family as axatilimab"),
+  // and guarding them deleted those cards instead of cleaning them.
+  'approved_for'
 ];
 const candidateIdentityKey = (name) =>
   String(name || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]/g, '').trim();
@@ -919,6 +921,13 @@ const isMechanisticEvidence = (value) => {
 // Dorothy product sections (Research tab layout):
 //   neverResearched     — no study of this drug for this condition
 //   researchedNotApproved — researched for the condition, not FDA-approved
+const candidateCarriesCitation = (c) =>
+  extractCitationUrls([
+    c?.references, c?.supporting_evidence, c?.why_for_this_condition,
+    c?.repurpose_rationale, c?.efficacy_hypothesis
+  ].filter(Boolean).join(' '))
+    .some((u) => !isGoogleSearchUrl(u) && !isDailyMedSearchUrl(u));
+
 const partitionCandidates = (candidates, condition = '') => {
   const neverResearched = [];
   const researchedNotApproved = [];
@@ -928,7 +937,10 @@ const partitionCandidates = (candidates, condition = '') => {
   const preclinical = [];
   const mechanistic = [];
   (candidates || []).forEach(c => {
-    const section = resolveRepurposeSection(c, { condition });
+    const section = resolveRepurposeSection(c, {
+      condition,
+      hasCitation: candidateCarriesCitation(c)
+    });
     const enriched = { ...c, _repurpose_section: section, _item_kind: resolveItemKind(c) };
     if (section === 'researched-not-approved') researchedNotApproved.push(enriched);
     else if (section === 'no-condition-study-identified') neverResearched.push(enriched);
@@ -8698,7 +8710,10 @@ const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layper
     () => auditAndScrubCard(rawC, CANDIDATE_LEAK_FIELDS, { kind: 'repurposing-candidate', label: rawC?.candidate }),
     [rawC]
   );
-  const section = resolveRepurposeSection(c, { condition: conditionLabel });
+  const section = resolveRepurposeSection(c, {
+    condition: conditionLabel,
+    hasCitation: candidateCarriesCitation(c)
+  });
   const itemKind = resolveItemKind(c);
   const mechanistic = highlightMechanistic || section === 'no-condition-study-identified' || isMechanisticEvidence(c.evidence_strength);
   const lay = audience !== 'medical';
