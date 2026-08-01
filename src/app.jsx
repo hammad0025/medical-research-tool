@@ -20,7 +20,7 @@ import { sanitizePublicText } from "../lib/public-language.js";
 import {
   extractCitationUrls, resolveItemKind, resolveRepurposeSection,
   REPURPOSE_LANE_COUNT, REPURPOSE_PER_LANE, REPURPOSE_SECTION_DISPLAY_CAP,
-  REPURPOSE_RESEARCHED_LANE
+  REPURPOSE_RESEARCHED_LANE, isPipelineProgramme
 } from "../lib/repurpose-quality.js";
 import { isGoogleSearchUrl, isDailyMedSearchUrl } from "../lib/citation-gate.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
@@ -938,6 +938,10 @@ const partitionCandidates = (candidates, condition = '') => {
   const preclinical = [];
   const mechanistic = [];
   (candidates || []).forEach(c => {
+    // Pipeline programmes belong to the treatments-in-development section, not
+    // to a list of options to discuss. They also arrived with no citation, so
+    // they were being dropped later anyway after consuming a slot.
+    if (isPipelineProgramme(c?.candidate)) return;
     const section = resolveRepurposeSection(c, {
       condition,
       hasCitation: candidateCarriesCitation(c)

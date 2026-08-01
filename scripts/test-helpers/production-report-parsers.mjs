@@ -9,7 +9,8 @@ import {
   REPURPOSE_SECTION_DISPLAY_CAP,
   extractCitationUrls,
   isGoogleSearchUrl,
-  isDailyMedSearchUrl
+  isDailyMedSearchUrl,
+  isPipelineProgramme
 } from '../../lib/repurpose-quality.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -44,7 +45,8 @@ export const loadProductionReportParsers = () => {
     REPURPOSE_SECTION_DISPLAY_CAP,
     extractCitationUrls,
     isGoogleSearchUrl,
-    isDailyMedSearchUrl
+    isDailyMedSearchUrl,
+    isPipelineProgramme
   });
   new vm.Script(`
     ${dependencySource}
