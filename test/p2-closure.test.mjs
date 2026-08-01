@@ -133,13 +133,17 @@ test('direct evidence arrays are normalized, deduplicated, and capped before fan
   assert.equal(input.treatments.length, 8);
   assert.equal(input.drugs.length, 8);
   assert.equal(input.manufacturers.length, 6);
-  assert.equal(input.limitPerSource, 10);
+  // Clamped, not honoured verbatim. The bound was raised from 10 to 40: at 10
+  // per source a condition with a very large literature (IPF) returned barely
+  // a hundred papers in total, and the report implied that was all that
+  // existed. What this test guards is that an absurd request is still bounded.
+  assert.equal(input.limitPerSource, 40);
   assert.equal(input.drugs.filter((value) => value.toLowerCase() === 'drug a').length, 1);
   assert.deepEqual(normalizeEvidenceFanoutInput(), {
     treatments: [],
     drugs: [],
     manufacturers: [],
-    limitPerSource: 8
+    limitPerSource: 25
   });
 });
 
