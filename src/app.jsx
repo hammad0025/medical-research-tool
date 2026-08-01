@@ -3165,7 +3165,7 @@ const App = () => {
           // asks for the section's cap; the category lanes split their output
           // across both sections and stay smaller.
           const laneSize = (lane) =>
-            lane === REPURPOSE_RESEARCHED_LANE ? REPURPOSE_SECTION_DISPLAY_CAP : PER_LANE;
+            lane === REPURPOSE_RESEARCHED_LANE ? 8 : PER_LANE;
           const runLane = (lane) => callResearch({
             ...synthBase, half: 'front', batchLane: lane, batchSize: laneSize(lane)
           });
