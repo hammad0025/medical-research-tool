@@ -82,7 +82,12 @@ import {
 import { registryStats as diseaseRegistryStats } from '../lib/disease-registry.js';
 import { registryStats as drugRegistryStats, selectRepurposeDrugs, buildRepurposeDrugLibraryBlock } from '../lib/drug-registry.js';
 import { buildSupplementDiscoveryBlock } from '../lib/supplement-discovery.js';
-import { buildResearchedAgentBlock } from '../lib/researched-agent-seeds.js';
+import {
+  buildResearchedAgentBlock,
+  researchedAgentSeedList,
+  renderResearchedCandidateBlocks
+} from '../lib/researched-agent-seeds.js';
+import { searchResearchedAgents } from '../lib/researched-agent-search.js';
 import { countCandidateBlocks, isLaneTruncated } from '../lib/repurpose-quality.js';
 import { resolveCondition, detectValidationMismatch } from '../lib/condition-resolver.js';
 import { normalizeTrialCoverage, trialCoverageMessage } from '../lib/trial-coverage.js';
@@ -1900,7 +1905,7 @@ const REPURPOSE_LANES = [
   // supplements), so they competed for Lane C's slots against never-researched
   // ideas and only two or three ever survived. Given its own lane they no
   // longer compete.
-  'LANE D — agents that have ALREADY been studied for THIS condition. Emit ONE candidate for EVERY agent listed in the AGENTS WITH CONDITION-SPECIFIC RESEARCH block, each with REPURPOSE_SECTION: researched-not-approved and the exact link given for that agent. Then add any FURTHER agents the evidence pack shows were studied for THIS condition, up to the requested count. Report what each study actually found, including negative or mixed results. Every candidate in this lane is researched-not-approved — emit NO never-researched candidates here. Skip EXCLUDED AGENTS, agents already FDA-approved for this condition, and failed-trial agents. Keep every card MINIMAL: name, type, section tag, evidence strength, the link, and ONE sentence on what the study found. No extra fields, no elaboration.'
+  'LANE D — agents ALREADY STUDIED for THIS condition. The AGENTS WITH CONDITION-SPECIFIC RESEARCH block lists them with a link each. Emit ONE candidate for EVERY agent in that list, in the order given, BEFORE adding any of your own. COPY that link verbatim into the REFERENCES line of that candidate — it is supplied precisely so you never have to recall or invent one. A candidate with no REFERENCES URL is DISCARDED downstream, so emitting one wastes the slot: if you cannot give a real URL for an agent, skip it and move to the next. Use REPURPOSE_SECTION: researched-not-approved for every candidate here, with the EVIDENCE_STRENGTH shown for that agent. State what the study found in one sentence, including when it found no benefit — a failed trial is still research and is useful to the reader. Do NOT emit novel pipeline programmes named by a sponsor code (for example CC-90001, BMS-986278), gene therapies or cell therapies: they already appear in the treatments-in-development section. Only once every listed agent is emitted, add further agents the evidence pack shows were studied for THIS condition, each with a real URL. Skip EXCLUDED AGENTS and anything already FDA-approved for this condition. Keep every card MINIMAL: name, type, section tag, evidence strength, the link, and ONE sentence on the finding.'
 ];
 
 // Batched front prompt: one lane, a handful of candidates, finishes fast.
@@ -3271,12 +3276,40 @@ export default async function handler(req, res) {
     // returned 3 ideas for a condition whose knowledge base pins landmark
     // trials for vitamin A, DHA, NAC and TUDCA.
     const isResearchedAgentLane = isRepurposeBatch && Number(batchLane) === 3;
-    const researchedAgentBlock = (mode === 'repurpose' && evidence && (isResearchedAgentLane || !isRepurposeBatch))
+    const wantsResearchedAgents = mode === 'repurpose' && evidence && (isResearchedAgentLane || !isRepurposeBatch);
+    // Agents already approved FOR THIS CONDITION belong in Approved Treatments;
+    // seeding them here burns a slot the lane then skips. That is exactly how
+    // IPF and ALS produced an empty researched section — their curated landmark
+    // trials are trials OF the approved drugs.
+    // ONLY drugs approved FOR THIS CONDITION. Using every FDA label in the pack
+    // excluded any agent that happens to be approved for something else —
+    // which is the definition of a repurposing candidate. Sildenafil,
+    // ambrisentan and macitentan are labelled for pulmonary hypertension and
+    // were therefore dropped from IPF's researched section despite having been
+    // trialled in IPF.
+    const approvedForCondition = (evidence?.pipelineDrugs || [])
+      .filter((d) => {
+        const status = String(d?.approvalStatus || '');
+        return /\bapproved\b/i.test(status) && !/\bnot\b|\binvestigational\b|\boff-label\b/i.test(status);
+      })
+      .map((d) => d?.name)
+      .filter(Boolean);
+    // A second, independent search for agents studied but not approved. Fails
+    // open: a report never depends on it.
+    const webResearchedAgents = (wantsResearchedAgents && isPerplexitySpendEnabled())
+      ? await searchResearchedAgents({
+        condition: dossier?.canonical || effectiveCondition,
+        exclude: approvedForCondition,
+        signal: req.signal || null
+      })
+      : [];
+    const researchedAgentBlock = wantsResearchedAgents
       ? buildResearchedAgentBlock(
         (evidence.groundedForPrompt || []).filter((it) => it?.isCuratedKB),
         evidence.excludedAgents || [],
         trials?.studies || [],
-        (evidence.fdaLabels || []).map((l) => l?.genericName || l?.brandName).filter(Boolean)
+        approvedForCondition,
+        webResearchedAgents
       )
       : '';
     const supplementDiscoveryBlock = (mode === 'repurpose' && evidence)
@@ -3426,6 +3459,30 @@ ${SHARED_GUARDRAILS}
       ...normalizeChatHistoryForModel(chatHistory),
       { role: 'user', content: synthUserQuery }
     ];
+
+    // Lane D is a rendering of agents and citations we already hold, so it does
+    // not need a model call at all. Asking for one cost an API round trip and
+    // lost the supplied URL on most cards, and a card without a URL is
+    // discarded downstream — which is why this section kept coming back empty.
+    // Discovery upstream remains non-deterministic (live web search, registry,
+    // curated references); only the transcription is now exact.
+    if (isResearchedAgentLane) {
+      const seeds = researchedAgentSeedList(
+        (evidence?.groundedForPrompt || []).filter((it) => it?.isCuratedKB),
+        evidence?.excludedAgents || [],
+        trials?.studies || [],
+        approvedForCondition,
+        webResearchedAgents
+      );
+      const rendered = renderResearchedCandidateBlocks(seeds);
+      console.log(`[research] researched-agent lane rendered ${seeds.length} candidate(s) without a model call`);
+      return res.status(200).json(sanitizePublicPayload({
+        content: [{ type: 'text', text: rendered }],
+        model: 'deterministic-researched-agents',
+        usage: { input_tokens: 0, output_tokens: 0 },
+        researchedAgentCount: seeds.length
+      }));
+    }
 
     const anthropic = await callAnthropicMessages({
       model,
