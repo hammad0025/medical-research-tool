@@ -7219,6 +7219,7 @@ const QualityPanel = ({ qb }) => {
       </div>
       <p style={{ margin: '0.5rem 0 0', fontSize: '0.84rem', color: theme.textDim, lineHeight: 1.5 }}>
         We search PubMed, Europe PMC, OpenAlex, and Cochrane on every run — the knowledge base helps us find the right topics, not replace live search.
+        {qb.citedCount ? ` Every paper here is screened and ranked; the ${qb.citedCount} most relevant are read in depth and are the ones cited below.` : ' Every paper here is screened and ranked; the most relevant are read in depth and are the ones cited below.'}
       </p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.6rem' }}>
         <span style={{
@@ -7226,7 +7227,7 @@ const QualityPanel = ({ qb }) => {
           background: `${theme.green}22`, color: theme.green, fontWeight: 700,
           border: `1px solid ${theme.green}55`
         }}>
-          {qb.totalScreened - (qb.retractedExcluded || 0) - (qb.predatoryExcluded || 0)} papers used for this analysis
+          {qb.totalScreened - (qb.retractedExcluded || 0) - (qb.predatoryExcluded || 0)} papers passed our quality checks
         </span>
         {(qb.retractedExcluded || 0) > 0 && (
           <span style={{
