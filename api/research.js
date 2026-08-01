@@ -591,6 +591,12 @@ export const assessGroundingSufficiency = (evidence) => {
     (g) => GROUNDING_REAL_LEVELS.has(g?.accessLevel) && hasResolvableId(g)
   );
   const realPaperCount = real.length;
+  // groundedForPrompt is the capped slice handed to the model, NOT the search
+  // result. Reporting its size as "papers found" told the reader only 25 papers
+  // existed when the gather had verified far more — a claim anyone can check
+  // and immediately disbelieve.
+  const totalFound = Number(evidence?.totalUnique) || Number(evidence?.totalFetched) || realPaperCount;
+  const packCapped = realPaperCount > 0 && totalFound > realPaperCount;
   const topTierCount = real.filter(
     (g) => g.isRCT || g.isMetaAnalysis || g.isSystematicReview
   ).length;
@@ -615,7 +621,16 @@ export const assessGroundingSufficiency = (evidence) => {
     tier = 'thin';
     reasons.push(`only ${realPaperCount} grounded paper(s), ${topTierCount} top-tier, ${distinctSources} source(s) — below the strong-grounding bar`);
   }
-  return { tier, realPaperCount, topTierCount, distinctSources, reasons };
+  return {
+    tier,
+    realPaperCount,
+    topTierCount,
+    distinctSources,
+    // What the search actually returned, and whether the reviewed set was a cap.
+    totalFound,
+    packCapped,
+    reasons
+  };
 };
 
 // Synthesis-prompt instruction injected when grounding is not `strong`, so the
@@ -625,7 +640,7 @@ export const buildEvidenceGradeBlock = (grade) => {
   if (!grade || grade.tier === 'strong') return '';
   const label = grade.tier === 'dossier-only'
     ? 'NO peer-reviewed literature could be grounded for this condition — the evidence below is derived from a disease dossier / web scout only.'
-    : `Only ${grade.realPaperCount} grounded paper(s) (${grade.topTierCount} RCT/meta) could be found for this condition — the evidence base is THIN.`;
+    : `${grade.realPaperCount} of ${grade.totalFound} gathered paper(s) met the grounding bar (${grade.topTierCount} RCT/meta) — treat the evidence base as THIN.`;
   return `=== EVIDENCE GRADE: ${grade.tier.toUpperCase()} ===
 ${label}
 You MUST open the report with one honest sentence telling the reader the evidence base is limited, e.g.: "Limited high-quality evidence was found for this condition — treat the following as a starting point to discuss with a clinician, not a vetted summary." Do NOT overstate certainty. Keep any "limited/thin evidence" hedge in the final text.

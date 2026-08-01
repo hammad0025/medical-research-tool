@@ -7511,7 +7511,11 @@ const EvidenceGradeBanner = ({ grade }) => {
   const title = grade.tier === 'dossier-only' ? 'Unverified evidence base' : 'Thin evidence base';
   const detail = grade.tier === 'dossier-only'
     ? 'No peer-reviewed papers could be verified, so this report relies on a general condition summary and current web results.'
-    : `Only ${grade.realPaperCount} verified paper${grade.realPaperCount === 1 ? '' : 's'}${grade.topTierCount ? ` (${grade.topTierCount} randomized controlled trial or meta-analysis)` : ''} could be found — below the bar for a well-supported summary.`;
+    : grade.packCapped
+      // Never say "only N could be found" when N is the review cap — the search
+      // returned more, and a reader who checks will catch it immediately.
+      ? `${grade.totalFound} papers were gathered and the ${grade.realPaperCount} most relevant were reviewed in depth${grade.topTierCount ? `, of which ${grade.topTierCount} ${grade.topTierCount === 1 ? 'is a randomized controlled trial or meta-analysis' : 'are randomized controlled trials or meta-analyses'}` : ''}. Fewer high-tier studies than we would like for a firm summary.`
+      : `${grade.realPaperCount} verified paper${grade.realPaperCount === 1 ? '' : 's'}${grade.topTierCount ? ` (${grade.topTierCount} randomized controlled trial or meta-analysis)` : ''} met the bar for a well-supported summary.`;
   return (
     <div style={{
       ...panelStyle,
