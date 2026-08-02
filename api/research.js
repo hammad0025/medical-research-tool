@@ -85,9 +85,10 @@ import { buildSupplementDiscoveryBlock } from '../lib/supplement-discovery.js';
 import {
   buildResearchedAgentBlock,
   researchedAgentSeedList,
-  renderResearchedCandidateBlocks
+  renderResearchedCandidateBlocks,
+  renderMechanisticCandidateBlocks
 } from '../lib/researched-agent-seeds.js';
-import { searchResearchedAgents } from '../lib/researched-agent-search.js';
+import { searchResearchedAgents, searchMechanisticAgents } from '../lib/researched-agent-search.js';
 import { countCandidateBlocks, isLaneTruncated } from '../lib/repurpose-quality.js';
 import { resolveCondition, detectValidationMismatch } from '../lib/condition-resolver.js';
 import { normalizeTrialCoverage, trialCoverageMessage } from '../lib/trial-coverage.js';
@@ -3276,7 +3277,8 @@ export default async function handler(req, res) {
     // returned 3 ideas for a condition whose knowledge base pins landmark
     // trials for vitamin A, DHA, NAC and TUDCA.
     const isResearchedAgentLane = isRepurposeBatch && Number(batchLane) === 3;
-    const wantsResearchedAgents = mode === 'repurpose' && evidence && (isResearchedAgentLane || !isRepurposeBatch);
+    const isMechanisticLane = isRepurposeBatch && Number(batchLane) === 4;
+    const wantsResearchedAgents = mode === 'repurpose' && evidence && (isResearchedAgentLane || isMechanisticLane || !isRepurposeBatch);
     // Agents already approved FOR THIS CONDITION belong in Approved Treatments;
     // seeding them here burns a slot the lane then skips. That is exactly how
     // IPF and ALS produced an empty researched section — their curated landmark
@@ -3466,6 +3468,56 @@ ${SHARED_GUARDRAILS}
     // discarded downstream — which is why this section kept coming back empty.
     // Discovery upstream remains non-deterministic (live web search, registry,
     // curated references); only the transcription is now exact.
+    // Lane E: condition-specific ideas with no study in this condition. The
+    // registry-driven lanes returned the same six agents for retinitis
+    // pigmentosa, pulmonary fibrosis and Huntington's alike — two thirds of
+    // the list identical across unrelated diseases. This one reasons from the
+    // condition's own biology.
+    if (isRepurposeBatch && Number(batchLane) === 4) {
+      const researchedNames = researchedAgentSeedList(
+        (evidence?.groundedForPrompt || []).filter((it) => it?.isCuratedKB),
+        evidence?.excludedAgents || [],
+        trials?.studies || [],
+        approvedForCondition,
+        webResearchedAgents
+      ).map((seed) => seed.name);
+      // An agent that appears as an intervention in this condition's trials has
+      // self-evidently been studied in it, so it cannot go in the no-study
+      // section. Asthma surfaced ipratropium, omalizumab, benralizumab and
+      // montelukast there — all standard asthma treatments — which any
+      // clinician would spot at once.
+      const studiedInTrials = [...new Set(
+        (trials?.studies || [])
+          .flatMap((study) => (study?.interventions || []).map((iv) => iv?.name))
+          .filter(Boolean)
+          .map((name) => String(name).replace(/^\s*\d+(?:\.\d+)?\s*\S*\s*/, '').trim())
+      )].slice(0, 60);
+      const agents = isPerplexitySpendEnabled()
+        ? await searchMechanisticAgents({
+          condition: dossier?.canonical || effectiveCondition,
+          exclude: [...researchedNames, ...approvedForCondition],
+          signal: req.signal || null
+        })
+        : [];
+      const studiedKeys = [...studiedInTrials, ...researchedNames, ...approvedForCondition]
+        .map((n) => String(n).toLowerCase().replace(/[^a-z0-9]/g, ''))
+        .filter((n) => n.length >= 4);
+      const unstudied = agents.filter((a) => {
+        const key = String(a.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+        return key.length >= 4 && !studiedKeys.some((k) => k.includes(key) || key.includes(k));
+      });
+      if (unstudied.length < agents.length) {
+        console.log(`[research] mechanistic lane dropped ${agents.length - unstudied.length} agent(s) already studied in this condition`);
+      }
+      const rendered = renderMechanisticCandidateBlocks(unstudied);
+      console.log(`[research] mechanistic lane rendered ${unstudied.length} candidate(s) without a model call`);
+      return res.status(200).json(sanitizePublicPayload({
+        content: [{ type: 'text', text: rendered }],
+        model: 'deterministic-mechanistic-agents',
+        usage: { input_tokens: 0, output_tokens: 0 }
+      }));
+    }
+
     if (isResearchedAgentLane) {
       const seeds = researchedAgentSeedList(
         (evidence?.groundedForPrompt || []).filter((it) => it?.isCuratedKB),

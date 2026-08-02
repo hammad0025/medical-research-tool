@@ -20,7 +20,7 @@ import { sanitizePublicText } from "../lib/public-language.js";
 import {
   extractCitationUrls, resolveItemKind, resolveRepurposeSection,
   REPURPOSE_LANE_COUNT, REPURPOSE_PER_LANE, REPURPOSE_SECTION_DISPLAY_CAP,
-  REPURPOSE_RESEARCHED_LANE, isPipelineProgramme
+  REPURPOSE_RESEARCHED_LANE, REPURPOSE_MECHANISTIC_LANE, isPipelineProgramme
 } from "../lib/repurpose-quality.js";
 import { isGoogleSearchUrl, isDailyMedSearchUrl } from "../lib/citation-gate.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
@@ -3169,7 +3169,9 @@ const App = () => {
           // asks for the section's cap; the category lanes split their output
           // across both sections and stay smaller.
           const laneSize = (lane) =>
-            lane === REPURPOSE_RESEARCHED_LANE ? 8 : PER_LANE;
+            (lane === REPURPOSE_RESEARCHED_LANE || lane === REPURPOSE_MECHANISTIC_LANE)
+              ? REPURPOSE_SECTION_DISPLAY_CAP
+              : PER_LANE;
           const runLane = (lane) => callResearch({
             ...synthBase, half: 'front', batchLane: lane, batchSize: laneSize(lane)
           });
@@ -3231,9 +3233,17 @@ const App = () => {
 
           const back = await callResearch({ ...synthBase, half: 'back' }).catch(() => null);
 
+          // The two condition-specific lanes go first. Each section is capped,
+          // and the cap takes what comes first — so with the registry lanes
+          // ahead of them, generic agents that recur across unrelated diseases
+          // filled the slots and the condition-specific ideas were cut.
+          const lanePriority = (lane) =>
+            lane === REPURPOSE_RESEARCHED_LANE ? 0 : lane === REPURPOSE_MECHANISTIC_LANE ? 1 : 2;
           const okFronts = laneResults
-            .filter(s => s.status === 'fulfilled' && s.value)
-            .map(s => s.value);
+            .map((s, lane) => ({ s, lane }))
+            .filter(({ s }) => s.status === 'fulfilled' && s.value)
+            .sort((a, b) => lanePriority(a.lane) - lanePriority(b.lane))
+            .map(({ s }) => s.value);
           if (!okFronts.length) {
             const firstErr = laneResults.find(s => s.status === 'rejected');
             throw new Error(firstErr?.reason?.message || 'Drug idea generation failed — please run it again.');
