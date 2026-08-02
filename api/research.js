@@ -89,6 +89,7 @@ import {
   renderMechanisticCandidateBlocks
 } from '../lib/researched-agent-seeds.js';
 import { searchResearchedAgents, searchMechanisticAgents } from '../lib/researched-agent-search.js';
+import { searchConditionCenters } from '../lib/condition-centers-search.js';
 import { countCandidateBlocks, isLaneTruncated } from '../lib/repurpose-quality.js';
 import { resolveCondition, detectValidationMismatch } from '../lib/condition-resolver.js';
 import { normalizeTrialCoverage, trialCoverageMessage } from '../lib/trial-coverage.js';
@@ -3657,8 +3658,27 @@ ${SHARED_GUARDRAILS}
         }
       }
       const outputTrials = mode === 'trials' ? (trialsData || trials) : trials;
+      // Centres, clinicians and advocacy exist in only 11 of the 61 curated
+      // files, so those sections rendered empty for the other 50 conditions.
+      // Search for them only when the curated file has none — curated data
+      // always wins, and this never overwrites it.
+      let renderDossier = evidence?.dossier || dossier || null;
+      const centresMissing = !(renderDossier?.topCenters || []).length &&
+        !(renderDossier?.keyInvestigators || []).length;
+      if (mode === 'research' && centresMissing && isPerplexitySpendEnabled()) {
+        const found = await searchConditionCenters({
+          condition: dossier?.canonical || effectiveCondition,
+          signal: req.signal || null
+        });
+        if (found) {
+          renderDossier = { ...(renderDossier || {}), ...found };
+          console.log(`[research] centres search filled ${found.topCenters.length} centre(s), ${found.keyInvestigators.length} expert(s), ${found.patientAdvocacy.length} advocacy org(s)`);
+        }
+      }
       claudeText = finalizeReportText(claudeText, {
-        evidence: evidence || {},
+        evidence: renderDossier && evidence
+          ? { ...evidence, dossier: renderDossier }
+          : (evidence || {}),
         trials: outputTrials,
         evidenceGrade,
         patient
