@@ -19,7 +19,7 @@ import {
 import { sanitizePublicText } from "../lib/public-language.js";
 import { markdownToPlainText } from "../lib/markdown-to-text.js";
 import {
-  extractCitationUrls, resolveItemKind, resolveRepurposeSection,
+  extractCitationUrls, resolveItemKind, resolveRepurposeSection, candidateDedupKey,
   REPURPOSE_LANE_COUNT, REPURPOSE_PER_LANE, REPURPOSE_SECTION_DISPLAY_CAP,
   REPURPOSE_RESEARCHED_LANE, REPURPOSE_MECHANISTIC_LANE, isPipelineProgramme
 } from "../lib/repurpose-quality.js";
@@ -956,6 +956,18 @@ const partitionCandidates = (candidates, condition = '') => {
     else if (v.includes('MECHANISTIC_ONLY') || c._uncited) mechanistic.push(enriched);
     else human.push(enriched);
   });
+  // The same agent must not appear in both sections: one card would say no
+  // condition-specific study exists while the other links that very study.
+  // TUDCA shipped in both. The researched entry wins, because it carries the
+  // evidence.
+  const researchedKeys = new Set(researchedNotApproved.map((c) => candidateDedupKey(c.candidate)));
+  const dedupedNever = neverResearched.filter((c) => {
+    const key = candidateDedupKey(c.candidate);
+    return !key || !researchedKeys.has(key);
+  });
+  neverResearched.length = 0;
+  neverResearched.push(...dedupedNever);
+
   // Hard product cap: 10 ideas with condition-specific research and 10 without.
   // Extra candidates are dropped, never shown — the sections are a shortlist to
   // take to a clinician, not an exhaustive dump.

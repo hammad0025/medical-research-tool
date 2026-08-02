@@ -3527,9 +3527,15 @@ ${SHARED_GUARDRAILS}
       // disease, and montelukast and ipratropium for asthma — standard care in
       // both, which destroys the page's credibility with anyone who knows the
       // field.
+      // TITLES only. Matching the body text excluded any agent a paper merely
+      // mentions in passing — for retinitis pigmentosa the pack discusses
+      // taurine, lutein and others without having studied them, so they were
+      // dropped from the not-studied half and vanished from the report
+      // entirely, leaving two ideas where there should be ten. A drug named in
+      // the TITLE of a paper about this condition really was studied in it.
       const packText = (evidence?.groundedForPrompt || [])
-        .map((item) => `${item?.title || ''} ${item?.text || ''}`)
-        .join(' ')
+        .map((item) => String(item?.title || ''))
+        .join(' | ')
         .toLowerCase();
       const GENERIC_NAME_WORD = /^(?:inhibitor|inhibitors|agonist|antagonist|blocker|blockers|therapy|extract|supplement|acid|dose|oral|topical|receptor|vitamin)s?$/;
       const namedInPack = (name) => {
