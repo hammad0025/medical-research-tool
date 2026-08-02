@@ -89,7 +89,7 @@ import {
   renderMechanisticCandidateBlocks
 } from '../lib/researched-agent-seeds.js';
 import { searchResearchedAgents, searchMechanisticAgents } from '../lib/researched-agent-search.js';
-import { searchConditionCenters } from '../lib/condition-centers-search.js';
+import { searchConditionCenters, searchLifestyleMeasures } from '../lib/condition-centers-search.js';
 import { countCandidateBlocks, isLaneTruncated } from '../lib/repurpose-quality.js';
 import { resolveCondition, detectValidationMismatch } from '../lib/condition-resolver.js';
 import { normalizeTrialCoverage, trialCoverageMessage } from '../lib/trial-coverage.js';
@@ -3681,9 +3681,28 @@ ${SHARED_GUARDRAILS}
           console.log(`[research] centres search filled ${found.topCenters.length} centre(s), ${found.keyInvestigators.length} expert(s), ${found.patientAdvocacy.length} advocacy org(s)`);
         }
       }
+      // Supportive care, on the same terms: only when the curated file has
+      // none, and only measures that carry a guideline or study link.
+      let renderLifestyle = evidence?.lifestyleRecommendations || [];
+      const lifestyleMissing = !renderLifestyle.length &&
+        !(renderDossier?.lifestyleCategories || evidence?.lifestyleCategories || []).length;
+      if (mode === 'research' && lifestyleMissing && isPerplexitySpendEnabled()) {
+        const measures = await searchLifestyleMeasures({
+          condition: dossier?.canonical || effectiveCondition,
+          signal: req.signal || null
+        });
+        if (measures.length) {
+          renderLifestyle = measures;
+          console.log(`[research] lifestyle search filled ${measures.length} measure(s)`);
+        }
+      }
       claudeText = finalizeReportText(claudeText, {
-        evidence: renderDossier && evidence
-          ? { ...evidence, dossier: renderDossier }
+        evidence: evidence
+          ? {
+            ...evidence,
+            ...(renderDossier ? { dossier: renderDossier } : {}),
+            ...(renderLifestyle.length ? { lifestyleRecommendations: renderLifestyle } : {})
+          }
           : (evidence || {}),
         trials: outputTrials,
         evidenceGrade,
