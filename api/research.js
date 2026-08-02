@@ -3696,14 +3696,21 @@ ${SHARED_GUARDRAILS}
           console.log(`[research] lifestyle search filled ${measures.length} measure(s)`);
         }
       }
+      // One enriched pack for BOTH finalize passes. The second pass rebuilds
+      // the URL allowlist from whatever it is handed, so giving it the plain
+      // pack stripped the centre, advocacy and supportive-care links it had
+      // never been told about — and the bullets, now unlinked, were then
+      // deleted as unsourced claims. Advocacy rendered as bare names and the
+      // supportive-care list collapsed from eight measures to one.
+      const renderEvidence = evidence
+        ? {
+          ...evidence,
+          ...(renderDossier ? { dossier: renderDossier } : {}),
+          ...(renderLifestyle.length ? { lifestyleRecommendations: renderLifestyle } : {})
+        }
+        : (evidence || {});
       claudeText = finalizeReportText(claudeText, {
-        evidence: evidence
-          ? {
-            ...evidence,
-            ...(renderDossier ? { dossier: renderDossier } : {}),
-            ...(renderLifestyle.length ? { lifestyleRecommendations: renderLifestyle } : {})
-          }
-          : (evidence || {}),
+        evidence: renderEvidence,
         trials: outputTrials,
         evidenceGrade,
         patient
@@ -3736,7 +3743,7 @@ ${SHARED_GUARDRAILS}
       // Seal citations again after dead-strip + reattach so no search placeholder
       // or unallowlisted deep link re-enters the reader-facing text.
       claudeText = finalizeReportText(claudeText, {
-        evidence: evidence || {},
+        evidence: renderEvidence,
         trials: outputTrials,
         evidenceGrade,
         patient
