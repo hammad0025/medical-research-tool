@@ -812,6 +812,9 @@ export const trimSynthPools = (pools = {}) => {
         redFlags: evidence.redFlags || [],
         commonComorbidities: evidence.commonComorbidities || [],
         lifestyleCategories: evidence.lifestyleCategories || [],
+        redFlags: evidence.redFlags || [],
+        commonComorbidities: evidence.commonComorbidities || [],
+        lifestyleCategories: evidence.lifestyleCategories || [],
         totalUnique: evidence.totalUnique,
         totalFetched: evidence.totalFetched,
         perSourceCounts: evidence.perSourceCounts,
@@ -856,6 +859,9 @@ export const trimGatherPools = ({ dossier, evidence, trials, gatherFingerprint =
         dossier: evidence.dossier,
         pipelineDrugs: evidence.pipelineDrugs || [],
         excludedAgents: evidence.excludedAgents || [],
+        redFlags: evidence.redFlags || [],
+        commonComorbidities: evidence.commonComorbidities || [],
+        lifestyleCategories: evidence.lifestyleCategories || [],
         repurposeDrugPool: evidence.repurposeDrugPool || [],
         repurposeDrugScreen: evidence.repurposeDrugScreen || null,
         totalUnique: evidence.totalUnique,
@@ -3984,7 +3990,10 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
             fdaLabels: evidence.fdaLabels,
             fdaManufacturers: evidence.fdaManufacturers,
             pipelineDrugs: evidence.pipelineDrugs || [],
-            excludedAgents: evidence.excludedAgents || []
+            excludedAgents: evidence.excludedAgents || [],
+            redFlags: evidence.redFlags || [],
+            commonComorbidities: evidence.commonComorbidities || [],
+            lifestyleCategories: evidence.lifestyleCategories || []
           }
         : null,
       evidenceGrade,
