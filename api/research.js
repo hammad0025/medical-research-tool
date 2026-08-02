@@ -792,7 +792,9 @@ const trimTrialPool = (trials, limit) => {
     cancelled: coverage.cancelled,
     degraded: coverage.degraded,
     providerErrors: coverage.providerErrors,
-    studies: (trials.studies || []).slice(0, limit)
+    studies: (trials.studies || []).slice(0, limit),
+    // Names only, so the full studied-agent list survives the study trim.
+    studiedInterventions: trials.studiedInterventions || []
   };
   trimmed.registrySeal = sealTrialRegistryPayload(trimmed);
   return trimmed;
@@ -1898,9 +1900,14 @@ ${SHARED_GUARDRAILS}`;
 // the concurrent batches don't produce the same drugs. Every lane must emit
 // BOTH Dorothy sections (~half never-researched, ~half researched-not-approved).
 const REPURPOSE_LANES = [
-  'LANE A — anti-inflammatory & immune-modulating drugs (prescription medications; ITEM_KIND: MEDICATION). Emit BOTH sections: (1) never-researched = approved for OTHER inflammatory/autoimmune conditions with ZERO studies for THIS condition — MECHANISTIC_ONLY, cite the OTHER-condition article about the drug; (2) researched-not-approved = agents with preclinical/early clinical research FOR THIS condition that are NOT FDA-approved for it. Skip EXCLUDED AGENTS, already-approved SOC for this condition, and FAILED-TRIAL DISQUALIFIER agents. A candidate may only be tagged researched-not-approved when you have a real citation about THAT agent in THIS condition; with no such citation it is never-researched. Agents already listed in the AGENTS WITH CONDITION-SPECIFIC RESEARCH block belong to another batch — do not repeat them.',
-  'LANE B — metabolic, antifibrotic, hormonal, cardiovascular, and cell/stem-cell drug approaches (ITEM_KIND: MEDICATION). Same TWO-SECTION mix as Lane A. never-researched = pathway overlap from OTHER diseases with no study for THIS condition; researched-not-approved = condition-specific research, not FDA-approved. Skip EXCLUDED AGENTS / SOC / failed trials. A candidate may only be tagged researched-not-approved when you have a real citation about THAT agent in THIS condition; with no such citation it is never-researched. Agents already listed in the AGENTS WITH CONDITION-SPECIFIC RESEARCH block belong to another batch — do not repeat them.',
-  'LANE C — over-the-counter supplements, vitamins, antioxidants, and non-prescription medicines (ITEM_KIND: SUPPLEMENT). Read the OTC / SUPPLEMENT LITERATURE block when present. Emit ONLY never-researched supplements: ones whose rationale comes from mechanism or from other conditions, with NO study in THIS condition. Supplements that HAVE been studied for this condition belong to Lane D and are already covered there — emitting them here only produces duplicates that are then discarded, wasting this lane\'s slots. Plain-English names (e.g. "Goji berries"). Skip EXCLUDED AGENTS and failed-trial supplements.',
+  // The registry-driven prescription lane was retired: with the two
+  // condition-specific batches carrying the list, it contributed agents that
+  // were either standard care for the condition (losartan and SGLT2
+  // inhibitors under chronic kidney disease), drawn from another disease
+  // entirely (pirfenidone and nintedanib under kidney disease), or the same
+  // handful of immunology drugs whatever the condition. It ignored the
+  // instructions meant to prevent all three.
+  'LANE C — over-the-counter supplements, vitamins, antioxidants, and non-prescription medicines (ITEM_KIND: SUPPLEMENT). Read the OTC / SUPPLEMENT LITERATURE block when present. Emit ONLY never-researched supplements: ones whose rationale comes from mechanism or from other conditions, with NO study in THIS condition. Supplements that HAVE been studied for this condition belong to Lane D and are already covered there — emitting them here only produces duplicates that are then discarded, wasting this lane\'s slots. Plain-English names (e.g. "Goji berries"). Do NOT pad with generic vitamins or minerals (B2, B9, B12, D3 and the like) unless the supplement has a specific mechanistic tie to THIS condition — filler that would suit any disease is worse than a shorter list. Skip EXCLUDED AGENTS and failed-trial supplements.',
   // Lane D exists because every agent with condition-specific research tends to
   // land in one category (for an inherited retinal disease they are all
   // supplements), so they competed for Lane C's slots against never-researched
@@ -3276,8 +3283,8 @@ export default async function handler(req, res) {
     // this the "researched" section depended entirely on retrieval luck and
     // returned 3 ideas for a condition whose knowledge base pins landmark
     // trials for vitamin A, DHA, NAC and TUDCA.
-    const isResearchedAgentLane = isRepurposeBatch && Number(batchLane) === 3;
-    const isMechanisticLane = isRepurposeBatch && Number(batchLane) === 4;
+    const isResearchedAgentLane = isRepurposeBatch && Number(batchLane) === 1;
+    const isMechanisticLane = isRepurposeBatch && Number(batchLane) === 2;
     const wantsResearchedAgents = mode === 'repurpose' && evidence && (isResearchedAgentLane || isMechanisticLane || !isRepurposeBatch);
     // Agents already approved FOR THIS CONDITION belong in Approved Treatments;
     // seeding them here burns a slot the lane then skips. That is exactly how
@@ -3473,7 +3480,7 @@ ${SHARED_GUARDRAILS}
     // pigmentosa, pulmonary fibrosis and Huntington's alike — two thirds of
     // the list identical across unrelated diseases. This one reasons from the
     // condition's own biology.
-    if (isRepurposeBatch && Number(batchLane) === 4) {
+    if (isMechanisticLane) {
       const researchedNames = researchedAgentSeedList(
         (evidence?.groundedForPrompt || []).filter((it) => it?.isCuratedKB),
         evidence?.excludedAgents || [],
@@ -3486,25 +3493,52 @@ ${SHARED_GUARDRAILS}
       // section. Asthma surfaced ipratropium, omalizumab, benralizumab and
       // montelukast there — all standard asthma treatments — which any
       // clinician would spot at once.
-      const studiedInTrials = [...new Set(
-        (trials?.studies || [])
+      const studiedInTrials = [...new Set([
+        ...(trials?.studiedInterventions || []),
+        ...(trials?.studies || [])
           .flatMap((study) => (study?.interventions || []).map((iv) => iv?.name))
-          .filter(Boolean)
-          .map((name) => String(name).replace(/^\s*\d+(?:\.\d+)?\s*\S*\s*/, '').trim())
-      )].slice(0, 60);
+      ].filter(Boolean)
+        .map((name) => String(name).replace(/^\s*\d+(?:\.\d+)?\s*\S*\s*/, '').trim())
+      )];
       const agents = isPerplexitySpendEnabled()
         ? await searchMechanisticAgents({
           condition: dossier?.canonical || effectiveCondition,
-          exclude: [...researchedNames, ...approvedForCondition],
+          exclude: [...researchedNames, ...approvedForCondition, ...studiedInTrials.slice(0, 40)],
           signal: req.signal || null
         })
         : [];
       const studiedKeys = [...studiedInTrials, ...researchedNames, ...approvedForCondition]
         .map((n) => String(n).toLowerCase().replace(/[^a-z0-9]/g, ''))
         .filter((n) => n.length >= 4);
+      // The strongest available signal: this condition's own literature pack.
+      // A drug named in papers about the condition has been studied in it, so
+      // it cannot sit in a section saying no study was found. Without this the
+      // section offered losartan and SGLT2 inhibitors for chronic kidney
+      // disease, and montelukast and ipratropium for asthma — standard care in
+      // both, which destroys the page's credibility with anyone who knows the
+      // field.
+      const packText = (evidence?.groundedForPrompt || [])
+        .map((item) => `${item?.title || ''} ${item?.text || ''}`)
+        .join(' ')
+        .toLowerCase();
+      const GENERIC_NAME_WORD = /^(?:inhibitor|inhibitors|agonist|antagonist|blocker|blockers|therapy|extract|supplement|acid|dose|oral|topical|receptor|vitamin)s?$/;
+      const namedInPack = (name) => {
+        const plain = String(name).toLowerCase().replace(/\([^)]*\)/g, ' ').trim();
+        // Match on the distinctive term only. Matching ANY word over-filtered:
+        // "alpha-lipoic acid" collided on "acid", and a condition's pack
+        // mentions dozens of common words, so honest candidates were dropped
+        // and the section fell to four entries.
+        const words = plain.split(/[^a-z0-9]+/)
+          .filter((w) => w.length >= 6 && !GENERIC_NAME_WORD.test(w));
+        if (!words.length) return false;
+        const head = words.sort((a, b) => b.length - a.length)[0];
+        return new RegExp(`\\b${head.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(packText);
+      };
       const unstudied = agents.filter((a) => {
         const key = String(a.name).toLowerCase().replace(/[^a-z0-9]/g, '');
-        return key.length >= 4 && !studiedKeys.some((k) => k.includes(key) || key.includes(k));
+        if (key.length < 4) return false;
+        if (studiedKeys.some((k) => k.includes(key) || key.includes(k))) return false;
+        return !namedInPack(a.name);
       });
       if (unstudied.length < agents.length) {
         console.log(`[research] mechanistic lane dropped ${agents.length - unstudied.length} agent(s) already studied in this condition`);

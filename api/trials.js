@@ -1375,8 +1375,22 @@ export default async function handler(req, res) {
       }
     };
 
+    // Every agent this condition has been studied with, across ALL matched
+    // studies. The study list is trimmed to 20 before synthesis sees it, so a
+    // downstream check for "has this been studied here?" would otherwise miss
+    // anything outside the top 20 — which is how montelukast, standard asthma
+    // care, ended up offered as an agent with no study in asthma.
+    const studiedInterventions = [...new Set(
+      studies
+        .flatMap((study) => (study?.interventions || []).map((iv) => iv?.name))
+        .filter(Boolean)
+        .map((name) => String(name).trim())
+        .filter((name) => name.length >= 3 && name.length <= 70)
+    )].slice(0, 250);
+
     const responsePayload = {
       query: { condition, recruitingOnly, treatmentOnly, excludePlacebo, country },
+      studiedInterventions,
       status: cancelled ? 'cancelled' : degraded ? 'degraded' : 'complete',
       cancelled,
       dossier: {
