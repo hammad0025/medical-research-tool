@@ -17,6 +17,7 @@ import {
   injectApprovedTreatmentStubs
 } from "../lib/drug-card-utils.js";
 import { sanitizePublicText } from "../lib/public-language.js";
+import { markdownToPlainText } from "../lib/markdown-to-text.js";
 import {
   extractCitationUrls, resolveItemKind, resolveRepurposeSection,
   REPURPOSE_LANE_COUNT, REPURPOSE_PER_LANE, REPURPOSE_SECTION_DISPLAY_CAP,
@@ -6145,9 +6146,13 @@ const TextExportButton = ({ text, filename, label, disabled, getCompletionContra
     if (disabled || !text) return;
     try {
       const contract = await getCompletionContract(surface);
+      // Convert to readable text. Shipping the raw markdown meant a downloaded
+      // report carried "|---|---|" separator rows, "[label](url)" syntax and
+      // "##" markers — and the text file is the one most likely to be pasted
+      // into an email or handed to a clinician.
       const payload = publicTextOrFallback(`${contract.label}` +
         (contract.coverageMessages?.length ? `\nWhat may be missing: ${contract.coverageMessages.join(' ')}` : '') +
-        `\n\n${MEDICAL_DISCLAIMER}\n\n${contract.canonicalContent}`);
+        `\n\n${MEDICAL_DISCLAIMER}\n\n${markdownToPlainText(contract.canonicalContent)}`);
       const blob = new Blob([payload], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
