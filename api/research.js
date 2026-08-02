@@ -3671,7 +3671,8 @@ ${SHARED_GUARDRAILS}
       let renderDossier = evidence?.dossier || dossier || null;
       const centresMissing = !(renderDossier?.topCenters || []).length &&
         !(renderDossier?.keyInvestigators || []).length;
-      if (mode === 'research' && centresMissing && isPerplexitySpendEnabled()) {
+      const textHasCentres = /^##\s*2\./m.test(claudeText || '');
+      if (mode === 'research' && centresMissing && textHasCentres && isPerplexitySpendEnabled()) {
         const found = await searchConditionCenters({
           condition: dossier?.canonical || effectiveCondition,
           signal: req.signal || null
@@ -3686,7 +3687,8 @@ ${SHARED_GUARDRAILS}
       let renderLifestyle = evidence?.lifestyleRecommendations || [];
       const lifestyleMissing = !renderLifestyle.length &&
         !(renderDossier?.lifestyleCategories || evidence?.lifestyleCategories || []).length;
-      if (mode === 'research' && lifestyleMissing && isPerplexitySpendEnabled()) {
+      const textHasLifestyle = /Non-Drug\s*\/?\s*Lifestyle/i.test(claudeText || '');
+      if (mode === 'research' && lifestyleMissing && textHasLifestyle && isPerplexitySpendEnabled()) {
         const measures = await searchLifestyleMeasures({
           condition: dossier?.canonical || effectiveCondition,
           signal: req.signal || null
