@@ -90,7 +90,11 @@ import {
 } from '../lib/researched-agent-seeds.js';
 import { searchResearchedAgents, searchMechanisticAgents } from '../lib/researched-agent-search.js';
 import { searchConditionCenters, searchLifestyleMeasures } from '../lib/condition-centers-search.js';
-import { countCandidateBlocks, isLaneTruncated } from '../lib/repurpose-quality.js';
+import {
+  countCandidateBlocks,
+  isLaneTruncated,
+  REPURPOSE_SECTION_DISPLAY_CAP
+} from '../lib/repurpose-quality.js';
 import { resolveCondition, detectValidationMismatch } from '../lib/condition-resolver.js';
 import { normalizeTrialCoverage, trialCoverageMessage } from '../lib/trial-coverage.js';
 import { listConditionSubtypes } from '../lib/condition-subtypes.js';
@@ -3303,13 +3307,28 @@ export default async function handler(req, res) {
       .filter(Boolean);
     // A second, independent search for agents studied but not approved. Fails
     // open: a report never depends on it.
-    const webResearchedAgents = (wantsResearchedAgents && isPerplexitySpendEnabled())
-      ? await searchResearchedAgents({
-        condition: dossier?.canonical || effectiveCondition,
-        exclude: approvedForCondition,
-        signal: req.signal || null
-      })
-      : [];
+    // Top up, for the same reason the mechanistic lane does: how many results
+    // survive filtering swings run to run, so a single search produced twelve
+    // researched ideas on one run and eight on the next. Asking again while
+    // excluding what we already have turns that into a stable list.
+    const webResearchedAgents = [];
+    if (wantsResearchedAgents && isPerplexitySpendEnabled()) {
+      const seenWeb = new Set();
+      for (let round = 0; round < 2 && webResearchedAgents.length < 10; round += 1) {
+        const batch = await searchResearchedAgents({
+          condition: dossier?.canonical || effectiveCondition,
+          exclude: [...approvedForCondition, ...webResearchedAgents.map((a) => a.name)],
+          signal: req.signal || null
+        });
+        if (!batch.length) break;
+        for (const agent of batch) {
+          const key = String(agent.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (!key || seenWeb.has(key)) continue;
+          seenWeb.add(key);
+          webResearchedAgents.push(agent);
+        }
+      }
+    }
     const researchedAgentBlock = wantsResearchedAgents
       ? buildResearchedAgentBlock(
         (evidence.groundedForPrompt || []).filter((it) => it?.isCuratedKB),
@@ -3498,13 +3517,36 @@ ${SHARED_GUARDRAILS}
       ].filter(Boolean)
         .map((name) => String(name).replace(/^\s*\d+(?:\.\d+)?\s*\S*\s*/, '').trim())
       )];
-      const agents = isPerplexitySpendEnabled()
-        ? await searchMechanisticAgents({
-          condition: dossier?.canonical || effectiveCondition,
-          exclude: [...researchedNames, ...approvedForCondition, ...studiedInTrials.slice(0, 40)],
-          signal: req.signal || null
-        })
-        : [];
+      // Top up until the section can be filled. A single search survives
+      // filtering by a wildly variable amount — consecutive runs produced 22
+      // candidates and then 4 — because how many are already studied in this
+      // condition depends on what the search happened to return. Asking again,
+      // excluding what we already have, converts that variance into a stable
+      // list instead of a section that is sometimes full and sometimes empty.
+      // Below what one search can return, so a second round is the exception
+      // rather than something every report pays for.
+      const wantAgents = REPURPOSE_SECTION_DISPLAY_CAP;
+      const agents = [];
+      if (isPerplexitySpendEnabled()) {
+        const seenAgent = new Set();
+        for (let round = 0; round < 2 && agents.length < wantAgents; round += 1) {
+          const batch = await searchMechanisticAgents({
+            condition: dossier?.canonical || effectiveCondition,
+            exclude: [
+              ...researchedNames, ...approvedForCondition,
+              ...studiedInTrials.slice(0, 40), ...agents.map((a) => a.name)
+            ],
+            signal: req.signal || null
+          });
+          if (!batch.length) break;
+          for (const agent of batch) {
+            const key = String(agent.name).toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (!key || seenAgent.has(key)) continue;
+            seenAgent.add(key);
+            agents.push(agent);
+          }
+        }
+      }
       const studiedKeys = [...studiedInTrials, ...researchedNames, ...approvedForCondition]
         .map((n) => String(n).toLowerCase().replace(/[^a-z0-9]/g, ''))
         .filter((n) => n.length >= 4);
