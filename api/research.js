@@ -1680,14 +1680,7 @@ HARD RULE FOR THIS SECTION (non-negotiable): EVERY sentence and EVERY bullet tha
 - **Key safety flags (top 3 redFlags from dossier/KB):** literature-framed cautions — each flag sentence MUST end with ([source ↗](url)). NOT patient directives.
 
 ## 2. Condition-Focused Centers & Experts
-Use the intake context and evidence below as your starting list; add or correct from peer-reviewed sources. Present as a markdown table (no internal labels like "dossier" or "confirmed against grounded evidence"):
-
-| Center | City | URL / Phone | Condition-specific work identified |
-|---|---|---|---|
-
-CENTER-LINK RULE (this table only): link each center to its OFFICIAL institutional website (e.g. [MHH Hannover](https://www.mhh.de)) ONLY when you are confident of the exact domain. If you are NOT confident of the real institutional URL, leave the center name as PLAIN TEXT — do NOT insert a "https://www.google.com/search?q=…" placeholder link in this table. A real link or none; never a search-engine placeholder for a named center here.
-
-Then list 3–5 individual **named experts** with affiliations. Peer-recognised only — no clinic self-advertising. DE-DUPLICATE ACROSS SECTIONS: any expert you already named in Section 1 must NOT be repeated in this list — each named expert appears exactly once in the whole report. Pick different experts here, or note "(see Section 1)" rather than re-listing the same person.
+Emit ONLY this heading and nothing beneath it. Centres and clinicians are rendered from reviewed data after you finish; anything written here is discarded.
 
 ## 3. Approved Treatments (Backed by Research)
 Include **every** drug the KB / REQUIRED MENTIONS marks as **approved** for this condition (e.g. IPF: nerandomilast/Jascayd, pirfenidone/Esbriet, AND nintedanib/Ofev — all three cards, not just the newest). One card per approved drug. Quality over quantity for off-label extras — see FDA-STATUS HONESTY RULE; do NOT pad with supplements.
@@ -1769,7 +1762,7 @@ Rules:
 
 
 ## 6. Cell, Gene & Advanced Therapies
-*If not applicable: one line "**N/A** — no active cell/gene therapy program for this condition."* Max 3 bullets total (stem cell caution, gene therapy status, ECT/TMS pointer if relevant).
+Emit ONLY this heading and nothing beneath it. Programmes are rendered from the curated pipeline and the trial registry after you finish; anything written here is discarded.
 
 ## 7. This Patient's Interaction & Access Plan
 Tailored to **this specific patient profile** — strategic, not exhaustive:
@@ -1779,12 +1772,7 @@ Tailored to **this specific patient profile** — strategic, not exhaustive:
 - **Insurance & cost:** what US commercial / Medicare typically covers. Rough out-of-pocket. Red-flag overseas clinics with undisclosed pricing.
 
 ## 8. Safety Considerations Reported in Literature
-From the dossier's redFlags + your grounded-evidence knowledge. Frame each item as cited literature for physician discussion — NEVER as patient directives:
-- e.g. IPF: *"Literature reports increased mortality with prednisone+azathioprine+NAC triple therapy ([PANTHER-IPF, NEJM 2012](url)) — physicians generally avoid this combination; discuss with your doctor before considering it."*
-- e.g. LADA: *"Evidence suggests sulfonylureas may accelerate beta-cell failure in LADA when misclassified as type 2 diabetes ([citation](url)) — worth verifying diagnosis and treatment approach with an endocrinologist."*
-- e.g. RP: *"High-dose vitamin A palmitate carries teratogenic risk reported in literature ([citation](url)) — pregnancy planning should be discussed with a physician before use."*
-
-Also cover: overseas clinic concerns (with source URLs where available), unproven 'cures' contradicted by peer-reviewed sources, and excluded agents from the REQUIRED MENTIONS list — each with a clickable link.
+Emit ONLY this heading and nothing beneath it. Safety flags and comorbidities are rendered from reviewed data after you finish; anything written here is discarded.
 
 ${FORMATTING_RULES}
 
