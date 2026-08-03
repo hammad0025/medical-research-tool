@@ -121,3 +121,14 @@ test('two full sections with no overlap pass', () => {
   assert.deepEqual(result.defects, []);
   assert.ok(result.ok);
 });
+
+test('an empty report fails rather than passing for lack of content', () => {
+  // The audit once reported "0 of 0 sections, 0 defects — clean" on a report
+  // that had failed to generate. A guard that calls nothing "clean" is worse
+  // than no guard, because it converts a total failure into a green result.
+  for (const nothing of ['', '   \n  ', undefined]) {
+    const result = lintReport(nothing);
+    assert.equal(result.ok, false, JSON.stringify(nothing));
+    assert.ok(result.defects.some((d) => d.id === 'no-report'));
+  }
+});

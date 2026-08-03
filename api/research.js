@@ -34,6 +34,7 @@ import {
   applyValidationFixes,
   collectAllowedUrls,
   reattachEntityLinks,
+  resealCitations,
   buildEntityUrlIndex,
   preferVerifiableUrl
 } from '../lib/report-polish.js';
@@ -3532,10 +3533,13 @@ ${SHARED_GUARDRAILS}
         for (let round = 0; round < 2 && agents.length < wantAgents; round += 1) {
           const batch = await searchMechanisticAgents({
             condition: dossier?.canonical || effectiveCondition,
-            exclude: [
-              ...researchedNames, ...approvedForCondition,
-              ...studiedInTrials.slice(0, 40), ...agents.map((a) => a.name)
-            ],
+            // Keep this SHORT. A long exclusion list suppresses the search
+            // entirely — it returned nothing at all while being handed forty
+            // trial interventions plus every researched name, which is why the
+            // not-studied section collapsed to zero. The deterministic filter
+            // below is what actually removes already-studied agents; this list
+            // is only a hint to steer the search away from obvious repeats.
+            exclude: [...approvedForCondition, ...agents.map((a) => a.name)].slice(0, 12),
             signal: req.signal || null
           });
           if (!batch.length) break;
@@ -3780,11 +3784,13 @@ ${SHARED_GUARDRAILS}
       }
       // Seal citations again after dead-strip + reattach so no search placeholder
       // or unallowlisted deep link re-enters the reader-facing text.
-      claudeText = finalizeReportText(claudeText, {
+      // Only the citation seal needs repeating here: dead-link removal and
+      // entity re-attachment above can introduce a link, and nothing else has
+      // changed. Re-running the whole pipeline re-ran every deletion pass too,
+      // which is how this step came to strip links the first pass had added.
+      claudeText = resealCitations(claudeText, {
         evidence: renderEvidence,
-        trials: outputTrials,
-        evidenceGrade,
-        patient
+        trials: outputTrials
       });
       if (citationVerificationFailed) {
         claudeText = demoteUnverifiedDocumentCitations(claudeText);

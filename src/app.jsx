@@ -960,9 +960,18 @@ const partitionCandidates = (candidates, condition = '') => {
   // condition-specific study exists while the other links that very study.
   // TUDCA shipped in both. The researched entry wins, because it carries the
   // evidence.
-  const researchedKeys = new Set(researchedNotApproved.map((c) => candidateDedupKey(c.candidate)));
+  // Compare on the leading term. The full-name key treated "Lutein" and
+  // "Lutein and zeaxanthin (macular carotenoids)" as different agents, so the
+  // same supplement appeared in both sections — one card denying the study the
+  // other links.
+  const leadingTerm = (name) => String(name || '')
+    .toLowerCase()
+    .replace(/\(.*?\)/g, ' ')
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)[0] || '';
+  const researchedKeys = new Set(researchedNotApproved.map((c) => leadingTerm(c.candidate)));
   const dedupedNever = neverResearched.filter((c) => {
-    const key = candidateDedupKey(c.candidate);
+    const key = leadingTerm(c.candidate);
     return !key || !researchedKeys.has(key);
   });
   neverResearched.length = 0;
