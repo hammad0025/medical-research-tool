@@ -830,7 +830,7 @@ export const trimSynthPools = (pools = {}) => {
         knowledgeBase: evidence.knowledgeBase,
         fdaLabels: (evidence.fdaLabels || []).slice(0, 4),
         fdaManufacturers: (evidence.fdaManufacturers || []).slice(0, 3),
-        groundedForPrompt: (evidence.groundedForPrompt || []).slice(0, 25).map((a) => ({
+        groundedForPrompt: (evidence.groundedForPrompt || []).slice(0, 40).map((a) => ({
           ...a,
           text: (a.text || '').slice(0, 1800)
         })),
@@ -884,7 +884,7 @@ export const trimGatherPools = ({ dossier, evidence, trials, gatherFingerprint =
           fullText: (a.fullText || '').slice(0, 2000),
           abstract: (a.abstract || '').slice(0, 1500)
         })),
-        groundedForPrompt: (evidence.groundedForPrompt || []).slice(0, 25).map((a) => ({
+        groundedForPrompt: (evidence.groundedForPrompt || []).slice(0, 40).map((a) => ({
           ...a,
           text: (a.text || '').slice(0, 2000)
         })),
