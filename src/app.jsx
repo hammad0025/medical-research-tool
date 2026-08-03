@@ -3183,7 +3183,10 @@ const App = () => {
           // across both sections and stay smaller.
           const laneSize = (lane) =>
             (lane === REPURPOSE_RESEARCHED_LANE || lane === REPURPOSE_MECHANISTIC_LANE)
-              ? REPURPOSE_SECTION_DISPLAY_CAP
+              // Ask for more than the section shows: entries are still dropped
+              // downstream for lacking a citation or duplicating the other
+              // section, and asking for exactly ten delivered seven.
+              ? REPURPOSE_SECTION_DISPLAY_CAP + 6
               : PER_LANE;
           const runLane = (lane) => callResearch({
             ...synthBase, half: 'front', batchLane: lane, batchSize: laneSize(lane)

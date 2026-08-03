@@ -88,7 +88,8 @@
     "assurance:release": "node scripts/assurance-all.mjs --category=release",
     "assurance:prepush": "node scripts/assurance-all.mjs --category=prepush",
     "assurance:infrastructure": "node scripts/assurance-all.mjs --category=infrastructure",
-    "assurance:all": "node scripts/assurance-all.mjs"
+    "assurance:all": "node scripts/assurance-all.mjs",
+    "audit:report-output": "node scripts/audit-report-output.mjs"
   },
   "phase": "3",
   "status": "phase-3-shipped",
