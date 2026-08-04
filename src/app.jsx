@@ -1007,13 +1007,27 @@ const partitionCandidates = (candidates, condition = '') => {
   neverResearched.length = 0;
   neverResearched.push(...dedupedNever);
 
-  // Hard product cap: 10 ideas with condition-specific research and 10 without.
+  // Product target: 10 ideas with condition-specific research and 10 without.
   // Extra candidates are dropped, never shown — the sections are a shortlist to
   // take to a clinician, not an exhaustive dump.
+  //
+  // The no-study section legitimately runs short on a saturated condition:
+  // Parkinson disease has registry trials for nearly every plausible
+  // repurposing candidate, so only 7 survived the already-studied filter. The
+  // fix is NOT to pad it — that is exactly how exenatide came to be labelled
+  // "never tested" — but to spend the shortfall on the researched side, which
+  // routinely has surplus (16 rendered against 10 shown). Total stays at 20;
+  // every card stays true.
+  const TOTAL_TARGET = REPURPOSE_SECTION_DISPLAY_CAP * 2;
+  const neverShown = Math.min(neverResearched.length, REPURPOSE_SECTION_DISPLAY_CAP);
+  const researchedAllowance = Math.max(
+    REPURPOSE_SECTION_DISPLAY_CAP,
+    TOTAL_TARGET - neverShown
+  );
   const cap = (list) => list.slice(0, REPURPOSE_SECTION_DISPLAY_CAP);
   return {
     neverResearched: cap(neverResearched),
-    researchedNotApproved: cap(researchedNotApproved),
+    researchedNotApproved: researchedNotApproved.slice(0, researchedAllowance),
     evidenceStatusUnknown: cap(evidenceStatusUnknown),
     human,
     preclinical,
