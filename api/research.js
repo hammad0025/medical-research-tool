@@ -3505,6 +3505,30 @@ ${SHARED_GUARDRAILS}
     // researched card whose study was not independently in the pack lost its link
     // and rendered "no working source link was available in this search" under a
     // section that promises one. Eight of ten Parkinson cards read that way.
+    // A deterministic lane returns before the main synthesis path, so it never
+    // issued the signed artifact /api/report-completion requires -- and that
+    // endpoint answers 409 "The report sections were not issued by the server."
+    // Dorothy hit that five times in thirty seconds on a run whose research
+    // calls both returned 200.
+    //
+    // The artifact must sign the text that actually ships, so it is built AFTER
+    // sanitizePublicPayload rewrites the body; signing the pre-sanitised text
+    // would fail verification in a way that looks identical to having no
+    // artifact at all.
+    const laneResponse = (payload) => {
+      const safe = sanitizePublicPayload(payload);
+      const shipped = (safe?.content || []).filter((b) => b?.type === 'text').map((b) => b.text).join('\n');
+      if (shipped.trim()) {
+        safe.outputArtifact = createReportOutputArtifact({
+          mode,
+          stage: 'synthesis',
+          segment: `lane-${batchLane}`,
+          patient,
+          text: shipped
+        });
+      }
+      return safe;
+    };
     const laneRenderedUrls = (text) =>
       [...String(text || '').matchAll(/\]\((https?:\/\/[^)\s]+)\)/g)].map((m) => m[1]);
     if (isMechanisticLane) {
@@ -3614,7 +3638,7 @@ ${SHARED_GUARDRAILS}
       }
       const rendered = renderMechanisticCandidateBlocks(unstudied);
       console.log(`[research] mechanistic lane rendered ${unstudied.length} candidate(s) without a model call`);
-      return res.status(200).json(sanitizePublicPayload({
+      return res.status(200).json(laneResponse({
         content: [{ type: 'text', text: rendered }],
         model: 'deterministic-mechanistic-agents',
         sourceUrls: laneRenderedUrls(rendered),
@@ -3632,7 +3656,7 @@ ${SHARED_GUARDRAILS}
       );
       const rendered = renderResearchedCandidateBlocks(seeds);
       console.log(`[research] researched-agent lane rendered ${seeds.length} candidate(s) without a model call`);
-      return res.status(200).json(sanitizePublicPayload({
+      return res.status(200).json(laneResponse({
         content: [{ type: 'text', text: rendered }],
         model: 'deterministic-researched-agents',
         sourceUrls: laneRenderedUrls(rendered),
