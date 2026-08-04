@@ -39,7 +39,14 @@ export default async function handler(req, res) {
     });
   }
 
-  const body = requireJsonObjectBody(req, res, { maxBytes: 1024 * 1024 });
+  // Matches the 3.5 MB the research endpoint already accepts. This body carries
+  // both signed report artifacts plus the trial payload, and each artifact
+  // embeds the full section text it signs. Once the repurpose lanes started
+  // issuing their artifact — they previously issued none, which is what made
+  // completion answer 409 — an IPF report crossed the old 1 MB ceiling and
+  // completion answered 413 instead. Every byte here is server-issued and
+  // signature-checked below.
+  const body = requireJsonObjectBody(req, res, { maxBytes: Math.floor(3.5 * 1024 * 1024) });
   if (!body) return;
   const surface = String(body.surface || '');
   if (!['research', 'repurpose', 'full'].includes(surface)) {
