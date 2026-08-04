@@ -3499,6 +3499,14 @@ ${SHARED_GUARDRAILS}
     // pigmentosa, pulmonary fibrosis and Huntington's alike — two thirds of
     // the list identical across unrelated diseases. This one reasons from the
     // condition's own biology.
+    // The URLs these deterministic blocks actually render. The client filters
+    // every card link against an allow-list built from the evidence pack, trials
+    // and drug pools -- which never included the agent-search results, so a
+    // researched card whose study was not independently in the pack lost its link
+    // and rendered "no working source link was available in this search" under a
+    // section that promises one. Eight of ten Parkinson cards read that way.
+    const laneRenderedUrls = (text) =>
+      [...String(text || '').matchAll(/\]\((https?:\/\/[^)\s]+)\)/g)].map((m) => m[1]);
     if (isMechanisticLane) {
       const researchedNames = researchedAgentSeedList(
         (evidence?.groundedForPrompt || []).filter((it) => it?.isCuratedKB),
@@ -3609,6 +3617,7 @@ ${SHARED_GUARDRAILS}
       return res.status(200).json(sanitizePublicPayload({
         content: [{ type: 'text', text: rendered }],
         model: 'deterministic-mechanistic-agents',
+        sourceUrls: laneRenderedUrls(rendered),
         usage: { input_tokens: 0, output_tokens: 0 }
       }));
     }
@@ -3626,6 +3635,7 @@ ${SHARED_GUARDRAILS}
       return res.status(200).json(sanitizePublicPayload({
         content: [{ type: 'text', text: rendered }],
         model: 'deterministic-researched-agents',
+        sourceUrls: laneRenderedUrls(rendered),
         usage: { input_tokens: 0, output_tokens: 0 },
         researchedAgentCount: seeds.length
       }));

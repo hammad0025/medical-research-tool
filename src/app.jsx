@@ -1298,6 +1298,11 @@ const buildAllowedUrlSet = (trialsData, evidenceOrPack) => {
     for (const f of evidenceOrPack.fdaLabels || []) {
       add(f?.dailyMedUrl || f?.url);
     }
+    // Links the deterministic idea lanes rendered from the agent search. They
+    // are server-rendered, not model-authored, so they are exactly as
+    // trustworthy as the search that produced them — and without them a
+    // "Researched" card shows no link at all.
+    for (const u of evidenceOrPack.laneSourceUrls || []) add(u);
     // Repurpose drug pool and screen — URLs from drug registry evidence.
     for (const d of evidenceOrPack.repurposeDrugPool || []) {
       if (d.pmid) addArticle({ pmid: d.pmid });
@@ -3316,7 +3321,17 @@ const App = () => {
             content: [{ type: 'text', text: frontText + (backText ? '\n\n' + backText : '') }],
             usage: { input_tokens: sumTok('input_tokens'), output_tokens: sumTok('output_tokens') },
             dossier: back?.dossier || okFronts[0]?.dossier,
-            evidence: back?.evidence || okFronts[0]?.evidence,
+            // The deterministic lanes render links from the agent search, whose
+            // URLs are in no evidence list. Carry them so the allow-list below
+            // recognises them; otherwise every such card drops its link and
+            // says no source was available, in a section promising one.
+            evidence: (() => {
+              const ev = back?.evidence || okFronts[0]?.evidence;
+              const laneSourceUrls = [...new Set(
+                [...okFronts, back].filter(Boolean).flatMap((r) => r.sourceUrls || [])
+              )];
+              return ev && laneSourceUrls.length ? { ...ev, laneSourceUrls } : ev;
+            })(),
             trials: back?.trials || okFronts[0]?.trials,
             validation: back?.validation || okFronts[0]?.validation || null,
             citationAudit: [back, ...okFronts].some((result) => result?.citationAudit?.status === 'failed')
