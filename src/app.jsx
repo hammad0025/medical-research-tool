@@ -5632,14 +5632,23 @@ const evidenceMeta = (value) => {
 const evidenceTestedIn = (value, lay = true) => {
   const m = evidenceMeta(value);
   switch (m.key) {
+    // These describe what THIS SEARCH found, never what exists in the world.
+    // The lay string used to assert "not yet tested in humans or animals for
+    // this condition", which put a flat falsehood on the most-studied
+    // repurposing candidates a condition has: exenatide (Lancet Phase 2 and a
+    // completed Phase 3 in Parkinson disease), nilotinib (NILO-PD), ambroxol,
+    // nicotine and caffeine all landed in this bucket declaring they had never
+    // been tested in PD. A card that says "we did not find one" can only ever
+    // be wrong about our coverage; one that says "none exists" is wrong about
+    // medicine, and a reader could reasonably drop a real option over it.
     case 'MECHANISTIC_ONLY':
-      return lay ? 'Idea from biology only — not yet tested in humans or animals for this condition'
-                 : 'Mechanistic rationale only — no human or animal data for this condition';
+      return lay ? 'No study in this condition was found in this search — the reasoning is biological'
+                 : 'Mechanistic rationale only — no condition-specific study identified in this search';
     case 'PRECLINICAL':
-      return lay ? 'Tested in lab and animal studies (e.g. rats / large animals) — not yet tested in humans for this condition'
-                 : 'Laboratory or animal research — no human data for this condition yet';
+      return lay ? 'Lab or animal studies found in this search — no human study for this condition was found'
+                 : 'Laboratory or animal research — no human study for this condition identified in this search';
     case 'CASE_REPORT':
-      return lay ? 'Reported in a small number of human cases — no formal trial yet'
+      return lay ? 'Reported in a small number of human cases — no formal trial found in this search'
                  : 'Human case report(s) only';
     case 'OBSERVATIONAL':
       return lay ? 'Seen in human observational studies (not a controlled trial)'
@@ -5656,7 +5665,7 @@ const EvidenceStrengthBadge = ({ value }) => {
   const m = evidenceMeta(value);
   const isHypothesisOnly = m.key === 'MECHANISTIC_ONLY';
   return (
-    <span title={`Evidence strength: ${isHypothesisOnly ? 'Hypothesis only — no direct human data for this condition' : m.label} (rank ${m.rank}/6)`} style={{
+    <span title={`Evidence strength: ${isHypothesisOnly ? 'Hypothesis only — no condition-specific study found in this search' : m.label} (rank ${m.rank}/6)`} style={{
       display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
       padding: '0.25rem 0.65rem', borderRadius: 999, fontSize: '0.72rem',
       border: isHypothesisOnly ? `2px dashed ${m.color}` : `1px solid ${m.color}88`,

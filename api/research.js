@@ -22,6 +22,7 @@
 // All modes return Claude's text; the frontend parses structured blocks
 // (PROVIDER/TREATMENT/EFFICACY/SAFETY/COST/REFERENCES) into the comparison chart.
 
+import { agentsStudiedInCondition } from '../lib/agent-studied-check.js';
 import evidenceHandler from '../lib/evidence.js';
 import validateHandler from '../lib/validate.js';
 import perplexitySearchHandler from '../lib/perplexity-search.js';
@@ -3584,10 +3585,20 @@ ${SHARED_GUARDRAILS}
         const head = words.sort((a, b) => b.length - a.length)[0];
         return new RegExp(`\\b${head.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(packText);
       };
+      // Both lists above are samples: this report fetched ~103 of Parkinson
+      // disease's several thousand registry studies, and exenatide -- a Lancet
+      // Phase 2 and a completed Phase 3 in PD -- appeared in none of the 185
+      // interventions they named. Ask the registry about each surviving
+      // candidate by name, which is exact where a sample is not.
+      const registryStudied = await agentsStudiedInCondition(
+        effectiveCondition || patient?.condition || '',
+        agents.map((a) => a.name)
+      );
       const unstudied = agents.filter((a) => {
         const key = String(a.name).toLowerCase().replace(/[^a-z0-9]/g, '');
         if (key.length < 4) return false;
         if (studiedKeys.some((k) => k.includes(key) || key.includes(k))) return false;
+        if (registryStudied.has(String(a.name).toLowerCase())) return false;
         return !namedInPack(a.name);
       });
       if (unstudied.length < agents.length) {
@@ -3670,6 +3681,14 @@ ${SHARED_GUARDRAILS}
     }
 
     let citationVerificationFailed = false;
+    // Held outside the block below so the coverage rewrite can finalize with the
+    // SAME inputs as the first pass. It used to re-finalize with the bare
+    // evidence object, which carries no dossier — and every deterministic
+    // renderer (centres, experts, advocacy, lifestyle, advanced therapies)
+    // silently no-ops without one, leaving "Nothing was found for this section"
+    // over data the report was already displaying in its own side panel.
+    let finalizeEvidence = null;
+    let finalizeTrials = null;
     if (mode === 'research' || mode === 'repurpose' || mode === 'chat' || mode === 'trials') {
       const filtered = filterExcludedAgentMentions(claudeText, evidence);
       if (filtered !== claudeText) {
@@ -3751,6 +3770,8 @@ ${SHARED_GUARDRAILS}
           ...(renderLifestyle.length ? { lifestyleRecommendations: renderLifestyle } : {})
         }
         : (evidence || {});
+      finalizeEvidence = renderEvidence;
+      finalizeTrials = outputTrials;
       claudeText = finalizeReportText(claudeText, {
         evidence: renderEvidence,
         trials: outputTrials,
@@ -3925,7 +3946,12 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
               coverageAudit.finalMissed = scanForMissedPipelineDrugs(rewritten, pipelineDrugs).map((d) => d.name);
               // Coverage rewrite bypasses the earlier finalize — seal again so
               // sickle-cell / banned cites / dead patterns cannot re-enter.
-              claudeText = finalizeReportText(claudeText, { evidence, trials, evidenceGrade, patient });
+              claudeText = finalizeReportText(claudeText, {
+                evidence: finalizeEvidence || evidence,
+                trials: finalizeTrials || trials,
+                evidenceGrade,
+                patient
+              });
               if (citationVerificationFailed) {
                 claudeText = demoteUnverifiedDocumentCitations(claudeText);
               }
