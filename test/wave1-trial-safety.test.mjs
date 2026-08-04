@@ -78,7 +78,10 @@ test('mixed-status presentation reports actual collection status without an all-
   };
   assert.equal(
     trialCollectionDescription(trials),
-    'ClinicalTrials.gov studies with mixed recruitment and access status (1 of 2 currently accepting or available).'
+    // "of N" now names WHICH N. The bare form counted the delivered pool while
+    // the panel header beside it showed the registry match count, so the same
+    // panel published two different totals with nothing distinguishing them.
+    'ClinicalTrials.gov studies with mixed recruitment and access status (1 of the 2 studies listed here is currently accepting or available).'
   );
 });
 

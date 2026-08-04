@@ -803,6 +803,12 @@ const trimTrialPool = (trials, limit) => {
     // Names only, so the full studied-agent list survives the study trim.
     studiedInterventions: trials.studiedInterventions || []
   };
+  // `total`/`returned` are the registry's post-filter match count and pass
+  // through untouched, while `studies` is capped here for transport. Without
+  // a name for that difference every consumer reached for studies.length and
+  // published a transport cap as if it were the number of matching studies —
+  // which is how one page came to report 53, 50 and 25 as the same quantity.
+  trimmed.delivered = trimmed.studies.length;
   trimmed.registrySeal = sealTrialRegistryPayload(trimmed);
   return trimmed;
 };
@@ -1680,10 +1686,10 @@ HARD RULE FOR THIS SECTION (non-negotiable): EVERY sentence and EVERY bullet tha
 - One-sentence definition — end with ([source ↗](url)).
 - Prevalence / incidence: state a specific number (e.g. "~1 million people in the US") ONLY if you attach an inline [source](url) from the evidence pack that contains that number. If the pack has no such number, do NOT invent one and do NOT prefix with "Research estimates/shows" — write one qualitative sentence instead ("A common neurodegenerative disorder" / "Relatively rare — exact rates vary by region") and STILL end with a pack ([source ↗](url)). Never write "no grounded prevalence".
 - Typical trajectory if untreated — each claim sentence ends with ([source ↗](url)).
-- Primary medical specialty + one or two named top experts (with links). These are the report's headline experts — do NOT repeat the same people in Section 2's named-experts list; Section 2 should name DIFFERENT experts.
+- Primary medical specialty. Do NOT name experts here and do NOT emit an experts sub-heading: clinicians are rendered from reviewed data in Section 2 after you finish. Naming them here required a pack citation the reviewed data cannot supply, so the citation gate emptied the sub-heading and it rendered as "Nothing was found" directly above the fully-populated Section 2.
 - **If patient geneticVariant / gene is provided:** name the gene, inheritance pattern if known, and whether approved gene therapies (e.g. Luxturna for RPE65, CRISPR trials) apply ONLY to that mutation — never imply one drug covers all genetic forms of the disease. Cite pack URLs.
 - **Lifestyle & environment (from dossier lifestyleCategories + KB lifestyleRecommendations):** 3-6 bullets framed as "Research suggests…" / "Studies report…". EVERY bullet MUST end with ([source ↗](url)) from the evidence pack. No unlinked lifestyle bullets.
-- **Key safety flags (top 3 redFlags from dossier/KB):** literature-framed cautions — each flag sentence MUST end with ([source ↗](url)). NOT patient directives.
+- Do NOT emit a safety-flags sub-heading here. Reviewed cautions are rendered from the dossier in Section 8 after you finish; requiring a pack citation on each one emptied this sub-heading while Section 8 listed them in full.
 
 ## 2. Condition-Focused Centers & Experts
 Emit ONLY this heading and nothing beneath it. Centres and clinicians are rendered from reviewed data after you finish; anything written here is discarded.
@@ -2777,8 +2783,16 @@ export default async function handler(req, res) {
       // ground truth supports (the GERD/87% antacid regression) instead of
       // destructively deleting it.
       const suppliedEvidence = verifiedGather ? req.body?.providedEvidence : null;
+      // The seal above already verified providedDossier, but nothing read it
+      // back out. finalizeReportText falls back through dossier -> evidence
+      // .dossier -> patient.dossier and found none of them here, so centres,
+      // clinicians, advocacy, lifestyle and advanced therapies all rendered
+      // "Nothing was found for this section" over data the side panel was
+      // displaying at the same time.
+      const suppliedDossier = verifiedGather ? req.body?.providedDossier : null;
       const clientKb = suppliedEvidence?.knowledgeBase || req.body?.knowledgeBase || {};
       const evidence = {
+        dossier: suppliedDossier,
         excludedAgents: suppliedEvidence?.excludedAgents || req.body?.excludedAgents || [],
         groundedForPrompt: suppliedEvidence?.groundedForPrompt || req.body?.evidencePack || [],
         topRanked: suppliedEvidence?.topRanked || req.body?.evidencePack || [],
@@ -2800,7 +2814,9 @@ export default async function handler(req, res) {
       const patientProfile = verifiedSource?.patient || req.body?.patient || null;
       const trustedCondition =
         patientProfile?.condition || req.body?.condition || '';
-      let polished = finalizeReportText(analysisText, { evidence, trials, patient: patientProfile });
+      let polished = finalizeReportText(analysisText, {
+        evidence, trials, patient: patientProfile, dossier: suppliedDossier
+      });
       let validation = verifiedSource ? null : (req.body?.validation || null);
       const hasAnyValidatorKey =
         !!process.env.PERPLEXITY_API_KEY ||
@@ -2882,7 +2898,12 @@ export default async function handler(req, res) {
         }
       }
       // Seal citations after dead-strip + reattach (same as synthesis path).
-      polished = finalizeReportText(polished, { evidence, trials, patient: patientProfile });
+      // Re-sealing only: a second full finalize re-ran all 48 passes over text
+      // the first had already finished, which is how a citation label got
+      // truncated, split mid-link, and then re-cited into a duplicated,
+      // paren-mismatched anchor. The synthesis path at the bottom of this file
+      // was moved to resealCitations for the same reason; this one was missed.
+      polished = resealCitations(polished, { evidence, trials });
       if (citationVerificationFailed) {
         polished = demoteUnverifiedDocumentCitations(polished);
       }

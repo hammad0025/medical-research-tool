@@ -24,6 +24,7 @@ import {
   REPURPOSE_RESEARCHED_LANE, REPURPOSE_MECHANISTIC_LANE, isPipelineProgramme
 } from "../lib/repurpose-quality.js";
 import { isGoogleSearchUrl, isDailyMedSearchUrl } from "../lib/citation-gate.js";
+import { agentDedupKeys, declaresNotApproved } from "../lib/card-identity.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
 import { classifyAccessProbeResponse } from "../lib/access-transition.js";
@@ -780,7 +781,16 @@ const parseTreatments = (text) => {
         b.risks,
         b.interactions
       ].filter(Boolean).join(' '))
-    );
+    )
+    // "Approved Treatments" must hold only approved treatments. A card that
+    // declares itself investigational — in FDA_STATUS or in its own heading —
+    // still rendered under that heading, and under the export's
+    // "FDA-Approved Treatments" H2, with only its border colour to say
+    // otherwise. Such an agent already appears in full under "Researched, Not
+    // Yet FDA-Approved", so dropping it here loses no information. An absent
+    // FDA_STATUS is not treated as a denial: only an explicit non-approved
+    // value drops the card.
+    .filter((b) => !declaresNotApproved(b.fda_status) && !declaresNotApproved(b.treatment));
 };
 
 const REPURPOSE_KEYS = [
@@ -934,13 +944,11 @@ const parseCandidates = (text) => {
     // Drop orphan fragments produced when a merged block was split on a
     // duplicate field — a real candidate always carries a CANDIDATE name.
     if (!String(cand.candidate || '').trim()) continue;
-    const norm = String(cand.candidate || '')
-      .toLowerCase()
-      .replace(/\(.*?\)/g, '')        // drop parenthetical brand/generic
-      .replace(/[^a-z0-9]/g, '')      // ignore spacing/punctuation
-      .trim();
-    if (norm && seenNames.has(norm)) continue;
-    if (norm) seenNames.add(norm);
+    // Keys, plural: two spellings of one agent often share only their
+    // parenthetical abbreviation. See lib/card-identity.js.
+    const keys = agentDedupKeys(cand.candidate);
+    if (keys.some((k) => seenNames.has(k))) continue;
+    keys.forEach((k) => seenNames.add(k));
     deduped.push(cand);
   }
   return dropForeignCandidateFields(deduped);
@@ -7698,15 +7706,18 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
     // overlap cannot establish support for an exact quantitative claim.
     const studies = Array.isArray(trialsData?.studies) ? trialsData.studies : [];
     if (!txt || !studies.length) return txt;
-    // "N of M shown" must describe the rows actually on screen. Counting the
-    // whole result set while displaying a capped subset made the two numbers
-    // disagree with the table underneath them.
-    const shownStudies = studies.slice(0, TRIAL_ROW_DISPLAY_LIMIT);
-    const totalTrials = shownStudies.length;
-    const acceptingCount = shownStudies.filter((s) => s.acceptingNewPatients === true).length;
-    const summary = acceptingCount > 0
-      ? `**${acceptingCount} of ${totalTrials} shown** ${acceptingCount === 1 ? 'study is' : 'studies are'} currently accepting new patients.`
-      : `**0 of ${totalTrials} shown** studies are currently accepting new patients.`;
+    // This used to count a 25-row slice with a narrower predicate than the
+    // trials table's own header, so the same page reported "4 of 25" here and
+    // "8 of 50" there. Worse, the slice was taken in server relevance order
+    // while the table sorts client-side, so "of 25 shown" did not even
+    // describe the rows underneath it. Use the SAME population and the SAME
+    // predicate as trialCollectionDescription so the two cannot diverge.
+    const listed = studies.length;
+    const acceptingCount = studies.filter(
+      (s) => s.acceptingNewPatients === true ||
+        String(s?.status || s?.overallStatus || '').toUpperCase() === 'AVAILABLE'
+    ).length;
+    const summary = `**${acceptingCount} of ${listed} listed** ${acceptingCount === 1 ? 'study is' : 'studies are'} currently accepting or available.`;
     const jumpLine = `\n\n${summary} [Jump to the full ${savedDemo ? 'saved, not-live trial list' : 'clinical trials table'} ↓](#clinical-trials)\n`;
     const headingRe = /^(#{2,3}\s*4\.[^\n]*)$/m;
     if (headingRe.test(txt)) return txt.replace(headingRe, `$1${jumpLine}`);
@@ -7810,10 +7821,16 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
           <p style={{ color: theme.yellow, fontSize: '0.85rem' }}>
             {/* Says which of the two numbers is which. On its own, "Found 32
                 ideas with a source link" sat under "Found 20 ideas" and read
-                as a contradiction rather than as a cap. */}
+                as a contradiction rather than as a cap.
+
+                The gap is a per-section display cap, NOT a link filter: the
+                larger number is already link-filtered, and the shown set can
+                include never-researched ideas that are explicitly allowed to
+                carry no link. Naming the link as the reason was false in both
+                directions, so the cap is named instead. */}
             Showing {shownIdeaCount} of {runMeta.repurposeQuality.linkedCandidates != null
               ? runMeta.repurposeQuality.linkedCandidates
-              : runMeta.repurposeQuality.totalCandidates} ideas that carry a source link. The report does not add items to meet a quota.
+              : runMeta.repurposeQuality.totalCandidates} ideas found. The rest are held back by a per-section display limit, not ranked out. The report does not add items to meet a quota.
           </p>
         )}
       </div>
