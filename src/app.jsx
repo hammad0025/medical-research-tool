@@ -659,7 +659,14 @@ const collectBlock = (text, startIdx, terminators) => {
   while (next < lines.length) {
     const trimmed = lines[next].trim();
     if (terminators.includes(canonicalParserKey(trimmed))) break;
-    if (trimmed.startsWith('## ')) break;
+    // Any heading level, and a horizontal rule, end the field. Breaking only on
+    // "## " let a card's last field swallow the NEXT card's own heading, so a
+    // levodopa card ended with the literal text
+    // "--- ### 💊 Levodopa-Carbidopa Intestinal Gel — Duopa / Duodopa (LCIG)"
+    // hanging off its interactions line, and the swallowed card was never
+    // parsed at all.
+    if (/^#{1,6}\s/.test(trimmed)) break;
+    if (/^(?:-{3,}|\*{3,}|_{3,})$/.test(trimmed)) break;
     if (isCardBoundaryLine(trimmed)) break;
     if (trimmed) cur += ' ' + trimmed;
     next++;
@@ -674,6 +681,22 @@ const TREATMENT_KEYS = [
 const parseTreatments = (text) => {
   const blocks = [];
   const lines = text.split('\n');
+  // The nearest preceding card heading for every line. A card often names its
+  // drug ONLY in "### 💊 Rasagiline (Azilect)" and then lists provider, status
+  // and sources as fields — no TREATMENT: line. Those were dropped for having
+  // no identity, which is how a Parkinson report listed ten approved drugs in
+  // its body while the panel above it reported three.
+  const headingFor = [];
+  let lastHeading = '';
+  lines.forEach((line, i) => {
+    const m = line.trim().match(/^#{3,6}\s+(.+?)\s*$/);
+    // Skip numbered section headings ("### 3. Approved Treatments") — those
+    // name a section, not a drug.
+    if (m && !/^\d+[.)]\s/.test(m[1])) {
+      lastHeading = m[1].replace(/💊/g, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
+    }
+    headingFor[i] = lastHeading;
+  });
   let cur = null;
   lines.forEach((line, i) => {
     const t = line.trim();
@@ -697,6 +720,7 @@ const parseTreatments = (text) => {
       cur = { _type: 'treatment' };
     }
     if (!cur) return;
+    if (!cur._heading) cur._heading = headingFor[i] || '';
     const field = key.replace(':', '').toLowerCase();
     cur[field] = clampToCompleteSentence(collectBlock(text, i, TREATMENT_KEYS));
     // Post-parse: strip lone fabricated EFFICACY "NN%" scores without a
@@ -741,6 +765,12 @@ const parseTreatments = (text) => {
   // treatment identity. Drop malformed cards fail-closed; the verified KB
   // approved-treatment list can still show the actual treatment name.
   return blocks
+    // The card's own heading is a safe identity — the model wrote it directly
+    // above these fields. A manufacturer still is not, which is why only the
+    // heading is used here and `provider` is never promoted.
+    .map((b) => (String(b.treatment || '').trim() || !b._heading
+      ? b
+      : { ...b, treatment: b._heading }))
     .filter((b) =>
       String(b.treatment || '').trim() &&
       /\[[^\]]+\]\(https?:\/\/[^)]+\)/i.test([
@@ -7749,9 +7779,12 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
             : runMeta.repurposeQuality.totalCandidates) < 50
         ) && (
           <p style={{ color: theme.yellow, fontSize: '0.85rem' }}>
-            Found {runMeta.repurposeQuality.linkedCandidates != null
+            {/* Says which of the two numbers is which. On its own, "Found 32
+                ideas with a source link" sat under "Found 20 ideas" and read
+                as a contradiction rather than as a cap. */}
+            Showing {shownIdeaCount} of {runMeta.repurposeQuality.linkedCandidates != null
               ? runMeta.repurposeQuality.linkedCandidates
-              : runMeta.repurposeQuality.totalCandidates} ideas with a source link. The report does not add items to meet a quota.
+              : runMeta.repurposeQuality.totalCandidates} ideas that carry a source link. The report does not add items to meet a quota.
           </p>
         )}
       </div>
@@ -7980,7 +8013,11 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
       {candidates.length > 0 && (
         <div style={panelStyle}>
           <h3 style={{ margin: 0, color: theme.accent, fontSize: '1.05rem' }}>
-            {candidates.length} drug &amp; supplement idea{candidates.length === 1 ? '' : 's'}
+            {/* The count the reader can actually see. Printing every parsed
+                candidate put "35 drug & supplement ideas" directly above a
+                breakdown reading "10 + 10 + 0", because the sections are
+                capped and the rest are never rendered. */}
+            {shownIdeaCount} drug &amp; supplement idea{shownIdeaCount === 1 ? '' : 's'}
             <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem', marginLeft: '0.5rem' }}>
               · {neverResearched.length} with no condition-specific study identified · {researchedNotApproved.length} with condition-specific research · {evidenceStatusUnknown.length} unclear
             </span>
@@ -8650,7 +8687,14 @@ const TreatmentCard = ({ t: rawT, rank, allowedUrls = null }) => {
             <div style={{ marginTop: '0.55rem', fontSize: '0.86rem', lineHeight: 1.5 }}>
               <strong style={{ color: theme.text }}>Safety concern: </strong>
               {t.safety_band && <span style={{ color: bandColor(t.safety_band), fontWeight: 700 }}>{t.safety_band}. </span>}
-              <InlineMD text={t.safety_note || t.safety} allowedUrls={allowedUrls} />
+              {/* The SAFETY: line is authored as "Safety concern: Unknown — ..."
+                  (the prompt asks for that wording and tests assert it), so
+                  rendering it under this label printed the label twice:
+                  "Safety concern: Safety concern: Unknown — ...". */}
+              <InlineMD
+                text={String(t.safety_note || t.safety || '').replace(/^\s*Safety concern:\s*/i, '')}
+                allowedUrls={allowedUrls}
+              />
             </div>
           )}
           {cardLinks.length > 0 ? (
