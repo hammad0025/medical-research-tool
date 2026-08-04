@@ -3723,6 +3723,7 @@ ${SHARED_GUARDRAILS}
     // over data the report was already displaying in its own side panel.
     let finalizeEvidence = null;
     let finalizeTrials = null;
+    let finalizeDossier = null;
     if (mode === 'research' || mode === 'repurpose' || mode === 'chat' || mode === 'trials') {
       const filtered = filterExcludedAgentMentions(claudeText, evidence);
       if (filtered !== claudeText) {
@@ -3806,11 +3807,13 @@ ${SHARED_GUARDRAILS}
         : (evidence || {});
       finalizeEvidence = renderEvidence;
       finalizeTrials = outputTrials;
+      finalizeDossier = renderDossier;
       claudeText = finalizeReportText(claudeText, {
         evidence: renderEvidence,
         trials: outputTrials,
         evidenceGrade,
-        patient
+        patient,
+        dossier: renderDossier
       });
       if (isLinkCheckEnabled()) {
         try {
@@ -3984,7 +3987,8 @@ Return the full corrected analysis now, beginning again at "## 1." (front half) 
                 evidence: finalizeEvidence || evidence,
                 trials: finalizeTrials || trials,
                 evidenceGrade,
-                patient
+                patient,
+                dossier: finalizeDossier || evidence?.dossier || dossier
               });
               if (citationVerificationFailed) {
                 claudeText = demoteUnverifiedDocumentCitations(claudeText);
