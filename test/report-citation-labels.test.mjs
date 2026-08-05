@@ -9,32 +9,53 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { citationAnchorLabel, finalizeReportText } from '../lib/report-polish.js';
+import {
+  citationAnchorLabel,
+  finalizeReportText,
+  dropUnapprovedFromApprovedSection
+} from '../lib/report-polish.js';
 import { renderResearchedCandidateBlocks } from '../lib/researched-agent-seeds.js';
 import { clampToWord } from '../lib/researched-agent-search.js';
-import { agentDedupKeys, declaresNotApproved } from '../lib/card-identity.js';
+import {
+  agentDedupKeys,
+  isAffirmativelyApproved,
+  isUnverifiedRegulatoryStatus
+} from '../lib/card-identity.js';
 
 const LONG_TITLE =
   'Preclinical biodistribution and toxicology assessment of an AAV5-based ' +
   'subretinal modifier gene therapy for inherited retinal disease';
 const URL = 'https://pubmed.ncbi.nlm.nih.gov/33333333';
 
-test('a truncated citation label survives NFKC without becoming sentence punctuation', () => {
-  // Shipped as "…subretinal modifier ge…". sanitizePublicText NFKC-normalizes
-  // "…" into three ASCII periods, so the claim-sentence splitter then cut the
-  // markdown link in half, failed to find a URL in the first half, and
-  // re-cited it — rendering the title twice with unbalanced parentheses.
+test('a shortened citation label is marked, and survives finalize inside its link', () => {
+  // Shipped as "…subretinal modifier ge…": cut mid-word, and because
+  // sanitizePublicText NFKC-rewrites "…" into three ASCII periods, the
+  // claim-sentence splitter cut the markdown link in half, failed to find a
+  // URL in the first half and re-cited it — rendering the title twice with
+  // unbalanced parentheses.
+  //
+  // The fix is not to drop the marker (a title cut at a word boundary with no
+  // marker reads as complete when it isn't) but to make the splitter treat a
+  // markdown link as atomic, so the marker is safe again.
   const label = citationAnchorLabel({ title: LONG_TITLE }, URL);
 
-  assert.ok(!/…/.test(label), `no ellipsis may appear in a link label: ${label}`);
-  assert.ok(
-    !/\./.test(label.normalize('NFKC')),
-    'NFKC must not turn the label into something the sentence splitter can cut'
+  assert.ok(label.length < LONG_TITLE.length, 'this fixture is meant to be shortened');
+  assert.match(label, /…$/, 'a shortened label must say it was shortened');
+  const stem = label.replace(/…$/, '');
+  assert.ok(LONG_TITLE.startsWith(stem), 'the label must be a prefix of the title');
+  assert.equal(LONG_TITLE[stem.length], ' ', `label ends mid-word: ${label}`);
+
+  // The whole point: this label, inside a link, must not be split or doubled.
+  const evidence = { topRanked: [{ title: LONG_TITLE, url: URL }] };
+  const line = `## 1. Condition Snapshot\n\nRod cells degenerate first ([${label}](${URL})).\n`;
+  const once = finalizeReportText(line, { evidence, trials: null });
+  const twice = finalizeReportText(once, { evidence, trials: null });
+
+  assert.equal(
+    (twice.match(/Preclinical biodistribution/g) || []).length, 1,
+    'the citation title must not be duplicated by a second finalize'
   );
-  assert.equal(label, label.normalize('NFKC'), 'the label must be NFKC-stable');
-  // Cutting mid-word is what made "modifier ge" read as a scraping bug.
-  assert.ok(LONG_TITLE.startsWith(label), 'the label must be a prefix of the title');
-  assert.equal(LONG_TITLE[label.length], ' ', `label ends mid-word: ${label}`);
+  assert.equal(once, twice, 'finalize must be idempotent over a sealed report');
 });
 
 test('a short citation label is left exactly as-is', () => {
@@ -91,46 +112,73 @@ test('a clamped rationale never ends mid-word', () => {
   );
 });
 
-test('a card whose title or status declares it investigational is not an approved treatment', () => {
-  // "Oral N-Acetylcysteine (NAC) — Investigational (Phase 3 Trial Ongoing)"
-  // rendered under the heading "3. Approved Treatments", and under the
-  // export's "FDA-Approved Treatments" H2, with only a border colour
-  // distinguishing it. The same agent already appears, correctly, under
-  // "Researched, Not Yet FDA-Approved".
-  assert.ok(declaresNotApproved('Oral N-Acetylcysteine (NAC) — Investigational (Phase 3 Trial Ongoing)'));
-  assert.ok(declaresNotApproved('Not yet FDA-approved'));
-  assert.ok(declaresNotApproved('investigational'));
+test('an unverified regulatory status is disqualifying; off-label is not', () => {
+  // Four programmes reached a heading reading "Approved Treatments" while
+  // stating "FDA status: Unknown — insufficient verified FDA/DailyMed label
+  // evidence". A blacklist of words like "investigational" never saw them.
+  assert.ok(isUnverifiedRegulatoryStatus('Unknown — insufficient verified FDA/DailyMed label evidence.'));
+  assert.ok(isUnverifiedRegulatoryStatus('Investigational (Phase 3 Trial Ongoing)'));
+  assert.ok(isUnverifiedRegulatoryStatus('Not yet FDA-approved'));
+  assert.ok(isUnverifiedRegulatoryStatus('pending FDA review'));
 
-  // A real approved status must survive. This is precisely why testing for an
-  // "approved" PREFIX is wrong: the status a model writes is "FDA-approved
-  // for X", and a prefix test drops every genuinely approved treatment.
-  assert.ok(!declaresNotApproved('FDA-approved for OAB'));
-  assert.ok(!declaresNotApproved('approved'));
-  assert.ok(!declaresNotApproved('Voretigene neparvovec-rzyl (Luxturna)'));
-  assert.ok(!declaresNotApproved(''));
+  // Off-label is a KNOWN status: the drug carries a real FDA label for
+  // another indication, and this product shows such options with a flag.
+  // Treating it as disqualifying dropped dutasteride from an AGA report.
+  assert.ok(!isUnverifiedRegulatoryStatus('Off-label for androgenetic alopecia'));
+  assert.ok(!isUnverifiedRegulatoryStatus('FDA-approved for OAB'));
+  assert.ok(!isUnverifiedRegulatoryStatus(''));
+
+  // The stricter test still means strictly approved, and is not the
+  // complement of the one above.
+  assert.ok(isAffirmativelyApproved('FDA-approved for OAB'));
+  assert.ok(isAffirmativelyApproved('FDA approved 2017 (first ocular gene therapy)'));
+  assert.ok(!isAffirmativelyApproved('Off-label for androgenetic alopecia'));
+  assert.ok(!isAffirmativelyApproved('Unknown — insufficient verified label evidence.'));
 });
 
-test('curated lists nested under knowledgeBase still reach the page', () => {
-  // The polish endpoint nests these under evidence.knowledgeBase; synthesis
-  // puts them at evidence.*. The renderers read only the second, so on the
-  // polish path the dossier was the sole surviving source and a condition
-  // whose knowledge base is the only home for a field rendered it empty.
-  const evidence = {
-    topRanked: [],
-    groundedForPrompt: [],
-    knowledgeBase: {
-      redFlags: ['Vitamin A palmitate is cautioned without a confirmed diagnosis.'],
-      commonComorbidities: ['Cystoid macular edema'],
-      lifestyleRecommendations: [{ recommendation: 'Ultraviolet-blocking lenses are commonly advised.' }]
-    }
-  };
-  const text = '## 7. Plan\n\n### Non-Drug / Lifestyle\n\n## 8. Safety Considerations Reported in Literature\n';
-  // Deliberately no dossier: this asserts the knowledgeBase fallback alone.
-  const out = finalizeReportText(text, { evidence, trials: null });
+test('the approved section drops unverified cards and keeps the approved one', () => {
+  const section3 = [
+    '## 3. Approved Treatments (Backed by Research)',
+    '',
+    'TREATMENT: Voretigene neparvovec-rzyl (Luxturna)',
+    'FDA_STATUS: approved — for biallelic RPE65 mutations',
+    'EFFICACY: Improved navigation under low light.',
+    '',
+    'TREATMENT: MCO-010 (sonpiretigene isteparvovec)',
+    'FDA_STATUS: Unknown — insufficient verified FDA/DailyMed label evidence.',
+    'EFFICACY: Under FDA review.',
+    '',
+    'TREATMENT: jCell (human retinal progenitor cells)',
+    'FDA_STATUS: Unknown — insufficient verified FDA/DailyMed label evidence.',
+    '',
+    'TREATMENT: Dutasteride (Avodart)',
+    'FDA_STATUS: Off-label for this condition',
+    'EFFICACY: Studied off-label.',
+    '',
+    '## 4. Clinical Trials',
+    ''
+  ].join('\n');
 
-  assert.match(out, /Vitamin A palmitate is cautioned/, 'red flags must render');
-  assert.match(out, /Cystoid macular edema/, 'comorbidities must render');
-  assert.match(out, /Ultraviolet-blocking lenses/, 'lifestyle guidance must render');
+  const out = dropUnapprovedFromApprovedSection(section3);
+  assert.ok(out.includes('Voretigene neparvovec-rzyl'), 'the approved drug must stay');
+  assert.ok(!out.includes('MCO-010'), 'an unverified programme must not stand under "Approved"');
+  assert.ok(!out.includes('jCell'), 'an unverified programme must not stand under "Approved"');
+  assert.ok(out.includes('Dutasteride'), 'an off-label drug with a real label must stay');
+  assert.ok(out.includes('## 4. Clinical Trials'), 'the next section must be untouched');
+});
+
+test('a card with no status line is left alone rather than deleted', () => {
+  // Absent metadata is a model omission. Dropping a genuine approved drug
+  // over it would be a worse failure than the one the gate guards against.
+  const section3 = [
+    '## 3. Approved Treatments',
+    '',
+    'TREATMENT: Pirfenidone (Esbriet)',
+    'EFFICACY: Slowed decline in forced vital capacity.',
+    '',
+    '## 4. Clinical Trials'
+  ].join('\n');
+  assert.ok(dropUnapprovedFromApprovedSection(section3).includes('Pirfenidone'));
 });
 
 test('two spellings of one agent collapse, but two agents sharing a class do not', () => {

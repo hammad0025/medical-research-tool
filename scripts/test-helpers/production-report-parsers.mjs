@@ -12,7 +12,7 @@ import {
   isDailyMedSearchUrl,
   isPipelineProgramme
 } from '../../lib/repurpose-quality.js';
-import { agentDedupKeys, declaresNotApproved } from '../../lib/card-identity.js';
+import { agentDedupKeys, isUnverifiedRegulatoryStatus } from '../../lib/card-identity.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const APP_SOURCE_PATH = path.join(ROOT, 'src', 'app.jsx');
@@ -51,7 +51,7 @@ export const loadProductionReportParsers = () => {
     // parseCandidates keys duplicate cards by these, and parseTreatments uses
     // the approval test to keep investigational agents out of the approved lane.
     agentDedupKeys,
-    declaresNotApproved
+    isUnverifiedRegulatoryStatus
   });
   new vm.Script(`
     ${dependencySource}

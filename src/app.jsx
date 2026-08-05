@@ -24,7 +24,7 @@ import {
   REPURPOSE_RESEARCHED_LANE, REPURPOSE_MECHANISTIC_LANE, isPipelineProgramme
 } from "../lib/repurpose-quality.js";
 import { isGoogleSearchUrl, isDailyMedSearchUrl } from "../lib/citation-gate.js";
-import { agentDedupKeys, declaresNotApproved } from "../lib/card-identity.js";
+import { agentDedupKeys, isUnverifiedRegulatoryStatus } from "../lib/card-identity.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
 import { classifyAccessProbeResponse } from "../lib/access-transition.js";
@@ -790,7 +790,14 @@ const parseTreatments = (text) => {
     // Yet FDA-Approved", so dropping it here loses no information. An absent
     // FDA_STATUS is not treated as a denial: only an explicit non-approved
     // value drops the card.
-    .filter((b) => !declaresNotApproved(b.fda_status) && !declaresNotApproved(b.treatment));
+    // Drop only cards whose regulatory standing was never established.
+    // Excluding cards that SAY "investigational" missed every "FDA status:
+    // Unknown — insufficient verified ... evidence" card, which is the label
+    // gate's own wording for a drug it could not verify. Off-label cards are
+    // kept: that drug has a real label, just for another indication. A card
+    // with no status line is kept too — absent metadata is a model omission,
+    // and dropping a genuine approved treatment over it is the worse failure.
+    .filter((b) => !isUnverifiedRegulatoryStatus(b.fda_status));
 };
 
 const REPURPOSE_KEYS = [
