@@ -2792,6 +2792,24 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
     fail('Fix 8(c): a trusted host 403 was wrongly treated as dead');
   }
 
+  // (c2) An organisation front door (advocacy group / centre) is judged on
+  //      "definitively gone", not "answered our bot": CI's datacenter IP is
+  //      routinely bounced by bot protection from sites that open fine in a
+  //      browser (ibpf.org failed this audit nightly while serving 200). A
+  //      404/410 is still dead, and a CITATION is still judged strictly.
+  const orgFrontDoor = 'https://ibpf.org';
+  if (
+    classifyProbeStatus(orgFrontDoor, 403, { blockedIsDead: false }) === 'alive' &&
+    classifyProbeStatus(orgFrontDoor, 451, { blockedIsDead: false }) === 'alive' &&
+    classifyProbeStatus(orgFrontDoor, 404, { blockedIsDead: false }) === 'dead' &&
+    classifyProbeStatus(orgFrontDoor, 410, { blockedIsDead: false }) === 'dead' &&
+    classifyProbeStatus(orgFrontDoor, 403) === 'dead'
+  ) {
+    pass('Fix 8(c2): a bot-blocked organisation link is not "dead", but a 404/410 still is (citations unchanged)');
+  } else {
+    fail('Fix 8(c2): resource-link probe policy regression');
+  }
+
   // (d) Transient statuses (429/5xx) and 2xx/3xx always stay alive.
   if (
     classifyProbeStatus('https://www.sciencedirect.com/x', 429) === 'alive' &&

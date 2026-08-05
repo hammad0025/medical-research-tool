@@ -39,6 +39,8 @@ const PREFERRED_CITE_HOST =
 // Provenance URLs skipped by the liveness probe, reported so an exemption is
 // never silent. Populated by extractKbCitationUrls.
 const PROVENANCE_KIND = 'provenance';
+const RESOURCE_KIND = 'resource';
+const RESOURCE_ARRAYS = ['patientAdvocacy', 'topCenters', 'keyInvestigators'];
 const exemptedProvenanceUrls = [];
 
 /** Collect every citeable URL a KB can inject into an evidence pack. */
@@ -98,6 +100,20 @@ export const extractKbCitationUrls = (kb, slug = '') => {
   }
   for (const r of kb.references || []) addFromItem(r, 'reference');
 
+  // Organisation front doors — advocacy groups, centres, investigator pages.
+  // These are resources for the reader, not evidence behind a medical claim,
+  // so they are held to "definitively gone" rather than "answered our bot".
+  for (const key of RESOURCE_ARRAYS) {
+    for (const entry of kb[key] || []) {
+      if (!entry || typeof entry !== 'object') continue;
+      for (const field of ['url', 'website', 'link']) {
+        if (entry[field]) {
+          add(entry[field], { kind: RESOURCE_KIND, field, id: entry.name || entry.center || '' });
+        }
+      }
+    }
+  }
+
   // Also scrape any leftover https in the raw JSON (belt + suspenders).
   //
   // `canonicalUrl` records WHERE a guideline officially lives — the society's
@@ -132,9 +148,25 @@ export const extractKbCitationUrls = (kb, slug = '') => {
     }
     return copy;
   };
+  // Resource front doors were tagged above; drop just the fields that were
+  // lifted so the sweep cannot re-add the same URL untagged (any OTHER url in
+  // those entries is still swept and still probed strictly).
+  const withoutLiftedResourceUrls = Object.fromEntries(
+    RESOURCE_ARRAYS
+      .filter((key) => Array.isArray(kb[key]))
+      .map((key) => [
+        key,
+        kb[key].map((entry) => {
+          if (!entry || typeof entry !== 'object') return entry;
+          const { url, website, link, ...rest } = entry;
+          return rest;
+        })
+      ])
+  );
   const raw = JSON.stringify(liftProvenanceUrls({
     ...kb,
-    items: (kb.items || []).filter((item) => item?.quarantined !== true)
+    items: (kb.items || []).filter((item) => item?.quarantined !== true),
+    ...withoutLiftedResourceUrls
   }));
   exemptedProvenanceUrls.push(...provenanceExempt);
   const bare = raw.match(/https?:\\\/\\\/[^"\\]+/g) || [];
@@ -181,6 +213,12 @@ const main = async () => {
   const probeUrls = uniqueUrls.filter((url) =>
     (urlIndex.get(url) || []).some((ref) => ref.kind !== PROVENANCE_KIND)
   );
+  // A URL cited anywhere as evidence is judged strictly, even if it also
+  // appears as an organisation link.
+  const citationUrls = probeUrls.filter((url) =>
+    (urlIndex.get(url) || []).some((ref) => ref.kind !== RESOURCE_KIND)
+  );
+  const resourceUrls = probeUrls.filter((url) => !citationUrls.includes(url));
   pass(`Extracted ${totalCitations} citation refs → ${uniqueUrls.length} unique URLs across ${kbs.length} KBs`);
 
   // The provenance exemption above is only sound while the reader really is
@@ -266,21 +304,41 @@ const main = async () => {
 
   // --- Live probe (unless --static) ---
   let deadList = [];
+  const probeDetails = new Map();
   if (!STATIC_ONLY) {
     console.log(
-      `\nLive-probing ${probeUrls.length} unique URLs ` +
+      `\nLive-probing ${citationUrls.length} citation + ${resourceUrls.length} resource URLs ` +
       `(${uniqueUrls.length - probeUrls.length} provenance-only skipped, budget 180s)…`
     );
     const t0 = Date.now();
+    const probeOptions = {
+      budgetMs: Number(process.env.MRT_KB_LINK_BUDGET_MS || 180000),
+      concurrency: Number(process.env.MRT_LINKCHECK_CONCURRENCY || 12),
+      timeoutMs: Number(process.env.MRT_LINKCHECK_TIMEOUT_MS || 8000)
+    };
     // Probe ALL urls including pubmed — do NOT rely on always-live skip for the
     // audit itself. Temporarily override by calling findDeadLinks; it skips
     // always-live hosts, so force-probe pubmed/doi that look invented by also
     // checking known-dead + banned already handled.
-    const dead = await findDeadLinks(probeUrls, {
-      budgetMs: Number(process.env.MRT_KB_LINK_BUDGET_MS || 180000),
-      concurrency: Number(process.env.MRT_LINKCHECK_CONCURRENCY || 12),
-      timeoutMs: Number(process.env.MRT_LINKCHECK_TIMEOUT_MS || 8000)
+    const dead = await findDeadLinks(citationUrls, { ...probeOptions, details: probeDetails });
+    // Organisation front doors: only a definitive 404/410 counts.
+    const deadResources = await findDeadLinks(resourceUrls, {
+      ...probeOptions,
+      blockedIsDead: false,
+      details: probeDetails
     });
+    for (const url of deadResources) dead.add(url);
+    const blockedResources = resourceUrls.filter((url) => {
+      const detail = probeDetails.get(url);
+      return detail && !detail.dead && (detail.reason === 'network' || [401, 403, 451].includes(detail.status));
+    });
+    if (blockedResources.length) {
+      info(`${blockedResources.length} organisation link(s) bounced our probe but are not gone — not failed:`);
+      blockedResources.slice(0, 5).forEach((url) => {
+        const detail = probeDetails.get(url);
+        info(`  ${url} (${detail.reason === 'network' ? 'connection refused/reset' : `HTTP ${detail.status}`})`);
+      });
+    }
     deadList = [...dead].sort();
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     info(`Probe finished in ${elapsed}s`);
@@ -291,7 +349,12 @@ const main = async () => {
       fail(`Live probe: ${deadList.length} DEAD URL(s) across curated KBs:`);
       for (const u of deadList) {
         const where = (urlIndex.get(u) || []).map((x) => x.slug).filter((v, i, a) => a.indexOf(v) === i);
-        info(`DEAD ${u}`);
+        const detail = probeDetails.get(u);
+        const why = !detail ? 'known-dead host'
+          : detail.reason === 'network' ? 'connection refused/reset'
+            : detail.reason === 'timeout' ? 'timed out'
+              : `HTTP ${detail.status}`;
+        info(`DEAD ${u} (${why})`);
         info(`  ← conditions: ${where.join(', ')}`);
       }
     }
