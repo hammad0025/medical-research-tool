@@ -114,6 +114,47 @@ test('nested risk direction is scoped without weakening reversal checks', () => 
   assert.equal(explicitOpposite.reason, 'OUTCOME_DIRECTION_MISMATCH');
 });
 
+test('hedging words are not intervention identities the source must name', () => {
+  const source = {
+    title: 'N-acetylcysteine improves retinal sensitivity in retinitis pigmentosa',
+    pmid: '22222222',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/22222222/',
+    accessLevel: 'abstract',
+    summary: 'Oral NAC improved visual acuity and retinal sensitivity over 24 weeks in RP patients.'
+  };
+  // "suggests" stems to "suggest". When the generic-word list held only the
+  // written form, the stem escaped it and became an intervention the paper had
+  // to name, so every hedged sentence was deleted as unsourced.
+  assert.equal(claimSupportedBySource(
+    'Research suggests oral NAC improved retinal sensitivity over 24 weeks in RP.',
+    source,
+    { condition: 'retinitis pigmentosa' }
+  ).ok, true);
+  // The identity gate still rejects a claim about a drug the source never names.
+  const wrongDrug = claimSupportedBySource(
+    'Research suggests oral lutein improved retinal sensitivity over 24 weeks in RP.',
+    source,
+    { condition: 'retinitis pigmentosa' }
+  );
+  assert.equal(wrongDrug.ok, false);
+  assert.equal(wrongDrug.reason, 'INTERVENTION_MISMATCH');
+});
+
+test('a claim matches an inflected source word (stemmed on both sides)', () => {
+  const source = {
+    title: 'Gene therapies for inherited retinal dystrophies',
+    pmid: '33333333',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/33333333/',
+    accessLevel: 'abstract',
+    summary: 'Subretinal gene therapies improved retinal sensitivity in inherited retinal dystrophies.'
+  };
+  assert.equal(claimSupportedBySource(
+    'Subretinal gene therapy improved retinal sensitivity in inherited retinal dystrophy.',
+    source,
+    { condition: 'inherited retinal dystrophy' }
+  ).ok, true);
+});
+
 test('reader-facing finalization removes related-but-wrong linked papers', () => {
   const claim =
     'VYALEV contains foscarbidopa and foslevodopa and uses continuous subcutaneous ' +
