@@ -30,6 +30,17 @@ const pass = (m) => console.log(`\x1b[32m✓\x1b[0m ${m}`);
 const fail = (m) => { console.log(`\x1b[31m✗\x1b[0m ${m}`); process.exitCode = 1; };
 const info = (m) => console.log(`  ${m}`);
 
+// Prefer reader-verifiable hosts for pinned paper URLs. Publisher paywalls
+// (NEJM / Lancet / Science / AAO / ATS journals) routinely 403 bots and
+// readers — pin PubMed / DOI / PMC / CT.gov / FDA / DailyMed setid instead.
+const PREFERRED_CITE_HOST =
+  /pubmed\.ncbi\.nlm\.nih\.gov\/\d|doi\.org\/10\.|ncbi\.nlm\.nih\.gov\/pmc\/|pmc\.ncbi\.nlm\.nih\.gov\/articles\/|clinicaltrials\.gov\/study\/|accessdata\.fda\.gov\/scripts\/cder\/daf\/|dailymed\.nlm\.nih\.gov\/dailymed\/drugInfo\.cfm\?setid=/i;
+
+// Provenance URLs skipped by the liveness probe, reported so an exemption is
+// never silent. Populated by extractKbCitationUrls.
+const PROVENANCE_KIND = 'provenance';
+const exemptedProvenanceUrls = [];
+
 /** Collect every citeable URL a KB can inject into an evidence pack. */
 export const extractKbCitationUrls = (kb, slug = '') => {
   const urls = new Set();
@@ -88,10 +99,44 @@ export const extractKbCitationUrls = (kb, slug = '') => {
   for (const r of kb.references || []) addFromItem(r, 'reference');
 
   // Also scrape any leftover https in the raw JSON (belt + suspenders).
-  const raw = JSON.stringify({
+  //
+  // `canonicalUrl` records WHERE a guideline officially lives — the society's
+  // or publisher's own page. It is provenance, not a citation: no reader is
+  // ever sent there, because VERIFIABLE_URL_FIELDS excludes it and
+  // preferVerifiableUrl cites the item's pmid/doi instead. Publisher pages
+  // 403 an automated probe as a matter of course, so scraping them into the
+  // liveness check failed this audit every night over links no report can
+  // emit — and there was no way to "fix" the data without falsifying where
+  // the guideline actually lives.
+  //
+  // Exempt it ONLY when the item carries the identifier the reader will
+  // actually be handed. With no pmid/doi, canonicalUrl IS the citation and
+  // must still resolve.
+  // The exemption is from the LIVENESS PROBE only. These URLs stay in the
+  // index under kind 'provenance' so the banned-pattern scan still sees them —
+  // a canonicalUrl pointing at a Google search must fail the audit like any
+  // other citation.
+  const provenanceExempt = [];
+  const liftProvenanceUrls = (node) => {
+    if (Array.isArray(node)) return node.map(liftProvenanceUrls);
+    if (!node || typeof node !== 'object') return node;
+    const copy = {};
+    for (const [key, value] of Object.entries(node)) {
+      if (key === 'canonicalUrl' && (node.pmid || node.doi)) {
+        const url = String(value || '');
+        provenanceExempt.push({ slug, id: node.id || '', url });
+        add(url, { kind: PROVENANCE_KIND, field: 'canonicalUrl', id: node.id || '' });
+        continue;
+      }
+      copy[key] = liftProvenanceUrls(value);
+    }
+    return copy;
+  };
+  const raw = JSON.stringify(liftProvenanceUrls({
     ...kb,
     items: (kb.items || []).filter((item) => item?.quarantined !== true)
-  });
+  }));
+  exemptedProvenanceUrls.push(...provenanceExempt);
   const bare = raw.match(/https?:\\\/\\\/[^"\\]+/g) || [];
   for (const esc of bare) {
     const u = esc.replace(/\\\//g, '/');
@@ -131,7 +176,36 @@ const main = async () => {
   }
 
   const uniqueUrls = [...urlIndex.keys()];
+  // Probe everything except URLs that appear ONLY as provenance. The same URL
+  // pinned as a real citation anywhere else is still probed.
+  const probeUrls = uniqueUrls.filter((url) =>
+    (urlIndex.get(url) || []).some((ref) => ref.kind !== PROVENANCE_KIND)
+  );
   pass(`Extracted ${totalCitations} citation refs → ${uniqueUrls.length} unique URLs across ${kbs.length} KBs`);
+
+  // The provenance exemption above is only sound while the reader really is
+  // handed a resolving link instead. Prove it per item rather than trusting it:
+  // every exempted canonicalUrl must belong to an item whose rendered citation
+  // is a preferred, reader-verifiable host.
+  const unbackedExemptions = [];
+  for (const { slug, kb } of kbs) {
+    for (const item of kb.items || []) {
+      if (!item?.canonicalUrl || !(item.pmid || item.doi)) continue;
+      const rendered = preferVerifiableUrl(item, item.url || '');
+      if (!PREFERRED_CITE_HOST.test(String(rendered || ''))) {
+        unbackedExemptions.push(`[${slug}] ${item.id || item.title || ''} → ${rendered || 'no citeable URL'}`);
+      }
+    }
+  }
+  if (unbackedExemptions.length) {
+    fail(`${unbackedExemptions.length} item(s) hide a publisher canonicalUrl without a reader-verifiable citation`);
+    unbackedExemptions.slice(0, 8).forEach((line) => info(line));
+  } else if (exemptedProvenanceUrls.length) {
+    pass(
+      `${exemptedProvenanceUrls.length} provenance canonicalUrl(s) exempt from the probe — ` +
+      'each item cites a resolving PubMed/DOI record instead'
+    );
+  }
 
   // --- Static banned patterns (must be zero) ---
   const banned = uniqueUrls.filter((u) => isBannedClaimCitation(u));
@@ -169,11 +243,6 @@ const main = async () => {
     pass(`Per-condition banned-URL scan clean (${kbs.length} conditions)`);
   }
 
-  // Prefer reader-verifiable hosts for pinned paper URLs. Publisher paywalls
-  // (NEJM / Lancet / Science / AAO / ATS journals) routinely 403 bots and
-  // readers — pin PubMed / DOI / PMC / CT.gov / FDA / DailyMed setid instead.
-  const PREFERRED_CITE_HOST =
-    /pubmed\.ncbi\.nlm\.nih\.gov\/\d|doi\.org\/10\.|ncbi\.nlm\.nih\.gov\/pmc\/|pmc\.ncbi\.nlm\.nih\.gov\/articles\/|clinicaltrials\.gov\/study\/|accessdata\.fda\.gov\/scripts\/cder\/daf\/|dailymed\.nlm\.nih\.gov\/dailymed\/drugInfo\.cfm\?setid=/i;
   let publisherPins = 0;
   for (const { slug, kb } of kbs) {
     for (const it of kb.items || []) {
@@ -198,13 +267,16 @@ const main = async () => {
   // --- Live probe (unless --static) ---
   let deadList = [];
   if (!STATIC_ONLY) {
-    console.log(`\nLive-probing ${uniqueUrls.length} unique URLs (budget 180s)…`);
+    console.log(
+      `\nLive-probing ${probeUrls.length} unique URLs ` +
+      `(${uniqueUrls.length - probeUrls.length} provenance-only skipped, budget 180s)…`
+    );
     const t0 = Date.now();
     // Probe ALL urls including pubmed — do NOT rely on always-live skip for the
     // audit itself. Temporarily override by calling findDeadLinks; it skips
     // always-live hosts, so force-probe pubmed/doi that look invented by also
     // checking known-dead + banned already handled.
-    const dead = await findDeadLinks(uniqueUrls, {
+    const dead = await findDeadLinks(probeUrls, {
       budgetMs: Number(process.env.MRT_KB_LINK_BUDGET_MS || 180000),
       concurrency: Number(process.env.MRT_LINKCHECK_CONCURRENCY || 12),
       timeoutMs: Number(process.env.MRT_LINKCHECK_TIMEOUT_MS || 8000)
@@ -214,7 +286,7 @@ const main = async () => {
     info(`Probe finished in ${elapsed}s`);
 
     if (deadList.length === 0) {
-      pass(`Live probe: 0 dead / ${uniqueUrls.length} unique KB URLs`);
+      pass(`Live probe: 0 dead / ${probeUrls.length} probed KB URLs`);
     } else {
       fail(`Live probe: ${deadList.length} DEAD URL(s) across curated KBs:`);
       for (const u of deadList) {

@@ -23,6 +23,34 @@ export const normalizeDoi = (value) =>
 
 export const normalizePmid = (value) => String(value || '').replace(/\D/g, '');
 
+// NCBI and Crossref rate-limit by IP. A 429 threw straight out of the audit,
+// so a busy minute at E-utilities killed the nightly release job with a stack
+// trace that looked like a data defect. Transient statuses get a bounded
+// backoff (honouring Retry-After); a genuine 4xx still fails loudly and fast.
+const TRANSIENT_STATUS = new Set([429, 500, 502, 503, 504]);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const fetchWithRetry = async (fetchImpl, url, options, label, {
+  attempts = 4,
+  baseDelayMs = 1000,
+  // Statuses the caller interprets itself (Crossref 404 = "no such DOI"),
+  // returned as-is rather than retried or thrown.
+  allowStatuses = []
+} = {}) => {
+  let lastStatus = 0;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const response = await fetchImpl(url, options);
+    if (response.ok || allowStatuses.includes(response.status)) return response;
+    lastStatus = response.status;
+    if (!TRANSIENT_STATUS.has(response.status) || attempt === attempts) break;
+    const retryAfter = Number(response.headers?.get?.('retry-after')) || 0;
+    const delay = retryAfter > 0 ? retryAfter * 1000 : baseDelayMs * 2 ** (attempt - 1);
+    console.log(`  ${label} HTTP ${response.status} — retrying in ${Math.round(delay / 1000)}s (${attempt}/${attempts - 1})`);
+    await sleep(delay);
+  }
+  throw new Error(`${label} failed: HTTP ${lastStatus}`);
+};
+
 const titleWords = (value) => new Set(
   String(value || '')
     .normalize('NFKD')
@@ -153,11 +181,12 @@ export const fetchPubMedMetadata = async (pmids, { fetchImpl = fetch } = {}) => 
       retmode: 'json',
       tool: 'medical-research-tool-metadata-audit'
     });
-    const response = await fetchImpl(`${NCBI_SUMMARY_URL}?${query}`, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(15_000)
-    });
-    if (!response.ok) throw new Error(`PubMed metadata request failed: HTTP ${response.status}`);
+    const response = await fetchWithRetry(
+      fetchImpl,
+      `${NCBI_SUMMARY_URL}?${query}`,
+      { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) },
+      'PubMed metadata request'
+    );
     const parsed = parsePubMedSummary(await response.json());
     for (const [pmid, value] of parsed) metadata.set(pmid, value);
   }
@@ -176,11 +205,12 @@ export const resolveDoisToPmids = async (dois, { fetchImpl = fetch, delayMs = 35
       retmax: '5',
       tool: 'medical-research-tool-metadata-audit'
     });
-    const response = await fetchImpl(`${NCBI_SEARCH_URL}?${query}`, {
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(15_000)
-    });
-    if (!response.ok) throw new Error(`PubMed DOI lookup failed: HTTP ${response.status}`);
+    const response = await fetchWithRetry(
+      fetchImpl,
+      `${NCBI_SEARCH_URL}?${query}`,
+      { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15_000) },
+      'PubMed DOI lookup'
+    );
     const ids = (await response.json())?.esearchresult?.idlist || [];
     resolved.set(doi, ids.map(normalizePmid).filter(Boolean));
     if (delayMs > 0 && index < unique.length - 1) {
@@ -195,17 +225,22 @@ export const fetchCrossrefMetadata = async (dois, { fetchImpl = fetch, delayMs =
   const metadata = new Map();
   for (let index = 0; index < unique.length; index += 1) {
     const doi = unique[index];
-    const response = await fetchImpl(`${CROSSREF_WORKS_URL}/${encodeURIComponent(doi)}`, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'medical-research-tool-metadata-audit/1.0 (mailto:shaque025@gmail.com)'
+    const response = await fetchWithRetry(
+      fetchImpl,
+      `${CROSSREF_WORKS_URL}/${encodeURIComponent(doi)}`,
+      {
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': 'medical-research-tool-metadata-audit/1.0 (mailto:shaque025@gmail.com)'
+        },
+        signal: AbortSignal.timeout(15_000)
       },
-      signal: AbortSignal.timeout(15_000)
-    });
+      'Crossref metadata request',
+      { allowStatuses: [404] }
+    );
     if (response.status === 404) {
       metadata.set(doi, null);
     } else {
-      if (!response.ok) throw new Error(`Crossref metadata request failed: HTTP ${response.status}`);
       const message = (await response.json())?.message || {};
       metadata.set(doi, {
         doi: message.DOI || doi,

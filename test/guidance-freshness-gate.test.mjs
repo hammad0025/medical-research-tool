@@ -54,6 +54,49 @@ test('freshness gate rejects superseded guidance and redirect identity swaps', (
   assert.equal(redirected.reason, 'GUIDANCE_REDIRECT_IDENTITY_MISMATCH');
 });
 
+test('a publisher redirect that keeps the DOI is the same document, not a swap', () => {
+  const positionStatement = {
+    category: 'clinical-guideline',
+    isCuratedKB: true,
+    title: 'Management of osteoporosis in postmenopausal women: the 2021 position statement of The North American Menopause Society.',
+    journal: 'Menopause (New York, N.Y.)',
+    year: '2021',
+    doi: '10.1097/GME.0000000000001831',
+    pmid: '34448749',
+    canonicalUrl: 'https://journals.lww.com/10.1097/GME.0000000000001831'
+  };
+  // lww → its own article page, DOI intact under a slug.
+  const sameDoc = assessGuidanceFreshness(positionStatement, {
+    now,
+    finalUrl: 'https://journals.lww.com/menopausejournal/abstract/10.1097/gme.0000000000001831~management-of-osteoporosis?redirectionsource=fulltextview'
+  });
+  assert.equal(sameDoc.reason !== 'GUIDANCE_REDIRECT_IDENTITY_MISMATCH', true);
+  // Cross-host redirect (lww → ovid) with the DOI preserved is still the same document.
+  const crossHost = assessGuidanceFreshness(positionStatement, {
+    now,
+    finalUrl: 'https://ovid.com/jnls/co-endocrinology/fulltext/10.1097/gme.0000000000001831~management-of-osteoporosis'
+  });
+  assert.equal(crossHost.reason !== 'GUIDANCE_REDIRECT_IDENTITY_MISMATCH', true);
+  // A redirect onto a DIFFERENT document is still caught.
+  const swapped = assessGuidanceFreshness(positionStatement, {
+    now,
+    finalUrl: 'https://journals.lww.com/menopausejournal/abstract/10.1097/gme.0000000009999999~some-other-paper'
+  });
+  assert.equal(swapped.reason, 'GUIDANCE_REDIRECT_IDENTITY_MISMATCH');
+  // A redirect onto a page carrying no document identifier is still caught.
+  const landing = assessGuidanceFreshness(positionStatement, {
+    now,
+    finalUrl: 'https://journals.lww.com/menopausejournal/pages/default.aspx'
+  });
+  assert.equal(landing.reason, 'GUIDANCE_REDIRECT_IDENTITY_MISMATCH');
+  // A search page cannot impersonate the document by echoing its DOI back.
+  const searchPage = assessGuidanceFreshness(positionStatement, {
+    now,
+    finalUrl: 'https://journals.lww.com/search?doi=10.1097/gme.0000000000001831'
+  });
+  assert.equal(searchPage.reason, 'GUIDANCE_REDIRECT_IDENTITY_MISMATCH');
+});
+
 test('freshness gate rejects guidance without date or version identity', () => {
   const missingDate = assessGuidanceFreshness({
     category: 'clinical-guideline',
