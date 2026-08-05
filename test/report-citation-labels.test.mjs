@@ -9,7 +9,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { citationAnchorLabel } from '../lib/report-polish.js';
+import { citationAnchorLabel, finalizeReportText } from '../lib/report-polish.js';
 import { renderResearchedCandidateBlocks } from '../lib/researched-agent-seeds.js';
 import { clampToWord } from '../lib/researched-agent-search.js';
 import { agentDedupKeys, declaresNotApproved } from '../lib/card-identity.js';
@@ -108,6 +108,29 @@ test('a card whose title or status declares it investigational is not an approve
   assert.ok(!declaresNotApproved('approved'));
   assert.ok(!declaresNotApproved('Voretigene neparvovec-rzyl (Luxturna)'));
   assert.ok(!declaresNotApproved(''));
+});
+
+test('curated lists nested under knowledgeBase still reach the page', () => {
+  // The polish endpoint nests these under evidence.knowledgeBase; synthesis
+  // puts them at evidence.*. The renderers read only the second, so on the
+  // polish path the dossier was the sole surviving source and a condition
+  // whose knowledge base is the only home for a field rendered it empty.
+  const evidence = {
+    topRanked: [],
+    groundedForPrompt: [],
+    knowledgeBase: {
+      redFlags: ['Vitamin A palmitate is cautioned without a confirmed diagnosis.'],
+      commonComorbidities: ['Cystoid macular edema'],
+      lifestyleRecommendations: [{ recommendation: 'Ultraviolet-blocking lenses are commonly advised.' }]
+    }
+  };
+  const text = '## 7. Plan\n\n### Non-Drug / Lifestyle\n\n## 8. Safety Considerations Reported in Literature\n';
+  // Deliberately no dossier: this asserts the knowledgeBase fallback alone.
+  const out = finalizeReportText(text, { evidence, trials: null });
+
+  assert.match(out, /Vitamin A palmitate is cautioned/, 'red flags must render');
+  assert.match(out, /Cystoid macular edema/, 'comorbidities must render');
+  assert.match(out, /Ultraviolet-blocking lenses/, 'lifestyle guidance must render');
 });
 
 test('two spellings of one agent collapse, but two agents sharing a class do not', () => {
