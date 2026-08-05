@@ -2383,10 +2383,16 @@ REFERENCES: [ipf](https://pubmed.ncbi.nlm.nih.gov/22222222/)`;
   const safeExportAttributes =
     /replace\(\/"\/g, '&quot;'\).*replace\(\/'\/g, '&#39;'\)/s.test(html) &&
     /<title>\$\{escapeHtmlForExport\(title\)\}/.test(html);
-  if (fullFormats && completeGate && exactClientAllowlist && safeExportAttributes && /No Condition-Specific Study Identified/.test(html)) {
+  // The export must still separate the ideas with no study in this condition
+  // into their own labelled group. The heading is written for a patient rather
+  // than quoting the schema, so match on the claim it makes, not on the old
+  // enum-shaped wording.
+  const notStudiedGroup = /Ideas nobody has studied for this condition yet/.test(html) &&
+    /it does not mean they help/.test(html);
+  if (fullFormats && completeGate && exactClientAllowlist && safeExportAttributes && notStudiedGroup) {
     pass('Full report Word/PDF/Text exports require complete sealed output and exact safe links');
   } else {
-    fail(`Full export contract regression (formats=${fullFormats} complete=${completeGate} exactLinks=${exactClientAllowlist} escaped=${safeExportAttributes})`);
+    fail(`Full export contract regression (formats=${fullFormats} complete=${completeGate} exactLinks=${exactClientAllowlist} escaped=${safeExportAttributes} notStudiedGroup=${notStudiedGroup})`);
   }
 }
 

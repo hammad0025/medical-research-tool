@@ -24,7 +24,7 @@ import {
   REPURPOSE_RESEARCHED_LANE, REPURPOSE_MECHANISTIC_LANE, isPipelineProgramme
 } from "../lib/repurpose-quality.js";
 import { isGoogleSearchUrl, isDailyMedSearchUrl } from "../lib/citation-gate.js";
-import { agentDedupKeys, isUnverifiedRegulatoryStatus } from "../lib/card-identity.js";
+import { agentDedupKeys, isUnverifiedRegulatoryStatus, clampText } from "../lib/card-identity.js";
 import { buildCanonicalReportModel } from "../lib/report-model.js";
 import { approvedUpgradeUrl } from "../lib/upgrade-url.js";
 import { classifyAccessProbeResponse } from "../lib/access-transition.js";
@@ -5716,21 +5716,21 @@ const evidenceTestedIn = (value, lay = true) => {
     // be wrong about our coverage; one that says "none exists" is wrong about
     // medicine, and a reader could reasonably drop a real option over it.
     case 'MECHANISTIC_ONLY':
-      return lay ? 'No study in this condition was found in this search — the reasoning is biological'
+      return lay ? 'Nothing tested yet — this is an idea based on how it works'
                  : 'Mechanistic rationale only — no condition-specific study identified in this search';
     case 'PRECLINICAL':
-      return lay ? 'Lab or animal studies found in this search — no human study for this condition was found'
+      return lay ? 'Tested in the lab or in animals — not in people'
                  : 'Laboratory or animal research — no human study for this condition identified in this search';
     case 'CASE_REPORT':
-      return lay ? 'Reported in a small number of human cases — no formal trial found in this search'
+      return lay ? 'Only a few people have been written up — no real trial'
                  : 'Human case report(s) only';
     case 'OBSERVATIONAL':
-      return lay ? 'Seen in human observational studies (not a controlled trial)'
+      return lay ? 'Watched in real patients, but nobody ran a trial'
                  : 'Human observational data';
     case 'SMALL_RCT':
-      return lay ? 'Tested in a small human clinical trial' : 'Small randomized controlled trial';
+      return lay ? 'Tested in a small trial in people' : 'Small randomized controlled trial';
     case 'LARGE_RCT':
-      return lay ? 'Tested in large human clinical trials' : 'Large randomized controlled trial';
+      return lay ? 'Tested in large trials in people' : 'Large randomized controlled trial';
     default:
       return '';
   }
@@ -5756,7 +5756,7 @@ const EvidenceStrengthBadge = ({ value }) => {
           ))}
         </span>
       )}
-      {isHypothesisOnly ? 'Hypothesis only' : m.label}
+      {isHypothesisOnly ? 'Idea only — not tested here' : m.label}
     </span>
   );
 };
@@ -6488,14 +6488,14 @@ const buildFullReportBody = ({ reportModel }) => {
   }
 
   if (neverResearched.length) {
-    parts.push(`<h2>No Condition-Specific Study Identified in This Search (${neverResearched.length})</h2>`);
-    parts.push(`<p>The indirect rationale comes from other conditions or biological research and does not imply benefit.</p>`);
+    parts.push(`<h2>Ideas nobody has studied for this condition yet (${neverResearched.length})</h2>`);
+    parts.push(`<p>These are here because of how they work in the body, or because they were studied in a different illness. That makes them worth asking about — it does not mean they help.</p>`);
     neverResearched.forEach((c, i) => {
       const name = escapeHtmlForExport(String(c.candidate || 'Idea').replace(/[*_]/g, ''));
       const resolvedKind = resolveItemKind(c);
       const kind = resolvedKind === 'SUPPORTIVE_CARE' ? 'Supportive / non-drug care' : resolvedKind === 'SUPPLEMENT' ? 'Supplement' : 'Medication';
       parts.push(`<h3>${i + 1}. ${name} <span style="font-weight:600;font-size:10pt;color:#555;">(${kind})</span></h3>`);
-      let body = `<p><em>No condition-specific study identified in this search. This does not imply benefit.</em></p>`;
+      let body = `<p><em>Not studied for this condition. A question to raise with your doctor, not something shown to help.</em></p>`;
       if (c.what_it_does) body += field('What it is', c.what_it_does);
       if (c.why_for_this_condition || c.repurpose_rationale) {
         body += field('Why this option was searched', c.why_for_this_condition || c.repurpose_rationale);
@@ -8096,9 +8096,10 @@ const ResearchTab = ({ patient, audience, busy, runResearch, researchText, treat
             <span style={{ color: theme.textDim, fontWeight: 500, fontSize: '0.85rem' }}>({neverResearched.length})</span>
           </h3>
           <p style={{ margin: '0 0 0.85rem', color: theme.textDim, fontSize: '0.86rem', lineHeight: 1.55 }}>
-            <strong style={{ color: theme.text }}>No condition-specific study was identified in this search.</strong>
-            The indirect rationale comes from other conditions or biological research and does not imply benefit.
-            Source links in this section are not studies of {cond}.
+            <strong style={{ color: theme.text }}>No one has studied these for {cond} yet.</strong>{' '}
+            They are here because of how they work in the body, or because they were studied in a
+            different illness. That makes them worth asking about — it does not mean they help.
+            The links on these cards are not studies of {cond}.
           </p>
           <div style={{ display: 'grid', gap: '0.85rem' }}>
             {neverResearched.map((c, i) => (
@@ -8885,7 +8886,16 @@ const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layper
     () => filterAllowedReportLinks(extractLinksFromText(allLinkText), allowedUrls),
     [allLinkText, allowedUrls]
   );
-  const whyPlain = c.why_for_this_condition || c.repurpose_rationale;
+  // The card already carries a plain-English "not studied for this condition"
+  // note of its own, and the authored rationale opens with the same sentence in
+  // the schema's words. Printing both made every card in the ideas list say the
+  // same thing three times over before the reader reached anything specific.
+  const whyPlain = String(c.why_for_this_condition || c.repurpose_rationale || '')
+    .replace(
+      /^\s*(?:No condition-specific study (?:was )?identified in this search\.?|There is no research on this specific drug for [^.\n]+\.)\s*/i,
+      ''
+    )
+    .trim() || null;
   return (
     <div style={{
       padding: '1rem 1.1rem',
@@ -8920,8 +8930,8 @@ const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layper
               border: `1px dashed ${theme.accent}66`, background: `${theme.accent}10`,
               fontSize: '0.84rem', color: theme.text, lineHeight: 1.5
             }}>
-              No condition-specific study identified in this search.
-              The indirect rationale comes from other conditions or biological research and does not imply benefit. Discuss the evidence limits with your clinician.
+              Not studied for {cond}. This is a question to raise with your doctor, not
+              something shown to help.
             </div>
           )}
           {section === 'researched-not-approved' && (
@@ -8987,10 +8997,10 @@ const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layper
               fontSize: '0.78rem', color: theme.yellow, lineHeight: 1.45
             }}>
               {section === 'no-condition-study-identified'
-                ? `No condition-specific study was identified in this search. This indirect rationale does not imply benefit.`
+                ? `There is no study to link to here — the idea comes from how this works in the body, not from research in ${cond}.`
                 : section === 'study-status-unclear'
-                  ? 'The available information did not establish whether this option has condition-specific research. A clinician should verify before relying on it.'
-                  : `Condition-specific research was described for ${cond}, but no working source link was available in this search. Do not rely on the claim until it is verified.`}
+                  ? `We could not tell whether this has been studied in ${cond}. Ask your doctor to check before relying on it.`
+                  : `We found research in ${cond} for this, but no working link to it in this search. Treat the claim as unconfirmed until someone checks it.`}
             </div>
           )}
           {c.approved_for && itemKind !== 'SUPPORTIVE_CARE' && (
@@ -9021,9 +9031,7 @@ const CandidateCard = ({ c: rawC, rank, highlightMechanistic, audience = 'layper
                 color: theme.accent, fontWeight: 600
               }}>
                 <Flask size={11} /> {lay ? 'Might work by: ' : ''}
-                <InlineMD allowedUrls={allowedUrls} text={String(c.mechanism_target).length > (lay ? 100 : 80)
-                  ? String(c.mechanism_target).slice(0, (lay ? 97 : 77)) + '…'
-                  : c.mechanism_target} />
+                <InlineMD allowedUrls={allowedUrls} text={clampText(c.mechanism_target, lay ? 100 : 80)} />
               </span>
             )}
           </div>

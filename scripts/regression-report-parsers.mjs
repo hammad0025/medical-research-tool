@@ -520,7 +520,7 @@ head('7 — index.html rendering guards (InlineMD wired, "(link removed" gone)')
     /<InlineMD\b[^>]*text=\{String\(t\.provider\)\.replace\(\/\^Mechanism:\\s\*\/i, ''\)\}[^>]*\/>/, // "Also FDA-approved" overflow list provider
     /<InlineMD\b[^>]*text=\{c\.class\}[^>]*\/>/,                                                     // CandidateCard drug class
     /<InlineMD\b[^>]*text=\{c\.approved_for\}[^>]*\/>/,                                              // CandidateCard "usually used for"
-    /<InlineMD[\s\S]{0,120}text=\{String\(c\.mechanism_target\)\.length/                              // CandidateCard "might work by" / mechanism
+    /<InlineMD[\s\S]{0,120}text=\{clampText\(c\.mechanism_target/                                     // CandidateCard "might work by" / mechanism
   ];
   const sweepCount = sweepWired.filter((re) => re.test(indexSrc)).length;
   if (sweepCount === sweepWired.length) {
