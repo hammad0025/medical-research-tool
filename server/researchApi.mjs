@@ -1800,21 +1800,30 @@ const sourceBackedReportFallback = (packet) => {
   const sources = Array.isArray(packet?.sources) ? packet.sources : []
   const labelCount = sources.filter((source) => source?.origin === 'openFDA' || /FDA drug label/i.test(source?.type || '')).length
   const articleCount = sources.length - labelCount
-  const researchTypes = [...new Set(trials
-    .flatMap((trial) => Array.isArray(trial?.interventionDetails) ? trial.interventionDetails : [])
-    .map((entry) => cleanText(entry?.type, 60).toUpperCase())
-    .filter(Boolean)
-    .map((type) => ({
-      GENETIC: 'gene',
-      BIOLOGICAL: 'cell or biologic',
-      DRUG: 'drug',
-      COMBINATION_PRODUCT: 'combination-treatment',
-      DIETARY_SUPPLEMENT: 'supplement',
-      DEVICE: 'device',
-      PROCEDURE: 'procedure',
-      RADIATION: 'procedure',
-    }[type] || 'treatment')))]
-    .slice(0, 4)
+  const researchTypes = [...new Set(
+    trials
+      .flatMap((trial) => Array.isArray(trial?.interventionDetails) ? trial.interventionDetails : [])
+      .map((entry) => cleanText(entry?.type, 60).toUpperCase())
+      .filter(Boolean)
+      .map((type) => ({
+        GENETIC: 'gene',
+        BIOLOGICAL: 'cell or biologic',
+        DRUG: 'drug',
+        COMBINATION_PRODUCT: 'combination-treatment',
+        DIETARY_SUPPLEMENT: 'supplement',
+        DEVICE: 'device',
+        PROCEDURE: 'procedure',
+        RADIATION: 'procedure',
+      }[type]))
+      .filter(Boolean),
+  )].slice(0, 4)
+  const researchTypeText = researchTypes.length === 1
+    ? researchTypes[0]
+    : researchTypes.length === 2
+      ? researchTypes.join(' and ')
+      : researchTypes.length > 2
+        ? `${researchTypes.slice(0, -1).join(', ')}, and ${researchTypes[researchTypes.length - 1]}`
+        : ''
   const sourceIds = [
     ...trials.slice(0, 3).map((trial) => trial?.id),
     ...sources.slice(0, 2).map((source) => source?.id),
@@ -1844,7 +1853,7 @@ const sourceBackedReportFallback = (packet) => {
   return {
     briefing: sourceIds.length
       ? {
-        text: `This report brings together ${trials.length} current study record${trials.length === 1 ? '' : 's'} and ${articleCount} source-linked research record${articleCount === 1 ? '' : 's'} for ${condition}.${labelCount ? ` It also found ${labelCount} official U.S. drug-label record${labelCount === 1 ? '' : 's'} that mention this condition.` : ''}${researchTypes.length ? ` The current studies include ${researchTypes.join(', ')} research.` : ''} The cards below separate official label information from early research and link to the exact records.`,
+        text: `This report brings together ${trials.length} current study record${trials.length === 1 ? '' : 's'} and ${articleCount} source-linked research record${articleCount === 1 ? '' : 's'} for ${condition}.${labelCount ? ' It also found official U.S. drug-label records that mention this condition.' : ''}${researchTypeText ? ` The current studies include ${researchTypeText} research.` : ''} The cards below separate official label information from early research and link to the exact records.`,
         sourceIds,
         reason: 'Built directly from the live source packet because the AI briefing was unavailable or withheld.',
       }
