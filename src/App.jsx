@@ -8,6 +8,7 @@ import {
 import { findDirectIdentifier, findProfilePrivacyIssue, privacyIssueMessage } from './lib/privacy.js'
 import { createPdfDocument, createWordDocument, downloadExport, reportFilename } from './lib/reportExports.js'
 import { extractResearchIntake, getResearchHealth, getSiteAccessStatus, loginSiteAccess, logoutSiteAccess, runResearchReview } from './lib/researchApi.js'
+import { citationText, citationsFor, citationsForClaim, sourceLabel } from './lib/sourceLinks.js'
 
 const conditions = [
   { value: 'Idiopathic Pulmonary Fibrosis', label: 'IPF' },
@@ -95,16 +96,18 @@ const baselinePipeline = [
   { id: 'reviewer', label: 'Second source-check pass', status: 'ready', detail: 'A separate AI pass is used when configured; it is independent only when a different provider checks the draft.' },
 ]
 
-const sourceLabel = (source) => source?.label || source?.title || 'Source'
+const searchTermsFor = (result) => Array.isArray(result?.exploration?.searchTerms) ? result.exploration.searchTerms : []
 
-const citationsFor = (result, sourceIds) => {
-  if (!sourceIds?.length) return []
-  const byId = new Map(
-    [...(result?.sources || []), ...(result?.trials || [])]
-      .filter((item) => item?.id && item?.url)
-      .map((item) => [item.id, item]),
-  )
-  return sourceIds.map((id) => byId.get(id)).filter(Boolean)
+const claimCitations = (result, item, condition, { verifyWhenEmpty = false } = {}) => {
+  const trialCitations = Array.isArray(item?.trials) ? item.trials.filter((trial) => trial?.url) : []
+  if (trialCitations.length) return trialCitations
+  return citationsForClaim({
+    result,
+    sourceIds: item?.sourceIds,
+    condition,
+    searchTerms: searchTermsFor(result),
+    verifyWhenEmpty,
+  })
 }
 
 const isDisplayableTrialIntervention = (title) => !/^(?:arm|group|cohort)\s*(?:\d+|[a-z])$|^(?:placebo|sham|no intervention|standard(?: care| treatment)?|usual(?: care| treatment)?|routine(?: care| treatment)?|supportive care|observation(?:al)?)(?:\b|:)|\b(?:blood (?:test|draw|sample)|biomarker|imaging|scan|mri|pet|diagnostic|diagnosis|screening|assessment|questionnaire|survey|monitoring|registry|observation)\b|\b(?:clinical|sham)\s+(?:dbs\s+)?(?:setting|configuration|programming)\b|\bimmunosuppressive regimen\b|\bcustomized microinjection device\b/i.test(title)
@@ -216,7 +219,7 @@ const sourceTreatmentIdeas = (sources, condition) => {
       sourceIds: [source.id],
       kind: 'source',
     })
-    if (ideas.length === 6) break
+    if (ideas.length === 10) break
   }
   return ideas
 }
@@ -256,7 +259,7 @@ const treatmentIdeasForReport = (result, condition) => {
     treatmentKeys.add(key)
     treatmentIdeas.push({ ...idea, kind: 'source' })
   }
-  for (const idea of trialInterventionIdeas(result?.trials, condition).slice(0, 6)) {
+  for (const idea of trialInterventionIdeas(result?.trials, condition).slice(0, 10)) {
     const key = treatmentIdeaKey(idea?.title)
     if (!key || treatmentKeys.has(key)) continue
     treatmentKeys.add(key)
@@ -268,9 +271,12 @@ const treatmentIdeasForReport = (result, condition) => {
     treatmentKeys.add(key)
     treatmentIdeas.push(idea)
   }
-
-  if (!treatmentIdeas.length) {
-    treatmentIdeas.push(...explorationTreatmentIdeas(result))
+  for (const idea of explorationTreatmentIdeas(result)) {
+    if (treatmentIdeas.length >= 10) break
+    const key = treatmentIdeaKey(idea?.title)
+    if (!key || treatmentKeys.has(key)) continue
+    treatmentKeys.add(key)
+    treatmentIdeas.push(idea)
   }
 
   return treatmentIdeas.slice(0, 10)
@@ -278,7 +284,7 @@ const treatmentIdeasForReport = (result, condition) => {
 
 const sourceConnectionIdeas = (sources, condition) => (sources || [])
   .filter((source) => source?.id && source?.title)
-  .slice(0, 4)
+  .slice(0, 10)
   .map((source) => ({
     title: `What could this research direction mean for ${condition || 'this condition'}?`,
     candidate: source.title,
@@ -300,6 +306,16 @@ const explorationConnectionIdeas = (result) => (Array.isArray(result?.exploratio
     kind: 'exploration',
   }))
   .filter((idea) => idea.title && idea.whyItIsAQuestion && idea.caution)
+
+const uniqueIdeas = (ideas, limit = 10) => {
+  const used = new Set()
+  return (ideas || []).filter((idea) => {
+    const key = `${idea?.title || ''}|${idea?.candidate || ''}`.toLowerCase().replace(/\s+/g, ' ').trim()
+    if (!key || used.has(key)) return false
+    used.add(key)
+    return true
+  }).slice(0, limit)
+}
 
 const lifestyleSourceMatchers = [
   { title: 'Rehabilitation and activity', pattern: /pulmonary rehabilitation|physical therapy|exercise training|exercise program|vision rehabilitation/i },
@@ -498,6 +514,24 @@ function CitationList({ citations, compact = false }) {
   )
 }
 
+function InlineCitationLinks({ citations, label = 'Sources' }) {
+  if (!citations?.length) return null
+  return (
+    <span className="inline-citations">
+      <span className="inline-citations__label">{label}:</span>
+      {citations.map((citation) => (
+        <a key={citation.url || citation.id} href={citation.url} target="_blank" rel="noreferrer" className="inline-citation-link" title={`Open ${sourceLabel(citation)}`}>
+          {sourceLabel(citation)} <Icon name="external" size={11} />
+        </a>
+      ))}
+    </span>
+  )
+}
+
+function CitedParagraph({ children, citations, className = '' }) {
+  return <p className={className}>{children}<InlineCitationLinks citations={citations} /></p>
+}
+
 function SectionHeader({ eyebrow, title, action }) {
   return (
     <div className="section-heading">
@@ -578,18 +612,18 @@ function EvidenceCard({ item }) {
         </div>
         <StatusPill tone={item.badgeTone === 'verified' ? 'safe' : 'caution'}>{item.badge}</StatusPill>
       </div>
-      <p className="card-summary">{item.summary}</p>
+      <CitedParagraph className="card-summary" citations={item.citations}>{item.summary}</CitedParagraph>
       <dl className="evidence-facts">
-        <div><dt>What to ask about</dt><dd>{item.useCase}</dd></div>
-        <div><dt>What the evidence says</dt><dd>{item.rationale}</dd></div>
-        <div><dt>Things to watch</dt><dd>{item.watchouts}</dd></div>
+        <div><dt>What to ask about</dt><dd>{item.useCase}<InlineCitationLinks citations={item.citations} /></dd></div>
+        <div><dt>What the evidence says</dt><dd>{item.rationale}<InlineCitationLinks citations={item.citations} /></dd></div>
+        <div><dt>Things to watch</dt><dd>{item.watchouts}<InlineCitationLinks citations={item.citations} /></dd></div>
       </dl>
-      <CitationList citations={item.citations} compact />
     </article>
   )
 }
 
 function TrialCard({ trial }) {
+  const citations = trial?.url ? [trial] : []
   return (
     <article className="trial-card">
       <div className="card-topline">
@@ -599,19 +633,20 @@ function TrialCard({ trial }) {
         </div>
         <a className="nct-link" href={trial.url} target="_blank" rel="noreferrer">{trial.id}<Icon name="external" size={13} /></a>
       </div>
-      <p>{trial.summary}</p>
+      <CitedParagraph citations={citations}>{trial.summary}</CitedParagraph>
       <div className="trial-meta">
         <span><strong>{trial.status}</strong></span>
         <span>{trial.location}</span>
         <span>{trial.interventions?.join(', ') || 'Intervention not listed'}</span>
       </div>
-      {trial.caution ? <p className="trial-caution"><Icon name="alert" size={15} />{trial.caution}</p> : null}
-      <p className="trial-sponsor">Sponsor: {trial.sponsor}</p>
+      {trial.caution ? <CitedParagraph className="trial-caution" citations={citations}><Icon name="alert" size={15} />{trial.caution}</CitedParagraph> : null}
+      <CitedParagraph className="trial-sponsor" citations={citations}>Sponsor: {trial.sponsor}</CitedParagraph>
     </article>
   )
 }
 
-function CenterCard({ center }) {
+function CenterCard({ center, result }) {
+  const citations = citationsFor(result, (center.trials || []).map((trial) => trial.id))
   return (
     <article className="center-card">
       <div className="center-number">{center.index}</div>
@@ -619,20 +654,21 @@ function CenterCard({ center }) {
         <h3>{center.name}</h3>
         <p className="center-location">{center.city}</p>
         {center.researchRegionPriority ? <span className="center-priority">U.S. / Europe site preference</span> : null}
-        <p>{center.why}</p>
+        <CitedParagraph citations={citations}>{center.why}</CitedParagraph>
       </div>
     </article>
   )
 }
 
-function ResearcherCard({ researcher }) {
+function ResearcherCard({ researcher, result }) {
   const trialIds = (researcher.trials || []).map((trial) => trial.id).filter(Boolean)
+  const citations = citationsFor(result, trialIds)
   return (
     <article className="researcher-card">
       <p className="card-kicker">{researcher.role || 'Research record'}</p>
       <h3>{researcher.name}</h3>
       {researcher.affiliation ? <p className="researcher-affiliation">{researcher.affiliation}</p> : null}
-      <p>{researcher.why || (trialIds.length ? `Named in the ClinicalTrials.gov record${trialIds.length === 1 ? '' : 's'} for ${trialIds.join(', ')}.` : 'Named in the condition research sources.')}</p>
+      <CitedParagraph citations={citations}>{researcher.why || (trialIds.length ? `Named in the ClinicalTrials.gov record${trialIds.length === 1 ? '' : 's'} for ${trialIds.join(', ')}.` : 'Named in the condition research sources.')}</CitedParagraph>
       {trialIds.length ? <span className="researcher-trials">{trialIds.join(' · ')}</span> : null}
     </article>
   )
@@ -654,11 +690,17 @@ function ReportOverview({ condition, result }) {
   const review = result?.review
   const exploration = result?.exploration
   const briefing = review?.briefing?.text || exploration?.briefing
-  const briefingCitations = citationsFor(result, review?.briefing?.sourceIds)
+  const briefingCitations = citationsForClaim({
+    result,
+    sourceIds: review?.briefing?.sourceIds,
+    condition,
+    searchTerms: searchTermsFor(result),
+    verifyWhenEmpty: Boolean(briefing && !review?.briefing?.text),
+  })
   const questions = Array.isArray(review?.questions) && review.questions.length
     ? review.questions
     : (Array.isArray(exploration?.connections) ? exploration.connections : [])
-      .map((item) => ({ text: item.question }))
+      .map((item) => ({ text: item.question, sourceIds: [], kind: 'exploration' }))
       .filter((item) => item.text)
 
   return (
@@ -668,12 +710,18 @@ function ReportOverview({ condition, result }) {
         title={`What we found about ${condition || 'this condition'}`}
         action={exploration && !review?.briefing?.text ? <StatusPill tone="caution">Research ideas to verify</StatusPill> : null}
       />
-      {briefing ? <p className="report-overview__briefing">{briefing}</p> : <p className="report-overview__briefing">This report brings together treatment research, daily-life questions, current studies, and source links for discussion with a clinician.</p>}
-      {briefingCitations.length ? <CitationList citations={briefingCitations} compact /> : null}
+      {briefing ? <CitedParagraph className="report-overview__briefing" citations={briefingCitations}>{briefing}</CitedParagraph> : <p className="report-overview__briefing">This report brings together treatment research, daily-life questions, current studies, and source links for discussion with a clinician.</p>}
       {questions.length ? (
         <div className="report-overview__questions">
           <h3>Questions to bring to a visit</h3>
-          {questions.slice(0, 4).map((question, index) => <p key={`${question.text}-${index}`}><span>{String(index + 1).padStart(2, '0')}</span>{question.text}</p>)}
+          {questions.slice(0, 4).map((question, index) => (
+            <CitedParagraph
+              key={`${question.text}-${index}`}
+              citations={claimCitations(result, question, condition, { verifyWhenEmpty: question.kind === 'exploration' })}
+            >
+              <span>{String(index + 1).padStart(2, '0')}</span>{question.text}
+            </CitedParagraph>
+          ))}
         </div>
       ) : null}
     </section>
@@ -686,22 +734,22 @@ function ResearchIdeas({ condition, result }) {
   const explorationIdeas = explorationConnectionIdeas(result)
   const sourceIdeas = sourceConnectionIdeas(result?.sources, condition)
   const treatmentMapOnly = treatmentIdeas.length > 0 && treatmentIdeas.every((idea) => idea.kind === 'exploration')
-  const brainstormingIdeas = reviewerIdeas.length
-    ? reviewerIdeas.map((idea) => ({ ...idea, kind: 'source' }))
-    : explorationIdeas.length
-      ? explorationIdeas
-      : sourceIdeas.length
-        ? sourceIdeas
-        : treatmentIdeas.slice(0, 10).map((idea) => ({
-      title: `Could ${idea.title} be worth asking about?`,
-      candidate: idea.title,
-      mechanism: idea.kind === 'source' && idea.category !== 'FDA label' ? idea.whyItMayMatter || '' : '',
-      whyItIsAQuestion: idea.whyItMayMatter || idea.rationale || 'This named treatment appears in current condition-specific research.',
-      caution: idea.caution || idea.boundary || 'This is a research question, not a personal treatment suggestion.',
-      sourceIds: idea.sourceIds || [],
-      trials: idea.trials || [],
-      kind: idea.kind,
-    }))
+  const treatmentConnections = treatmentIdeas.map((idea) => ({
+    title: `Could ${idea.title} be worth asking about?`,
+    candidate: idea.title,
+    mechanism: idea.kind === 'source' && idea.category !== 'FDA label' ? idea.whyItMayMatter || '' : '',
+    whyItIsAQuestion: idea.whyItMayMatter || idea.rationale || 'This named treatment appears in current condition-specific research.',
+    caution: idea.caution || idea.boundary || 'This is a research question, not a personal treatment suggestion.',
+    sourceIds: idea.sourceIds || [],
+    trials: idea.trials || [],
+    kind: idea.kind,
+  }))
+  const brainstormingIdeas = uniqueIdeas([
+    ...reviewerIdeas.map((idea) => ({ ...idea, kind: 'source' })),
+    ...sourceIdeas,
+    ...explorationIdeas,
+    ...treatmentConnections,
+  ], 10)
   const connectionMapOnly = brainstormingIdeas.length > 0 && brainstormingIdeas.every((idea) => idea.kind === 'exploration')
 
   return (
@@ -710,7 +758,7 @@ function ResearchIdeas({ condition, result }) {
         eyebrow="Treatment research"
         title="Drug and treatment ideas to discuss"
       />
-      <p className="section-intro">The first list shows source-linked treatments when available. The second makes careful connections worth checking. Neither list is a personal treatment plan.</p>
+      <p className="section-intro">Each report shows up to 10 researched treatment ideas and 10 AI connections to explore. Every factual claim has a direct source link. AI-only ideas carry official links for verification. Neither list is a personal treatment plan.</p>
 
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
@@ -726,10 +774,9 @@ function ResearchIdeas({ condition, result }) {
                     <div><p className="card-kicker">{idea.kind === 'exploration' ? 'AI research path' : idea.kind === 'trial' ? 'Active study' : idea.category || 'Treatment lead'}</p><h3>{idea.title}</h3></div>
                     <StatusPill tone={idea.requiresExtraReview || idea.kind === 'exploration' ? 'caution' : 'safe'}>{idea.kind === 'exploration' ? 'Verify first' : idea.requiresExtraReview ? 'Extra review' : idea.category === 'FDA label' ? 'FDA label' : idea.kind === 'trial' ? 'Active study' : 'Research lead'}</StatusPill>
                   </div>
-                  <p>{idea.summary || idea.rationale}</p>
-                  {idea.whyItMayMatter ? <p className="research-idea-why"><strong>Why it may matter:</strong> {idea.whyItMayMatter}</p> : null}
+                  <CitedParagraph citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}>{idea.summary || idea.rationale}</CitedParagraph>
+                  {idea.whyItMayMatter ? <CitedParagraph className="research-idea-why" citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}><strong>Why it may matter:</strong> {idea.whyItMayMatter}</CitedParagraph> : null}
                   <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution || idea.boundary}</span></div>
-                  <CitationList citations={idea.kind === 'trial' ? idea.trials : citationsFor(result, idea.sourceIds)} compact />
                 </article>
               ))}
             </div>
@@ -751,11 +798,10 @@ function ResearchIdeas({ condition, result }) {
                     <div><p className="card-kicker">{idea.kind === 'exploration' ? 'AI connection' : 'Idea to explore'}</p><h3>{idea.title}</h3></div>
                     <StatusPill tone={idea.kind === 'exploration' ? 'caution' : 'experimental'}>{idea.kind === 'exploration' ? 'Verify first' : 'Exploratory'}</StatusPill>
                   </div>
-                  {idea.candidate ? <p className="research-idea-candidate"><strong>Research topic:</strong> {idea.candidate}</p> : null}
-                  <p><strong>Why explore:</strong> {idea.whyItIsAQuestion}</p>
-                  {idea.mechanism ? <p className="research-idea-why"><strong>What researchers are looking at:</strong> {idea.mechanism}</p> : null}
+                  {idea.candidate ? <CitedParagraph className="research-idea-candidate" citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}><strong>Research topic:</strong> {idea.candidate}</CitedParagraph> : null}
+                  <CitedParagraph citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}><strong>Why explore:</strong> {idea.whyItIsAQuestion}</CitedParagraph>
+                  {idea.mechanism ? <CitedParagraph className="research-idea-why" citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}><strong>What researchers are looking at:</strong> {idea.mechanism}</CitedParagraph> : null}
                   <div className="research-idea-boundary"><Icon name="alert" size={16} /><span>{idea.caution}</span></div>
-                  <CitationList citations={idea.kind === 'trial' ? idea.trials : citationsFor(result, idea.sourceIds)} compact />
                 </article>
               ))}
             </div>
@@ -772,6 +818,7 @@ function LifestyleResearch({ result }) {
   const lifestyle = lifestyleIdeasForReport(result)
   const hasFallback = lifestyle.some((item) => item.sourceLinkedFallback)
   const hasStartingMap = lifestyle.some((item) => item.needsVerification)
+  const condition = result?.patient?.condition
 
   return (
     <section className="lifestyle-research section-surface">
@@ -787,9 +834,8 @@ function LifestyleResearch({ result }) {
             <article className="lifestyle-card" key={item.title}>
               <p className="card-kicker">{item.needsVerification ? 'AI starting map' : 'Discussion point'}</p>
               <h3>{item.title}</h3>
-              <p>{item.summary}</p>
+              <CitedParagraph citations={claimCitations(result, item, condition, { verifyWhenEmpty: item.needsVerification })}>{item.summary}</CitedParagraph>
               <div className="lifestyle-caution"><Icon name="shield" size={16} /><span>{item.caution}</span></div>
-              <CitationList citations={citationsFor(result, item.sourceIds)} compact />
             </article>
           ))}
         </div>
@@ -804,6 +850,7 @@ function SafetyResearch({ result }) {
   const safety = safetyIdeasForReport(result)
   const hasFallback = safety.some((item) => item.sourceLinkedFallback)
   const hasStartingMap = safety.some((item) => item.needsVerification)
+  const condition = result?.patient?.condition
 
   return (
     <section className="safety-research section-surface">
@@ -819,9 +866,8 @@ function SafetyResearch({ result }) {
             <article className="safety-card" key={item.title}>
               <p className="card-kicker">{item.needsVerification ? 'AI starting map' : 'Safety consideration'}</p>
               <h3>{item.title}</h3>
-              <p>{item.summary}</p>
+              <CitedParagraph citations={claimCitations(result, item, condition, { verifyWhenEmpty: item.needsVerification })}>{item.summary}</CitedParagraph>
               <div className="safety-caution"><Icon name="alert" size={16} /><span>{item.caution}</span></div>
-              <CitationList citations={citationsFor(result, item.sourceIds)} compact />
             </article>
           ))}
         </div>
@@ -914,12 +960,12 @@ function UniversalReport({ condition, form, result }) {
           <section className="two-column-section">
             <section className="section-surface centers-surface">
               <SectionHeader eyebrow="Institutions & specialists" title={centerMode ? 'Research institutions and study sites' : 'Institutions in this source pack'} action={<StatusPill tone="neutral">Location-aware</StatusPill>} />
-              {result.centers?.length ? <div className="center-list">{result.centers.map((center, index) => <CenterCard key={`${center.name}-${center.city}`} center={{ ...center, index: String(index + 1).padStart(2, '0') }} />)}</div> : <RequiredSectionEmptyState title={hasAiStartingMap ? 'Find a specialty team next.' : 'Use the live trial search to find study sites.'} icon="search">{hasAiStartingMap ? <>Use the research questions and search directions in this map to find academic disease-specific centers, then confirm expertise with a clinician or disease foundation.</> : <>You can also ask a clinician or disease foundation for a specialist directory. The app will not invent a “best doctor” list.</>}</RequiredSectionEmptyState>}
+              {result.centers?.length ? <div className="center-list">{result.centers.map((center, index) => <CenterCard key={`${center.name}-${center.city}`} center={{ ...center, index: String(index + 1).padStart(2, '0') }} result={result} />)}</div> : <RequiredSectionEmptyState title={hasAiStartingMap ? 'Find a specialty team next.' : 'Use the live trial search to find study sites.'} icon="search">{hasAiStartingMap ? <>Use the research questions and search directions in this map to find academic disease-specific centers, then confirm expertise with a clinician or disease foundation.</> : <>You can also ask a clinician or disease foundation for a specialist directory. The app will not invent a “best doctor” list.</>}</RequiredSectionEmptyState>}
               {result.researchers?.length ? (
                 <div className="researcher-section">
                   <h3>Researchers named in the source records</h3>
                   <p>These people are named in a curated condition source or a current trial record. This is not a quality ranking or a referral list.</p>
-                  <div className="researcher-grid">{result.researchers.map((researcher) => <ResearcherCard key={`${researcher.name}-${researcher.affiliation}`} researcher={researcher} />)}</div>
+                  <div className="researcher-grid">{result.researchers.map((researcher) => <ResearcherCard key={`${researcher.name}-${researcher.affiliation}`} researcher={researcher} result={result} />)}</div>
                 </div>
               ) : null}
               <div className="investigator-note"><Icon name="shield" size={16} /><p>{centerMode ? <><strong>Important:</strong> these are active research sites, not a quality ranking or a guarantee of eligibility. When registry sites are otherwise comparable, U.S. and European locations are shown first as a research-navigation preference.</> : <>The institution list comes from the condition’s curated source pack.</>}</p></div>
@@ -1180,32 +1226,57 @@ function IpfResearchWorkspace({ report, result, copied, onCopy }) {
 
 const reportExportText = ({ form, report, result }) => {
   const isIpf = /ipf|idiopathic pulmonary fibrosis/i.test(form.condition)
+  const condition = form.condition || result?.patient?.condition || 'this condition'
+  const citedLine = (text, citations) => [text, citationText(citations)].filter(Boolean).join(' ')
   const sources = result?.sources?.length ? result.sources : (isIpf ? report.core.citations : [])
   const sourceLines = sources.map((source) => `- ${source.origin || source.type || 'Source'}: ${sourceLabel(source)} (${source.url})`).join('\n')
   const coverageLines = (result?.sourceCoverage || []).map((lane) => `- ${lane.label}: ${lane.status}; ${lane.records || 0} records. ${lane.detail}`).join('\n')
-  const trialLines = (result?.trials || []).map((trial) => `- ${trial.id}: ${trial.title} (${trial.url})`).join('\n')
+  const trialLines = (result?.trials || []).map((trial) => citedLine(`- ${trial.id}: ${trial.title}`, trial?.url ? [trial] : [])).join('\n')
   const interventionLines = treatmentIdeasForReport(result, form.condition)
-    .map((idea) => `- ${idea.title}: ${idea.summary || idea.rationale || 'Named in current condition-specific research.'} ${idea.whyItMayMatter ? `Why it may matter: ${idea.whyItMayMatter}` : ''} ${idea.kind === 'trial' ? idea.trials.map((trial) => `${trial.id} (${trial.url})`).join(', ') : ''}`.trim())
+    .map((idea) => citedLine(
+      `- ${idea.title}: ${idea.summary || idea.rationale || 'Named in current condition-specific research.'} ${idea.whyItMayMatter ? `Why it may matter: ${idea.whyItMayMatter}` : ''}`.trim(),
+      claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' }),
+    ))
     .join('\n')
   const hypotheses = Array.isArray(result?.review?.hypotheses) && result.review.hypotheses.length
     ? result.review.hypotheses
     : explorationConnectionIdeas(result)
   const hypothesisLines = hypotheses
-    .map((idea) => `- ${idea.title}: ${idea.whyItIsAQuestion} Boundary: ${idea.caution}`)
+    .map((idea) => citedLine(`- ${idea.title}: ${idea.whyItIsAQuestion} Boundary: ${idea.caution}`, claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })))
     .join('\n')
   const lifestyleLines = lifestyleIdeasForReport(result)
-    .map((item) => `- ${item.title}: ${item.summary} Boundary: ${item.caution}`)
+    .map((item) => citedLine(`- ${item.title}: ${item.summary} Boundary: ${item.caution}`, claimCitations(result, item, condition, { verifyWhenEmpty: item.needsVerification })))
     .join('\n')
   const safetyLines = safetyIdeasForReport(result)
-    .map((item) => `- ${item.title}: ${item.summary} Context: ${item.caution}`)
+    .map((item) => citedLine(`- ${item.title}: ${item.summary} Context: ${item.caution}`, claimCitations(result, item, condition, { verifyWhenEmpty: item.needsVerification })))
     .join('\n')
   const centerLines = (result?.centers?.length ? result.centers : (isIpf ? report.specialists : []))
-    .map((center) => `- ${center.name}${center.city ? ` (${center.city})` : ''}: ${center.why || 'Condition-specific institution or study site.'}`)
+    .map((center) => citedLine(
+      `- ${center.name}${center.city ? ` (${center.city})` : ''}: ${center.why || 'Condition-specific institution or study site.'}`,
+      citationsFor(result, (center.trials || []).map((trial) => trial.id)),
+    ))
     .join('\n')
   const researcherLines = (result?.researchers || [])
-    .map((researcher) => `- ${researcher.name}${researcher.affiliation ? ` (${researcher.affiliation})` : ''}: ${researcher.why || `${researcher.role || 'Study official'}${researcher.trials?.length ? `; ${researcher.trials.map((trial) => trial.id).filter(Boolean).join(', ')}` : ''}`}`)
+    .map((researcher) => citedLine(
+      `- ${researcher.name}${researcher.affiliation ? ` (${researcher.affiliation})` : ''}: ${researcher.why || `${researcher.role || 'Study official'}${researcher.trials?.length ? `; ${researcher.trials.map((trial) => trial.id).filter(Boolean).join(', ')}` : ''}`}`,
+      citationsFor(result, (researcher.trials || []).map((trial) => trial.id)),
+    ))
     .join('\n')
   const reviewText = result?.review?.briefing?.text || result?.exploration?.briefing || 'This report is ready for a new source search.'
+  const briefingCitations = citationsForClaim({
+    result,
+    sourceIds: result?.review?.briefing?.sourceIds,
+    condition,
+    searchTerms: searchTermsFor(result),
+    verifyWhenEmpty: Boolean(result?.exploration && !result?.review?.briefing?.text),
+  })
+  const questions = Array.isArray(result?.review?.questions) && result.review.questions.length
+    ? result.review.questions
+    : (result?.exploration?.connections || []).map((item) => ({ text: item.question, kind: 'exploration', sourceIds: [] }))
+  const questionLines = questions
+    .filter((question) => question?.text)
+    .map((question) => citedLine(`- ${question.text}`, claimCitations(result, question, condition, { verifyWhenEmpty: question.kind === 'exploration' })))
+    .join('\n')
   const mapNote = result?.exploration
     ? 'AI starting map: These connections are not verified facts or personal treatment advice. Check trusted sources and a clinician before acting on any idea.'
     : 'Source-linked report: Use the cited records to check every treatment and research question.'
@@ -1224,7 +1295,10 @@ const reportExportText = ({ form, report, result }) => {
     `Current treatments: ${form.currentMeds || 'Not supplied'}`,
     '',
     'Reviewed briefing',
-    reviewText,
+    citedLine(reviewText, briefingCitations),
+    '',
+    'Questions to bring to a visit',
+    questionLines || 'Use the source-linked treatment and trial cards to prepare questions for a clinician.',
     '',
     'Report boundary',
     mapNote,
