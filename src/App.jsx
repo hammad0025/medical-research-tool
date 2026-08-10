@@ -123,6 +123,26 @@ const treatmentInterventionTypes = new Set([
   'RADIATION',
 ])
 
+const treatmentCategoryForType = (type) => ({
+  GENETIC: 'Gene therapy research',
+  BIOLOGICAL: 'Biologic or cell research',
+  DRUG: 'Drug research',
+  COMBINATION_PRODUCT: 'Combination research',
+  DIETARY_SUPPLEMENT: 'Supplement research',
+  DEVICE: 'Device research',
+  PROCEDURE: 'Procedure research',
+  RADIATION: 'Procedure research',
+}[String(type || '').toUpperCase()] || 'Treatment research')
+
+const cleanTreatmentDisplayName = (title) => String(title || '')
+  .replace(/^(?:drug|biological|combination product|dietary supplement|genetic|device|procedure|radiation):\s*/i, '')
+  .replace(/\s*\((?:high|low|intermediate|selected) dose(?: and standard corticosteroid regimen)?\)/ig, '')
+  .replace(/\b(?:low|high|intermediate|selected)\s+dose\b/ig, '')
+  .replace(/\b(?:standard|modified)\s+corticosteroid regimen\b/ig, '')
+  .replace(/\s{2,}/g, ' ')
+  .replace(/[;,\s]+$/, '')
+  .trim()
+
 const treatmentInterventionsForTrial = (trial) => {
   if (trial?.conditionMatch === 'broad' || trial?.treatmentFocus === false) return []
   const details = Array.isArray(trial?.interventionDetails) ? trial.interventionDetails : []
@@ -144,8 +164,11 @@ const trialStatusPriority = (status) => ({
 }[String(status || '').toUpperCase()] || 1)
 
 const treatmentTypePriority = (type) => {
-  if (['DRUG', 'BIOLOGICAL', 'COMBINATION_PRODUCT', 'DIETARY_SUPPLEMENT', 'GENETIC'].includes(type)) return 3
-  if (['DEVICE', 'PROCEDURE', 'RADIATION'].includes(type)) return 1
+  if (type === 'GENETIC') return 6
+  if (type === 'BIOLOGICAL') return 5
+  if (['DRUG', 'COMBINATION_PRODUCT'].includes(type)) return 4
+  if (['DEVICE', 'PROCEDURE', 'RADIATION'].includes(type)) return 3
+  if (type === 'DIETARY_SUPPLEMENT') return 1
   return 2
 }
 
@@ -158,12 +181,19 @@ const trialInterventionIdeas = (trials, condition) => {
     const interventions = treatmentInterventionsForTrial(trial)
 
     for (const intervention of interventions) {
-      const title = String(intervention?.title || '').replace(/\s+/g, ' ').trim()
+      const title = cleanTreatmentDisplayName(intervention?.title)
       if (title.length < 2 || !isDisplayableTrialIntervention(title)) continue
 
       const key = treatmentIdeaKey(title) || title.toLocaleLowerCase()
       const priority = treatmentTypePriority(intervention?.type) * 10 + trialStatusPriority(trial?.status)
-      const idea = byIntervention.get(key) || { title, trials: [], priority, appearanceOrder: appearanceOrder++ }
+      const idea = byIntervention.get(key) || {
+        title,
+        category: treatmentCategoryForType(intervention?.type),
+        type: String(intervention?.type || '').toUpperCase(),
+        trials: [],
+        priority,
+        appearanceOrder: appearanceOrder++,
+      }
       idea.priority = Math.max(idea.priority, priority)
       if (!idea.trials.some((source) => source.id === trial.id)) idea.trials.push(trial)
       byIntervention.set(key, idea)
@@ -179,6 +209,7 @@ const trialInterventionIdeas = (trials, condition) => {
       const caution = idea.trials.map((trial) => trial.caution).find(Boolean)
       return {
         ...idea,
+        title: cleanTreatmentDisplayName(idea.title),
         rationale: `This treatment is in ${studyCount} current ${studyLabel} for ${conditionLabel}.`,
         boundary: caution || 'A study listing only shows that researchers are testing it. It does not show that it works, is safe, or is right for this person.',
         requiresExtraReview: Boolean(caution),
@@ -196,42 +227,69 @@ const treatmentIdeaKey = (title) => String(title || '')
   .replace(/[^a-z0-9]+/g, ' ')
   .trim()
 
-const sourceTreatmentMatchers = [
-  { category: 'Gene therapy research', pattern: /\b(?:gene therapy|aav\d*|optogenetic|antisense oligonucleotide|gene editing)\b/i },
-  { category: 'Cell or exosome research', pattern: /\b(?:stem cell|cell therapy|exosome|extracellular vesicle|cell-derived)\b/i },
-  { category: 'Drug or supplement research', pattern: /\b(?:drug|medicine|oral|vitamin|supplement|fish oil|antioxidant|peptide|capsule|tablet)\b/i },
-  { category: 'Procedure or device research', pattern: /\b(?:surgery|transplant|vitrectomy|implant|laser|device|prosthe)\b/i },
-]
+const researchGeneFromText = (text) => {
+  const matches = [
+    text.match(/\b([A-Z][A-Z0-9-]{2,12})[- ]associated\b/),
+    text.match(/\b(?:mutation|variant|variants?)\s+(?:in|of)\s+([A-Z][A-Z0-9-]{2,12})\b/i),
+    text.match(/\b(?:caused by|due to)\s+(?:a\s+)?(?:mutation|variant)\s+(?:in\s+)?([A-Z][A-Z0-9-]{2,12})\b/i),
+  ]
+  return matches.map((match) => match?.[1]).find(Boolean) || ''
+}
+
+const sourceTreatmentCandidates = (source) => {
+  const text = `${source?.title || ''} ${source?.summary || ''}`
+  const candidates = []
+  const add = (title, category) => {
+    const cleanTitle = cleanTreatmentDisplayName(title)
+    if (!cleanTitle || !isDisplayableTrialIntervention(cleanTitle)) return
+    if (!candidates.some((candidate) => treatmentIdeaKey(candidate.title) === treatmentIdeaKey(cleanTitle))) {
+      candidates.push({ title: cleanTitle, category })
+    }
+  }
+  const gene = researchGeneFromText(text)
+  const aav = text.match(/\b(?:r?AAV[\w.-]+)(?:\s*\([^)]{2,90}\))?/i)?.[0]
+
+  if (aav) add(aav, 'Gene therapy research')
+  if (/\bantisense oligonucleotide\b/i.test(text)) add(gene ? `${gene} antisense oligonucleotide` : 'Antisense oligonucleotide', 'RNA treatment research')
+  if (/\b(?:gene therapy|gene editing)\b/i.test(text)) add(gene ? `${gene} gene therapy` : 'Gene therapy', 'Gene therapy research')
+  if (/\boptogenetic/i.test(text)) add('Optogenetic therapy', 'Gene or device research')
+  if (/\b(?:stem cell|cell therapy|extracellular vesicle|exosome)\b/i.test(text)) add('Cell or extracellular-vesicle research', 'Cell or exosome research')
+  if (/\bN-?acetylcysteine\b|\bNAC\b/i.test(text)) add('N-acetylcysteine', 'Drug research')
+  if (/\bcataract surgery\b/i.test(text)) add('Cataract surgery', 'Procedure research')
+  if (/\b(?:retinal implant|retinal prosthe)\b/i.test(text)) add('Retinal implant research', 'Device research')
+  if (/\b(?:micropulse|laser)\b/i.test(text)) add('Laser treatment research', 'Procedure research')
+  if (/\bvitamin\s+A\b/i.test(text)) add('Vitamin A', 'Supplement research')
+  if (/\b(?:fish oil|omega[- ]?3)\b/i.test(text)) add('Fish oil or omega-3', 'Supplement research')
+
+  return candidates
+}
+
+const isArticleTitleLike = (title) => /\b(?:systematic review|meta-analysis|safety and efficacy|phase\s*\d|a study comparing|clinical trial|review of)\b/i.test(String(title || ''))
+const isSupplementIdea = (idea) => /supplement|vitamin|fish oil|omega[- ]?3|dietary/i.test(`${idea?.category || ''} ${idea?.title || ''}`)
 
 const sourceTreatmentIdeas = (sources, condition) => {
   const ideas = []
+  const used = new Set()
   for (const source of sources || []) {
-    const title = String(source?.title || '').replace(/[.\s]+$/, '').trim()
-    const sourceText = `${title} ${source?.summary || ''}`
-    const match = sourceTreatmentMatchers.find((entry) => entry.pattern.test(sourceText))
-    if (!title || !source?.id || !match || !isDisplayableTrialIntervention(title)) continue
-    ideas.push({
-      title: title.length > 150 ? `${title.slice(0, 147).trimEnd()}...` : title,
-      category: match.category,
-      summary: String(source.summary || 'This article describes a treatment topic being researched for this condition.').slice(0, 440),
-      whyItMayMatter: `This source names a treatment topic being studied for ${condition || 'this condition'}.`,
-      caution: 'A research article is not proof that a treatment works or is right for one person. Review the full source with a clinician.',
-      sourceIds: [source.id],
-      kind: 'source',
-    })
-    if (ideas.length === 10) break
+    if (!source?.id) continue
+    for (const candidate of sourceTreatmentCandidates(source)) {
+      const key = treatmentIdeaKey(candidate.title)
+      if (!key || used.has(key)) continue
+      used.add(key)
+      ideas.push({
+        title: candidate.title,
+        category: candidate.category,
+        summary: `This source discusses ${candidate.title} in research on ${condition || 'this condition'}.`,
+        whyItMayMatter: 'Open the source to check the study group, subtype, and results.',
+        caution: 'A research article is not proof that a treatment works or is right for one person. Review the full source with a clinician.',
+        sourceIds: [source.id],
+        kind: 'source',
+      })
+      if (ideas.length === 10) return ideas
+    }
   }
   return ideas
 }
-
-const explorationTreatmentIdeas = (result) => (Array.isArray(result?.exploration?.treatmentPaths) ? result.exploration.treatmentPaths : [])
-  .map((idea) => ({
-    ...idea,
-    category: 'AI research path',
-    kind: 'exploration',
-    requiresExtraReview: true,
-  }))
-  .filter((idea) => idea.title && idea.summary && idea.caution)
 
 const treatmentIdeasForReport = (result, condition) => {
   const sourcedIdeas = Array.isArray(result?.review?.treatmentIdeas) ? result.review.treatmentIdeas : []
@@ -255,9 +313,9 @@ const treatmentIdeasForReport = (result, condition) => {
 
   for (const idea of [...sourcedIdeas, ...labelIdeas]) {
     const key = treatmentIdeaKey(idea?.title)
-    if (!key || treatmentKeys.has(key)) continue
+    if (!key || treatmentKeys.has(key) || isArticleTitleLike(idea?.title)) continue
     treatmentKeys.add(key)
-    treatmentIdeas.push({ ...idea, kind: 'source' })
+    treatmentIdeas.push({ ...idea, title: cleanTreatmentDisplayName(idea.title), kind: 'source' })
   }
   for (const idea of trialInterventionIdeas(result?.trials, condition).slice(0, 10)) {
     const key = treatmentIdeaKey(idea?.title)
@@ -265,35 +323,35 @@ const treatmentIdeasForReport = (result, condition) => {
     treatmentKeys.add(key)
     treatmentIdeas.push({ ...idea, kind: 'trial' })
   }
+  for (const trial of result?.trials || []) {
+    const candidates = sourceTreatmentCandidates({
+      title: trial?.title,
+      summary: `${trial?.summary || ''} ${(trial?.interventions || []).join(' ')}`,
+    })
+    for (const candidate of candidates) {
+      const key = treatmentIdeaKey(candidate.title)
+      if (!key || treatmentKeys.has(key)) continue
+      treatmentKeys.add(key)
+      treatmentIdeas.push({
+        ...candidate,
+        trials: [trial],
+        rationale: `This named research approach appears in a current study for ${condition || 'this condition'}.`,
+        boundary: trial.caution || 'A study listing only shows that researchers are testing it. It does not show that it works, is safe, or is right for this person.',
+        requiresExtraReview: Boolean(trial.caution),
+        kind: 'trial',
+      })
+    }
+  }
   for (const idea of sourceTreatmentIdeas(result?.sources, condition)) {
     const key = treatmentIdeaKey(idea?.title)
     if (!key || treatmentKeys.has(key)) continue
     treatmentKeys.add(key)
     treatmentIdeas.push(idea)
   }
-  for (const idea of explorationTreatmentIdeas(result)) {
-    if (treatmentIdeas.length >= 10) break
-    const key = treatmentIdeaKey(idea?.title)
-    if (!key || treatmentKeys.has(key)) continue
-    treatmentKeys.add(key)
-    treatmentIdeas.push(idea)
-  }
-
-  return treatmentIdeas.slice(0, 10)
+  return treatmentIdeas
+    .sort((left, right) => Number(isSupplementIdea(left)) - Number(isSupplementIdea(right)))
+    .slice(0, 10)
 }
-
-const sourceConnectionIdeas = (sources, condition) => (sources || [])
-  .filter((source) => source?.id && source?.title)
-  .slice(0, 10)
-  .map((source) => ({
-    title: `What could this research direction mean for ${condition || 'this condition'}?`,
-    candidate: source.title,
-    mechanism: source.summary || source.title,
-    whyItIsAQuestion: 'This source is a useful starting point for connecting the condition to a treatment or pathway question.',
-    caution: 'This is a research question based on a source title or abstract, not a personal treatment suggestion.',
-    sourceIds: [source.id],
-    kind: 'source',
-  }))
 
 const explorationConnectionIdeas = (result) => (Array.isArray(result?.exploration?.connections) ? result.exploration.connections : [])
   .map((idea) => ({
@@ -532,6 +590,33 @@ function CitedParagraph({ children, citations, className = '' }) {
   return <p className={className}>{children}<InlineCitationLinks citations={citations} /></p>
 }
 
+const splitIntoSentences = (value) => (String(value || '').match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g) || [])
+  .map((sentence) => sentence.trim())
+  .filter(Boolean)
+
+function CitedSentences({ text, citations, className = '' }) {
+  const sentences = splitIntoSentences(text)
+  if (sentences.length < 2) return <CitedParagraph className={className} citations={citations}>{text}</CitedParagraph>
+  return (
+    <div className={`${className} cited-sentences`}>
+      {sentences.map((sentence, index) => <CitedParagraph key={`${sentence}-${index}`} citations={citations}>{sentence}</CitedParagraph>)}
+    </div>
+  )
+}
+
+function CitationActions({ citations, label = 'Open source' }) {
+  if (!citations?.length) return null
+  return (
+    <div className="citation-actions">
+      {citations.map((citation, index) => (
+        <a key={citation.url || citation.id} href={citation.url} target="_blank" rel="noreferrer" className="citation-action">
+          {index === 0 ? label : 'More evidence'} <Icon name="external" size={12} />
+        </a>
+      ))}
+    </div>
+  )
+}
+
 function SectionHeader({ eyebrow, title, action }) {
   return (
     <div className="section-heading">
@@ -710,7 +795,7 @@ function ReportOverview({ condition, result }) {
         title={`What we found about ${condition || 'this condition'}`}
         action={exploration && !review?.briefing?.text ? <StatusPill tone="caution">Research ideas to verify</StatusPill> : null}
       />
-      {briefing ? <CitedParagraph className="report-overview__briefing" citations={briefingCitations}>{briefing}</CitedParagraph> : <p className="report-overview__briefing">This report brings together treatment research, daily-life questions, current studies, and source links for discussion with a clinician.</p>}
+      {briefing ? <CitedSentences className="report-overview__briefing" citations={briefingCitations} text={briefing} /> : <p className="report-overview__briefing">This report brings together treatment research, daily-life questions, current studies, and source links for discussion with a clinician.</p>}
       {questions.length ? (
         <div className="report-overview__questions">
           <h3>Simple questions to ask your doctor</h3>
@@ -732,81 +817,92 @@ function ResearchIdeas({ condition, result }) {
   const treatmentIdeas = treatmentIdeasForReport(result, condition)
   const reviewerIdeas = Array.isArray(result?.review?.hypotheses) ? result.review.hypotheses : []
   const explorationIdeas = explorationConnectionIdeas(result)
-  const sourceIdeas = sourceConnectionIdeas(result?.sources, condition)
-  const treatmentMapOnly = treatmentIdeas.length > 0 && treatmentIdeas.every((idea) => idea.kind === 'exploration')
   const treatmentConnections = treatmentIdeas.map((idea) => ({
-    title: `Could ${idea.title} be worth asking about?`,
+    title: `${idea.title}: a research question`,
     candidate: idea.title,
-    mechanism: idea.kind === 'source' && idea.category !== 'FDA label' ? idea.whyItMayMatter || '' : '',
-    whyItIsAQuestion: idea.whyItMayMatter || idea.rationale || 'This named treatment appears in current condition-specific research.',
+    mechanism: `This report names ${idea.title} in condition-specific research or a current study.`,
+    whyItIsAQuestion: 'What evidence would show whether this research lead belongs in this condition?',
     caution: idea.caution || idea.boundary || 'This is a research question, not a personal treatment suggestion.',
     sourceIds: idea.sourceIds || [],
     trials: idea.trials || [],
-    kind: idea.kind,
+    kind: 'source-hypothesis',
   }))
   const brainstormingIdeas = uniqueIdeas([
-    ...reviewerIdeas.map((idea) => ({ ...idea, kind: 'source' })),
-    ...sourceIdeas,
     ...explorationIdeas,
+    ...reviewerIdeas.map((idea) => ({ ...idea, kind: 'source-hypothesis' })),
     ...treatmentConnections,
   ], 10)
-  const connectionMapOnly = brainstormingIdeas.length > 0 && brainstormingIdeas.every((idea) => idea.kind === 'exploration')
 
   return (
     <section className="research-ideas section-surface">
       <SectionHeader
         eyebrow="Treatment research"
-        title="Drug and treatment ideas to discuss"
+        title="10 researched leads + 10 ideas to investigate"
       />
-      <p className="section-intro">Each report shows up to 10 researched treatment ideas and 10 AI connections to explore. Every factual claim has a direct source link. AI-only ideas carry official links for verification. Neither list is a personal treatment plan.</p>
+      <p className="section-intro">These are two separate lists. The first contains named treatments or research technologies from current studies and papers. The second contains careful AI questions to investigate. Every card has a direct evidence or verification link. Neither list is a treatment plan.</p>
 
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">Treatment ideas from research</p><p>{treatmentMapOnly ? 'Possible treatment paths generated by AI. Check each one against trusted sources.' : 'Drugs, supplements, devices, procedures, and cell or gene treatments named in sources or current studies.'}</p></div>
-            <StatusPill tone={treatmentIdeas.length ? (treatmentMapOnly ? 'caution' : 'safe') : 'neutral'}>{treatmentIdeas.length ? (treatmentMapOnly ? 'Ideas to verify' : 'Source-linked') : 'Search guide'}</StatusPill>
+            <div><p className="card-kicker">Researched treatment leads</p><p>Named gene, RNA, cell, drug, device, and procedure leads from current studies and papers. Supplements appear only when a condition-specific study names them.</p></div>
+            <StatusPill tone={treatmentIdeas.length ? 'safe' : 'neutral'}>{treatmentIdeas.length}/10 source-linked</StatusPill>
           </div>
           {treatmentIdeas.length ? (
             <div className="research-ideas-grid">
-              {treatmentIdeas.slice(0, 10).map((idea) => (
-                <article className={idea.requiresExtraReview || idea.kind === 'exploration' ? 'idea-card research-idea-card research-idea-card--caution' : 'idea-card research-idea-card'} key={idea.title}>
+              {treatmentIdeas.slice(0, 10).map((idea, index) => {
+                const citations = claimCitations(result, idea, condition)
+                const sourceLabel = idea.kind === 'trial' ? 'Open current study' : 'Open research source'
+                return (
+                <article className={idea.requiresExtraReview ? 'idea-card research-idea-card research-idea-card--caution' : 'idea-card research-idea-card'} key={idea.title}>
+                  <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
                   <div className="card-topline">
-                    <div><p className="card-kicker">{idea.kind === 'exploration' ? 'AI research path' : idea.kind === 'trial' ? 'Active study' : idea.category || 'Treatment lead'}</p><h3>{idea.title}</h3></div>
-                    <StatusPill tone={idea.requiresExtraReview || idea.kind === 'exploration' ? 'caution' : 'safe'}>{idea.kind === 'exploration' ? 'Verify first' : idea.requiresExtraReview ? 'Extra review' : idea.category === 'FDA label' ? 'FDA label' : idea.kind === 'trial' ? 'Active study' : 'Research lead'}</StatusPill>
+                    <div><p className="card-kicker">{idea.kind === 'trial' ? 'Current study' : idea.category || 'Research lead'}</p><h3>{idea.title}</h3></div>
+                    <StatusPill tone={idea.requiresExtraReview ? 'caution' : 'safe'}>{idea.requiresExtraReview ? 'Extra review' : idea.kind === 'trial' ? 'Current study' : 'Paper linked'}</StatusPill>
                   </div>
-                  <CitedParagraph citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}>{idea.summary || idea.rationale}</CitedParagraph>
-                  {idea.whyItMayMatter ? <CitedParagraph className="research-idea-why" citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}><strong>Why it may matter:</strong> {idea.whyItMayMatter}</CitedParagraph> : null}
+                  <dl className="research-idea-facts">
+                    <div><dt>What it is</dt><dd>{idea.category || 'Treatment research'}</dd></div>
+                    <div><dt>Evidence</dt><dd>{idea.kind === 'trial' ? 'Current clinical study' : 'Published research'}</dd></div>
+                  </dl>
+                  <CitedParagraph citations={citations}>{idea.summary || idea.rationale}</CitedParagraph>
+                  {idea.whyItMayMatter ? <CitedParagraph className="research-idea-why" citations={citations}><strong>Why it may matter:</strong> {idea.whyItMayMatter}</CitedParagraph> : null}
                   <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution || idea.boundary}</span></div>
+                  <CitationActions citations={citations} label={sourceLabel} />
                 </article>
-              ))}
+                )
+              })}
             </div>
           ) : (
-            <div className="research-idea-empty"><Icon name="search" size={18} /><p>Use a subtype, gene result, symptom pattern, or treatment goal to build more focused treatment search directions.</p></div>
+            <div className="research-idea-empty"><Icon name="search" size={18} /><p>The live sources did not name a usable treatment lead. Use the verification cards below to search by subtype, gene, or treatment goal.</p></div>
           )}
         </section>
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">AI connections to explore</p><p>{connectionMapOnly ? 'These are careful AI-generated connections. Verify them before treating them as facts.' : 'These are early questions based on the current research. They are not treatment recommendations.'}</p></div>
-            <StatusPill tone={brainstormingIdeas.length ? (connectionMapOnly ? 'caution' : 'experimental') : 'neutral'}>{brainstormingIdeas.length ? (connectionMapOnly ? 'Verify each idea' : 'Explore carefully') : 'Search guide'}</StatusPill>
+            <div><p className="card-kicker">AI ideas to investigate</p><p>These are specific questions about known treatment leads, genes, pathways, or research platforms. They are not established treatments or recommendations.</p></div>
+            <StatusPill tone={brainstormingIdeas.length ? 'experimental' : 'neutral'}>{brainstormingIdeas.length}/10 to verify</StatusPill>
           </div>
           {brainstormingIdeas.length ? (
             <div className="research-ideas-grid">
-              {brainstormingIdeas.slice(0, 10).map((idea) => (
+              {brainstormingIdeas.slice(0, 10).map((idea, index) => {
+                const citations = claimCitations(result, idea, condition, { verifyWhenEmpty: true })
+                return (
                 <article className="idea-card research-idea-card research-idea-card--exploratory" key={idea.title}>
+                  <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
                   <div className="card-topline">
-                    <div><p className="card-kicker">{idea.kind === 'exploration' ? 'AI connection' : 'Idea to explore'}</p><h3>{idea.title}</h3></div>
-                    <StatusPill tone={idea.kind === 'exploration' ? 'caution' : 'experimental'}>{idea.kind === 'exploration' ? 'Verify first' : 'Exploratory'}</StatusPill>
+                    <div><p className="card-kicker">AI research idea</p><h3>{idea.title}</h3></div>
+                    <StatusPill tone="experimental">Verify first</StatusPill>
                   </div>
-                  {idea.candidate ? <CitedParagraph className="research-idea-candidate" citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}><strong>Research topic:</strong> {idea.candidate}</CitedParagraph> : null}
-                  <CitedParagraph citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}><strong>Why explore:</strong> {idea.whyItIsAQuestion}</CitedParagraph>
-                  {idea.mechanism ? <CitedParagraph className="research-idea-why" citations={claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })}><strong>What researchers are looking at:</strong> {idea.mechanism}</CitedParagraph> : null}
+                  {idea.candidate ? <CitedParagraph className="research-idea-candidate" citations={citations}><strong>Starting point:</strong> {idea.candidate}</CitedParagraph> : null}
+                  <CitedParagraph citations={citations}><strong>Question to test:</strong> {idea.whyItIsAQuestion}</CitedParagraph>
+                  {idea.mechanism ? <CitedParagraph className="research-idea-why" citations={citations}><strong>Why it could connect:</strong> {idea.mechanism}</CitedParagraph> : null}
                   <div className="research-idea-boundary"><Icon name="alert" size={16} /><span>{idea.caution}</span></div>
+                  <CitationActions citations={citations} label={idea.kind === 'exploration' ? 'Open verification search' : 'Open supporting source'} />
                 </article>
-              ))}
+                )
+              })}
             </div>
           ) : (
-            <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>Add a subtype, gene result, symptoms, or a treatment question to make this connection map more specific.</p></div>
+            <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>Use a subtype, gene result, or named treatment lead to build specific research questions.</p></div>
           )}
         </section>
       </div>
