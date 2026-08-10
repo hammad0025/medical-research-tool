@@ -482,6 +482,13 @@ test('the passcode gate protects the API with a server-only session cookie', asy
   const wrongLogin = await callRoute(routes.get('/api/access/login'), 'POST', { passcode: 'wrong' })
   assert.equal(wrongLogin.status, 401)
 
+  // A real demo user can mistype a shared passcode several times. The correct
+  // passcode must recover access instead of inheriting that temporary limit.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const retry = await callRoute(routes.get('/api/access/login'), 'POST', { passcode: `wrong-${attempt}` })
+    assert.equal(retry.status, 401)
+  }
+
   const login = await callRoute(routes.get('/api/access/login'), 'POST', { passcode })
   assert.equal(login.status, 200)
   assert.equal(login.body.access, 'granted')
