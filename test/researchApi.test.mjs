@@ -75,7 +75,7 @@ const unrelatedStemCellTrial = {
 }
 
 const writerDraft = {
-  briefing: 'This packet includes a current study and source-linked research for retinitis pigmentosa.',
+  briefing: 'Retinitis pigmentosa is a group of inherited eye diseases that slowly damage the retina. A gene result and the amount of working retina can change which research paths are worth checking.',
   researchQuestions: [{
     text: 'Could a retina specialist explain whether this study is relevant to the person’s condition?',
     sourceIds: ['NCT00000001'],
@@ -108,6 +108,15 @@ const writerDraft = {
     caution: 'This is a research question, not a recommendation to use the treatment.',
     sourceIds: ['NCT00000001'],
   }],
+  theoryIdeas: [{
+    title: 'Vitamin D signaling and retinal cell stress',
+    category: 'Supplement mechanism to verify',
+    whyItCouldConnect: 'Vitamin D signaling is a biological topic that could be checked for a link to retinal cell stress.',
+    whyNotEstablished: 'This report did not find a source-backed RP treatment lead for this idea.',
+    caution: 'This is a theory to verify, not a personal treatment recommendation.',
+    verificationQuery: 'retinitis pigmentosa vitamin D retinal cell stress',
+    sourceIds: ['rp-nei-condition-overview'],
+  }],
   claimsForReview: [{
     claim: 'A current study is testing AAV-RP therapy for retinitis pigmentosa.',
     sourceIds: ['NCT00000001'],
@@ -127,6 +136,7 @@ const reviewerDraft = {
   lifestyle: [{ index: 0, decision: 'approve', item: writerDraft.lifestyle[0], reason: 'Source-linked daily-life topic.' }],
   safety: [{ index: 0, decision: 'approve', item: writerDraft.safety[0], reason: 'Source-linked caution.' }],
   hypotheses: [{ index: 0, decision: 'approve', item: writerDraft.hypotheses[0], reason: 'Clearly exploratory.' }],
+  theoryIdeas: [{ index: 0, decision: 'approve', item: writerDraft.theoryIdeas[0], reason: 'Clearly marked as unverified.' }],
   flags: [],
 }
 
@@ -164,6 +174,7 @@ const sparseReviewerDraft = {
   lifestyle: [],
   safety: [],
   hypotheses: [],
+  theoryIdeas: [],
 }
 
 const jsonResponse = (body, status = 200) => ({
@@ -290,7 +301,9 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.status, 'ready')
   assert.equal(response.body.patient.condition, 'Retinitis Pigmentosa')
   assert.ok(mock.pubMedTerms.some((term) => term.includes('Retinitis Pigmentosa')))
-  assert.equal(response.body.sources.length, 1)
+  assert.equal(response.body.sources.length, 3)
+  assert.ok(response.body.sources.some((source) => source.id === 'rp-nei-condition-overview'))
+  assert.ok(response.body.sources.some((source) => source.id === 'rp-fda-luxturna-rpe65'))
   assert.equal(response.body.trials.length, 1)
   assert.deepEqual(response.body.trials.map((item) => item.id), ['NCT00000001'])
   assert.ok(!response.body.trials.some((item) => /NAION|umbilical cord/i.test(item.title)))
@@ -299,6 +312,9 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.review.lifestyle.length, 1)
   assert.equal(response.body.review.safety.length, 1)
   assert.equal(response.body.review.hypotheses.length, 1)
+  assert.equal(response.body.review.theoryIdeas.length, 10)
+  assert.ok(response.body.review.theoryIdeas.some((idea) => idea.title === 'Vitamin D signaling and retinal cell stress'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => !/\bhigh[-\s]?dose\b/i.test(`${idea.title} ${idea.whyItCouldConnect} ${idea.caution}`)))
   assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
   assert.equal(response.body.review.questions[0].text, 'Could this study fit me?')
   assert.ok((response.body.review.questions[0].text.match(/[A-Za-z0-9']+/g) || []).length <= 12)
@@ -318,7 +334,7 @@ test('a registry outage is labeled unavailable instead of as an empty trial sear
   const registry = response.body.sourceCoverage.find((lane) => lane.id === 'clinicaltrials-gov')
   assert.equal(response.status, 200)
   assert.equal(response.body.status, 'ready')
-  assert.equal(response.body.sources.length, 1)
+  assert.equal(response.body.sources.length, 3)
   assert.equal(response.body.trials.length, 0)
   assert.equal(registry.status, 'unavailable')
   assert.match(registry.detail, /could not be reached/i)
@@ -334,14 +350,16 @@ test('a source-backed run keeps a source-linked overview when a report lane is e
 
   assert.equal(response.status, 200)
   assert.equal(response.body.status, 'ready')
-  assert.equal(response.body.sources.length, 1)
+  assert.equal(response.body.sources.length, 3)
   assert.equal(response.body.trials.length, 1)
   assert.equal(response.body.review.treatmentIdeas.length, 0)
   assert.equal(response.body.exploration, null)
-  assert.match(response.body.review.briefing.text, /source-linked research/i)
+  assert.match(response.body.review.briefing.text, /inherited eye diseases/i)
+  assert.doesNotMatch(response.body.review.briefing.text, /record(?:s)?/i)
   assert.ok(response.body.review.briefing.sourceIds.length)
   assert.ok(response.body.review.questions.length)
   assert.ok(response.body.review.questions.every((question) => question.sourceIds.length))
+  assert.equal(response.body.review.theoryIdeas.length, 10)
 })
 
 test('a source-gated writer overview survives a malformed second AI pass', { concurrency: false }, async () => {
@@ -355,11 +373,11 @@ test('a source-gated writer overview survives a malformed second AI pass', { con
   assert.equal(response.status, 200)
   assert.equal(response.body.status, 'ready')
   assert.equal(response.body.review.mode, 'source-gate')
-  assert.match(response.body.review.briefing.text, /current study and source-linked research/i)
+  assert.match(response.body.review.briefing.text, /inherited eye diseases/i)
   assert.ok(response.body.review.briefing.sourceIds.length)
 })
 
-test('an AI research map replaces the blank-report dead end when live sources are unavailable', { concurrency: false }, async () => {
+test('an authoritative condition foundation prevents a blank RP report when live services are unavailable', { concurrency: false }, async () => {
   const mock = createMockFetch({ failTrials: true, failEvidence: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
@@ -368,15 +386,13 @@ test('an AI research map replaces the blank-report dead end when live sources ar
   ))
 
   assert.equal(response.status, 200)
-  assert.equal(response.body.status, 'exploration')
-  assert.equal(response.body.sources.length, 0)
+  assert.equal(response.body.status, 'ready')
+  assert.equal(response.body.sources.length, 2)
   assert.equal(response.body.trials.length, 0)
-  assert.equal(response.body.exploration.mode, 'two-pass-ai-map')
-  assert.ok(response.body.exploration.treatmentPaths.length > 0)
-  assert.ok(response.body.exploration.connections.length > 0)
-  assert.ok(response.body.exploration.lifestyle.length > 0)
-  assert.ok(response.body.exploration.safety.length > 0)
-  assert.match(response.body.exploration.briefing, /starting map/i)
+  assert.equal(response.body.exploration, null)
+  assert.match(response.body.review.briefing.text, /rare inherited eye diseases/i)
+  assert.ok(response.body.review.briefing.sourceIds.includes('rp-nei-condition-overview'))
+  assert.equal(response.body.review.theoryIdeas.length, 10)
 })
 
 test('a report request without a condition is rejected before any research starts', { concurrency: false }, async () => {
@@ -517,13 +533,16 @@ test('the offline starting map stays condition-specific for common and arbitrary
   for (const [condition, geneticVariant, expectedTitle] of cases) {
     const response = await runFallback(condition, geneticVariant)
     assert.equal(response.status, 200)
-    const usesCuratedIpfSources = /ipf|idiopathic pulmonary fibrosis/i.test(condition)
-    assert.equal(response.body.status, usesCuratedIpfSources ? 'ready' : 'exploration')
-    if (usesCuratedIpfSources) {
+    const hasAuthoritativeFoundation = /ipf|idiopathic pulmonary fibrosis|retinitis pigmentosa/i.test(condition)
+    assert.equal(response.body.status, hasAuthoritativeFoundation ? 'ready' : 'exploration')
+    if (hasAuthoritativeFoundation) {
       assert.equal(response.body.exploration, null)
-      assert.match(response.body.review.briefing.text, /current study records/i)
-      assert.match(response.body.review.briefing.text, /source-linked research records/i)
-      assert.match(response.body.review.briefing.text, /exact records/i)
+      assert.ok(response.body.review.briefing.text)
+      assert.ok(response.body.review.briefing.sourceIds.length)
+      assert.equal(response.body.review.theoryIdeas.length, 10)
+      if (/retinitis pigmentosa/i.test(condition)) {
+        assert.ok(response.body.review.briefing.sourceIds.includes('rp-nei-condition-overview'))
+      }
       continue
     }
     assert.equal(response.body.exploration.mode, 'structured-starting-map')
