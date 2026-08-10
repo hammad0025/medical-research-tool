@@ -1052,6 +1052,59 @@
 .trial-caution { display: flex; align-items: flex-start; gap: 6px; margin: 11px 0 0 !important; padding: 9px 10px; border-radius: 9px; color: #8b4a1d !important; background: rgba(255, 224, 193, 0.47); font-size: 0.77rem !important; line-height: 1.42 !important; }
 .trial-sponsor { margin: 12px 0 0 !important; color: var(--muted) !important; font-size: 0.74rem !important; }
 
+.approved-treatments {
+  border-color: rgba(33, 117, 91, 0.25);
+  background:
+    radial-gradient(circle at 100% 0, rgba(177, 224, 202, 0.22), transparent 28%),
+    var(--panel);
+}
+.approved-treatment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.approved-treatment-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 248px;
+  padding: 19px;
+  border: 1px solid rgba(33, 117, 91, 0.22);
+  border-top: 4px solid #359373;
+  border-radius: 15px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(239, 249, 244, 0.74));
+  box-shadow: 0 10px 24px rgba(32, 92, 70, 0.06);
+}
+.approved-treatment-card h3 { margin: 0; }
+.approved-treatment-card > p { margin: 13px 0 14px; color: var(--ink-soft); font-size: 0.84rem; line-height: 1.52; }
+.approved-treatment-card__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; }
+.approved-treatment-card__facts > div { padding: 8px 9px; border: 1px solid rgba(33, 117, 91, 0.13); border-radius: 9px; background: rgba(219, 241, 229, 0.48); }
+.approved-treatment-card__facts dt { color: #4e7566; font-size: 0.63rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.approved-treatment-card__facts dd { margin: 3px 0 0; color: var(--ink); font-size: 0.76rem; font-weight: 700; line-height: 1.35; }
+.approved-treatment-card__boundary { display: flex; align-items: flex-start; gap: 7px; margin-top: auto; padding: 9px 10px; border-radius: 9px; color: #2e6652; background: rgba(201, 232, 213, 0.44); font-size: 0.77rem; line-height: 1.42; }
+.approved-treatment-card .citation-actions { margin-top: 12px; }
+
+.trial-directory {
+  border-color: rgba(30, 104, 137, 0.26);
+  background:
+    radial-gradient(circle at 0 0, rgba(164, 215, 233, 0.2), transparent 31%),
+    var(--panel);
+}
+.trial-table-wrap { overflow-x: auto; border: 1px solid rgba(34, 100, 127, 0.2); border-radius: 14px; background: rgba(255, 255, 255, 0.64); box-shadow: 0 8px 20px rgba(34, 73, 91, 0.04); }
+.trial-table { width: 100%; min-width: 940px; border-collapse: collapse; text-align: left; }
+.trial-table th { padding: 11px 13px; border-bottom: 1px solid rgba(34, 100, 127, 0.2); color: #3d6678; background: rgba(226, 244, 249, 0.72); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.trial-table td { padding: 14px 13px; border-bottom: 1px solid rgba(34, 100, 127, 0.12); vertical-align: top; color: var(--ink-soft); font-size: 0.79rem; line-height: 1.45; }
+.trial-table tbody tr:last-child td { border-bottom: 0; }
+.trial-table tbody tr:nth-child(even) { background: rgba(240, 250, 252, 0.36); }
+.trial-table tbody tr:hover { background: rgba(226, 244, 249, 0.7); }
+.trial-table__study { width: 31%; min-width: 260px; }
+.trial-table__study > a { display: inline-flex; align-items: flex-start; gap: 5px; color: #0c718a; font-family: 'Crimson Pro', Georgia, serif; font-size: 1.06rem; font-weight: 700; line-height: 1.08; text-decoration: none; }
+.trial-table__study > a:hover, .trial-table__open:hover { color: #a45123; }
+.trial-table__study > span { display: block; margin-top: 6px; color: #697d8b; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.03em; }
+.trial-table__details { margin-top: 9px; }
+.trial-table__details summary { cursor: pointer; color: #526f7d; font-size: 0.72rem; font-weight: 800; }
+.trial-table__details p { margin: 8px 0 0; max-width: 600px; color: var(--ink-soft); font-size: 0.76rem; line-height: 1.48; }
+.trial-table__caution { padding: 8px; border-radius: 7px; color: #8b4a1d !important; background: rgba(255, 224, 193, 0.47); }
+.trial-status { display: inline-flex; padding: 4px 7px; border: 1px solid rgba(108, 94, 62, 0.17); border-radius: 999px; color: #6f6041; background: rgba(245, 232, 202, 0.58); font-size: 0.66rem; font-weight: 800; line-height: 1.1; }
+.trial-status--treatment { border-color: rgba(33, 117, 91, 0.2); color: #166d53; background: rgba(207, 238, 221, 0.68); }
+.trial-table td small { display: block; margin-top: 6px; color: #67747b; font-size: 0.67rem; }
+.trial-table__open { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; color: #0c718a; font-size: 0.75rem; font-weight: 800; text-decoration: none; }
+
 .empty-state { display: flex; align-items: flex-start; gap: 10px; padding: 18px; border: 1px dashed var(--line-strong); border-radius: 13px; color: var(--muted); }
 .empty-state p { max-width: 430px; margin: 0; font-size: 0.86rem; line-height: 1.5; }
 
@@ -1245,6 +1298,7 @@
   .narrative-actions { align-items: flex-start; flex-direction: column; }
   .intake-fields,
   .evidence-grid,
+  .approved-treatment-grid,
   .idea-grid,
   .research-ideas-grid,
   .safety-grid,
@@ -1272,6 +1326,7 @@
   .calibration-orbit { width: 110px; height: 110px; }
   .calibration-orbit::before { inset: 15px; }
   .calibration-orbit::after { inset: 37px; }
+  .trial-table-wrap { margin-right: -1px; margin-left: -1px; border-radius: 10px; }
 }
 
 @media (max-width: 470px) {
