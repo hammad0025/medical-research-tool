@@ -21,7 +21,7 @@ const pubMedXml = `
     <PMID>1001</PMID>
     <Article>
       <Journal><Title>Test Retina Journal</Title></Journal>
-      <ArticleTitle>AAV-RP therapy and vision rehabilitation in retinitis pigmentosa</ArticleTitle>
+      <ArticleTitle>AAV-RP therapy and vision rehabilitation</ArticleTitle>
       <Abstract>
         <AbstractText>AAV-RP therapy is being researched for retinitis pigmentosa. Vision rehabilitation is also described for people living with retinitis pigmentosa.</AbstractText>
       </Abstract>
