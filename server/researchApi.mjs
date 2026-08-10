@@ -520,7 +520,7 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
       searchNames: candidateSearchNamesFor(candidate),
     }))
     .filter((candidate) => candidate.name.length >= 3)
-    .slice(0, 10)
+    .slice(0, 16)
 
   if (!conditionPhrase || !usableCandidates.length) return []
 
@@ -531,7 +531,7 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
     ...usableCandidates.flatMap((candidate) => candidate.searchNames.slice(1).map((searchName) => ({ candidate, searchName }))),
   ]
     .filter(({ searchName }) => Boolean(searchName))
-    .slice(0, 12)
+    .slice(0, 16)
   const searchResults = []
   let completedSearches = 0
   // PubMed's public endpoint is rate limited. Small batches keep the scout
@@ -557,7 +557,7 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
     }
   }
 
-  const ids = [...candidateById.keys()].slice(0, 24)
+  const ids = [...candidateById.keys()].slice(0, 32)
   if (!ids.length) return []
 
   const url = new URL(PUBMED_FETCH_URL)
@@ -745,7 +745,7 @@ const fetchEuropePmcEvidence = async (condition) => {
       seen.add(source.id)
       return true
     })
-    .slice(0, 12)
+    .slice(0, 16)
 }
 
 // Europe PMC is a second source path for candidate verification. A public
@@ -760,7 +760,7 @@ const fetchEuropePmcCandidateEvidence = async (condition, candidates) => {
       searchNames: candidateSearchNamesFor(candidate),
     }))
     .filter((candidate) => candidate.name.length >= 3)
-    .slice(0, 12)
+    .slice(0, 16)
   if (!phrase || !usableCandidates.length) return []
 
   const conditionQuery = `TITLE_ABS:"${europePmcPhrase(phrase)}"`
@@ -1743,6 +1743,17 @@ Return strict JSON only:
   ]
 }`
 
+const practicalCandidateScoutSystemPrompt = `You are Practical Candidate Scout in a medical-research product. Produce search seeds only, never treatment advice.
+
+Given a condition and optional subtype, return up to 14 exact, patient-discussible names that are worth checking in condition-specific literature. Focus on established or repurposed medicines, supplements or foods, procedures, rehabilitation, adaptive supports, and symptom-care treatments. Do not return gene therapy, RNA, cell therapy, exosomes, implants, trial IDs, proprietary study products, or other trial-only programs. Start with exact names a patient or clinician can recognize, not broad classes such as "antioxidants," "vitamins," or "rehabilitation." Include a candidate only when you believe an exact condition-specific paper or abstract could name it; do not invent names to fill the list. When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
+
+Return strict JSON only:
+{
+  "candidates": [
+    {"name": "patient-readable medicine, product, food, procedure, or support", "searchNames": ["exact literature name or alias"], "category": "medicine, supplement or food, procedure or rehabilitation, or other"}
+  ]
+}`
+
 const isSpecificCandidateName = (name) => {
   const normalized = candidateSearchText(name)
   return normalized.length >= 3
@@ -1787,13 +1798,15 @@ const scoutResearchCandidates = async (patient, env) => {
     goals: cleanText(patient?.goals, 700),
   })
   const request = { system: candidateScoutSystemPrompt, user, env, maxTokens: 1_500 }
+  const practicalRequest = { system: practicalCandidateScoutSystemPrompt, user, env, maxTokens: 1_300 }
   // Independent scouts reduce the odds that one model only returns flashy
   // trial programs and overlooks ordinary, patient-discussible literature.
-  const [anthropicResponse, openAiResponse] = await Promise.all([
+  const [anthropicResponse, openAiResponse, practicalOpenAiResponse] = await Promise.all([
     callAnthropic(request),
     callOpenAi({ ...request, models: openAiWriterModels(env) }),
+    callOpenAi({ ...practicalRequest, models: openAiWriterModels(env) }),
   ])
-  const responses = [anthropicResponse, openAiResponse].filter((response) => response.ok)
+  const responses = [practicalOpenAiResponse, anthropicResponse, openAiResponse].filter((response) => response.ok)
   if (!responses.length) {
     const failed = openAiResponse.ok ? anthropicResponse : openAiResponse
     return { status: failed.code || 'unavailable', candidates: [], detail: failed.message }
