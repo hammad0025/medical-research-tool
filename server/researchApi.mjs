@@ -1168,6 +1168,7 @@ Hard boundaries:
 - Use only entities and source IDs inside the supplied packet. Do not use background knowledge.
 - When the source packet says patient.readingLevel is "eighth-grade", write every patient-facing sentence at about an eighth-grade level. Prefer short sentences, common words, and active voice. Explain a needed medical term the first time it appears. Say "anti-scarring medicine" instead of "antifibrotic" unless quoting a source. Keep drug, gene, and trial names exact. Do not make the language less careful or less safe.
 - Never write a statement of benefit, safety, approval, stage, or trial status without one or more sourceIds from the packet.
+- Give every source-specific research question one or more sourceIds from the packet so the app can show the reader exactly where the question came from.
 - Do not characterize a guideline's recommendation strength. Use neutral, source-limited language such as "the label indicates" or "a cited trial evaluated" instead.
 - Return up to 6 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, supplement, procedure, device, cell or gene therapy, or other intervention named in a source or live trial. Do not pad the list. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
 - The “research hypotheses” lane is explicitly exploratory. It must use uncertainty language and must never say a patient should take an agent.
@@ -1182,7 +1183,7 @@ Hard boundaries:
 Return strict JSON only:
 {
   "briefing": "two or three sentences, <= 520 chars",
-  "researchQuestions": ["question", "question"],
+  "researchQuestions": [{"text": "question", "sourceIds": ["source id"]}],
   "treatmentIdeas": [
     {"title": "exact intervention", "category": "drug, supplement, procedure, device, cell/gene treatment, or other", "summary": "what the supplied source says", "whyItMayMatter": "why it is relevant to research", "caution": "why it is not a personal treatment recommendation", "sourceIds": ["source id"]}
   ],
@@ -1206,7 +1207,7 @@ Return strict JSON only:
 {
   "overallVerdict": "approved" | "approved-with-edits" | "rejected",
   "briefing": {"decision": "approve" | "rewrite" | "reject", "text": "safe replacement text or empty", "reason": "short reason", "sourceIds": ["source id"]},
-  "questions": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "text": "safe question or empty", "reason": "short reason"}],
+  "questions": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "text": "safe question or empty", "reason": "short reason", "sourceIds": ["source id"]}],
   "treatmentIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "summary": "", "whyItMayMatter": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
   "lifestyle": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "summary": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
   "safety": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "summary": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
@@ -1225,7 +1226,7 @@ Hard boundaries:
 - Do not claim a drug works, is safe, is approved, or is right for a person.
 - Do not name a doctor, hospital, clinical trial, study result, or paper as if it has been checked.
 - You may suggest a drug class, treatment type, biological pathway, cell or gene approach, supplement topic, or daily-life question only as a research direction to verify.
-- Return 3 to 5 distinct treatment paths. Each title must name a concrete medicine class, treatment platform, supplement topic, procedure, device, or biological pathway, not a vague instruction to "do more research." If a specific drug name is uncertain, use a specific class or pathway instead of inventing a drug.
+- Return 10 distinct treatment paths and 10 distinct connections. Keep each one short, concrete, and clearly exploratory. A treatment-path title must name a medicine class, treatment platform, supplement topic, procedure, device, or biological pathway, not a vague instruction to "do more research." If a specific drug name is uncertain, use a specific class or pathway instead of inventing a drug.
 - Use the supplied profile to make connections where possible. A subtype, gene result, current medicine, symptom, or stated goal can make a question more useful, but do not treat it as a diagnosis or proof.
 - Do not promote private-pay stem-cell or exosome clinics. If those topics are relevant, frame them as questions about legitimate academic research and evidence quality.
 - Do not say that nothing was found or leave a section blank. Give the user a practical map to investigate.
@@ -1518,11 +1519,18 @@ const normalizeSafetyItem = (item, allowedSourceIds) => {
   return { title, summary, caution, sourceIds }
 }
 
+const normalizeResearchQuestion = (question, allowedSourceIds) => {
+  const text = cleanText(isRecord(question) ? question.text : question, 250)
+  const sourceIds = sourceIdsFrom(isRecord(question) ? question.sourceIds : [], allowedSourceIds)
+  if (!text || !sourceIds.length || hasUnsafeRecommendationLanguage(text) || hasUnsupportedGuidelineStrength(text)) return null
+  return { text, sourceIds }
+}
+
 const normalizeWriterDraft = (draft, allowedSourceIds, allowedCandidates, candidateEvidenceText) => {
   const briefing = cleanText(draft?.briefing, 520)
   const researchQuestions = (Array.isArray(draft?.researchQuestions) ? draft.researchQuestions : [])
-    .map((question) => cleanText(question, 250))
-    .filter((question) => question && !hasUnsafeRecommendationLanguage(question))
+    .map((question) => normalizeResearchQuestion(question, allowedSourceIds))
+    .filter(Boolean)
     .slice(0, 3)
   const treatmentIdeas = (Array.isArray(draft?.treatmentIdeas) ? draft.treatmentIdeas : [])
     .map((item) => normalizeTreatmentIdea(item, allowedSourceIds, candidateEvidenceText))
@@ -1586,7 +1594,7 @@ const sourceGateReview = (writer, reason, reviewer = {}) => ({
   model: reviewer.model || '',
   independent: false,
   briefing: null,
-  questions: writer.researchQuestions.map((text) => ({ text })),
+  questions: writer.researchQuestions.map((question) => ({ ...question })),
   treatmentIdeas: writer.treatmentIdeas,
   lifestyle: writer.lifestyle,
   safety: writer.safety,
@@ -1625,7 +1633,11 @@ const applyReview = (review, writer, allowedSourceIds, allowedCandidates, candid
       const text = cleanText(item?.text, 250)
       if (!Number.isInteger(index) || index < 0 || index >= writer.researchQuestions.length) return null
       if (!['approve', 'rewrite'].includes(item?.decision) || !text || hasUnsafeRecommendationLanguage(text)) return null
-      return { text, reason: cleanText(item.reason, 240) }
+      const sourceIds = sourceIdsFrom(item?.sourceIds, allowedSourceIds)
+      const writerSourceIds = writer.researchQuestions[index]?.sourceIds || []
+      const acceptedSourceIds = sourceIds.length ? sourceIds : writerSourceIds
+      if (!acceptedSourceIds.length) return null
+      return { text, sourceIds: acceptedSourceIds, reason: cleanText(item.reason, 240) }
     })
     .filter(Boolean)
     .slice(0, 3)
@@ -1893,24 +1905,81 @@ const conditionMapCards = (cards, condition) => cards.map((card) => ({
   caution: explorationBoundary,
 }))
 
+const fillExplorationCards = (primary, fallback, limit) => {
+  const cards = []
+  const seen = new Set()
+  for (const card of [...(primary || []), ...(fallback || [])]) {
+    const key = cleanText(card?.title, 160).toLowerCase()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    cards.push({ ...card, caution: card.caution || explorationBoundary, needsVerification: true })
+    if (cards.length === limit) break
+  }
+  return cards
+}
+
+const genericExplorationMap = (condition) => ({
+  briefing: `This is an AI starting map for ${condition}. It makes possible connections and gives practical questions to investigate, but each idea still needs a source check before it is treated as a fact.`,
+  treatmentPaths: conditionMapCards([
+    { title: 'Current medicine and repurposing research', summary: `Explore which existing medicine classes researchers are studying or repurposing for ${condition}.`, whyItMayMatter: 'This can help separate routine care from early treatment questions.' },
+    { title: 'Disease-pathway treatment research', summary: `Explore biological pathways that researchers connect to ${condition}, such as inflammation, immune activity, scarring, cell stress, or repair signals.`, whyItMayMatter: 'A pathway map can point to treatment classes worth checking in trusted sources.' },
+    { title: 'Inflammation or immune-pathway research', summary: 'Explore whether inflammation or immune signaling is a research topic for this condition and whether that leads to condition-specific treatment studies.', whyItMayMatter: 'Similar pathway names can mean different things across conditions, so the exact disease evidence matters.' },
+    { title: 'Cell stress and repair-pathway research', summary: 'Explore research on cell stress, tissue injury, and repair pathways that could be relevant to the condition.', whyItMayMatter: 'These mechanisms may explain why researchers are testing different medicine classes.' },
+    { title: 'Gene-targeted research', summary: 'Explore whether a gene result, gene therapy, RNA approach, or gene-editing research direction is relevant to this condition.', whyItMayMatter: 'Gene-related research is often specific to a disease subtype or study group.' },
+    { title: 'Cell, exosome, and regenerative-research questions', summary: 'Explore whether there are legitimate academic studies of cell or exosome approaches, and how the evidence is being tested.', whyItMayMatter: 'This helps separate registered research from private-pay marketing claims.' },
+    { title: 'Supplement and nutrition research', summary: 'Explore whether any supplement, vitamin, nutrition, or metabolic research questions have condition-specific evidence worth checking.', whyItMayMatter: 'A broad supplement claim should not be assumed to apply without a direct source.' },
+    { title: 'Device, procedure, or surgery research', summary: 'Explore whether devices, procedures, surgery, implants, or rehabilitation technologies are being studied for this condition.', whyItMayMatter: 'Non-drug research may matter even when medicines are the main focus.' },
+    { title: 'Combination-treatment research', summary: 'Explore whether researchers are studying combinations of established care, newer medicines, procedures, or support programs.', whyItMayMatter: 'A combination question needs exact study details and safety review.' },
+    { title: 'Symptom-support and rehabilitation research', summary: 'Explore supportive care, rehabilitation, adaptive tools, and symptom-focused studies alongside disease-targeted treatment research.', whyItMayMatter: 'Daily function can shape useful research questions even when a cure is not available.' },
+  ], condition),
+  connections: conditionMapCards([
+    { title: 'Subtype could change the research map', researchAngle: 'Subtype, gene result, or test detail', whyItCouldConnect: `Different forms of ${condition} may be studied in different ways.`, question: 'Is there a subtype, gene result, or test detail that should change the research search?' },
+    { title: 'Gene results may change the research question', researchAngle: 'Gene-specific research', whyItCouldConnect: 'Some disease pathways and trials may be linked to a particular gene or variant.', question: 'Could a gene result help narrow the treatment and trial search?' },
+    { title: 'Current treatment history can shape the next question', researchAngle: 'Current and past treatments', whyItCouldConnect: 'Current medicines, past benefit, and side effects may change which research questions are useful.', question: 'Which current or past treatment details should a specialist review before exploring a new idea?' },
+    { title: 'Symptoms and daily function can guide priorities', researchAngle: 'Symptom pattern and daily function', whyItCouldConnect: 'Symptoms and activity limits can help focus a research conversation without proving what treatment is right.', question: 'Which symptoms or daily-life changes should shape the next research search?' },
+    { title: 'Stage and test trends may focus the search', researchAngle: 'Disease stage and test trends', whyItCouldConnect: 'Stage, scans, lab results, or functional tests may help make the search more specific.', question: 'Which stage or test details would make the treatment and trial search more useful?' },
+    { title: 'Other health conditions may change the safety questions', researchAngle: 'Comorbidities and medicine interactions', whyItCouldConnect: 'Other conditions and medicines may change how a research idea is discussed.', question: 'Which other conditions, medicines, or allergies need review before considering a research direction?' },
+    { title: 'A biological pathway could connect to a treatment class', researchAngle: 'Mechanism and treatment class', whyItCouldConnect: 'A pathway mentioned in research may point to a treatment class, but that does not prove a benefit for this person.', question: 'Which pathway-to-treatment connection has direct evidence in this exact condition?' },
+    { title: 'Trial eligibility may be part of the research plan', researchAngle: 'Study design and eligibility', whyItCouldConnect: 'Trials often enroll a narrow group, so disease details can change whether a study is worth discussing.', question: 'Which study eligibility details should be checked before treating a trial as relevant?' },
+    { title: 'Safety and interactions need their own source check', researchAngle: 'Safety, interactions, and monitoring', whyItCouldConnect: 'A treatment idea may have separate safety questions that are not answered by a short abstract or registry page.', question: 'Which safety source and clinician review would be needed before taking this idea seriously?' },
+    { title: 'Source quality can change the conclusion', researchAngle: 'Study quality and independent review', whyItCouldConnect: 'A registry record, abstract, marketing page, and reviewed trial can support very different levels of confidence.', question: 'What kind of source would make this research claim strong enough to discuss with a specialty team?' },
+  ], condition),
+  lifestyle: conditionMapCards([
+    { title: 'Daily function and symptom triggers', summary: 'Explore whether activity, sleep, food, environment, vision, pain, fatigue, or another daily-life factor changes the condition experience.' },
+    { title: 'Support and rehabilitation questions', summary: 'Explore which condition-specific support, rehabilitation, or adaptive-care topics may be worth discussing.' },
+  ], condition),
+  safety: conditionMapCards([
+    { title: 'Check current medicines before acting on an idea', summary: 'Any research path could have medicine, allergy, pregnancy, or other-condition concerns that need review.' },
+    { title: 'Verify study quality before trusting a treatment claim', summary: 'A registry entry, abstract, or marketing page may not answer whether a treatment is effective or safe.' },
+  ], condition),
+  searchTerms: [
+    condition,
+    `${condition} treatment review`,
+    `${condition} clinical trials`,
+    `${condition} subtype gene research`,
+    `${condition} disease mechanism treatment research`,
+  ],
+})
+
 const fallbackExplorationMap = (patient) => {
   const condition = cleanText(patient?.condition, 120) || 'this condition'
+  const generic = genericExplorationMap(condition)
   const profile = contextualExplorationProfiles.find((candidate) => candidate.matches.test(condition))
   const geneHint = cleanText(patient?.geneticVariant, 160)
   if (profile) {
     return {
       briefing: `This is an AI starting map for ${condition}. It highlights research directions that could fit ${profile.label}, but every idea needs a source check before it is treated as a fact.${geneHint ? ` The listed gene detail (${geneHint}) could make some searches more specific.` : ''}`,
-      treatmentPaths: conditionMapCards(profile.treatmentPaths, condition),
-      connections: conditionMapCards(profile.connections, condition),
+      treatmentPaths: fillExplorationCards(conditionMapCards(profile.treatmentPaths, condition), generic.treatmentPaths, 10),
+      connections: fillExplorationCards(conditionMapCards(profile.connections, condition), generic.connections, 10),
       lifestyle: conditionMapCards(profile.lifestyle, condition),
       safety: conditionMapCards(profile.safety, condition),
-      searchTerms: profile.searchTerms.map((term) => replaceConditionToken(term, condition)),
+      searchTerms: [...new Set([...profile.searchTerms.map((term) => replaceConditionToken(term, condition)), ...generic.searchTerms])].slice(0, 8),
     }
   }
 
   return {
     briefing: `This is an AI starting map for ${condition}. It makes possible connections and gives practical questions to investigate, but each idea still needs a source check before it is treated as a fact.`,
-    treatmentPaths: [
+    treatmentPaths: fillExplorationCards([
       {
         title: 'Current and repurposed medicine research',
         summary: `Explore which medicine classes researchers are studying or repurposing for ${condition}.`,
@@ -1929,8 +1998,8 @@ const fallbackExplorationMap = (patient) => {
         whyItMayMatter: 'These approaches can look very different in academic studies and in marketing claims.',
         caution: explorationBoundary,
       },
-    ],
-    connections: [
+    ], generic.treatmentPaths, 10),
+    connections: fillExplorationCards([
       {
         title: 'Condition subtype may change the research map',
         researchAngle: 'Subtype, gene, test result, or disease stage',
@@ -1952,7 +2021,7 @@ const fallbackExplorationMap = (patient) => {
         question: 'What source, study design, and specialty-team review would make a research idea worth taking seriously?',
         caution: explorationBoundary,
       },
-    ],
+    ], generic.connections, 10),
     lifestyle: [
       {
         title: 'Daily function and symptom triggers',
@@ -1977,12 +2046,7 @@ const fallbackExplorationMap = (patient) => {
         caution: explorationBoundary,
       },
     ],
-    searchTerms: [
-      condition,
-      `${condition} treatment review`,
-      `${condition} clinical trials`,
-      `${condition} subtype gene research`,
-    ],
+    searchTerms: generic.searchTerms,
   }
 }
 
@@ -2005,7 +2069,7 @@ const normalizeExplorationMap = (draft, patient) => {
       })
       .filter(Boolean)
       .slice(0, limit)
-    return normalized.length ? normalized : fallbackCards
+    return fillExplorationCards(normalized, fallbackCards, limit)
   }
   const treatmentPathFields = [['title', 120], ['summary', 440], ['whyItMayMatter', 440], ['caution', 420]]
   const connectionFields = [['title', 120], ['researchAngle', 160], ['whyItCouldConnect', 440], ['question', 440], ['caution', 420]]
@@ -2018,8 +2082,8 @@ const normalizeExplorationMap = (draft, patient) => {
 
   return {
     briefing: safeExplorationText(draft?.briefing, 520) || fallback.briefing,
-    treatmentPaths: normalizeCards(draft?.treatmentPaths, treatmentPathFields, 4, fallback.treatmentPaths),
-    connections: normalizeCards(draft?.connections, connectionFields, 5, fallback.connections),
+    treatmentPaths: normalizeCards(draft?.treatmentPaths, treatmentPathFields, 10, fallback.treatmentPaths),
+    connections: normalizeCards(draft?.connections, connectionFields, 10, fallback.connections),
     lifestyle: normalizeCards(draft?.lifestyle, lifestyleFields, 3, fallback.lifestyle),
     safety: normalizeCards(draft?.safety, safetyFields, 3, fallback.safety),
     searchTerms: searchTerms.length ? searchTerms : fallback.searchTerms,
@@ -2041,7 +2105,7 @@ const runExplorationMap = async ({ patient, env }) => {
       system: explorationSystemPrompt,
       user: `CURRENT DATE: ${runDate}\n\nRESEARCH PROFILE\n${JSON.stringify(patient)}`,
       env,
-      maxTokens: 2_200,
+      maxTokens: 4_200,
     }
     let writerResponse = await callAnthropic(writerRequest)
     if (!writerResponse.ok) writerResponse = await callOpenAi({ ...writerRequest, models: openAiWriterModels(env) })
@@ -2053,7 +2117,7 @@ const runExplorationMap = async ({ patient, env }) => {
       system: explorationReviewerSystemPrompt,
       user: `CURRENT DATE: ${runDate}\n\nCONDITION\n${patient.condition}\n\nUNTRUSTED AI STARTING MAP\n${JSON.stringify(writerMap)}`,
       env,
-      maxTokens: 2_200,
+      maxTokens: 4_200,
     }
     const openAiConfigured = Boolean(env.OPENAI_API_KEY || process.env.OPENAI_API_KEY)
     const reviewerResponse = openAiConfigured
@@ -2253,13 +2317,14 @@ const runResearch = async (body, env) => {
     review: defaultReview('The AI writing service was unavailable for this run.'),
   }))
   const hasUsableResearch = Boolean(packet.sources.length || packet.trials.length)
-  // A source-backed report is still not useful if one of its required
-  // patient-facing sections is blank. Fill missing lanes with a clearly
-  // labeled AI starting map instead of returning a dead-end empty state.
+  // A source-backed report is still not useful if a required patient-facing
+  // lane is blank or cannot fill the promised 10 treatment and 10 connection
+  // cards. Fill the remaining slots with a clearly labeled AI starting map
+  // instead of returning a dead-end or pretending the ideas are proven.
   const review = agents.review || defaultReview()
   const needsExplorationMap = !hasUsableResearch
-    || !Array.isArray(review.treatmentIdeas) || !review.treatmentIdeas.length
-    || !Array.isArray(review.hypotheses) || !review.hypotheses.length
+    || !Array.isArray(review.treatmentIdeas) || review.treatmentIdeas.length < 10
+    || !Array.isArray(review.hypotheses) || review.hypotheses.length < 10
     || !Array.isArray(review.lifestyle) || !review.lifestyle.length
     || !Array.isArray(review.safety) || !review.safety.length
     || !packet.trials.length
