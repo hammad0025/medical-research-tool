@@ -713,7 +713,7 @@ function ReportOverview({ condition, result }) {
       {briefing ? <CitedParagraph className="report-overview__briefing" citations={briefingCitations}>{briefing}</CitedParagraph> : <p className="report-overview__briefing">This report brings together treatment research, daily-life questions, current studies, and source links for discussion with a clinician.</p>}
       {questions.length ? (
         <div className="report-overview__questions">
-          <h3>Questions to bring to a visit</h3>
+          <h3>Simple questions to ask your doctor</h3>
           {questions.slice(0, 4).map((question, index) => (
             <CitedParagraph
               key={`${question.text}-${index}`}
@@ -1297,7 +1297,7 @@ const reportExportText = ({ form, report, result }) => {
     'Reviewed briefing',
     citedLine(reviewText, briefingCitations),
     '',
-    'Questions to bring to a visit',
+    'Simple questions to ask your doctor',
     questionLines || 'Use the source-linked treatment and trial cards to prepare questions for a clinician.',
     '',
     'Report boundary',
