@@ -13,6 +13,7 @@ const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
 const MAX_BODY_BYTES = 60_000
 const REQUEST_TIMEOUT_MS = 50_000
 const AI_REQUEST_TIMEOUT_MS = 35_000
+const MAX_LIVE_TRIALS = 24
 const ACCESS_COOKIE_NAME = 'rmc_demo_access'
 const ACCESS_SESSION_TTL_MS = 12 * 60 * 60 * 1_000
 const ACCESS_LOGIN_WINDOW_MS = 15 * 60 * 1_000
@@ -333,6 +334,7 @@ const CONDITION_SEARCH_GROUPS = [
   { canonical: 'Amyotrophic Lateral Sclerosis', aliases: ['ALS', 'Amyotrophic Lateral Sclerosis'] },
   { canonical: 'Ulcerative Colitis', aliases: ['UC', 'Ulcerative Colitis'] },
   { canonical: 'Rheumatoid Arthritis', aliases: ['RA', 'Rheumatoid Arthritis'] },
+  { canonical: "Parkinson's Disease", aliases: ["Parkinson's Disease", 'Parkinson Disease', "Parkinson's", 'Parkinsons'] },
 ]
 
 const conditionSearchGroup = (condition) => {
@@ -347,6 +349,16 @@ const conditionSearchPhrases = (condition) => {
   const base = baseConditionName(condition)
   const phrases = group ? [group.canonical, ...(group.aliases || [])] : [base]
   return [...new Set(phrases.map((phrase) => cleanText(phrase, 120)).filter(Boolean))]
+}
+
+// Keep search aliases separate from the name displayed in a finished report.
+// A person can type "parkinsons" while the report still uses the standard name.
+const canonicalConditionName = (condition) => {
+  const submitted = cleanText(condition, 120)
+  const group = conditionSearchGroup(submitted)
+  if (!group) return submitted
+  const variant = conditionVariantToken(submitted)
+  return variant ? `${group.canonical} - ${variant}` : group.canonical
 }
 
 const conditionEvidenceTerms = (condition) => {
@@ -625,21 +637,32 @@ const fetchOpenAlexEvidence = async (condition, env) => {
   return { status: 'ready', sources, detail: '' }
 }
 
-const fetchOpenFdaLabels = async (condition) => {
-  const phrase = conditionPhrase(condition)
-  if (!phrase) return []
-
+const fetchOpenFdaLabelRecords = async (phrase) => {
   const url = new URL(OPEN_FDA_LABEL_URL)
   url.searchParams.set('search', `indications_and_usage:"${phrase}"`)
-  url.searchParams.set('limit', '8')
+  url.searchParams.set('limit', '24')
 
   const response = await fetchWithTimeout(url, {}, 18_000)
   if (response.status === 404) return []
   if (!response.ok) throw new Error(`openFDA label search returned ${response.status}.`)
   const data = await response.json()
-  const records = Array.isArray(data?.results) ? data.results : []
+  return Array.isArray(data?.results) ? data.results : []
+}
 
-  return records
+const fetchOpenFdaLabels = async (condition) => {
+  const phrases = conditionSearchPhrases(condition).slice(0, 4)
+  if (!phrases.length) return []
+
+  const responses = await Promise.allSettled(phrases.map(fetchOpenFdaLabelRecords))
+  const usableResponses = responses.filter((result) => result.status === 'fulfilled')
+  if (!usableResponses.length) {
+    const failure = responses.find((result) => result.status === 'rejected')
+    throw failure?.reason || new Error('openFDA label search did not return a usable response.')
+  }
+
+  const seenLabels = new Set()
+  return usableResponses
+    .flatMap((result) => result.value)
     .map((record) => {
       const indication = cleanText(Array.isArray(record.indications_and_usage) ? record.indications_and_usage.join(' ') : record.indications_and_usage, 620)
       const genericName = cleanText(record?.openfda?.generic_name?.[0], 160)
@@ -661,7 +684,13 @@ const fetchOpenFdaLabels = async (condition) => {
       }
     })
     .filter((source) => source.id !== 'fda-label-' && sourceTextMentionsCondition(source.summary, condition))
-    .slice(0, 4)
+    .filter((source) => {
+      const key = normalizedEvidenceText(source.title)
+      if (!key || seenLabels.has(key)) return false
+      seenLabels.add(key)
+      return true
+    })
+    .slice(0, 8)
 }
 
 const sourceSearchPage = (provider, condition) => {
@@ -772,7 +801,7 @@ const retrieveEvidenceSources = async (condition, env) => {
 }
 
 const normalizePatient = (raw) => ({
-  condition: cleanText(raw?.condition, 120),
+  condition: canonicalConditionName(raw?.condition),
   // This is a patient-facing tool. Keep every generated report at a clear,
   // eighth-grade reading level even if a browser submits another style value.
   readingLevel: 'eighth-grade',
@@ -840,7 +869,6 @@ const therapeuticTrialInterventionTypes = new Set([
 ])
 
 const therapeuticTrialCandidateNames = (trial) => {
-  if (trial?.treatmentFocus === false) return []
   const details = Array.isArray(trial?.interventionDetails) ? trial.interventionDetails : []
   if (details.length) {
     return details
@@ -1121,7 +1149,7 @@ const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
     })
 
   return {
-    trials: studies.slice(0, 10).map((study) => formatTrial(study, locationHint, condition, geneticVariant)),
+    trials: studies.slice(0, MAX_LIVE_TRIALS).map((study) => formatTrial(study, locationHint, condition, geneticVariant)),
     sites: collectResearchSites(studies, locationHint),
     researchers: collectResearchers(studies),
   }
@@ -1153,7 +1181,7 @@ const sourcePacketForPrompt = ({ patient, sources, centers, trials, evidenceMode
     status,
     phase,
     interventions,
-    treatmentInterventions: conditionMatch === 'direct' && treatmentFocus !== false
+    treatmentInterventions: conditionMatch === 'direct'
       ? therapeuticTrialCandidateNames({ interventions, interventionDetails, treatmentFocus })
       : [],
     caution,
@@ -1530,6 +1558,7 @@ const simpleDoctorQuestion = (value) => {
   const question = text.endsWith('?') ? text : `${text}?`
   const words = question.match(/[A-Za-z0-9']+/g) || []
   const needsSimplifying = words.length > 12
+    || /\b(?:can|could|does|might|will|is|are)\b[^?]{0,160}\b(?:reduce|improve|slow|lower|prevent|clear|restore|maintain|effective|safer|better|help)\b/i.test(question)
     || /\b(?:whether|relevant|eligibility|condition-specific|research direction|specialist|discussion|academic(?:ally)?|independent review|contraindicat(?:ion|ions)?|biomarker|mechanism|pathway|phenotype|genotype|comorbidit(?:y|ies)|intervention|antifibrotic|investigational)\b/i.test(question)
   if (!needsSimplifying) return question
 
@@ -1733,6 +1762,67 @@ const applyReview = (review, writer, allowedSourceIds, allowedCandidates, candid
       { label: 'Withheld claims', outcome: rejectedClaims > 0 ? 'Withheld' : 'None', detail: rejectedClaims > 0 ? 'Unapproved or insufficiently grounded content was not displayed.' : 'No source-linked briefing claim was withheld.' },
     ],
     flags,
+  }
+}
+
+const shortQuestionForCandidate = (candidate) => {
+  const words = cleanText(candidate, 120).match(/[A-Za-z0-9']+/g) || []
+  return words.length && words.length <= 5
+    ? `What is ${cleanText(candidate, 120)} being studied for?`
+    : 'What is this study testing?'
+}
+
+// The source search can succeed even when a model response is withheld. In that
+// case, keep the reader in a real report rather than dropping into a generic
+// AI map. These sentences only describe the records already in the packet.
+const sourceBackedReportFallback = (packet) => {
+  const sourceIds = [
+    ...(packet?.trials || []).slice(0, 3).map((trial) => trial?.id),
+    ...(packet?.sources || []).slice(0, 2).map((source) => source?.id),
+  ].map((id) => cleanText(id, 100)).filter(Boolean)
+  const questionEntries = []
+  const seenCandidates = new Set()
+
+  for (const trial of packet?.trials || []) {
+    for (const candidate of therapeuticTrialCandidateNames(trial)) {
+      const key = candidateKey(candidate)
+      if (!key || seenCandidates.has(key) || !trial?.id) continue
+      seenCandidates.add(key)
+      questionEntries.push({ text: shortQuestionForCandidate(candidate), sourceIds: [trial.id] })
+      if (questionEntries.length === 4) break
+    }
+    if (questionEntries.length === 4) break
+  }
+
+  if (!questionEntries.length) {
+    for (const source of packet?.sources || []) {
+      if (!source?.id) continue
+      questionEntries.push({ text: 'What did this source study?', sourceIds: [source.id] })
+      if (questionEntries.length === 3) break
+    }
+  }
+
+  return {
+    briefing: sourceIds.length
+      ? {
+        text: `This report brings together current study records and source-linked research for ${packet?.patient?.condition || 'this condition'}. The sections below separate official label information, active studies, and early research ideas. Open each source link to read the exact record.`,
+        sourceIds,
+        reason: 'Built directly from the live source packet because the AI briefing was unavailable or withheld.',
+      }
+      : null,
+    questions: questionEntries,
+  }
+}
+
+const completeSourceBackedReview = (review, packet) => {
+  if (!packet?.sources?.length && !packet?.trials?.length) return review
+  const fallback = sourceBackedReportFallback(packet)
+  const hasBriefing = Boolean(review?.briefing?.text && Array.isArray(review?.briefing?.sourceIds) && review.briefing.sourceIds.length)
+  const hasQuestions = Array.isArray(review?.questions) && review.questions.length
+  return {
+    ...(review || defaultReview()),
+    briefing: hasBriefing ? review.briefing : fallback.briefing,
+    questions: hasQuestions ? review.questions : fallback.questions,
   }
 }
 
@@ -2384,18 +2474,11 @@ const runResearch = async (body, env) => {
     review: defaultReview('The AI writing service was unavailable for this run.'),
   }))
   const hasUsableResearch = Boolean(packet.sources.length || packet.trials.length)
-  // A source-backed report is still not useful if a required patient-facing
-  // lane is blank or cannot fill the promised 10 treatment and 10 connection
-  // cards. Fill the remaining slots with a clearly labeled AI starting map
-  // instead of returning a dead-end or pretending the ideas are proven.
-  const review = agents.review || defaultReview()
+  // A successful source search stays a source-backed report even when an AI
+  // response is delayed or withheld. The UI can build its cards directly from
+  // the exact records instead of replacing the report with generic AI prose.
+  const review = completeSourceBackedReview(agents.review || defaultReview(), packet)
   const needsExplorationMap = !hasUsableResearch
-    || !Array.isArray(review.treatmentIdeas) || review.treatmentIdeas.length < 10
-    || !Array.isArray(review.hypotheses) || review.hypotheses.length < 10
-    || !Array.isArray(review.lifestyle) || !review.lifestyle.length
-    || !Array.isArray(review.safety) || !review.safety.length
-    || !packet.trials.length
-    || !packet.centers.length
   const exploration = needsExplorationMap
     ? await runExplorationMap({ patient, env, context: explorationContextFor(packet, review) })
     : null
@@ -2439,7 +2522,7 @@ const runResearch = async (body, env) => {
     researchers: packet.researchers,
     centerMode: bundle.centers.length ? 'curated-centers' : 'active-research-sites',
     writer: agents.writer,
-    review: agents.review,
+    review,
     exploration,
     pipeline: [
       {
@@ -2465,10 +2548,10 @@ const runResearch = async (body, env) => {
       {
         id: 'reviewer',
         label: 'Second-pass source check',
-        status: agents.review.mode === 'dual-agent' || agents.review.mode === 'source-gate' ? 'passed' : 'held',
-        detail: agents.review.mode === 'dual-agent'
+        status: review.mode === 'dual-agent' || review.mode === 'source-gate' ? 'passed' : 'held',
+        detail: review.mode === 'dual-agent'
           ? 'A separate AI pass checked the draft against the same source packet.'
-          : agents.review.mode === 'source-gate'
+          : review.mode === 'source-gate'
             ? 'Every displayed AI item passed the source-ID and safety checks.'
             : 'Only source-linked records are shown.',
       },
