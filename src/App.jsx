@@ -9,6 +9,7 @@ import { findDirectIdentifier, findProfilePrivacyIssue, privacyIssueMessage } fr
 import { createPdfDocument, createWordDocument, downloadExport, reportFilename } from './lib/reportExports.js'
 import { extractResearchIntake, getResearchHealth, getSiteAccessStatus, loginSiteAccess, logoutSiteAccess, runResearchReview } from './lib/researchApi.js'
 import { citationText, citationsFor, citationsForClaim, sourceLabel, verificationLinks } from './lib/sourceLinks.js'
+import { buildLifestyleFallbackTopics } from './lib/lifestyleFallback.js'
 
 const conditions = [
   { value: 'Idiopathic Pulmonary Fibrosis', label: 'IPF' },
@@ -453,6 +454,11 @@ const theoryVerificationLinks = (condition, idea) => verificationLinks({
   searchTerms: [idea?.verificationQuery || `${condition || 'this condition'} ${idea?.title || 'research'}`],
 })
 
+const lifestyleVerificationLinks = (condition, item) => verificationLinks({
+  condition,
+  searchTerms: [item?.verificationQuery || `${condition || 'this condition'} daily life support`],
+})
+
 const lifestyleSourceMatchers = [
   { title: 'Rehabilitation and activity', pattern: /pulmonary rehabilitation|physical therapy|exercise training|exercise program|vision rehabilitation|occupational therapy/i },
   { title: 'Tobacco and smoke exposure', pattern: /smoking cessation|tobacco|secondhand smoke|smoke exposure/i },
@@ -471,32 +477,41 @@ const plainLifestyleFallbackSummary = (title) => ({
   'Daily-life support': 'This source looks at a day-to-day support topic for people living with this condition.',
 }[title] || 'This source discusses a daily-life topic that may matter for this condition.')
 
-const lifestyleIdeasForReport = (result) => {
-  const reviewedIdeas = Array.isArray(result?.review?.lifestyle) ? result.review.lifestyle : []
-  if (reviewedIdeas.length) return reviewedIdeas
+const usableLifestyleIdea = (item) => item?.title && item?.summary && item?.caution
 
-  const fallbackIdeas = []
+const lifestyleIdeasForReport = (result, condition) => {
+  const reviewedIdeas = (Array.isArray(result?.review?.lifestyle) ? result.review.lifestyle : [])
+    .filter(usableLifestyleIdea)
+  const sourceFallbackIdeas = []
   const usedTopics = new Set()
   for (const source of result?.sources || []) {
     const sourceText = `${source?.title || ''} ${source?.summary || ''}`
     const match = lifestyleSourceMatchers.find((entry) => entry.pattern.test(sourceText))
     if (!match || usedTopics.has(match.title) || !source?.id) continue
     usedTopics.add(match.title)
-    fallbackIdeas.push({
+    sourceFallbackIdeas.push({
       title: match.title,
       summary: plainLifestyleFallbackSummary(match.title),
       caution: 'This is a research finding in groups, not a personal plan. Discuss whether it fits the person’s condition and safety needs with a clinician.',
       sourceIds: [source.id],
       sourceLinkedFallback: true,
     })
-    if (fallbackIdeas.length === 3) break
+    if (sourceFallbackIdeas.length === 5) break
   }
 
-  if (fallbackIdeas.length) return fallbackIdeas
-
-  return (Array.isArray(result?.exploration?.lifestyle) ? result.exploration.lifestyle : [])
+  const explorationIdeas = (Array.isArray(result?.exploration?.lifestyle) ? result.exploration.lifestyle : [])
     .map((item) => ({ ...item, sourceIds: [], needsVerification: true }))
-    .filter((item) => item.title && item.summary && item.caution)
+    .filter(usableLifestyleIdea)
+  const primaryIdeas = reviewedIdeas.length ? reviewedIdeas : sourceFallbackIdeas.length ? sourceFallbackIdeas : explorationIdeas
+  const usedTitles = new Set(primaryIdeas.map((item) => String(item.title).toLowerCase()))
+
+  if (primaryIdeas.length >= 4) return primaryIdeas.slice(0, 5)
+
+  const topUpIdeas = buildLifestyleFallbackTopics(condition)
+    .filter((item) => !usedTitles.has(String(item.title).toLowerCase()))
+    .slice(0, Math.max(0, 5 - primaryIdeas.length))
+
+  return [...primaryIdeas, ...topUpIdeas].slice(0, 5)
 }
 
 const safetySourceMatchers = [
@@ -1359,33 +1374,36 @@ function TreatmentDevelopment({ condition, result }) {
 }
 
 function LifestyleResearch({ result }) {
-  const lifestyle = lifestyleIdeasForReport(result)
+  const condition = result?.patient?.condition
+  const lifestyle = lifestyleIdeasForReport(result, condition)
   const hasFallback = lifestyle.some((item) => item.sourceLinkedFallback)
   const hasStartingMap = lifestyle.some((item) => item.needsVerification)
-  const condition = result?.patient?.condition
 
   return (
     <section id="lifestyle-support" className="lifestyle-research section-surface">
       <SectionHeader
         eyebrow="3. Lifestyle & environment"
         title="Lifestyle changes worth discussing"
-        action={<StatusPill tone={lifestyle.length ? (hasStartingMap ? 'caution' : 'safe') : 'neutral'}>{lifestyle.length ? (hasStartingMap ? 'Ideas to verify' : hasFallback ? 'Source-linked' : 'Research-backed') : 'Search guide'}</StatusPill>}
+        action={<StatusPill tone={hasStartingMap ? 'caution' : 'safe'}>{hasStartingMap ? 'Topics to verify' : hasFallback ? 'Source-linked' : 'Research-backed'}</StatusPill>}
       />
-      <p className="section-intro">{hasStartingMap ? 'These are condition-relevant daily-life questions generated by AI. Check them with trusted sources and a clinician before acting on them.' : 'These are research findings about daily life that may matter for this condition. They are not personal medical instructions.'}</p>
-      {lifestyle.length ? (
-        <div className="lifestyle-grid">
-          {lifestyle.map((item) => (
-            <article className="lifestyle-card" key={item.title}>
-              <p className="card-kicker">{item.needsVerification ? 'AI starting map' : 'Discussion point'}</p>
+      <p className="section-intro">{hasStartingMap ? 'These are practical daily-life questions for this condition. They do not say that a change will help. Open the linked searches and ask a clinician which topics truly apply.' : 'These are research findings about daily life that may matter for this condition. They are not personal medical instructions.'}</p>
+      <div className="lifestyle-grid">
+        {lifestyle.map((item) => {
+          const citations = item.needsVerification
+            ? lifestyleVerificationLinks(condition, item)
+            : claimCitations(result, item, condition)
+          return (
+            <article className="lifestyle-card" key={item.id || item.title}>
+              <p className="card-kicker">{item.needsVerification ? 'Topic to verify' : 'Source-linked discussion point'}</p>
               <h3>{item.title}</h3>
-              <CitedParagraph citations={claimCitations(result, item, condition, { verifyWhenEmpty: item.needsVerification })}>{item.summary}</CitedParagraph>
+              <CitedParagraph citations={citations}>{item.summary}</CitedParagraph>
+              {item.providerQuestion ? <div className="lifestyle-question"><strong>Ask your healthcare provider</strong><span>{item.providerQuestion}</span></div> : null}
               <div className="lifestyle-caution"><Icon name="shield" size={16} /><span>{item.caution}</span></div>
+              <CitationActions citations={citations} label={item.needsVerification ? 'Search evidence' : 'Open source'} />
             </article>
-          ))}
-        </div>
-      ) : (
-        <RequiredSectionEmptyState title="Build a more specific lifestyle search next." icon="shield">Add symptoms, activity limits, a subtype, or an environmental concern to focus this section on the person’s actual questions.</RequiredSectionEmptyState>
-      )}
+          )
+        })}
+      </div>
     </section>
   )
 }
@@ -1792,8 +1810,11 @@ const reportExportText = ({ form, report, result }) => {
       [...claimCitations(result, idea, condition), ...theoryVerificationLinks(condition, idea)],
     ))
     .join('\n')
-  const lifestyleLines = lifestyleIdeasForReport(result)
-    .map((item) => citedLine(`- ${item.title}: ${item.summary} Boundary: ${item.caution}`, claimCitations(result, item, condition, { verifyWhenEmpty: item.needsVerification })))
+  const lifestyleLines = lifestyleIdeasForReport(result, condition)
+    .map((item) => citedLine(
+      `- ${item.title}: ${item.summary}${item.providerQuestion ? ` Ask your healthcare provider: ${item.providerQuestion}` : ''} Boundary: ${item.caution}`,
+      item.needsVerification ? lifestyleVerificationLinks(condition, item) : claimCitations(result, item, condition),
+    ))
     .join('\n')
   const safetyLines = safetyIdeasForReport(result)
     .map((item) => citedLine(`- ${item.title}: ${item.summary} Context: ${item.caution}`, claimCitations(result, item, condition, { verifyWhenEmpty: item.needsVerification })))
@@ -1861,7 +1882,7 @@ const reportExportText = ({ form, report, result }) => {
     centerLines || 'Use the linked recruiting study records and a clinician or disease foundation directory to find an appropriate specialty team.',
     '',
     '4. Lifestyle changes worth discussing',
-    lifestyleLines || 'Add daily-life symptoms, activity limits, or environmental concerns to make this section more specific.',
+    lifestyleLines || 'Use the condition-specific lifestyle evidence searches to prepare questions for a clinician.',
     '',
     '5. Researched leads to discuss now',
     patientLeadLines || 'This lane stays separate from trial-only research. Use the approved-options and research-program sections to prepare the next discussion.',
