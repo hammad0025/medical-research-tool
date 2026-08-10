@@ -1,74 +1,11 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
   "buildCommand": "npm run build",
-  "routes": [
-    {
-      "src": "^/(?:lib|data|docs|scripts|\\.verify-runs|\\.verify-screenshots|\\.cursor|tmp)(?:/.*)?$",
-      "dest": "/api/private-static",
-      "headers": {
-        "Cache-Control": "private, no-store, max-age=0",
-        "X-Content-Type-Options": "nosniff"
-      }
-    },
-    {
-      "src": "^/api/(.*)$",
-      "dest": "/api/$1",
-      "headers": {
-        "Cache-Control": "private, no-store, max-age=0",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY"
-      }
-    },
-    {
-      "src": "^/(?:index\\.html)?$",
-      "dest": "/index.html",
-      "headers": {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests",
-        "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY"
-      }
-    },
-    {
-      "src": "^/app\\.js$",
-      "dest": "/app.js",
-      "headers": {
-        "Cache-Control": "public, max-age=0, must-revalidate",
-        "Content-Type": "application/javascript; charset=utf-8",
-        "X-Content-Type-Options": "nosniff"
-      }
-    },
-    {
-      "src": "^/terms/?$",
-      "dest": "/terms.html",
-      "headers": {
-        "Cache-Control": "public, max-age=300",
-        "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
-        "Referrer-Policy": "no-referrer",
-        "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY"
-      }
-    },
-    {
-      "src": "^/.*$",
-      "dest": "/api/private-static"
-    }
-  ],
   "functions": {
-    "api/**/*.js": {
-      "maxDuration": 300
+    "api/**": {
+      "maxDuration": 300,
+      "includeFiles": "ipf-reference.json"
     }
-  },
-  "crons": [
-    {
-      "path": "/api/alerts-cron",
-      "schedule": "0 14 * * 1"
-    },
-    {
-      "path": "/api/brain-cron",
-      "schedule": "0 6 * * *"
-    }
-  ]
+  }
 }

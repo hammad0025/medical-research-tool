@@ -1,100 +1,26 @@
 {
-  "name": "medical-research-assistant",
-  "version": "3.0.0",
-  "description": "AI-powered medical research platform. Any condition, live ClinicalTrials.gov, drug repurposing (EveryCure-style), cross-AI citation audit, curated knowledge base ground truth, and patient-personalized drug-interaction checking.",
-  "type": "module",
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "main": "index.html",
-  "keywords": [
-    "medical-research",
-    "clinical-decision-support",
-    "evidence-based-medicine",
-    "drug-repurposing",
-    "clinical-trials",
-    "citation-verification",
-    "retrieval-augmented-generation",
-    "curated-knowledge-base",
-    "anthropic-claude",
-    "pubmed",
-    "openfda",
-    "europe-pmc",
-    "openalex",
-    "unpaywall",
-    "idiopathic-pulmonary-fibrosis",
-    "ipf"
-  ],
-  "author": {
-    "name": "Syed Hammad Haque",
-    "email": "shaque025@gmail.com"
-  },
-  "license": "PROPRIETARY",
+  "name": "app",
   "private": true,
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/hammad0025/medical-research-tool.git"
-  },
-  "bugs": {
-    "email": "shaque025@gmail.com"
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run check && vite build",
+    "check": "npm run lint && npm test",
+    "lint": "oxlint",
+    "test": "node --test",
+    "verify:deployment": "node scripts/deploymentVerifier.mjs",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@upstash/redis": "^1.38.0",
-    "marked": "^12.0.2",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
-  "scripts": {
-    "build": "node scripts/build-frontend.mjs",
-    "info": "echo 'Medical Research Assistant - Phase 3 (curated KB + EveryCure repurpose + cross-AI audit)'",
-    "e2e": "node scripts/e2e-test.mjs",
-    "audit:kb": "node scripts/audit-kb.mjs",
-    "audit:kb-links": "node scripts/audit-kb-links.mjs",
-    "audit:kb-metadata": "node scripts/audit-kb-metadata.mjs",
-    "audit:kb-trials": "node scripts/audit-kb-trials.mjs",
-    "audit:guidance": "node scripts/audit-guidance-freshness.mjs",
-    "audit:guidance:live": "node scripts/audit-guidance-freshness.mjs --live",
-    "audit:kb-links:static": "node scripts/audit-kb-links.mjs --static",
-    "audit:kb-trials:static": "node scripts/audit-kb-trials.mjs --static",
-    "regression": "node scripts/audit-kb.mjs && node scripts/audit-kb-links.mjs --static && node scripts/regression-kb-coverage.mjs && node scripts/regression-platform.mjs",
-    "regression:links": "node scripts/audit-kb-links.mjs && node scripts/audit-kb-metadata.mjs && node scripts/audit-kb-trials.mjs && node scripts/audit-guidance-freshness.mjs --live",
-    "regression:containment": "node scripts/regression-containment.mjs",
-    "test:ci": "node --test --test-concurrency=1 test/*.test.mjs && node scripts/regression-containment.mjs && node scripts/regression-platform.mjs && node scripts/condition-matrix.mjs && node scripts/regression-report-parsers.mjs && node scripts/audit-kb-links.mjs --static && node scripts/audit-kb-trials.mjs --static && node scripts/audit-guidance-freshness.mjs",
-    "audit:prepush": "npm run assurance:all",
-    "audit:release-config": "node scripts/validate-release-config.mjs",
-    "smoke:postdeploy": "node scripts/postdeploy-smoke.mjs",
-    "demo:smoke": "node scripts/demo-smoke.mjs",
-    "demo:physician-check": "node --test test/physician-demo.test.mjs",
-    "demo:preflight": "node scripts/demo-smoke.mjs --production --preflight",
-    "regression:live": "node scripts/audit-kb.mjs && REGRESSION_LIVE=1 node scripts/regression-kb-coverage.mjs",
-    "verify:infra": "node scripts/verify-infra.mjs",
-    "repair:kb-store": "node scripts/repair-kb-store.mjs",
-    "build:registry": "node scripts/build-disease-registry.mjs",
-    "build:drugs": "node scripts/build-drug-registry.mjs",
-    "build:kb": "node scripts/build-kb.mjs",
-    "kb:review": "node scripts/kb-review-report.mjs",
-    "kb:clinical-review:generate": "node scripts/kb-clinical-review.mjs generate",
-    "kb:clinical-review:verify": "node scripts/kb-clinical-review.mjs verify",
-    "test:clinician-investor": "node --test test/clinician-investor-challenge.test.mjs",
-    "audit:clinician-investor": "node scripts/clinician-investor-audit.mjs",
-    "assurance:integration": "node scripts/assurance-all.mjs --category=integration",
-    "assurance:static": "node scripts/assurance-all.mjs --category=static",
-    "assurance:dynamic": "node scripts/assurance-all.mjs --category=dynamic",
-    "assurance:security": "node scripts/assurance-all.mjs --category=security",
-    "assurance:privacy": "node scripts/assurance-all.mjs --category=privacy",
-    "assurance:supply-chain": "node scripts/assurance-all.mjs --category=supply",
-    "assurance:clinician": "node scripts/assurance-all.mjs --category=clinician",
-    "assurance:demo": "node scripts/assurance-all.mjs --category=demo",
-    "assurance:release": "node scripts/assurance-all.mjs --category=release",
-    "assurance:prepush": "node scripts/assurance-all.mjs --category=prepush",
-    "assurance:infrastructure": "node scripts/assurance-all.mjs --category=infrastructure",
-    "assurance:all": "node scripts/assurance-all.mjs",
-    "audit:report-output": "node scripts/audit-report-output.mjs"
-  },
-  "phase": "3",
-  "status": "phase-3-shipped",
-  "nextPhase": "3.1-multi-condition-kb-and-scheduled-alerts",
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "oxlint": "^1.75.0",
+    "vite": "^8.2.0"
   }
 }
