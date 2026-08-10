@@ -300,6 +300,20 @@ const sourceTreatmentIdeas = (sources, condition) => {
 
 const isOfficialLabelSource = (source) => source?.origin === 'openFDA' || /FDA drug label/i.test(source?.type || '')
 
+const plainOfficialLabelSummary = (source, title, conditionLabel) => {
+  const normalizeForMatch = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+  const labelText = normalizeForMatch(source?.summary)
+  const conditionText = normalizeForMatch(conditionLabel)
+  const directlyTreatsCondition = conditionText && (
+    labelText.includes(`treatment of ${conditionText}`)
+    || labelText.includes(`treatment for ${conditionText}`)
+  )
+
+  return directlyTreatsCondition
+    ? `This official U.S. label lists ${title} for treatment of ${conditionLabel}. Open the full label for the exact approved use and limits.`
+    : `This official U.S. label mentions ${conditionLabel}. Open the full label for the exact approved use, symptom, or diagnosis it covers.`
+}
+
 const officialLabelIdeasForReport = (result, condition) => {
   const seen = new Set()
   const conditionLabel = displayConditionName(condition) || 'this condition'
@@ -313,7 +327,7 @@ const officialLabelIdeasForReport = (result, condition) => {
       return {
         title,
         category: 'Official U.S. label',
-        summary: String(source.summary || '').trim() || `This official label includes an indication related to ${conditionLabel}.`,
+        summary: plainOfficialLabelSummary(source, title, conditionLabel),
         caution: 'A label applies to a specific diagnosis and situation. A clinician must decide whether it applies here.',
         sourceIds: [source.id],
         kind: 'fda',
@@ -904,7 +918,7 @@ const overviewFactsForReport = (result, condition) => {
     {
       icon: 'shield',
       label: 'Official U.S. labels',
-      value: labels.length ? `${labels.length} records` : 'Check labels',
+      value: labels.length ? `${labels.length} labels` : 'Check labels',
       detail: labels.length
         ? 'Official prescribing-label records matched this condition.'
         : 'No exact label record was returned in this run.',
