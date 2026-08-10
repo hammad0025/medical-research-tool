@@ -848,6 +848,32 @@
 .citation-chip:hover { border-color: rgba(33, 117, 91, 0.35); color: var(--accent); }
 .citations--compact { margin-top: 13px; }
 
+.inline-citations {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 7px;
+  color: #64748b;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.inline-citations__label { color: #64748b; }
+
+.inline-citation-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #0e7490;
+  text-decoration: underline;
+  text-decoration-color: rgba(14, 116, 144, 0.35);
+  text-underline-offset: 2px;
+}
+
+.inline-citation-link:hover { color: #c2410c; text-decoration-color: currentColor; }
+
 .evidence-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
