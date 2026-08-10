@@ -777,33 +777,31 @@ function EstablishedTreatments({ condition, result }) {
   const labels = officialLabelIdeasForReport(result, condition)
   const labelSearchUrl = 'https://open.fda.gov/drug/label/'
   return (
-    <section className="approved-treatments section-surface">
+    <section id="approved-options" className="approved-treatments section-surface">
       <SectionHeader
-        eyebrow="What is already approved"
-        title="Approved and established treatment information"
+        eyebrow="1. Approved and established options"
+        title="What is already approved or clearly established"
         action={<StatusPill tone={labels.length ? 'safe' : 'neutral'}>{labels.length ? `${labels.length} official label${labels.length === 1 ? '' : 's'}` : 'Check labels'}</StatusPill>}
       />
       <p className="section-intro">Start here to separate treatments with an official U.S. label from early research. A label can apply to a specific subtype, symptom, or situation, so open the source before deciding whether it matters for this person.</p>
       {labels.length ? (
-        <div className="approved-treatment-grid">
-          {labels.map((idea) => {
-            const citations = claimCitations(result, idea, condition)
-            return (
-              <article className="approved-treatment-card" key={idea.title}>
-                <div className="card-topline">
-                  <div><p className="card-kicker">Official label record</p><h3>{idea.title}</h3></div>
-                  <StatusPill tone="safe">U.S. label</StatusPill>
-                </div>
-                <dl className="approved-treatment-card__facts">
-                  <div><dt>Evidence</dt><dd>Prescribing label</dd></div>
-                  <div><dt>Use</dt><dd>Read the exact label</dd></div>
-                </dl>
-                <CitedParagraph citations={citations}>{idea.summary}</CitedParagraph>
-                <div className="approved-treatment-card__boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
-                <CitationActions citations={citations} label="Open official label" />
-              </article>
-            )
-          })}
+        <div className="approved-treatment-table-wrap">
+          <table className="approved-treatment-table">
+            <thead><tr><th>Treatment</th><th>What the official record says</th><th>Important limit</th><th>Source</th></tr></thead>
+            <tbody>
+              {labels.map((idea) => {
+                const citations = claimCitations(result, idea, condition)
+                return (
+                  <tr key={idea.title}>
+                    <td><p className="card-kicker">Official U.S. label</p><strong>{idea.title}</strong></td>
+                    <td><CitedParagraph citations={citations}>{idea.summary}</CitedParagraph></td>
+                    <td><div className="approved-treatment-table__boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div></td>
+                    <td><CitationActions citations={citations} label="Open official label" /></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       ) : (
         <RequiredSectionEmptyState title="Check approved options by subtype or symptom." icon="database">The official-label search did not find a broad match for this condition. A treatment may still be labeled for a subtype, gene result, symptom, or related diagnosis. <a href={labelSearchUrl} target="_blank" rel="noreferrer">Open the FDA label search</a> and discuss the condition, subtype, and treatment choices with a clinician.</RequiredSectionEmptyState>
@@ -852,15 +850,21 @@ function TrialDirectory({ condition, result }) {
   const otherCurrentTrials = trials.filter((trial) => !isRecruitingTrial(trial))
   const clinicalTrialsSearchUrl = `https://clinicaltrials.gov/search?cond=${encodeURIComponent(condition || '')}`
   return (
-    <section className="trial-directory section-surface">
+    <section id="clinical-trials" className="trial-directory section-surface">
       <SectionHeader
-        eyebrow="Recruiting clinical trials"
-        title={`Recruiting ${condition || 'condition'} studies`}
-        action={<StatusPill tone={recruitingTrials.length ? 'safe' : 'neutral'}>{recruitingTrials.length ? `${recruitingTrials.length} recruiting` : trials.length ? 'Check status' : 'Registry search'}</StatusPill>}
+        eyebrow="6. Current clinical trials"
+        title={`${condition || 'Condition'} clinical trial directory`}
+        action={<StatusPill tone={trials.length ? 'safe' : 'neutral'}>{trials.length ? `${trials.length} current studies` : 'Registry search'}</StatusPill>}
       />
-      <p className="section-intro">Start here if you are looking for a study that may be enrolling. Every row links to the live ClinicalTrials.gov record, where you can check the study purpose, locations, enrollment rules, and contact details.</p>
+      <p className="section-intro">This is the full current set returned by the live condition-specific registry search, with recruiting studies shown first. Every row links to ClinicalTrials.gov, where you can check the study purpose, locations, enrollment rules, and contact details.</p>
       {recruitingTrials.length ? (
-        <TrialTable trials={recruitingTrials} />
+        <section className="trial-directory__recruiting">
+          <div className="trial-directory__other-heading">
+            <div><p className="card-kicker">Recruiting now</p><h3>Studies that may be enrolling</h3></div>
+            <StatusPill tone="safe">{recruitingTrials.length} recruiting</StatusPill>
+          </div>
+          <TrialTable trials={recruitingTrials} />
+        </section>
       ) : trials.length ? (
         <RequiredSectionEmptyState title="Current studies were found; check their enrollment status." icon="search">The live registry did not list a recruiting match at this moment. Status can change, so use the linked records below and <a href={clinicalTrialsSearchUrl} target="_blank" rel="noreferrer">open the live registry search</a> before ruling anything out.</RequiredSectionEmptyState>
       ) : (
@@ -869,13 +873,61 @@ function TrialDirectory({ condition, result }) {
       {otherCurrentTrials.length ? (
         <section className="trial-directory__other">
           <div className="trial-directory__other-heading">
-            <div><p className="card-kicker">Other current studies</p><h3>Studies not currently marked recruiting</h3></div>
+            <div><p className="card-kicker">Full current trial directory</p><h3>Other active, invitation-only, and not-yet-recruiting studies</h3></div>
             <StatusPill tone="neutral">{otherCurrentTrials.length} current</StatusPill>
           </div>
-          <p>These records can be active, invitation-only, completed soon, or otherwise not recruiting. Open the exact record to check the latest status.</p>
+          <p>Together with the recruiting table above, these rows make up the full live report list. Open the exact record to check the latest status.</p>
           <TrialTable trials={otherCurrentTrials} />
         </section>
       ) : null}
+    </section>
+  )
+}
+
+const readableProfileValue = (values, fallback) => values.filter(Boolean).join(' · ') || fallback
+
+function ResearchAccessPlan({ condition, form, result }) {
+  const patient = result?.patient || form || {}
+  const trials = Array.isArray(result?.trials) ? result.trials : []
+  const recruitingTrials = trials.filter(isRecruitingTrial)
+  const plan = [
+    {
+      label: 'Condition details to bring',
+      value: readableProfileValue([displayConditionName(patient.condition || condition), patient.geneticVariant, patient.stage], 'Write down the diagnosis, subtype, gene result, and stage if known.'),
+      detail: 'These details can change which source records and study questions are worth checking.',
+    },
+    {
+      label: 'Current treatment list',
+      value: readableProfileValue([patient.currentMeds, patient.priorTherapies], 'List current and past medicines or treatments before a visit.'),
+      detail: 'A clinician or pharmacist needs the full list before judging a research idea.',
+    },
+    {
+      label: 'Symptoms and key test notes',
+      value: readableProfileValue([patient.symptoms, patient.scans], 'Bring the symptoms, scans, or test notes that matter most to the person.'),
+      detail: 'This helps a specialist understand which questions are most important first.',
+    },
+    {
+      label: 'Study-site conversation',
+      value: recruitingTrials.length ? `${recruitingTrials.length} recruiting study record${recruitingTrials.length === 1 ? '' : 's'} linked below.` : 'Use the current study directory to check who is enrolling and where.',
+      detail: 'A registry record does not decide eligibility. The study team can explain the current rules and contacts.',
+      citations: recruitingTrials.slice(0, 3),
+    },
+  ]
+
+  return (
+    <section id="research-plan" className="research-access-plan section-surface">
+      <SectionHeader eyebrow="7. Your research and access plan" title="Bring the right details to a visit or study call" action={<StatusPill tone="neutral">Discussion guide</StatusPill>} />
+      <p className="section-intro">This is a simple organizer for the next conversation. It does not assess study eligibility, diagnose a condition, or recommend treatment.</p>
+      <div className="research-access-plan__grid">
+        {plan.map((item) => (
+          <article className="research-access-plan__card" key={item.label}>
+            <p className="card-kicker">{item.label}</p>
+            <strong>{item.value}</strong>
+            <p>{item.detail}</p>
+            {item.citations ? <CitationActions citations={item.citations} label="Open recruiting study" /> : null}
+          </article>
+        ))}
+      </div>
     </section>
   )
 }
@@ -914,9 +966,9 @@ function CareLocations({ condition, result, hasAiStartingMap }) {
   const centerMode = result?.centerMode === 'active-research-sites'
   const clinicalTrialsSearchUrl = `https://clinicaltrials.gov/search?cond=${encodeURIComponent(condition || '')}`
   return (
-    <section className="section-surface centers-surface care-locations">
+    <section id="centers-experts" className="section-surface centers-surface care-locations">
       <SectionHeader
-        eyebrow="Where you can go"
+        eyebrow="2. Centers and experts"
         title={centerMode ? 'Specialty centers and study sites' : 'Institutions in this source pack'}
         action={<StatusPill tone={centers.length ? 'safe' : 'neutral'}>{centers.length ? `${centers.length} place${centers.length === 1 ? '' : 's'}` : 'Study sites'}</StatusPill>}
       />
@@ -1015,6 +1067,17 @@ const overviewFactsForReport = (result, condition) => {
   ]
 }
 
+const reportRoute = [
+  { href: '#approved-options', label: 'Approved options' },
+  { href: '#centers-experts', label: 'Centers & experts' },
+  { href: '#lifestyle-support', label: 'Lifestyle support' },
+  { href: '#treatment-development', label: 'In development' },
+  { href: '#research-ideas', label: '10 + 10 ideas' },
+  { href: '#clinical-trials', label: 'Clinical trials' },
+  { href: '#research-plan', label: 'Research plan' },
+  { href: '#safety', label: 'Safety' },
+]
+
 function ReportOverview({ condition, result }) {
   const review = result?.review
   const exploration = result?.exploration
@@ -1027,10 +1090,10 @@ function ReportOverview({ condition, result }) {
     verifyWhenEmpty: Boolean(briefing && !review?.briefing?.text),
   })
   return (
-    <section className="report-overview section-surface">
+    <section id="condition-snapshot" className="report-overview section-surface">
       <SectionHeader
-        eyebrow="Your overview"
-        title={`What we found about ${condition || 'this condition'}`}
+        eyebrow="Condition snapshot"
+        title={`Start here: what we found about ${condition || 'this condition'}`}
         action={exploration && !review?.briefing?.text ? <StatusPill tone="caution">Research ideas to verify</StatusPill> : null}
       />
       {briefing ? <CitedParagraph className="report-overview__briefing" citations={briefingCitations}>{briefing}</CitedParagraph> : <p className="report-overview__briefing">This report brings together treatment research, daily-life questions, current studies, and source links for discussion with a clinician.</p>}
@@ -1044,6 +1107,10 @@ function ReportOverview({ condition, result }) {
           </article>
         ))}
       </div>
+      <nav className="report-route" aria-label="Report guide">
+        <span>Read this report in the order that helps you decide what to discuss next:</span>
+        <div>{reportRoute.map((item) => <a href={item.href} key={item.href}>{item.label}</a>)}</div>
+      </nav>
     </section>
   )
 }
@@ -1061,7 +1128,7 @@ function DoctorQuestions({ condition, result }) {
   if (!questions.length) return null
 
   return (
-    <section className="doctor-questions section-surface">
+    <section id="doctor-questions" className="doctor-questions section-surface">
       <SectionHeader eyebrow="Questions for your doctor" title="Simple questions to bring to a visit" action={<StatusPill tone="neutral">Source-linked</StatusPill>} />
       <p className="section-intro">These questions use the exact studies and research leads in this report. They are conversation starters, not a treatment plan.</p>
       <div className="doctor-questions__list">
@@ -1139,8 +1206,8 @@ function ResearchIdeas({ condition, result }) {
   const brainstormingIdeas = researchIdeaQuestionsForReport(result, condition)
 
   return (
-    <section className="research-ideas section-surface">
-      <SectionHeader eyebrow="Drug, gene, and treatment ideas" title="10 researched leads + 10 questions to investigate" />
+    <section id="research-ideas" className="research-ideas section-surface">
+      <SectionHeader eyebrow="5. Drug, gene, and treatment ideas" title="10 researched leads + 10 questions to investigate" />
       <p className="section-intro">These are two separate tables. The first table contains named treatments or research technologies from current studies and papers. The second turns those exact leads into plain questions to investigate. Every row has a direct source link. Neither table is a treatment plan.</p>
 
       <div className="research-idea-lanes">
@@ -1164,6 +1231,79 @@ function ResearchIdeas({ condition, result }) {
   )
 }
 
+const isAdvancedResearchProgram = (idea) => /gene|rna|cell|biologic|device|procedure|radiation/i.test(`${idea?.category || ''} ${idea?.type || ''}`)
+
+const developmentProgramsForReport = (result, condition) => {
+  const seen = new Set()
+  return treatmentIdeasForReport(result, condition)
+    .filter((idea) => {
+      const key = treatmentIdeaKey(idea?.title)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 10)
+}
+
+function DevelopmentProgramTable({ condition, result, programs }) {
+  return (
+    <div className="development-program-table-wrap">
+      <table className="development-program-table">
+        <thead><tr><th>Program or approach</th><th>Research lane</th><th>What the record says</th><th>Open source</th></tr></thead>
+        <tbody>
+          {programs.map((program) => {
+            const citations = claimCitations(result, program, condition)
+            const sourceLabel = program.kind === 'trial' ? 'Open current study' : 'Open research source'
+            return (
+              <tr key={program.title}>
+                <td><p className="card-kicker">{program.kind === 'trial' ? 'Current study' : 'Research source'}</p><strong>{program.title}</strong></td>
+                <td><span className="development-program-table__lane">{program.category || 'Treatment research'}</span></td>
+                <td>
+                  <CitedParagraph citations={citations}>{program.summary || program.rationale || `This approach appears in condition-specific research for ${condition}.`}</CitedParagraph>
+                  <p className="development-program-table__boundary">{program.caution || program.boundary || 'This is a research record, not a treatment recommendation.'}</p>
+                </td>
+                <td><CitationActions citations={citations} label={sourceLabel} /></td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function TreatmentDevelopment({ condition, result }) {
+  const programs = developmentProgramsForReport(result, condition)
+  const advancedPrograms = programs.filter(isAdvancedResearchProgram)
+  const medicinePrograms = programs.filter((program) => !isAdvancedResearchProgram(program))
+
+  if (!programs.length) return null
+
+  return (
+    <section id="treatment-development" className="treatment-development section-surface">
+      <SectionHeader
+        eyebrow="4. Treatment development"
+        title="What is being studied now"
+        action={<StatusPill tone="safe">{programs.length} source-linked programs</StatusPill>}
+      />
+      <p className="section-intro">This directory separates medicine research from gene, RNA, cell, device, and procedure research. A listed program is not an approved treatment and does not show that it works for one person.</p>
+      {medicinePrograms.length ? (
+        <section className="development-program-section">
+          <div className="development-program-section__heading"><div><p className="card-kicker">Treatments in development</p><h3>Drug, combination, and other treatment research</h3></div><StatusPill tone="neutral">{medicinePrograms.length} programs</StatusPill></div>
+          <DevelopmentProgramTable condition={condition} result={result} programs={medicinePrograms} />
+        </section>
+      ) : null}
+      {advancedPrograms.length ? (
+        <section id="advanced-therapies" className="development-program-section development-program-section--advanced">
+          <div className="development-program-section__heading"><div><p className="card-kicker">Gene, cell, and advanced therapies</p><h3>Research technologies that need extra review</h3></div><StatusPill tone="caution">{advancedPrograms.length} programs</StatusPill></div>
+          <p>These technologies can be highly specific to a gene, subtype, disease stage, or trial design. Use the linked record and a qualified specialty team before treating any claim as meaningful.</p>
+          <DevelopmentProgramTable condition={condition} result={result} programs={advancedPrograms} />
+        </section>
+      ) : null}
+    </section>
+  )
+}
+
 function LifestyleResearch({ result }) {
   const lifestyle = lifestyleIdeasForReport(result)
   const hasFallback = lifestyle.some((item) => item.sourceLinkedFallback)
@@ -1171,9 +1311,9 @@ function LifestyleResearch({ result }) {
   const condition = result?.patient?.condition
 
   return (
-    <section className="lifestyle-research section-surface">
+    <section id="lifestyle-support" className="lifestyle-research section-surface">
       <SectionHeader
-        eyebrow="Lifestyle & environment"
+        eyebrow="3. Lifestyle & environment"
         title="Lifestyle changes worth discussing"
         action={<StatusPill tone={lifestyle.length ? (hasStartingMap ? 'caution' : 'safe') : 'neutral'}>{lifestyle.length ? (hasStartingMap ? 'Ideas to verify' : hasFallback ? 'Source-linked' : 'Research-backed') : 'Search guide'}</StatusPill>}
       />
@@ -1203,7 +1343,7 @@ function SafetyResearch({ result }) {
   const condition = result?.patient?.condition
 
   return (
-    <section className="safety-research section-surface">
+    <section id="safety" className="safety-research section-surface">
       <SectionHeader
         eyebrow="Important safety points"
         title="Cautions found in this research"
@@ -1305,8 +1445,10 @@ function UniversalReport({ condition, form, result }) {
           <EstablishedTreatments condition={displayCondition} result={result} />
           <CareLocations condition={displayCondition} result={result} hasAiStartingMap={hasAiStartingMap} />
           <LifestyleResearch result={result} />
+          <TreatmentDevelopment condition={displayCondition} result={result} />
           <ResearchIdeas condition={displayCondition} result={result} />
           <TrialDirectory condition={displayCondition} result={result} />
+          <ResearchAccessPlan condition={displayCondition} form={form} result={result} />
           <DoctorQuestions condition={displayCondition} result={result} />
           <SafetyResearch result={result} />
 
@@ -1573,6 +1715,15 @@ const reportExportText = ({ form, report, result }) => {
       claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' }),
     ))
     .join('\n')
+  const developmentPrograms = developmentProgramsForReport(result, condition)
+  const developmentLinesFor = (programs) => programs
+    .map((program) => citedLine(
+      `- ${program.title}${program.category ? ` (${program.category})` : ''}: ${program.summary || program.rationale || `Named in research for ${condition}.`} Boundary: ${program.caution || program.boundary || 'This is a research record, not a treatment recommendation.'}`,
+      claimCitations(result, program, condition),
+    ))
+    .join('\n')
+  const medicineDevelopmentLines = developmentLinesFor(developmentPrograms.filter((program) => !isAdvancedResearchProgram(program)))
+  const advancedDevelopmentLines = developmentLinesFor(developmentPrograms.filter(isAdvancedResearchProgram))
   const officialLabelLines = officialLabelIdeasForReport(result, condition)
     .map((idea) => citedLine(`- ${idea.title}: ${idea.summary} Boundary: ${idea.caution}`, claimCitations(result, idea, condition)))
     .join('\n')
@@ -1613,6 +1764,15 @@ const reportExportText = ({ form, report, result }) => {
     .filter((question) => question?.text)
     .map((question) => citedLine(`- ${question.text}`, claimCitations(result, question, condition, { verifyWhenEmpty: question.kind === 'exploration' })))
     .join('\n')
+  const profileConditionDetails = [condition, form.geneticVariant, form.stage].filter(Boolean).join(' · ') || 'Not supplied'
+  const profileTreatmentDetails = [form.currentMeds, form.priorTherapies].filter(Boolean).join(' · ') || 'Not supplied'
+  const profileSymptomDetails = [form.symptoms, form.scans].filter(Boolean).join(' · ') || 'Not supplied'
+  const accessPlanLines = [
+    `- Condition details to bring: ${profileConditionDetails}`,
+    `- Current and past treatments: ${profileTreatmentDetails}`,
+    `- Symptoms and key test notes: ${profileSymptomDetails}`,
+    recruitingTrialLines ? citedLine('- Study-site conversation: Open the recruiting records to check current contacts and enrollment rules.', trials.filter(isRecruitingTrial).slice(0, 3)) : `- Study-site conversation: Use ClinicalTrials.gov to check current studies for ${condition}.`,
+  ].join('\n')
   const mapNote = result?.exploration
     ? 'AI starting map: These connections are not verified facts or personal treatment advice. Check trusted sources and a clinician before acting on any idea.'
     : 'Source-linked report: Use the cited records to check every treatment and research question.'
@@ -1630,35 +1790,44 @@ const reportExportText = ({ form, report, result }) => {
     `Stage: ${form.stage || 'Not supplied'}`,
     `Current treatments: ${form.currentMeds || 'Not supplied'}`,
     '',
-    'Reviewed briefing',
+    '1. Condition snapshot',
     citedLine(reviewText, briefingCitations),
     '',
-    'Approved and established treatment information',
+    '2. Approved and established options',
     officialLabelLines || 'Check the condition subtype, gene result, symptom, and related diagnoses in official labels before ruling out established options.',
     '',
-    'Where you can go',
+    '3. Centers and experts',
     centerLines || 'Use the linked recruiting study records and a clinician or disease foundation directory to find an appropriate specialty team.',
     '',
-    'Lifestyle changes worth discussing',
+    '4. Lifestyle changes worth discussing',
     lifestyleLines || 'Add daily-life symptoms, activity limits, or environmental concerns to make this section more specific.',
     '',
-    'Researched treatment leads',
+    '5. Treatments in development',
+    medicineDevelopmentLines || 'Use the researched treatment leads below to identify current drug, combination, and other treatment research.',
+    '',
+    '6. Gene, cell, device, and procedure research',
+    advancedDevelopmentLines || 'Use the researched treatment leads below to identify current advanced-therapy research.',
+    '',
+    '7. Researched treatment leads',
     interventionLines || 'Use the condition subtype, gene result, symptoms, and treatment goals to build more focused treatment directions.',
     '',
-    'Research questions to investigate',
+    '8. Research questions to investigate',
     hypothesisLines || 'Use the treatment leads above as starting questions for a clinician or trusted-source search.',
     '',
-    'Recruiting clinical trials',
+    '9. Current clinical trials',
     recruitingTrialLines || `Use ClinicalTrials.gov to check the latest recruiting studies for ${condition}.`,
     ...(otherCurrentTrialLines ? ['', 'Other current clinical studies', otherCurrentTrialLines] : []),
     '',
-    'Simple questions to ask your doctor',
+    '10. Your research and access plan',
+    accessPlanLines,
+    '',
+    '11. Simple questions to ask your doctor',
     questionLines || 'Use the source-linked treatment and trial tables to prepare questions for a clinician.',
     '',
     'Report boundary',
     mapNote,
     '',
-    'Important safety points',
+    '12. Important safety points',
     safetyLines || 'Use a clinician or pharmacist to review medicines, allergies, other conditions, and pregnancy status before acting on an idea.',
     '',
     'Researchers named in source records',

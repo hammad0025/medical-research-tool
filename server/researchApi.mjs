@@ -13,7 +13,9 @@ const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
 const MAX_BODY_BYTES = 60_000
 const REQUEST_TIMEOUT_MS = 50_000
 const AI_REQUEST_TIMEOUT_MS = 35_000
-const MAX_LIVE_TRIALS = 24
+// Keep a substantial directory for conditions with active research while
+// staying under the registry page size fetched for each search term.
+const MAX_LIVE_TRIALS = 50
 const ACCESS_COOKIE_NAME = 'rmc_demo_access'
 const ACCESS_SESSION_TTL_MS = 12 * 60 * 60 * 1_000
 const ACCESS_LOGIN_WINDOW_MS = 15 * 60 * 1_000

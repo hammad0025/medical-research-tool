@@ -1908,3 +1908,118 @@
   .mrc-access-shell { padding: 18px; }
   .mrc-access-card { padding: 26px 22px; border-radius: 16px; }
 }
+
+/* Patient-first dossier flow: every report keeps the same practical reading order. */
+.mrc-report-stage [id] { scroll-margin-top: 150px; }
+
+.mrc-report-stage .report-route {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 17px;
+  border-top: 1px solid rgba(8, 127, 157, 0.18);
+  color: #526176;
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 0.98rem;
+}
+
+.mrc-report-stage .report-route > span { color: #40576a; font-weight: 700; }
+.mrc-report-stage .report-route > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.mrc-report-stage .report-route a {
+  padding: 5px 9px;
+  border: 1px solid rgba(8, 127, 157, 0.23);
+  border-radius: 999px;
+  color: #08718b;
+  background: #f1fafb;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.mrc-report-stage .report-route a:hover { border-color: rgba(8, 127, 157, 0.54); color: #075f76; background: #e2f5f8; }
+
+.mrc-report-stage .approved-treatment-table-wrap,
+.mrc-report-stage .development-program-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(8, 127, 157, 0.22);
+  border-radius: 11px;
+  background: #ffffff;
+}
+
+.mrc-report-stage .approved-treatment-table,
+.mrc-report-stage .development-program-table {
+  width: 100%;
+  min-width: 850px;
+  border-collapse: collapse;
+  color: #31485b;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.mrc-report-stage .approved-treatment-table th,
+.mrc-report-stage .development-program-table th {
+  padding: 11px 13px;
+  border-bottom: 1px solid rgba(8, 127, 157, 0.24);
+  color: #375367;
+  background: linear-gradient(180deg, #f0f9fb, #e8f4f7);
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.mrc-report-stage .approved-treatment-table td,
+.mrc-report-stage .development-program-table td {
+  padding: 13px;
+  border-bottom: 1px solid rgba(23, 35, 58, 0.1);
+  vertical-align: top;
+}
+
+.mrc-report-stage .approved-treatment-table tbody tr:last-child td,
+.mrc-report-stage .development-program-table tbody tr:last-child td { border-bottom: 0; }
+.mrc-report-stage .approved-treatment-table tbody tr:hover,
+.mrc-report-stage .development-program-table tbody tr:hover { background: #f8fcfd; }
+.mrc-report-stage .approved-treatment-table strong,
+.mrc-report-stage .development-program-table strong { color: #17233a; font-family: 'Crimson Pro', Georgia, serif; font-size: 1.05rem; }
+.mrc-report-stage .approved-treatment-table p,
+.mrc-report-stage .development-program-table p { margin: 0; }
+
+.approved-treatment-table__boundary {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
+  color: #6f4f40;
+  font-size: 0.83rem;
+  line-height: 1.42;
+}
+.approved-treatment-table__boundary svg { flex: 0 0 auto; margin-top: 2px; color: #b56a3d; }
+
+.treatment-development { display: grid; gap: 19px; }
+.development-program-section { display: grid; gap: 12px; }
+.development-program-section + .development-program-section { padding-top: 20px; border-top: 1px solid rgba(8, 127, 157, 0.18); }
+.development-program-section--advanced { margin: 0 -2px; padding: 17px 16px 2px; border: 1px solid rgba(157, 97, 121, 0.2); border-radius: 12px; background: linear-gradient(135deg, rgba(252, 247, 248, 0.9), rgba(246, 250, 252, 0.86)); }
+.development-program-section--advanced + .development-program-section { border-top: 0; }
+.development-program-section__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.development-program-section__heading h3 { margin: 2px 0 0; color: #1c3c4c; font-family: 'Crimson Pro', Georgia, serif; font-size: 1.28rem; }
+.development-program-section > p { margin: -3px 0 1px; color: #526176; font-family: 'Crimson Pro', Georgia, serif; font-size: 0.98rem; line-height: 1.42; }
+.development-program-table__lane { display: inline-flex; padding: 4px 7px; border: 1px solid rgba(8, 127, 157, 0.22); border-radius: 7px; color: #08718b; background: #eef9fa; font-size: 0.76rem; font-weight: 800; }
+.development-program-table__boundary { margin-top: 8px !important; color: #6f4f40; font-size: 0.79rem; line-height: 1.36; }
+
+.mrc-report-stage .trial-directory__recruiting { display: grid; gap: 12px; margin: 20px 0 24px; }
+.mrc-report-stage .trial-directory__other { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(8, 127, 157, 0.18); }
+
+.research-access-plan__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.research-access-plan__card { display: flex; flex-direction: column; min-height: 160px; padding: 16px; border: 1px solid rgba(8, 127, 157, 0.2); border-radius: 11px; background: linear-gradient(145deg, #fbfeff, #f0f9fa); }
+.research-access-plan__card strong { margin-top: 4px; color: #17233a; font-family: 'Crimson Pro', Georgia, serif; font-size: 1.12rem; line-height: 1.2; }
+.research-access-plan__card > p:last-of-type { margin: 9px 0 0; color: #526176; font-family: 'Crimson Pro', Georgia, serif; font-size: 0.96rem; line-height: 1.36; }
+.research-access-plan__card .citation-actions { margin-top: auto; }
+
+@media (max-width: 760px) {
+  .mrc-report-stage .report-route { grid-template-columns: 1fr; gap: 8px; }
+  .mrc-report-stage .approved-treatment-table-wrap,
+  .mrc-report-stage .development-program-table-wrap { margin-right: -1px; margin-left: -1px; border-radius: 9px; }
+  .development-program-section__heading { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .research-access-plan__grid { grid-template-columns: 1fr; }
+  .research-access-plan__card { min-height: 0; }
+}
