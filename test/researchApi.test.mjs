@@ -180,7 +180,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, sparseReview = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, sparseReview = false, malformedReview = false } = {}) => {
   const pubMedTerms = []
 
   return {
@@ -221,6 +221,9 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, sparseRevie
       if (url.includes('open.fda.gov/drug/label.json')) return jsonResponse({ error: { message: 'No matches found' } }, 404)
       if (url.includes('api.openai.com/v1/responses')) {
         const request = JSON.parse(options.body)
+        if (malformedReview && !request.instructions.includes('Researcher Agent') && !request.instructions.includes('Research Connections Agent')) {
+          return jsonResponse({ status: 'completed', output_text: 'This response is not valid JSON.' })
+        }
         const output = request.instructions.includes('Research Connections Agent') || request.instructions.includes('second safety pass')
           ? explorationDraft
           : request.instructions.includes('Researcher Agent')
@@ -339,6 +342,21 @@ test('a source-backed run keeps a source-linked overview when a report lane is e
   assert.ok(response.body.review.briefing.sourceIds.length)
   assert.ok(response.body.review.questions.length)
   assert.ok(response.body.review.questions.every((question) => question.sourceIds.length))
+})
+
+test('a source-gated writer overview survives a malformed second AI pass', { concurrency: false }, async () => {
+  const mock = createMockFetch({ malformedReview: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.equal(response.body.status, 'ready')
+  assert.equal(response.body.review.mode, 'source-gate')
+  assert.match(response.body.review.briefing.text, /current study and source-linked research/i)
+  assert.ok(response.body.review.briefing.sourceIds.length)
 })
 
 test('an AI research map replaces the blank-report dead end when live sources are unavailable', { concurrency: false }, async () => {
@@ -503,7 +521,9 @@ test('the offline starting map stays condition-specific for common and arbitrary
     assert.equal(response.body.status, usesCuratedIpfSources ? 'ready' : 'exploration')
     if (usesCuratedIpfSources) {
       assert.equal(response.body.exploration, null)
-      assert.match(response.body.review.briefing.text, /current study records and source-linked research/i)
+      assert.match(response.body.review.briefing.text, /current study records/i)
+      assert.match(response.body.review.briefing.text, /source-linked research records/i)
+      assert.match(response.body.review.briefing.text, /exact records/i)
       continue
     }
     assert.equal(response.body.exploration.mode, 'structured-starting-map')
