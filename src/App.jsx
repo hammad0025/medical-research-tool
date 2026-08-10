@@ -244,9 +244,17 @@ const treatmentIdeaKey = (title) => String(title || '')
   .replace(/[^a-z0-9]+/g, ' ')
   .trim()
 
+const treatmentFamilyKey = (title) => {
+  const key = treatmentIdeaKey(title)
+  // These are alternate names for the same consumer-facing omega-3 family,
+  // so one card should carry the combined source links instead of three cards.
+  if (/\b(?:fish oil|omega ?3|docosahexaenoic acid|dha|eicosapentaenoic acid|epa)\b/.test(key)) return 'omega 3'
+  return key
+}
+
 const sameTreatmentFamily = (leftTitle, rightTitle) => {
-  const left = treatmentIdeaKey(leftTitle)
-  const right = treatmentIdeaKey(rightTitle)
+  const left = treatmentFamilyKey(leftTitle)
+  const right = treatmentFamilyKey(rightTitle)
   if (!left || !right) return false
   if (left === right) return true
   const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left]
@@ -328,7 +336,8 @@ const sourceTreatmentCandidates = (source) => {
 
 const isArticleTitleLike = (title) => /\b(?:systematic review|meta-analysis|safety and efficacy|phase\s*\d|a study comparing|clinical trial|review of)\b/i.test(String(title || ''))
 const isSupplementIdea = (idea) => /supplement|food|vitamin|fish oil|omega[- ]?3|dietary/i.test(`${idea?.category || ''} ${idea?.title || ''}`)
-const looksLikeAdvancedResearch = (idea) => /gene|rna|cell|biologic|radiation|optogenetic|implant|exosome|stem/i.test(`${idea?.category || ''} ${idea?.type || ''} ${idea?.title || ''}`)
+const looksLikeAdvancedResearch = (idea) => /gene|rna|cell|biologic|radiation|optogenetic|implant|prosthe|exosome|stem/i.test(`${idea?.category || ''} ${idea?.type || ''} ${idea?.title || ''}`)
+const isBroadTreatmentClass = (idea) => /\b(?:inhibitors|agonists|antagonists|modulators|blockers|agents|drugs|medicines|therapies|supplements|vitamins|procedures|devices)\b$/i.test(treatmentIdeaKey(idea?.title))
 
 const sourceTreatmentIdeas = (sources, condition) => {
   const ideas = []
@@ -1299,6 +1308,7 @@ const patientDiscussionIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
   return allTreatmentIdeasForReport(result, condition)
     .filter((idea) => !isResearchProgramIdea(idea))
+    .filter((idea) => !isBroadTreatmentClass(idea))
     .filter((idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId)))
     .slice(0, 10)
 }
