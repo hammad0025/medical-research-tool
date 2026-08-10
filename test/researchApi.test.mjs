@@ -76,7 +76,10 @@ const unrelatedStemCellTrial = {
 
 const writerDraft = {
   briefing: 'This packet includes a current study and source-linked research for retinitis pigmentosa.',
-  researchQuestions: ['Could a retina specialist explain whether this study is relevant to the person’s condition?'],
+  researchQuestions: [{
+    text: 'Could a retina specialist explain whether this study is relevant to the person’s condition?',
+    sourceIds: ['NCT00000001'],
+  }],
   treatmentIdeas: [{
     title: 'AAV-RP therapy',
     category: 'Gene treatment',
@@ -119,7 +122,7 @@ const reviewerDraft = {
     reason: 'It is linked to the source packet.',
     sourceIds: ['pmid-1001'],
   },
-  questions: [{ index: 0, decision: 'approve', text: writerDraft.researchQuestions[0], reason: 'Safe question.' }],
+  questions: [{ index: 0, decision: 'approve', text: writerDraft.researchQuestions[0].text, reason: 'Safe question.', sourceIds: ['NCT00000001'] }],
   treatmentIdeas: [{ index: 0, decision: 'approve', item: writerDraft.treatmentIdeas[0], reason: 'Named trial intervention.' }],
   lifestyle: [{ index: 0, decision: 'approve', item: writerDraft.lifestyle[0], reason: 'Source-linked daily-life topic.' }],
   safety: [{ index: 0, decision: 'approve', item: writerDraft.safety[0], reason: 'Source-linked caution.' }],
@@ -293,6 +296,9 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.review.lifestyle.length, 1)
   assert.equal(response.body.review.safety.length, 1)
   assert.equal(response.body.review.hypotheses.length, 1)
+  assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
+  assert.equal(response.body.exploration.treatmentPaths.length, 10)
+  assert.equal(response.body.exploration.connections.length, 10)
   assert.equal(response.body.review.mode, 'dual-agent')
   assert.equal(response.body.review.independent, false)
 })
@@ -492,11 +498,13 @@ test('the offline starting map stays condition-specific for common and arbitrary
     assert.equal(response.status, 200)
     assert.equal(response.body.status, /ipf|idiopathic pulmonary fibrosis/i.test(condition) ? 'ready' : 'exploration')
     assert.equal(response.body.exploration.mode, 'structured-starting-map')
-    assert.equal(response.body.exploration.treatmentPaths.length, 3)
-    assert.equal(response.body.exploration.connections.length, 3)
+    assert.equal(response.body.exploration.treatmentPaths.length, 10)
+    assert.equal(response.body.exploration.connections.length, 10)
     assert.equal(response.body.exploration.lifestyle.length, 2)
     assert.equal(response.body.exploration.safety.length, 2)
     assert.match(response.body.exploration.treatmentPaths[0].title, expectedTitle)
+    assert.ok(response.body.exploration.treatmentPaths.every((item) => item.needsVerification))
+    assert.ok(response.body.exploration.connections.every((item) => item.needsVerification))
     assert.match(response.body.exploration.briefing, new RegExp(condition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
   }
 })
