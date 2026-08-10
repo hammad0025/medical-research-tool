@@ -181,10 +181,14 @@ const createSiteAccessControl = (env) => {
       pruneExpired()
       const address = requestAddress(request)
       const attempt = failedAttempts.get(address)
-      if (attempt?.count >= ACCESS_LOGIN_MAX_ATTEMPTS && attempt.resetAt > Date.now()) {
+      const passcodeIsCorrect = passcodesMatch(passcode, expectedPasscode)
+      // A shared demo should never lock out the real user after a typo. Wrong
+      // guesses still receive a short rate limit, while a correct passcode
+      // immediately resets that temporary counter.
+      if (!passcodeIsCorrect && attempt?.count >= ACCESS_LOGIN_MAX_ATTEMPTS && attempt.resetAt > Date.now()) {
         return { ok: false, status: 429, error: 'Too many passcode attempts. Wait a few minutes and try again.' }
       }
-      if (!passcodesMatch(passcode, expectedPasscode)) {
+      if (!passcodeIsCorrect) {
         const nextAttempt = attempt?.resetAt > Date.now()
           ? { count: attempt.count + 1, resetAt: attempt.resetAt }
           : { count: 1, resetAt: Date.now() + ACCESS_LOGIN_WINDOW_MS }
@@ -1123,7 +1127,8 @@ const isSpecificTrialIntervention = (value) => {
   const name = cleanInterventionName(value)
   return Boolean(name)
     && !/^(?:arm|group|cohort)\s*(?:\d+|[a-z])$|^(?:placebo|sham|no intervention|standard(?: care| treatment)?|usual(?: care| treatment)?|routine(?: care| treatment)?|supportive care|observation(?:al)?)(?:\b|:)/i.test(name)
-    && !/\b(?:blood (?:test|draw|sample)|biomarker|imaging|scan|mri|pet|diagnostic|diagnosis|screening|assessment|questionnaire|survey|monitoring|registry|observation)\b/i.test(name)
+    && !/\b(?:blood (?:test|draw|sample)|biomarker|imaging|scan|mri|pet|diagnostic|diagnosis|screening|assessment|questionnaire|survey|monitoring|registry|observation|electroretinograph|visual field|visual acuity|perimetr|ophthalmoscop|tomograph)\b/i.test(name)
+    && !/\b(?:sutur(?:e|ing)|gas injection|tamponade|irrigation|incision|capsular tension ring)\b/i.test(name)
     && !/\b(?:clinical|sham)\s+(?:dbs\s+)?(?:setting|configuration|programming)\b|\bimmunosuppressive regimen\b|\bcustomized microinjection device\b/i.test(name)
 }
 
@@ -1769,6 +1774,7 @@ const isSpecificCandidateName = (name) => {
   const normalized = candidateSearchText(name)
   return normalized.length >= 3
     && !/^(?:treatment|therapy|drug|medicine|supplement|vitamin|food|gene therapy|cell therapy|stem cells?|exosomes?|research|clinical trial|drug repurposing)$/i.test(normalized)
+    && isSpecificTrialIntervention(normalized)
 }
 
 const normalizeScoutCandidates = (draft) => {
