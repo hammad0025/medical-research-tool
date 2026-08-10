@@ -184,6 +184,14 @@ const candidateScoutDraft = {
   ],
 }
 
+const packetCandidateDraft = {
+  candidates: [
+    { name: 'Vision rehabilitation', category: 'procedure or rehabilitation', sourceIds: ['pmid-1001'] },
+    { name: 'AAV-RP therapy', category: 'gene or cell program', sourceIds: ['NCT00000001'] },
+    { name: 'Made-up treatment', category: 'medicine', sourceIds: ['pmid-1001'] },
+  ],
+}
+
 const jsonResponse = (body, status = 200) => ({
   ok: status >= 200 && status < 300,
   status,
@@ -242,8 +250,10 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, sparseRevie
         if (malformedReview && !request.instructions.includes('Researcher Agent') && !request.instructions.includes('Research Connections Agent')) {
           return jsonResponse({ status: 'completed', output_text: 'This response is not valid JSON.' })
         }
-        const output = request.instructions.includes('Candidate Scout')
-          ? candidateScoutDraft
+        const output = request.instructions.includes('Packet Candidate Extractor')
+          ? packetCandidateDraft
+          : request.instructions.includes('Candidate Scout')
+            ? candidateScoutDraft
           : request.instructions.includes('Research Connections Agent') || request.instructions.includes('second safety pass')
           ? explorationDraft
           : request.instructions.includes('Researcher Agent')
@@ -314,9 +324,14 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.ok(response.body.sources.some((source) => source.id === 'rp-nei-condition-overview'))
   assert.ok(response.body.sources.some((source) => source.id === 'rp-fda-luxturna-rpe65'))
   const candidateSource = response.body.sources.find((source) => source.id === 'pmid-1001')
-  assert.deepEqual(candidateSource.candidateLeads.map((candidate) => candidate.name), ['AAV-RP therapy'])
+  assert.ok(candidateSource.candidateLeads.some((candidate) => candidate.name === 'AAV-RP therapy'))
+  assert.ok(candidateSource.candidateLeads.some((candidate) => candidate.name === 'Vision rehabilitation'))
   assert.ok(!candidateSource.candidateLeads.some((candidate) => /unrelated/i.test(candidate.name)))
+  assert.ok(!candidateSource.candidateLeads.some((candidate) => /made-up/i.test(candidate.name)))
   assert.ok(mock.pubMedTerms.some((term) => term.includes('AAV-RP therapy')))
+  const candidateGate = response.body.sourceCoverage.find((lane) => lane.id === 'candidate-verification')
+  assert.equal(candidateGate.status, 'ready')
+  assert.match(candidateGate.detail, /exact source text/i)
   assert.equal(response.body.trials.length, 1)
   assert.deepEqual(response.body.trials.map((item) => item.id), ['NCT00000001'])
   assert.ok(!response.body.trials.some((item) => /NAION|umbilical cord/i.test(item.title)))
