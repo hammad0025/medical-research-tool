@@ -520,7 +520,7 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
       searchNames: candidateSearchNamesFor(candidate),
     }))
     .filter((candidate) => candidate.name.length >= 3)
-    .slice(0, 16)
+    .slice(0, 24)
 
   if (!conditionPhrase || !usableCandidates.length) return []
 
@@ -531,7 +531,7 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
     ...usableCandidates.flatMap((candidate) => candidate.searchNames.slice(1).map((searchName) => ({ candidate, searchName }))),
   ]
     .filter(({ searchName }) => Boolean(searchName))
-    .slice(0, 16)
+    .slice(0, 24)
   const searchResults = []
   let completedSearches = 0
   // PubMed's public endpoint is rate limited. Small batches keep the scout
@@ -557,7 +557,7 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
     }
   }
 
-  const ids = [...candidateById.keys()].slice(0, 32)
+  const ids = [...candidateById.keys()].slice(0, 48)
   if (!ids.length) return []
 
   const url = new URL(PUBMED_FETCH_URL)
@@ -745,7 +745,7 @@ const fetchEuropePmcEvidence = async (condition) => {
       seen.add(source.id)
       return true
     })
-    .slice(0, 16)
+    .slice(0, 24)
 }
 
 // Europe PMC is a second source path for candidate verification. A public
@@ -760,7 +760,7 @@ const fetchEuropePmcCandidateEvidence = async (condition, candidates) => {
       searchNames: candidateSearchNamesFor(candidate),
     }))
     .filter((candidate) => candidate.name.length >= 3)
-    .slice(0, 16)
+    .slice(0, 24)
   if (!phrase || !usableCandidates.length) return []
 
   const conditionQuery = `TITLE_ABS:"${europePmcPhrase(phrase)}"`
@@ -769,7 +769,7 @@ const fetchEuropePmcCandidateEvidence = async (condition, candidates) => {
     ...usableCandidates.flatMap((candidate) => candidate.searchNames.slice(1).map((searchName) => ({ candidate, searchName }))),
   ]
     .filter(({ searchName }) => Boolean(searchName))
-    .slice(0, 12)
+    .slice(0, 24)
   const matchedSources = new Map()
   let completedSearches = 0
 
@@ -837,7 +837,7 @@ const fetchCandidateEvidence = async (condition, candidates) => {
   })
 
   return {
-    sources: dedupeEvidenceSources(successful.flatMap((result) => result.value), 18),
+    sources: dedupeEvidenceSources(successful.flatMap((result) => result.value), 24),
     coverage,
   }
 }
@@ -1754,6 +1754,17 @@ Return strict JSON only:
   ]
 }`
 
+const practicalCoverageScoutSystemPrompt = `You are Practical Coverage Candidate Scout in a medical-research product. Produce search seeds only, never treatment advice.
+
+Given a condition and optional subtype, look for a broad, patient-useful spread of exact named candidates that could appear in condition-specific papers or abstracts. Search conceptually across historically studied medicines, repurposed medicines, supplements or food products, procedures, rehabilitation, adaptive support, and symptom-care treatments. Do not return gene therapy, RNA, cell therapy, exosomes, implants, trial IDs, proprietary study products, or other trial-only programs. Prefer names that are practical to discuss with a clinician or pharmacist. Do not return broad labels such as "antioxidants," "vitamins," "rehabilitation," "inhibitors," or "supportive care." Include a candidate only when you believe an exact condition-specific paper or abstract could name it; do not invent names to fill the list. When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
+
+Return strict JSON only:
+{
+  "candidates": [
+    {"name": "patient-readable medicine, product, food, procedure, or support", "searchNames": ["exact literature name or alias"], "category": "medicine, supplement or food, procedure or rehabilitation, or other"}
+  ]
+}`
+
 const isSpecificCandidateName = (name) => {
   const normalized = candidateSearchText(name)
   return normalized.length >= 3
@@ -1775,7 +1786,7 @@ const normalizeScoutCandidates = (draft) => {
       seen.add(key)
       return true
     })
-    .slice(0, 16)
+    .slice(0, 24)
 }
 
 const mergeScoutCandidates = (...candidateLists) => {
@@ -1788,7 +1799,7 @@ const mergeScoutCandidates = (...candidateLists) => {
       seen.add(key)
       return true
     })
-    .slice(0, 16)
+    .slice(0, 24)
 }
 
 const scoutResearchCandidates = async (patient, env) => {
@@ -1799,14 +1810,18 @@ const scoutResearchCandidates = async (patient, env) => {
   })
   const request = { system: candidateScoutSystemPrompt, user, env, maxTokens: 1_500 }
   const practicalRequest = { system: practicalCandidateScoutSystemPrompt, user, env, maxTokens: 1_300 }
+  const practicalCoverageRequest = { system: practicalCoverageScoutSystemPrompt, user, env, maxTokens: 1_300 }
   // Independent scouts reduce the odds that one model only returns flashy
   // trial programs and overlooks ordinary, patient-discussible literature.
-  const [anthropicResponse, openAiResponse, practicalOpenAiResponse] = await Promise.all([
+  // The two practical prompts ask for different coverage so one omission does
+  // not decide which exact names receive a literature search.
+  const [anthropicResponse, openAiResponse, practicalOpenAiResponse, practicalCoverageOpenAiResponse] = await Promise.all([
     callAnthropic(request),
     callOpenAi({ ...request, models: openAiWriterModels(env) }),
     callOpenAi({ ...practicalRequest, models: openAiWriterModels(env) }),
+    callOpenAi({ ...practicalCoverageRequest, models: openAiWriterModels(env) }),
   ])
-  const responses = [practicalOpenAiResponse, anthropicResponse, openAiResponse].filter((response) => response.ok)
+  const responses = [practicalOpenAiResponse, practicalCoverageOpenAiResponse, anthropicResponse, openAiResponse].filter((response) => response.ok)
   if (!responses.length) {
     const failed = openAiResponse.ok ? anthropicResponse : openAiResponse
     return { status: failed.code || 'unavailable', candidates: [], detail: failed.message }
