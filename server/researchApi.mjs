@@ -1208,10 +1208,11 @@ Hard boundaries:
 - Do not promote stem cells, exosomes, or private-pay regenerative clinics. If relevant, make the question about legitimate academic trials and evidence quality.
 - Do not call a research site, hospital, or clinician a recommended, leading, or top center. A site may only be described as an active research site when it appears in the packet.
 - Do not invent a physician, a center, a paper, an NCT number, a URL, or a source ID.
+- The app builds the treatment, lifestyle, and study cards directly from the exact records. Keep this response compact: write a useful overview, up to three doctor questions, and a few atomic claims for the second pass. Leave the other arrays empty unless a source record makes a short, clearly useful item unavoidable.
 
 Return strict JSON only:
 {
-  "briefing": "two or three sentences, <= 520 chars",
+  "briefing": {"text": "two or three sentences, <= 520 chars", "sourceIds": ["source id"]},
   "researchQuestions": [{"text": "question", "sourceIds": ["source id"]}],
   "treatmentIdeas": [
     {"title": "exact intervention", "category": "drug, supplement, procedure, device, cell/gene treatment, or other", "summary": "what the supplied source says", "whyItMayMatter": "why it is relevant to research", "caution": "why it is not a personal treatment recommendation", "sourceIds": ["source id"]}
@@ -1231,6 +1232,8 @@ Return strict JSON only:
 const reviewerSystemPrompt = `You are Reviewer Agent, a skeptical clinical-evidence reviewer. You receive an untrusted writer draft plus the exact source packet that writer was allowed to use.
 
 Your job is to prevent hallucination, overclaiming, and clinical irrelevance. Reject anything that is not traceable to an exact sourceId, names an entity outside the packet, implies a personalized treatment recommendation, gives dosing, promotes investigational/cell/exosome therapies as established care, or calls a research site a recommended, leading, or top center. Reject a treatment idea if it is not a named intervention in the supplied source material, or if it is a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step. Reject a safety item unless it is a source-specific caution or red flag and it does not give a direct instruction. Reject a lifestyle item unless it names a real modifiable non-drug factor. A hypothesis may use a named intervention, pathway, or research topic from the packet, but it must be a useful cautious connection and not a diagnosis or monitoring step. When the source packet says patient.readingLevel is "eighth-grade", rewrite every patient-facing item in short, plain sentences at about an eighth-grade level. Use "anti-scarring medicine" instead of "antifibrotic" unless quoting a source, while keeping required medical names and source IDs exact. Every approved or rewritten question must be a simple doctor question: 12 words or fewer, one idea, no jargon, and easy to read aloud. Do not state or paraphrase a guideline recommendation's strength unless an exact quote in the packet supports it.
+
+The app creates the record cards itself. Focus this pass on the briefing and doctor questions. Do not add items to a currently empty treatment, lifestyle, safety, or hypothesis array just to make the response longer.
 
 Return strict JSON only:
 {
@@ -1582,7 +1585,11 @@ const normalizeResearchQuestion = (question, allowedSourceIds) => {
 }
 
 const normalizeWriterDraft = (draft, allowedSourceIds, allowedCandidates, candidateEvidenceText) => {
-  const briefing = cleanText(draft?.briefing, 520)
+  const briefingRecord = isRecord(draft?.briefing)
+    ? draft.briefing
+    : { text: draft?.briefing, sourceIds: [] }
+  const briefingText = cleanText(briefingRecord?.text, 520)
+  const declaredBriefingSourceIds = sourceIdsFrom(briefingRecord?.sourceIds, allowedSourceIds)
   const researchQuestions = (Array.isArray(draft?.researchQuestions) ? draft.researchQuestions : [])
     .map((question) => normalizeResearchQuestion(question, allowedSourceIds))
     .filter(Boolean)
@@ -1611,8 +1618,20 @@ const normalizeWriterDraft = (draft, allowedSourceIds, allowedCandidates, candid
     .filter((item) => item.claim && item.sourceIds.length && !hasUnsafeRecommendationLanguage(item.claim))
     .slice(0, 6)
 
+  // Older model responses returned a string briefing. Preserve compatibility,
+  // but only release it if the packet itself supplies traceable source IDs.
+  const briefingSourceIds = declaredBriefingSourceIds.length
+    ? declaredBriefingSourceIds
+    : [...new Set(claims.flatMap((claim) => claim.sourceIds))].slice(0, 5)
+  const briefing = briefingText
+    && briefingSourceIds.length
+    && !hasUnsafeRecommendationLanguage(briefingText)
+    && !hasUnsupportedGuidelineStrength(briefingText)
+    ? { text: briefingText, sourceIds: briefingSourceIds }
+    : null
+
   return {
-    briefing: briefing && !hasUnsafeRecommendationLanguage(briefing) && !hasUnsupportedGuidelineStrength(briefing) ? briefing : '',
+    briefing,
     researchQuestions,
     treatmentIdeas,
     lifestyle,
@@ -1648,7 +1667,7 @@ const sourceGateReview = (writer, reason, reviewer = {}) => ({
   provider: reviewer.provider || '',
   model: reviewer.model || '',
   independent: false,
-  briefing: null,
+  briefing: writer.briefing ? { ...writer.briefing } : null,
   questions: writer.researchQuestions.map((question) => ({ ...question })),
   treatmentIdeas: writer.treatmentIdeas,
   lifestyle: writer.lifestyle,
@@ -1776,9 +1795,29 @@ const shortQuestionForCandidate = (candidate) => {
 // case, keep the reader in a real report rather than dropping into a generic
 // AI map. These sentences only describe the records already in the packet.
 const sourceBackedReportFallback = (packet) => {
+  const condition = cleanText(packet?.patient?.condition, 120) || 'this condition'
+  const trials = Array.isArray(packet?.trials) ? packet.trials : []
+  const sources = Array.isArray(packet?.sources) ? packet.sources : []
+  const labelCount = sources.filter((source) => source?.origin === 'openFDA' || /FDA drug label/i.test(source?.type || '')).length
+  const articleCount = sources.length - labelCount
+  const researchTypes = [...new Set(trials
+    .flatMap((trial) => Array.isArray(trial?.interventionDetails) ? trial.interventionDetails : [])
+    .map((entry) => cleanText(entry?.type, 60).toUpperCase())
+    .filter(Boolean)
+    .map((type) => ({
+      GENETIC: 'gene',
+      BIOLOGICAL: 'cell or biologic',
+      DRUG: 'drug',
+      COMBINATION_PRODUCT: 'combination-treatment',
+      DIETARY_SUPPLEMENT: 'supplement',
+      DEVICE: 'device',
+      PROCEDURE: 'procedure',
+      RADIATION: 'procedure',
+    }[type] || 'treatment')))]
+    .slice(0, 4)
   const sourceIds = [
-    ...(packet?.trials || []).slice(0, 3).map((trial) => trial?.id),
-    ...(packet?.sources || []).slice(0, 2).map((source) => source?.id),
+    ...trials.slice(0, 3).map((trial) => trial?.id),
+    ...sources.slice(0, 2).map((source) => source?.id),
   ].map((id) => cleanText(id, 100)).filter(Boolean)
   const questionEntries = []
   const seenCandidates = new Set()
@@ -1805,7 +1844,7 @@ const sourceBackedReportFallback = (packet) => {
   return {
     briefing: sourceIds.length
       ? {
-        text: `This report brings together current study records and source-linked research for ${packet?.patient?.condition || 'this condition'}. The sections below separate official label information, active studies, and early research ideas. Open each source link to read the exact record.`,
+        text: `This report brings together ${trials.length} current study record${trials.length === 1 ? '' : 's'} and ${articleCount} source-linked research record${articleCount === 1 ? '' : 's'} for ${condition}.${labelCount ? ` It also found ${labelCount} official U.S. drug-label record${labelCount === 1 ? '' : 's'} that mention this condition.` : ''}${researchTypes.length ? ` The current studies include ${researchTypes.join(', ')} research.` : ''} The cards below separate official label information from early research and link to the exact records.`,
         sourceIds,
         reason: 'Built directly from the live source packet because the AI briefing was unavailable or withheld.',
       }
@@ -2303,7 +2342,7 @@ const runDualAgentReview = async ({ packet, env }) => {
     system: writerSystemPrompt,
     user: `CURRENT DATE: ${runDate}\n\nSOURCE PACKET\n${promptPacket}`,
     env,
-    maxTokens: 2_600,
+    maxTokens: 1_600,
   }
 
   let writerResponse = await callAnthropic(writerRequest)
@@ -2321,8 +2360,32 @@ const runDualAgentReview = async ({ packet, env }) => {
     }
   }
 
-  const writerDraft = normalizeWriterDraft(extractJson(writerResponse.text), allowedSourceIds, allowedCandidates, candidateEvidenceText)
-  if (!writerDraft.briefing && !writerDraft.treatmentIdeas.length && !writerDraft.lifestyle.length && !writerDraft.safety.length && !writerDraft.hypotheses.length && !writerDraft.researchQuestions.length) {
+  let writerDraft = normalizeWriterDraft(extractJson(writerResponse.text), allowedSourceIds, allowedCandidates, candidateEvidenceText)
+  const hasWriterContent = (draft) => Boolean(
+    draft?.briefing
+    || draft?.treatmentIdeas?.length
+    || draft?.lifestyle?.length
+    || draft?.safety?.length
+    || draft?.hypotheses?.length
+    || draft?.researchQuestions?.length,
+  )
+
+  // An HTTP-successful model answer can still be unusable JSON or fail the
+  // source gate. Give the JSON-capable OpenAI pass a chance before falling
+  // back to a deterministic report built from the same live records.
+  if (!hasWriterContent(writerDraft) && writerProvider !== 'OpenAI') {
+    const openAiWriter = await callOpenAi({ ...writerRequest, models: openAiWriterModels(env) })
+    if (openAiWriter.ok) {
+      const openAiDraft = normalizeWriterDraft(extractJson(openAiWriter.text), allowedSourceIds, allowedCandidates, candidateEvidenceText)
+      if (hasWriterContent(openAiDraft)) {
+        writerResponse = openAiWriter
+        writerProvider = 'OpenAI'
+        writerDraft = openAiDraft
+      }
+    }
+  }
+
+  if (!hasWriterContent(writerDraft)) {
     return {
       writer: { status: 'withheld', provider: writerProvider, model: writerResponse.model },
       review: defaultReview('The writer response did not meet the source gate, so it was withheld.'),
@@ -2333,7 +2396,7 @@ const runDualAgentReview = async ({ packet, env }) => {
     system: reviewerSystemPrompt,
     user: `CURRENT DATE: ${runDate}\n\nSOURCE PACKET\n${promptPacket}\n\nUNTRUSTED WRITER DRAFT\n${JSON.stringify(writerDraft)}`,
     env,
-    maxTokens: 2_600,
+    maxTokens: 1_600,
   }
   const openAiConfigured = Boolean(env.OPENAI_API_KEY || process.env.OPENAI_API_KEY)
   const reviewerResponse = openAiConfigured
@@ -2354,12 +2417,14 @@ const runDualAgentReview = async ({ packet, env }) => {
     }
   }
 
+  const appliedReview = applyReview(extractJson(reviewerResponse.text), writerDraft, allowedSourceIds, allowedCandidates, candidateEvidenceText)
+  const review = appliedReview.mode === 'source-gate' && writerDraft.briefing
+    ? sourceGateReview(writerDraft, 'Reviewer output could not be parsed, so the source-linked writer summary is shown.', reviewerMetadata)
+    : appliedReview
+
   return {
     writer: { status: 'completed', provider: writerProvider, model: writerResponse.model },
-    review: withReviewerMetadata(
-      applyReview(extractJson(reviewerResponse.text), writerDraft, allowedSourceIds, allowedCandidates, candidateEvidenceText),
-      reviewerMetadata,
-    ),
+    review: withReviewerMetadata(review, reviewerMetadata),
   }
 }
 
