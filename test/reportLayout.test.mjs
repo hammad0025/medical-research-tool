@@ -39,3 +39,31 @@ test('the patient-first dossier flow keeps practical decisions ahead of the full
   assert.match(appSource, /10 researched leads \+ 10 questions to investigate/)
   assert.match(appSource, /Full current trial directory/)
 })
+
+test('Word and PDF exports keep the same practical dossier sections', () => {
+  const exportReport = appSource.slice(
+    appSource.indexOf('const reportExportText'),
+    appSource.indexOf('function ExportActions'),
+  )
+  const headingsInOrder = [
+    '1. Condition snapshot',
+    '2. Approved and established options',
+    '3. Centers and experts',
+    '4. Lifestyle changes worth discussing',
+    '5. Treatments in development',
+    '6. Gene, cell, device, and procedure research',
+    '7. Researched treatment leads',
+    '8. Research questions to investigate',
+    '9. Current clinical trials',
+    '10. Your research and access plan',
+    '11. Simple questions to ask your doctor',
+    '12. Important safety points',
+  ]
+
+  let lastPosition = -1
+  for (const heading of headingsInOrder) {
+    const position = exportReport.indexOf(heading)
+    assert.ok(position > lastPosition, `${heading} should follow the prior export section`)
+    lastPosition = position
+  }
+})
