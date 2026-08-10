@@ -1715,6 +1715,15 @@ const reportExportText = ({ form, report, result }) => {
       claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' }),
     ))
     .join('\n')
+  const developmentPrograms = developmentProgramsForReport(result, condition)
+  const developmentLinesFor = (programs) => programs
+    .map((program) => citedLine(
+      `- ${program.title}${program.category ? ` (${program.category})` : ''}: ${program.summary || program.rationale || `Named in research for ${condition}.`} Boundary: ${program.caution || program.boundary || 'This is a research record, not a treatment recommendation.'}`,
+      claimCitations(result, program, condition),
+    ))
+    .join('\n')
+  const medicineDevelopmentLines = developmentLinesFor(developmentPrograms.filter((program) => !isAdvancedResearchProgram(program)))
+  const advancedDevelopmentLines = developmentLinesFor(developmentPrograms.filter(isAdvancedResearchProgram))
   const officialLabelLines = officialLabelIdeasForReport(result, condition)
     .map((idea) => citedLine(`- ${idea.title}: ${idea.summary} Boundary: ${idea.caution}`, claimCitations(result, idea, condition)))
     .join('\n')
@@ -1755,6 +1764,15 @@ const reportExportText = ({ form, report, result }) => {
     .filter((question) => question?.text)
     .map((question) => citedLine(`- ${question.text}`, claimCitations(result, question, condition, { verifyWhenEmpty: question.kind === 'exploration' })))
     .join('\n')
+  const profileConditionDetails = [condition, form.geneticVariant, form.stage].filter(Boolean).join(' · ') || 'Not supplied'
+  const profileTreatmentDetails = [form.currentMeds, form.priorTherapies].filter(Boolean).join(' · ') || 'Not supplied'
+  const profileSymptomDetails = [form.symptoms, form.scans].filter(Boolean).join(' · ') || 'Not supplied'
+  const accessPlanLines = [
+    `- Condition details to bring: ${profileConditionDetails}`,
+    `- Current and past treatments: ${profileTreatmentDetails}`,
+    `- Symptoms and key test notes: ${profileSymptomDetails}`,
+    recruitingTrialLines ? citedLine('- Study-site conversation: Open the recruiting records to check current contacts and enrollment rules.', trials.filter(isRecruitingTrial).slice(0, 3)) : `- Study-site conversation: Use ClinicalTrials.gov to check current studies for ${condition}.`,
+  ].join('\n')
   const mapNote = result?.exploration
     ? 'AI starting map: These connections are not verified facts or personal treatment advice. Check trusted sources and a clinician before acting on any idea.'
     : 'Source-linked report: Use the cited records to check every treatment and research question.'
@@ -1772,35 +1790,44 @@ const reportExportText = ({ form, report, result }) => {
     `Stage: ${form.stage || 'Not supplied'}`,
     `Current treatments: ${form.currentMeds || 'Not supplied'}`,
     '',
-    'Reviewed briefing',
+    '1. Condition snapshot',
     citedLine(reviewText, briefingCitations),
     '',
-    'Approved and established treatment information',
+    '2. Approved and established options',
     officialLabelLines || 'Check the condition subtype, gene result, symptom, and related diagnoses in official labels before ruling out established options.',
     '',
-    'Where you can go',
+    '3. Centers and experts',
     centerLines || 'Use the linked recruiting study records and a clinician or disease foundation directory to find an appropriate specialty team.',
     '',
-    'Lifestyle changes worth discussing',
+    '4. Lifestyle changes worth discussing',
     lifestyleLines || 'Add daily-life symptoms, activity limits, or environmental concerns to make this section more specific.',
     '',
-    'Researched treatment leads',
+    '5. Treatments in development',
+    medicineDevelopmentLines || 'Use the researched treatment leads below to identify current drug, combination, and other treatment research.',
+    '',
+    '6. Gene, cell, device, and procedure research',
+    advancedDevelopmentLines || 'Use the researched treatment leads below to identify current advanced-therapy research.',
+    '',
+    '7. Researched treatment leads',
     interventionLines || 'Use the condition subtype, gene result, symptoms, and treatment goals to build more focused treatment directions.',
     '',
-    'Research questions to investigate',
+    '8. Research questions to investigate',
     hypothesisLines || 'Use the treatment leads above as starting questions for a clinician or trusted-source search.',
     '',
-    'Recruiting clinical trials',
+    '9. Current clinical trials',
     recruitingTrialLines || `Use ClinicalTrials.gov to check the latest recruiting studies for ${condition}.`,
     ...(otherCurrentTrialLines ? ['', 'Other current clinical studies', otherCurrentTrialLines] : []),
     '',
-    'Simple questions to ask your doctor',
+    '10. Your research and access plan',
+    accessPlanLines,
+    '',
+    '11. Simple questions to ask your doctor',
     questionLines || 'Use the source-linked treatment and trial tables to prepare questions for a clinician.',
     '',
     'Report boundary',
     mapNote,
     '',
-    'Important safety points',
+    '12. Important safety points',
     safetyLines || 'Use a clinician or pharmacist to review medicines, allergies, other conditions, and pregnancy status before acting on an idea.',
     '',
     'Researchers named in source records',
