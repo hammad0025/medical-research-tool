@@ -781,7 +781,7 @@ function EstablishedTreatments({ condition, result }) {
       <SectionHeader
         eyebrow="What is already approved"
         title="Approved and established treatment information"
-        action={<StatusPill tone={labels.length ? 'safe' : 'neutral'}>{labels.length ? `${labels.length} official labels` : 'Check labels'}</StatusPill>}
+        action={<StatusPill tone={labels.length ? 'safe' : 'neutral'}>{labels.length ? `${labels.length} official label${labels.length === 1 ? '' : 's'}` : 'Check labels'}</StatusPill>}
       />
       <p className="section-intro">Start here to separate treatments with an official U.S. label from early research. A label can apply to a specific subtype, symptom, or situation, so open the source before deciding whether it matters for this person.</p>
       {labels.length ? (
@@ -918,7 +918,7 @@ function CareLocations({ condition, result, hasAiStartingMap }) {
       <SectionHeader
         eyebrow="Where you can go"
         title={centerMode ? 'Specialty centers and study sites' : 'Institutions in this source pack'}
-        action={<StatusPill tone={centers.length ? 'safe' : 'neutral'}>{centers.length ? `${centers.length} places` : 'Study sites'}</StatusPill>}
+        action={<StatusPill tone={centers.length ? 'safe' : 'neutral'}>{centers.length ? `${centers.length} place${centers.length === 1 ? '' : 's'}` : 'Study sites'}</StatusPill>}
       />
       <p className="section-intro">Start with source-linked specialty centers and study sites. These are places to investigate, not a quality ranking or a promise that a person can join a study.</p>
       {centers.length ? (
@@ -973,7 +973,7 @@ const overviewFactsForReport = (result, condition) => {
     {
       icon: 'shield',
       label: 'Approved options',
-      value: labels.length ? `${labels.length} labels` : 'Check labels',
+      value: labels.length ? `${labels.length} label${labels.length === 1 ? '' : 's'}` : 'Check labels',
       detail: labels.length
         ? 'Official prescribing-label records matched this condition.'
         : 'Check subtype or symptom labels before ruling out established options.',
@@ -983,7 +983,7 @@ const overviewFactsForReport = (result, condition) => {
     {
       icon: 'search',
       label: 'Where to go',
-      value: centers.length ? `${centers.length} places` : 'Study sites',
+      value: centers.length ? `${centers.length} place${centers.length === 1 ? '' : 's'}` : 'Study sites',
       detail: centers.length ? 'Source-linked specialty centers and study sites.' : 'Use the linked recruiting studies to find study locations.',
       citations: uniqueSources(centerSources).slice(0, 3),
       actionLabel: 'Open study-site record',
@@ -991,7 +991,7 @@ const overviewFactsForReport = (result, condition) => {
     {
       icon: 'shield',
       label: 'Lifestyle support',
-      value: lifestyle.length ? `${lifestyle.length} topics` : 'Support guide',
+      value: lifestyle.length ? `${lifestyle.length} topic${lifestyle.length === 1 ? '' : 's'}` : 'Support guide',
       detail: lifestyle.length ? 'Daily-life topics to discuss with a care team.' : 'Add symptoms or activity limits to focus daily-life support.',
       citations: uniqueSources(lifestyleSources).slice(0, 3),
       actionLabel: 'Open lifestyle source',
@@ -1252,7 +1252,7 @@ function UniversalReport({ condition, form, result }) {
                 ? `The live research search needs another try for ${displayCondition}.`
                 : resultIsExploration
                   ? `This AI research map makes condition-specific connections for ${displayCondition}. Every idea is clearly marked for source verification.`
-                : `This report brings together established treatment information, current trials, research leads, and study-site details for ${displayCondition}.`
+                : `Start with approved options, places to go, and lifestyle support. Then review research leads and recruiting studies for ${displayCondition}.`
               : 'Enter any diagnosis or subtype, then run the search to build a plain-language report from current research and clinical-trial sources.'}
           </p>
         </div>
