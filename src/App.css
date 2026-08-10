@@ -1241,10 +1241,13 @@
 .safety-caution { display: flex; align-items: flex-start; gap: 7px; padding: 9px 10px; border-radius: 9px; color: #88491e; background: rgba(255, 219, 180, 0.4); font-size: 0.77rem; line-height: 1.42; }
 
 .lifestyle-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-.lifestyle-card { padding: 17px; border: 1px solid rgba(76, 130, 102, 0.2); border-radius: 15px; background: rgba(255, 253, 248, 0.58); }
+.lifestyle-card { display: flex; flex-direction: column; min-height: 268px; padding: 17px; border: 1px solid rgba(76, 130, 102, 0.2); border-radius: 15px; background: rgba(255, 253, 248, 0.58); }
 .lifestyle-card h3 { margin: 0; }
 .lifestyle-card > p:not(.card-kicker, .review-reason) { margin: 11px 0 13px; color: var(--ink-soft); font-size: 0.84rem; line-height: 1.5; }
+.lifestyle-question { margin: 0 0 11px; padding: 9px 10px; border: 1px solid rgba(76, 130, 102, 0.16); border-radius: 9px; color: #315f49; background: rgba(220, 240, 226, 0.38); font-size: 0.77rem; line-height: 1.42; }
+.lifestyle-question strong { display: block; margin-bottom: 3px; color: #32664c; font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .lifestyle-caution { display: flex; align-items: flex-start; gap: 7px; padding: 9px 10px; border-radius: 9px; color: #2f6550; background: rgba(189, 224, 201, 0.34); font-size: 0.77rem; line-height: 1.42; }
+.lifestyle-card .citation-actions { margin-top: 12px; }
 
 .research-ideas {
   border-color: rgba(53, 110, 142, 0.24);
