@@ -475,6 +475,96 @@ const searchPubMed = async (term) => {
   return Array.isArray(data?.esearchresult?.idlist) ? data.esearchresult.idlist : []
 }
 
+const cleanCandidateName = (value) => cleanText(value, 120)
+  .replace(/["\\]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const cleanCandidateSearchName = (value) => cleanCandidateName(value)
+  .replace(/\s*\([^)]{1,36}\)\s*/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const candidateSearchNamesFor = (candidate) => {
+  const originalName = cleanCandidateName(candidate?.name || candidate)
+  const parentheticalAlias = cleanText(String(candidate?.name || candidate).match(/\(([^)]{2,36})\)/)?.[1], 80)
+  const suppliedAliases = Array.isArray(candidate?.searchNames) ? candidate.searchNames : []
+  return [...new Set([originalName, parentheticalAlias, ...suppliedAliases]
+    .map(cleanCandidateSearchName)
+    .filter((name) => name.length >= 3))].slice(0, 3)
+}
+
+const candidateSearchText = (value) => normalizedEvidenceText(cleanCandidateSearchName(value))
+
+const sourceMentionsCandidate = (source, candidate) => {
+  const sourceText = normalizedEvidenceText(`${source?.title || ''} ${source?.summary || ''}`)
+  return candidateSearchNamesFor(candidate).some((name) => {
+    const target = candidateSearchText(name)
+    return target.length >= 3 && ` ${sourceText} `.includes(` ${target} `)
+  })
+}
+
+// The scout can suggest names, but a name is never shown just because a model
+// produced it. Each name must survive an exact condition-plus-candidate PubMed
+// search and must also appear in the returned title or abstract.
+const fetchPubMedCandidateEvidence = async (condition, candidates) => {
+  const conditionPhrase = conditionSearchPhrases(condition)[0]
+  const usableCandidates = (Array.isArray(candidates) ? candidates : [])
+    .map((candidate) => ({
+      name: cleanCandidateName(candidate?.name),
+      category: cleanText(candidate?.category, 80) || 'Treatment research',
+      searchNames: candidateSearchNamesFor(candidate),
+    }))
+    .filter((candidate) => candidate.name.length >= 3)
+    .slice(0, 10)
+
+  if (!conditionPhrase || !usableCandidates.length) return []
+
+  const searches = usableCandidates
+    .flatMap((candidate) => candidate.searchNames.map((searchName) => ({ candidate, searchName })))
+    .slice(0, 12)
+  const searchResults = []
+  // PubMed's public endpoint is rate limited. Small batches keep the scout
+  // useful without turning a single report into a burst of failed requests.
+  for (let index = 0; index < searches.length; index += 2) {
+    const batch = searches.slice(index, index + 2)
+    const results = await Promise.allSettled(batch.map(async ({ candidate, searchName }) => ({
+      candidate,
+      ids: await searchPubMed(`("${conditionPhrase}"[Title/Abstract]) AND ("${searchName}"[Title/Abstract])`),
+    })))
+    searchResults.push(...results)
+  }
+  const candidateById = new Map()
+
+  for (const result of searchResults) {
+    if (result.status !== 'fulfilled') continue
+    for (const id of result.value.ids.slice(0, 3)) {
+      const existing = candidateById.get(id) || []
+      if (!existing.some((candidate) => candidate.name === result.value.candidate.name)) existing.push(result.value.candidate)
+      candidateById.set(id, existing)
+    }
+  }
+
+  const ids = [...candidateById.keys()].slice(0, 24)
+  if (!ids.length) return []
+
+  const url = new URL(PUBMED_FETCH_URL)
+  url.searchParams.set('db', 'pubmed')
+  url.searchParams.set('retmode', 'xml')
+  url.searchParams.set('id', ids.join(','))
+  const response = await fetchWithTimeout(url, {}, 18_000)
+  if (!response.ok) throw new Error(`PubMed candidate fetch returned ${response.status}.`)
+
+  return pubmedArticlesFromXml(await response.text())
+    .filter((source) => isConditionScopedSource(source, condition))
+    .map((source) => {
+      const candidateLeads = (candidateById.get(source.pmid) || [])
+        .filter((candidate) => sourceMentionsCandidate(source, candidate))
+      return candidateLeads.length ? { ...source, candidateLeads } : null
+    })
+    .filter(Boolean)
+}
+
 const fetchPubMedEvidence = async (condition) => {
   const baseCondition = conditionSearchPhrases(condition)[0]
   const variant = conditionVariantToken(condition)
@@ -540,6 +630,7 @@ const sourceQualityScore = (source) => {
   if (source?.origin === 'openFDA') score += 24
   if (source?.origin === 'PubMed') score += 12
   if (source?.origin === 'Europe PMC') score += 8
+  if (Array.isArray(source?.candidateLeads) && source.candidateLeads.length) score += 34
   return score
 }
 
@@ -548,7 +639,11 @@ const dedupeEvidenceSources = (groups, maximum = 14) => {
   groups.flat().filter((source) => source?.id && source?.title && source?.url).forEach((source) => {
     const key = sourceEvidenceKey(source)
     const current = byKey.get(key)
-    if (!current || sourceQualityScore(source) > sourceQualityScore(current)) byKey.set(key, source)
+    const preferred = !current || sourceQualityScore(source) > sourceQualityScore(current) ? source : current
+    const alternate = preferred === source ? current : source
+    const candidateLeads = [...(preferred?.candidateLeads || []), ...(alternate?.candidateLeads || [])]
+      .filter((candidate, index, list) => candidate?.name && list.findIndex((entry) => candidateKey(entry.name) === candidateKey(candidate.name)) === index)
+    byKey.set(key, candidateLeads.length ? { ...preferred, candidateLeads } : preferred)
   })
 
   return Array.from(byKey.values())
@@ -1215,7 +1310,17 @@ const sourcePacketForPrompt = ({ patient, sources, centers, trials, evidenceMode
   packetCreatedAt: new Date().toISOString(),
   patient,
   evidenceMode,
-  sourceLinkedEvidence: sources.map(({ id, title, type, origin, journal, year, summary, url }) => ({ id, title, type, origin, journal, year, summary, url })),
+  sourceLinkedEvidence: sources.map(({ id, title, type, origin, journal, year, summary, url, candidateLeads }) => ({
+    id,
+    title,
+    type,
+    origin,
+    journal,
+    year,
+    summary,
+    url,
+    candidateLeads: Array.isArray(candidateLeads) ? candidateLeads : [],
+  })),
   researchSites: centers.map(({ name, city, why, source }) => ({ name, city, why, source })),
   liveTrials: trials.map(({ id, title, status, phase, interventions, interventionDetails, conditionMatch, treatmentFocus, caution, url }) => ({
     id,
@@ -1242,11 +1347,12 @@ Hard boundaries:
 - Give every source-specific research question one or more sourceIds from the packet so the app can show the reader exactly where the question came from.
 - Every research question must be a short, everyday question a person can read aloud to a doctor. Use 12 words or fewer, one idea only, and common words. Prefer "Could this study fit me?", "Which symptoms should I mention?", or "What safety risks should I ask about?" over formal or technical wording. Do not use phrases such as "whether this is relevant," "eligibility criteria," "condition-specific," or "research direction."
 - Do not characterize a guideline's recommendation strength. Use neutral, source-limited language such as "the label indicates" or "a cited trial evaluated" instead.
-- Return up to 10 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, procedure, device, cell or gene therapy, RNA treatment, or other intervention named in a source or live trial. Use the intervention name, not the paper title. For example, write "RPGR gene therapy" or "N-acetylcysteine," never "Systematic review of RPGR gene therapy." Rank gene, RNA, cell, drug, device, and procedure research ahead of supplements. Include a supplement only when the packet names that exact supplement in a condition-specific source or live trial. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
+- Return up to 10 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, food or supplement, procedure, device, cell or gene therapy, RNA treatment, or other intervention named in a source or live trial. Use the intervention name, not the paper title. For example, write "RPGR gene therapy" or "N-acetylcysteine," never "Systematic review of RPGR gene therapy." Do not rank a gene, cell, or trial-only program above a source-backed medicine, food, supplement, or symptom-care treatment just because it is more technically advanced. Include a supplement or food only when the packet names that exact item in a condition-specific source or live trial. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
+- Classify each treatment idea carefully: "patient-discussible" for a source-backed medicine, supplement, food, or procedure a clinician could discuss; "prescription-or-label-check" when the official label or prescription status matters; "trial-only" for a formal study program; "expanded-access-check" only when it is a research program and the report does not confirm access; and "evidence-points-away" when the cited source reports no benefit or a worse outcome. Never claim a program has compassionate or expanded access unless the packet contains direct proof.
 - The "theoryIdeas" lane is intentionally different from treatmentIdeas. It is for 10 new hypotheses that were NOT found as a named, condition-specific treatment lead in this packet. A theory idea may use cautious biomedical reasoning, but it is not evidence that the idea works for this condition.
 - For every theory idea, state a concrete target, pathway, gene/RNA approach, treatment platform, or named compound to verify. Favor gene, RNA, pathway, cell, device, or drug-target ideas. Do not pad with generic wellness, food, or supplement ideas. A supplement is allowed only when the idea is specific, gives no dose, and is clearly framed as a mechanism to verify, not an action.
 - Never write a dose, "high dose," a start/stop instruction, or a claim that the condition is autoimmune unless the supplied packet proves that exact claim. Do not include private-pay stem-cell or exosome clinics. A cell, exosome, or stem-cell concept may appear only as a research platform that needs legitimate study verification.
-- Every theory idea must plainly say why it is not established for this condition and give a short PubMed-style verification query. Attach sourceIds only for the condition background; do not pretend those sources prove the theory idea itself.
+- Every theory idea must plainly say why it is not established for this condition, give a short PubMed-style verification query, and include one simple question for a healthcare provider. Attach sourceIds only for the condition background; do not pretend those sources prove the theory idea itself.
 - The “safety” lane may contain up to 4 condition-specific cautions from the packet, such as a source-reported contraindication, interaction, warning, urgent red flag, or reason to use a specialist team. Do not add a generic disclaimer, dosing, or an instruction to start, stop, or avoid a treatment.
 - The “lifestyle” lane may contain only condition-specific, non-drug findings supported by packet sources and tied to a modifiable factor such as activity, diet, sleep, tobacco, alcohol, environment, sun exposure, rehabilitation, or vision rehabilitation. Do not turn quality-of-life observations, awareness, monitoring, genetics, or generic wellness advice into a lifestyle item.
 - Do not promote stem cells, exosomes, or private-pay regenerative clinics. If relevant, make the question about legitimate academic trials and evidence quality.
@@ -1259,7 +1365,7 @@ Return strict JSON only:
   "briefing": {"text": "two or three sentences, <= 520 chars", "sourceIds": ["source id"]},
   "researchQuestions": [{"text": "question", "sourceIds": ["source id"]}],
   "treatmentIdeas": [
-    {"title": "exact intervention", "category": "drug, supplement, procedure, device, cell/gene treatment, or other", "summary": "what the supplied source says", "whyItMayMatter": "why it is relevant to research", "caution": "why it is not a personal treatment recommendation", "sourceIds": ["source id"]}
+    {"title": "exact intervention", "category": "drug, supplement, procedure, device, cell/gene treatment, or other", "summary": "what the supplied source says", "whyItMayMatter": "why it is relevant to research", "accessClass": "patient-discussible | prescription-or-label-check | trial-only | expanded-access-check | evidence-points-away", "accessExplanation": "plain access or evidence boundary", "providerQuestion": "simple question, <= 12 words", "caution": "why it is not a personal treatment recommendation", "sourceIds": ["source id"]}
   ],
   "lifestyle": [
     {"title": "short label", "summary": "careful source-limited finding", "caution": "why it is not individualized advice", "sourceIds": ["source id"]}
@@ -1268,14 +1374,14 @@ Return strict JSON only:
     {"title": "short label", "summary": "careful source-limited caution", "caution": "why it needs clinician context", "sourceIds": ["source id"]}
   ],
   "theoryIdeas": [
-    {"title": "concrete theory to verify", "category": "gene, RNA, drug target, pathway, cell platform, device, or supplement mechanism", "whyItCouldConnect": "short cautious biological rationale", "whyNotEstablished": "why this is not a source-backed treatment lead for this condition", "caution": "not a personal treatment recommendation; no dose or action", "verificationQuery": "condition plus exact theory term", "sourceIds": ["condition-background source id"]}
+    {"title": "concrete theory to verify", "category": "gene, RNA, drug target, pathway, cell platform, device, or supplement mechanism", "whyItCouldConnect": "short cautious biological rationale", "whyNotEstablished": "why this is not a source-backed treatment lead for this condition", "providerQuestion": "simple question, <= 12 words", "caution": "not a personal treatment recommendation; no dose or action", "verificationQuery": "condition plus exact theory term", "sourceIds": ["condition-background source id"]}
   ],
   "claimsForReview": [{"claim": "atomic factual statement", "sourceIds": ["source id"]}]
 }`
 
 const reviewerSystemPrompt = `You are Reviewer Agent, a skeptical clinical-evidence reviewer. You receive an untrusted writer draft plus the exact source packet that writer was allowed to use.
 
-Your job is to prevent hallucination, overclaiming, and clinical irrelevance. Reject anything that is not traceable to an exact sourceId, names an entity outside the packet, implies a personalized treatment recommendation, gives dosing, promotes investigational/cell/exosome therapies as established care, or calls a research site a recommended, leading, or top center. Reject a treatment idea if it is not a named intervention in the supplied source material, or if it is a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step. Reject a safety item unless it is a source-specific caution or red flag and it does not give a direct instruction. Reject a lifestyle item unless it names a real modifiable non-drug factor. A theory idea is the one exception to the source-entity rule: it may name a new target or mechanism for verification, but it must be absent from the condition-specific treatment records, state that it is not established for this condition, include a usable verification query, and never include a dose or action. Do not approve a theory idea that says the condition is autoimmune unless the packet proves it, or that markets a supplement, exosome, stem cell, or private clinic. When the source packet says patient.readingLevel is "eighth-grade", rewrite every patient-facing item in short, plain sentences at about an eighth-grade level. Use "anti-scarring medicine" instead of "antifibrotic" unless quoting a source, while keeping required medical names and source IDs exact. Every approved or rewritten question must be a simple doctor question: 12 words or fewer, one idea, no jargon, and easy to read aloud. Do not state or paraphrase a guideline recommendation's strength unless an exact quote in the packet supports it.
+Your job is to prevent hallucination, overclaiming, and clinical irrelevance. Reject anything that is not traceable to an exact sourceId, names an entity outside the packet, implies a personalized treatment recommendation, gives dosing, promotes investigational/cell/exosome therapies as established care, or calls a research site a recommended, leading, or top center. Reject a treatment idea if it is not a named intervention in the supplied source material, or if it is a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step. Keep source-backed medicines, food, supplements, and symptom-care treatments separate from trial-only, gene, cell, and device programs. Do not approve a claim that an experimental program has compassionate or expanded access without direct proof in the packet. Reject a safety item unless it is a source-specific caution or red flag and it does not give a direct instruction. Reject a lifestyle item unless it names a real modifiable non-drug factor. A theory idea is the one exception to the source-entity rule: it may name a new target or mechanism for verification, but it must be absent from the condition-specific treatment records, state that it is not established for this condition, include a usable verification query and a simple healthcare-provider question, and never include a dose or action. Do not approve a theory idea that says the condition is autoimmune unless the packet proves it, or that markets a supplement, exosome, stem cell, or private clinic. When the source packet says patient.readingLevel is "eighth-grade", rewrite every patient-facing item in short, plain sentences at about an eighth-grade level. Use "anti-scarring medicine" instead of "antifibrotic" unless quoting a source, while keeping required medical names and source IDs exact. Every approved or rewritten question must be a simple doctor question: 12 words or fewer, one idea, no jargon, and easy to read aloud. Do not state or paraphrase a guideline recommendation's strength unless an exact quote in the packet supports it.
 
 The app creates the record cards itself. Focus this pass on the briefing and doctor questions. Do not add items to a currently empty treatment, lifestyle, safety, or hypothesis array just to make the response longer.
 
@@ -1284,10 +1390,10 @@ Return strict JSON only:
   "overallVerdict": "approved" | "approved-with-edits" | "rejected",
   "briefing": {"decision": "approve" | "rewrite" | "reject", "text": "safe replacement text or empty", "reason": "short reason", "sourceIds": ["source id"]},
   "questions": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "text": "safe question or empty", "reason": "short reason", "sourceIds": ["source id"]}],
-  "treatmentIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "summary": "", "whyItMayMatter": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
+  "treatmentIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "summary": "", "whyItMayMatter": "", "accessClass": "", "accessExplanation": "", "providerQuestion": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
   "lifestyle": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "summary": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
   "safety": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "summary": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
-  "theoryIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "whyItCouldConnect": "", "whyNotEstablished": "", "caution": "", "verificationQuery": "", "sourceIds": []}, "reason": "short reason"}],
+  "theoryIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "whyItCouldConnect": "", "whyNotEstablished": "", "providerQuestion": "", "caution": "", "verificationQuery": "", "sourceIds": []}, "reason": "short reason"}],
   "flags": ["short safety or evidence flag"]
 }`
 
@@ -1493,6 +1599,64 @@ const callOpenAi = async ({ system, user, env, maxTokens = 3_200, models }) => {
   return lastUnavailable || { ok: false, code: 'model-unavailable', message: 'No configured OpenAI model was available for this AI pass.' }
 }
 
+const candidateScoutSystemPrompt = `You are Candidate Scout in a medical-research product. Produce search seeds only, never treatment advice.
+
+Given a condition and optional subtype, return up to 10 exact candidate names that could be checked in the literature. Cover a useful mix when relevant: established or repurposed medicines, supplements or food products, procedures or devices, and research programs. Put practical medicine, food, supplement, or procedure candidates before trial-only or advanced programs, but do not invent a name merely to fill a slot. Prefer names a patient could recognize over generic labels such as "gene therapy." When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
+
+Return strict JSON only:
+{
+  "candidates": [
+    {"name": "patient-readable treatment, product, procedure, or program name", "searchNames": ["exact literature name or alias"], "category": "medicine, supplement or food, procedure or device, gene or cell program, or other"}
+  ]
+}`
+
+const isSpecificCandidateName = (name) => {
+  const normalized = candidateSearchText(name)
+  return normalized.length >= 3
+    && !/^(?:treatment|therapy|drug|medicine|supplement|vitamin|food|gene therapy|cell therapy|stem cells?|exosomes?|research|clinical trial|drug repurposing)$/i.test(normalized)
+}
+
+const normalizeScoutCandidates = (draft) => {
+  const seen = new Set()
+  return (Array.isArray(draft?.candidates) ? draft.candidates : [])
+    .map((candidate) => ({
+      name: cleanCandidateName(candidate?.name),
+      category: cleanText(candidate?.category, 80) || 'Treatment research',
+      searchNames: candidateSearchNamesFor(candidate),
+    }))
+    .filter((candidate) => isSpecificCandidateName(candidate.name))
+    .filter((candidate) => {
+      const key = candidateKey(candidate.name)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 10)
+}
+
+const scoutResearchCandidates = async (patient, env) => {
+  const user = JSON.stringify({
+    condition: cleanText(patient?.condition, 120),
+    subtypeOrGene: cleanText(patient?.geneticVariant, 300),
+    goals: cleanText(patient?.goals, 700),
+  })
+  const request = { system: candidateScoutSystemPrompt, user, env, maxTokens: 800 }
+  let response = await callAnthropic(request)
+  if (!response.ok) response = await callOpenAi({ ...request, models: openAiWriterModels(env) })
+  if (!response.ok) return { status: response.code || 'unavailable', candidates: [], detail: response.message }
+
+  const candidates = normalizeScoutCandidates(extractJson(response.text))
+  return {
+    status: 'ready',
+    candidates,
+    provider: response.provider || '',
+    model: response.model || '',
+    detail: candidates.length
+      ? `${candidates.length} candidate names were sent through exact condition-plus-candidate PubMed searches.`
+      : 'The candidate scout did not return usable names, so no unverified lead was added.',
+  }
+}
+
 const extractIntake = async (body, env) => {
   const description = cleanText(body?.description, 2_400)
   if (!description) return { status: 'held', intake: {}, message: 'Write a short description before asking the assistant to fill the profile.' }
@@ -1545,18 +1709,34 @@ const candidateAppearsInEvidence = (candidate, evidenceText) => {
   return normalizedCandidate.length >= 3 && ` ${normalizedEvidence} `.includes(` ${normalizedCandidate} `)
 }
 
+const treatmentAccessClasses = new Set([
+  'patient-discussible',
+  'prescription-or-label-check',
+  'trial-only',
+  'expanded-access-check',
+  'evidence-points-away',
+])
+
+const normalizedTreatmentAccessClass = (value) => {
+  const accessClass = cleanText(value, 60).toLowerCase()
+  return treatmentAccessClasses.has(accessClass) ? accessClass : ''
+}
+
 const normalizeTreatmentIdea = (item, allowedSourceIds, candidateEvidenceText) => {
   if (!isRecord(item)) return null
   const title = cleanText(item.title, 120)
   const category = cleanText(item.category, 80)
   const summary = cleanText(item.summary, 440)
   const whyItMayMatter = cleanText(item.whyItMayMatter, 440)
+  const accessClass = normalizedTreatmentAccessClass(item.accessClass)
+  const accessExplanation = cleanText(item.accessExplanation, 360)
+  const providerQuestion = simpleDoctorQuestion(item.providerQuestion || `Is ${title} worth discussing`)
   const caution = cleanText(item.caution, 420)
   const sourceIds = sourceIdsFrom(item.sourceIds, allowedSourceIds)
-  const whole = `${title} ${category} ${summary} ${whyItMayMatter} ${caution}`
+  const whole = `${title} ${category} ${summary} ${whyItMayMatter} ${accessExplanation} ${providerQuestion} ${caution}`
   const titleIsSupported = candidateAppearsInEvidence(title, candidateEvidenceText)
   if (!title || !summary || !caution || !sourceIds.length || !titleIsSupported || !isSpecificTrialIntervention(title) || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
-  return { title, category: category || 'Treatment being researched', summary, whyItMayMatter, caution, sourceIds }
+  return { title, category: category || 'Treatment being researched', summary, whyItMayMatter, accessClass, accessExplanation, providerQuestion, caution, sourceIds }
 }
 
 const normalizeHypothesis = (item, allowedSourceIds, allowedCandidates, candidateEvidenceText) => {
@@ -1581,17 +1761,18 @@ const normalizeTheoryIdea = (item, allowedSourceIds, candidateEvidenceText) => {
   const category = cleanText(item.category, 90) || 'Theory to verify'
   const whyItCouldConnect = cleanText(item.whyItCouldConnect, 440)
   const whyNotEstablished = cleanText(item.whyNotEstablished, 360)
+  const providerQuestion = simpleDoctorQuestion(item.providerQuestion || 'What evidence supports this idea')
   const caution = cleanText(item.caution, 420)
   const verificationQuery = cleanText(item.verificationQuery, 220)
   const sourceIds = sourceIdsFrom(item.sourceIds, allowedSourceIds)
-  const whole = `${title} ${category} ${whyItCouldConnect} ${whyNotEstablished} ${caution} ${verificationQuery}`
+  const whole = `${title} ${category} ${whyItCouldConnect} ${whyNotEstablished} ${providerQuestion} ${caution} ${verificationQuery}`
   const alreadyInConditionEvidence = candidateAppearsInEvidence(title, candidateEvidenceText)
   const claimsAutoimmunityWithoutEvidence = /\bautoimmun(?:e|ity)\b/i.test(whole) && !/\bautoimmun(?:e|ity)\b/i.test(candidateEvidenceText)
   const promotesCommercialRegenerativeCare = /\b(?:private[-\s]?pay|clinic|medical tourism|buy|purchase)\b/i.test(whole)
   if (!title || !whyItCouldConnect || !whyNotEstablished || !caution || !verificationQuery || !sourceIds.length
     || alreadyInConditionEvidence || claimsAutoimmunityWithoutEvidence || promotesCommercialRegenerativeCare
     || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
-  return { title, category, whyItCouldConnect, whyNotEstablished, caution, verificationQuery, sourceIds }
+  return { title, category, whyItCouldConnect, whyNotEstablished, providerQuestion, caution, verificationQuery, sourceIds }
 }
 
 const hasLifestyleActionSignal = (text) => /\b(activity|exercise|rehabilitation|diet|nutrition|sleep|smoking|tobacco|alcohol|sun|ultraviolet|environment|occupational|weight|physical therapy|vision rehabilitation)\b/i.test(text)
@@ -2392,6 +2573,7 @@ const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
       category,
       whyItCouldConnect,
       whyNotEstablished,
+      providerQuestion: 'What evidence supports this idea?',
       caution: 'This is a theory to verify, not a personal treatment recommendation. Do not make a treatment change from this row.',
       verificationQuery,
       sourceIds: backgroundSourceIds,
@@ -2501,7 +2683,10 @@ const runExplorationMap = async ({ patient, env, context = {} }) => {
 }
 
 const runDualAgentReview = async ({ packet, env }) => {
-  const sourcesEligibleForAi = packet.sources.filter((source) => source.aiEligible !== false).slice(0, 12)
+  const sourcesEligibleForAi = packet.sources
+    .filter((source) => source.aiEligible !== false)
+    .sort((left, right) => Number(Boolean(right?.candidateLeads?.length)) - Number(Boolean(left?.candidateLeads?.length)))
+    .slice(0, 16)
   const allowedSourceIds = new Set(sourcesEligibleForAi.map((source) => source.id).concat(packet.trials.map((trial) => trial.id)))
   const allowedCandidates = new Set(packet.trials
     .filter((trial) => trial.conditionMatch !== 'broad')
@@ -2702,8 +2887,9 @@ const runResearch = async (body, env) => {
     ? ipfEvidenceBundle(patient.condition, env)
     : retrievedEvidenceBundle(patient.condition, env)
   const trialPromise = fetchTrials(patient.condition, patient.location, patient.geneticVariant)
+  const candidateScoutPromise = scoutResearchCandidates(patient, env)
 
-  const [evidenceResult, trialResult] = await Promise.allSettled([evidencePromise, trialPromise])
+  const [evidenceResult, trialResult, scoutResult] = await Promise.allSettled([evidencePromise, trialPromise, candidateScoutPromise])
   const bundle = evidenceResult.status === 'fulfilled'
     ? evidenceResult.value
     : {
@@ -2713,10 +2899,39 @@ const runResearch = async (body, env) => {
       centers: [],
       researchers: [],
       sourceCoverage: [{ id: 'evidence', label: 'Evidence retrieval', status: 'unavailable', records: 0, detail: 'The live evidence sources could not be reached for this run.' }],
-    }
+  }
   const trialServiceAvailable = trialResult.status === 'fulfilled'
   const trialData = trialServiceAvailable ? trialResult.value : { trials: [], sites: [], researchers: [] }
-  const packet = createPacket({ patient, bundle, trials: trialData.trials, sites: trialData.sites, researchers: trialData.researchers })
+  const scout = scoutResult.status === 'fulfilled'
+    ? scoutResult.value
+    : { status: 'unavailable', candidates: [], detail: 'The candidate scout could not be reached for this run.' }
+  const candidateEvidenceResult = scout.candidates?.length
+    ? await Promise.allSettled([fetchPubMedCandidateEvidence(patient.condition, scout.candidates)])
+    : []
+  const candidateSources = candidateEvidenceResult[0]?.status === 'fulfilled'
+    ? candidateEvidenceResult[0].value
+    : []
+  const candidateVerificationAvailable = Boolean(!scout.candidates?.length || candidateEvidenceResult[0]?.status === 'fulfilled')
+  const enrichedBundle = {
+    ...bundle,
+    sources: dedupeEvidenceSources([bundle.sources, candidateSources], 24),
+    sourceCoverage: [
+      ...(bundle.sourceCoverage || []),
+      {
+        id: 'candidate-verification',
+        label: 'Candidate source verification',
+        url: sourceSearchPage('pubmed', patient.condition),
+        status: candidateVerificationAvailable ? 'ready' : 'unavailable',
+        records: candidateSources.length,
+        detail: candidateSources.length
+          ? `${candidateSources.length} candidate-linked PubMed record${candidateSources.length === 1 ? '' : 's'} passed the exact condition and candidate gate.`
+          : scout.candidates?.length
+            ? 'Candidate names were checked, but no matching PubMed record passed both the condition and candidate gate.'
+            : scout.detail || 'No unverified candidate was added to the report.',
+      },
+    ],
+  }
+  const packet = createPacket({ patient, bundle: enrichedBundle, trials: trialData.trials, sites: trialData.sites, researchers: trialData.researchers })
   const agentsPromise = packet.sources.length || packet.trials.length
     ? runDualAgentReview({ packet, env })
     : Promise.resolve({
@@ -2740,7 +2955,7 @@ const runResearch = async (body, env) => {
   // We never publish an empty finished report for a valid condition request.
   const reportStatus = hasUsableResearch ? 'ready' : 'exploration'
   const sourceCoverage = [
-    ...(bundle.sourceCoverage || []),
+    ...(enrichedBundle.sourceCoverage || []),
     {
       id: 'clinicaltrials-gov',
       label: 'ClinicalTrials.gov live registry',
@@ -2774,7 +2989,7 @@ const runResearch = async (body, env) => {
     sources: packet.sources,
     centers: packet.centers,
     researchers: packet.researchers,
-    centerMode: bundle.centers.length ? 'curated-centers' : 'active-research-sites',
+    centerMode: enrichedBundle.centers.length ? 'curated-centers' : 'active-research-sites',
     writer: agents.writer,
     review,
     exploration,
@@ -2789,7 +3004,14 @@ const runResearch = async (body, env) => {
       },
       ...sourcePipeline,
       { id: 'trials', label: 'Live ClinicalTrials.gov pull', status: packet.trials.length ? 'passed' : 'held', detail: packet.trials.length ? `${packet.trials.length} current interventional studies returned.` : 'Use the live registry link to check for newly posted studies.' },
-      { id: 'scout', label: 'Web scout', status: 'held', detail: 'Unverified web leads are withheld until an authoritative verification step is available.' },
+      {
+        id: 'scout',
+        label: 'AI candidate scout and source gate',
+        status: candidateSources.length ? 'passed' : 'held',
+        detail: candidateSources.length
+          ? 'Candidate names were checked against PubMed before they could appear in the report.'
+          : 'No candidate entered the report without an exact condition-specific source match.',
+      },
       ...(exploration ? [{
         id: 'exploration',
         label: 'AI research connections',
