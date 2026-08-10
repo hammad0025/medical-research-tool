@@ -42,6 +42,10 @@ test('the patient-first dossier flow keeps practical decisions ahead of the full
   assert.match(appSource, /Research programs that need a formal access route/)
   assert.match(appSource, /FDA_EXPANDED_ACCESS_SOURCE/)
   assert.match(appSource, /Full current trial directory/)
+  assert.match(appSource, /buildLifestyleFallbackTopics/)
+  assert.match(appSource, /lifestyleVerificationLinks/)
+  assert.match(appSource, /Topic to verify/)
+  assert.doesNotMatch(appSource, /Build a more specific lifestyle search next\./)
 })
 
 test('Word and PDF exports keep the same practical dossier sections', () => {
