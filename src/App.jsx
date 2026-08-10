@@ -235,6 +235,7 @@ const trialInterventionIdeas = (trials, condition) => {
 const treatmentIdeaKey = (title) => String(title || '')
   .toLowerCase()
   .replace(/^(?:drug|biological|combination product|dietary supplement|genetic|device|procedure|radiation):\s*/g, '')
+  .replace(/\b(?:dietary\s+)?supplement(?:ation)?\b/g, '')
   .replace(/\b(?:low|high|intermediate|selected)\s+dose\b/g, '')
   .replace(/\b(?:standard|modified)\s+corticosteroid regimen\b/g, '')
   .replace(/\bgene therapy\b/g, '')
