@@ -98,6 +98,12 @@ const baselinePipeline = [
 
 const searchTermsFor = (result) => Array.isArray(result?.exploration?.searchTerms) ? result.exploration.searchTerms : []
 
+const displayConditionName = (condition) => {
+  const value = String(condition || '').trim()
+  if (/^parkinson(?:'s|s)?(?:\s+disease)?$/i.test(value)) return "Parkinson's Disease"
+  return value
+}
+
 const claimCitations = (result, item, condition, { verifyWhenEmpty = false } = {}) => {
   const trialCitations = Array.isArray(item?.trials) ? item.trials.filter((trial) => trial?.url) : []
   if (trialCitations.length) return trialCitations
@@ -139,12 +145,13 @@ const cleanTreatmentDisplayName = (title) => String(title || '')
   .replace(/\s*\((?:high|low|intermediate|selected) dose(?: and standard corticosteroid regimen)?\)/ig, '')
   .replace(/\b(?:low|high|intermediate|selected)\s+dose\b/ig, '')
   .replace(/\b(?:standard|modified)\s+corticosteroid regimen\b/ig, '')
+  .replace(/-\s+/g, '-')
   .replace(/\s{2,}/g, ' ')
   .replace(/[;,\s]+$/, '')
   .trim()
 
 const treatmentInterventionsForTrial = (trial) => {
-  if (trial?.conditionMatch === 'broad' || trial?.treatmentFocus === false) return []
+  if (trial?.conditionMatch === 'broad') return []
   const details = Array.isArray(trial?.interventionDetails) ? trial.interventionDetails : []
   if (details.length) {
     return details
@@ -291,27 +298,39 @@ const sourceTreatmentIdeas = (sources, condition) => {
   return ideas
 }
 
-const treatmentIdeasForReport = (result, condition) => {
-  const sourcedIdeas = Array.isArray(result?.review?.treatmentIdeas) ? result.review.treatmentIdeas : []
-  const labelIdeas = (result?.sources || [])
-    .filter((source) => source?.origin === 'openFDA' || /FDA drug label/i.test(source?.type || ''))
+const isOfficialLabelSource = (source) => source?.origin === 'openFDA' || /FDA drug label/i.test(source?.type || '')
+
+const officialLabelIdeasForReport = (result, condition) => {
+  const seen = new Set()
+  const conditionLabel = displayConditionName(condition) || 'this condition'
+  return (result?.sources || [])
+    .filter(isOfficialLabelSource)
     .map((source) => {
-      const title = sourceLabel(source).replace(/^FDA label:\s*/i, '').trim()
+      const title = cleanTreatmentDisplayName(sourceLabel(source).replace(/^FDA label:\s*/i, ''))
+      const key = treatmentIdeaKey(title)
+      if (!key || seen.has(key) || /^drug product$/i.test(title)) return null
+      seen.add(key)
       return {
         title,
-        category: 'FDA label',
-        summary: source.summary,
-        whyItMayMatter: `This medicine has a U.S. prescribing label that mentions ${condition || 'this condition'}.`,
+        category: 'Official U.S. label',
+        summary: String(source.summary || '').trim() || `This official label includes an indication related to ${conditionLabel}.`,
         caution: 'A label applies to a specific diagnosis and situation. A clinician must decide whether it applies here.',
         sourceIds: [source.id],
-        kind: 'source',
+        kind: 'fda',
       }
     })
-    .filter((idea) => idea.title && !/^drug product$/i.test(idea.title) && isDisplayableTrialIntervention(idea.title))
+    .filter(Boolean)
+    .slice(0, 8)
+}
+
+const treatmentIdeasForReport = (result, condition) => {
+  const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
+  const sourcedIdeas = (Array.isArray(result?.review?.treatmentIdeas) ? result.review.treatmentIdeas : [])
+    .filter((idea) => !(idea?.sourceIds || []).some((sourceId) => isOfficialLabelSource(sourceById.get(sourceId))))
   const treatmentIdeas = []
   const treatmentKeys = new Set()
 
-  for (const idea of [...sourcedIdeas, ...labelIdeas]) {
+  for (const idea of sourcedIdeas) {
     const key = treatmentIdeaKey(idea?.title)
     if (!key || treatmentKeys.has(key) || isArticleTitleLike(idea?.title)) continue
     treatmentKeys.add(key)
@@ -375,13 +394,37 @@ const uniqueIdeas = (ideas, limit = 10) => {
   }).slice(0, limit)
 }
 
+const researchIdeaQuestionsForReport = (result, condition) => {
+  const treatmentIdeas = treatmentIdeasForReport(result, condition)
+  const reviewerIdeas = Array.isArray(result?.review?.hypotheses) ? result.review.hypotheses : []
+  const treatmentConnections = treatmentIdeas.map((idea) => ({
+    title: `${idea.title}: what to check`,
+    candidate: idea.title,
+    mechanism: idea.kind === 'trial'
+      ? `The linked current study names ${idea.title}. A registry record does not show a result yet.`
+      : `The linked source names ${idea.title} in research on ${condition || 'this condition'}.`,
+    whyItIsAQuestion: (idea.title.match(/[A-Za-z0-9']+/g) || []).length <= 5
+      ? `What is ${idea.title} being studied for?`
+      : 'What is this study testing?',
+    caution: idea.caution || idea.boundary || 'This is a research question, not a personal treatment suggestion.',
+    sourceIds: idea.sourceIds || [],
+    trials: idea.trials || [],
+    kind: 'source-hypothesis',
+  }))
+  const sourceBackedIdeas = uniqueIdeas([
+    ...treatmentConnections,
+    ...reviewerIdeas.map((idea) => ({ ...idea, kind: 'source-hypothesis' })),
+  ], 10)
+  return sourceBackedIdeas.length ? sourceBackedIdeas : uniqueIdeas(explorationConnectionIdeas(result), 10)
+}
+
 const lifestyleSourceMatchers = [
-  { title: 'Rehabilitation and activity', pattern: /pulmonary rehabilitation|physical therapy|exercise training|exercise program|vision rehabilitation/i },
+  { title: 'Rehabilitation and activity', pattern: /pulmonary rehabilitation|physical therapy|exercise training|exercise program|vision rehabilitation|occupational therapy/i },
   { title: 'Tobacco and smoke exposure', pattern: /smoking cessation|tobacco|secondhand smoke|smoke exposure/i },
   { title: 'Food and nutrition', pattern: /\b(?:diet|nutrition|nutritional|dietary)\b/i },
   { title: 'Sleep and daily routine', pattern: /\b(?:sleep|insomnia|circadian)\b/i },
   { title: 'Environmental exposures', pattern: /\b(?:environmental|occupational|air pollution|sun exposure|ultraviolet)\b/i },
-  { title: 'Daily-life coping and vision support', pattern: /\b(?:coping|quality of life|low vision|daily living)\b/i },
+  { title: 'Daily-life support', pattern: /\b(?:quality of life|low vision|daily living|activities of daily living)\b/i },
 ]
 
 const plainLifestyleFallbackSummary = (title) => ({
@@ -390,7 +433,7 @@ const plainLifestyleFallbackSummary = (title) => ({
   'Food and nutrition': 'This source discusses food or nutrition in people with this condition.',
   'Sleep and daily routine': 'This source discusses sleep or daily routine in people with this condition.',
   'Environmental exposures': 'This source discusses environmental exposures that may matter for this condition.',
-  'Daily-life coping and vision support': 'This source looks at day-to-day coping or vision support for people living with this condition.',
+  'Daily-life support': 'This source looks at a day-to-day support topic for people living with this condition.',
 }[title] || 'This source discusses a daily-life topic that may matter for this condition.')
 
 const lifestyleIdeasForReport = (result) => {
@@ -730,6 +773,91 @@ function TrialCard({ trial }) {
   )
 }
 
+function EstablishedTreatments({ condition, result }) {
+  const labels = officialLabelIdeasForReport(result, condition)
+  const labelSearchUrl = 'https://open.fda.gov/drug/label/'
+  return (
+    <section className="approved-treatments section-surface">
+      <SectionHeader
+        eyebrow="Established treatment information"
+        title="Official U.S. treatment labels"
+        action={<StatusPill tone={labels.length ? 'safe' : 'neutral'}>{labels.length ? `${labels.length} label records` : 'Label search'}</StatusPill>}
+      />
+      <p className="section-intro">These are official U.S. prescribing-label records that match this condition. They help separate established label information from early research. They are not a personal treatment list.</p>
+      {labels.length ? (
+        <div className="approved-treatment-grid">
+          {labels.map((idea) => {
+            const citations = claimCitations(result, idea, condition)
+            return (
+              <article className="approved-treatment-card" key={idea.title}>
+                <div className="card-topline">
+                  <div><p className="card-kicker">Official label record</p><h3>{idea.title}</h3></div>
+                  <StatusPill tone="safe">U.S. label</StatusPill>
+                </div>
+                <dl className="approved-treatment-card__facts">
+                  <div><dt>Evidence</dt><dd>Prescribing label</dd></div>
+                  <div><dt>Use</dt><dd>Read the exact label</dd></div>
+                </dl>
+                <CitedParagraph citations={citations}>{idea.summary}</CitedParagraph>
+                <div className="approved-treatment-card__boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
+                <CitationActions citations={citations} label="Open official label" />
+              </article>
+            )
+          })}
+        </div>
+      ) : (
+        <RequiredSectionEmptyState title="Check official labels alongside the clinical evidence." icon="database">This search did not return an exact official-label record. That does not prove that no established treatment exists. <a href={labelSearchUrl} target="_blank" rel="noreferrer">Open the FDA label search</a> and discuss the condition, subtype, and treatment choices with a clinician.</RequiredSectionEmptyState>
+      )}
+    </section>
+  )
+}
+
+function TrialDirectory({ condition, result }) {
+  const trials = Array.isArray(result?.trials) ? result.trials : []
+  const clinicalTrialsSearchUrl = `https://clinicaltrials.gov/search?cond=${encodeURIComponent(condition || '')}`
+  return (
+    <section className="trial-directory section-surface">
+      <SectionHeader
+        eyebrow="Current clinical trials"
+        title={`Current ${condition || 'condition'} studies`}
+        action={<StatusPill tone={trials.length ? 'safe' : 'neutral'}>{trials.length ? `${trials.length} live results` : 'Registry search'}</StatusPill>}
+      />
+      <p className="section-intro">This is the live ClinicalTrials.gov list. Each row links to the full registry record, where you can check the study purpose, locations, enrollment rules, and contact details.</p>
+      {trials.length ? (
+        <div className="trial-table-wrap">
+          <table className="trial-table">
+            <thead>
+              <tr><th>Study</th><th>Status</th><th>What is being studied</th><th>Location</th><th>Open</th></tr>
+            </thead>
+            <tbody>
+              {trials.map((trial) => (
+                <tr key={trial.id}>
+                  <td className="trial-table__study">
+                    <a href={trial.url} target="_blank" rel="noreferrer">{trial.title} <Icon name="external" size={12} /></a>
+                    <span>{trial.id} {trial.phase && trial.phase !== 'Phase not listed' ? `· ${trial.phase}` : ''}</span>
+                    <details className="trial-table__details">
+                      <summary>Study details</summary>
+                      <p>{trial.summary}</p>
+                      <p><strong>Sponsor:</strong> {trial.sponsor}</p>
+                      {trial.caution ? <p className="trial-table__caution">{trial.caution}</p> : null}
+                    </details>
+                  </td>
+                  <td><span className={trial.treatmentFocus ? 'trial-status trial-status--treatment' : 'trial-status'}>{trial.status}</span>{!trial.treatmentFocus ? <small>Research study</small> : null}</td>
+                  <td>{trial.interventions?.length ? trial.interventions.join(', ') : 'Imaging or other research'}</td>
+                  <td>{trial.location}</td>
+                  <td><a className="trial-table__open" href={trial.url} target="_blank" rel="noreferrer">Record <Icon name="external" size={12} /></a></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <RequiredSectionEmptyState title="Open the live registry to continue the trial search." icon="search">Use the condition, subtype, and treatment directions in <a href={clinicalTrialsSearchUrl} target="_blank" rel="noreferrer">ClinicalTrials.gov</a>. A registry result is not proof of eligibility or benefit.</RequiredSectionEmptyState>
+      )}
+    </section>
+  )
+}
+
 function CenterCard({ center, result }) {
   const citations = citationsFor(result, (center.trials || []).map((trial) => trial.id))
   return (
@@ -815,23 +943,7 @@ function ReportOverview({ condition, result }) {
 
 function ResearchIdeas({ condition, result }) {
   const treatmentIdeas = treatmentIdeasForReport(result, condition)
-  const reviewerIdeas = Array.isArray(result?.review?.hypotheses) ? result.review.hypotheses : []
-  const explorationIdeas = explorationConnectionIdeas(result)
-  const treatmentConnections = treatmentIdeas.map((idea) => ({
-    title: `${idea.title}: a research question`,
-    candidate: idea.title,
-    mechanism: `This report names ${idea.title} in condition-specific research or a current study.`,
-    whyItIsAQuestion: 'What evidence would show whether this research lead belongs in this condition?',
-    caution: idea.caution || idea.boundary || 'This is a research question, not a personal treatment suggestion.',
-    sourceIds: idea.sourceIds || [],
-    trials: idea.trials || [],
-    kind: 'source-hypothesis',
-  }))
-  const brainstormingIdeas = uniqueIdeas([
-    ...explorationIdeas,
-    ...reviewerIdeas.map((idea) => ({ ...idea, kind: 'source-hypothesis' })),
-    ...treatmentConnections,
-  ], 10)
+  const brainstormingIdeas = researchIdeaQuestionsForReport(result, condition)
 
   return (
     <section className="research-ideas section-surface">
@@ -839,7 +951,7 @@ function ResearchIdeas({ condition, result }) {
         eyebrow="Treatment research"
         title="10 researched leads + 10 ideas to investigate"
       />
-      <p className="section-intro">These are two separate lists. The first contains named treatments or research technologies from current studies and papers. The second contains careful AI questions to investigate. Every card has a direct evidence or verification link. Neither list is a treatment plan.</p>
+      <p className="section-intro">These are two separate lists. The first contains named treatments or research technologies from current studies and papers. The second turns those exact leads into plain research questions. Every card has a direct source link. Neither list is a treatment plan.</p>
 
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
@@ -878,8 +990,8 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">AI ideas to investigate</p><p>These are specific questions about known treatment leads, genes, pathways, or research platforms. They are not established treatments or recommendations.</p></div>
-            <StatusPill tone={brainstormingIdeas.length ? 'experimental' : 'neutral'}>{brainstormingIdeas.length}/10 to verify</StatusPill>
+            <div><p className="card-kicker">AI ideas to investigate</p><p>These are simple questions about the exact leads above. They are starting points for source checking, not established treatments or recommendations.</p></div>
+            <StatusPill tone={brainstormingIdeas.length ? 'experimental' : 'neutral'}>{brainstormingIdeas.length}/10 source-linked questions</StatusPill>
           </div>
           {brainstormingIdeas.length ? (
             <div className="research-ideas-grid">
@@ -893,10 +1005,10 @@ function ResearchIdeas({ condition, result }) {
                     <StatusPill tone="experimental">Verify first</StatusPill>
                   </div>
                   {idea.candidate ? <CitedParagraph className="research-idea-candidate" citations={citations}><strong>Starting point:</strong> {idea.candidate}</CitedParagraph> : null}
-                  <CitedParagraph citations={citations}><strong>Question to test:</strong> {idea.whyItIsAQuestion}</CitedParagraph>
-                  {idea.mechanism ? <CitedParagraph className="research-idea-why" citations={citations}><strong>Why it could connect:</strong> {idea.mechanism}</CitedParagraph> : null}
+                  <CitedParagraph citations={citations}><strong>Simple question:</strong> {idea.whyItIsAQuestion}</CitedParagraph>
+                  {idea.mechanism ? <CitedParagraph className="research-idea-why" citations={citations}><strong>What the linked record says:</strong> {idea.mechanism}</CitedParagraph> : null}
                   <div className="research-idea-boundary"><Icon name="alert" size={16} /><span>{idea.caution}</span></div>
-                  <CitationActions citations={citations} label={idea.kind === 'exploration' ? 'Open verification search' : 'Open supporting source'} />
+                  <CitationActions citations={citations} label={idea.kind === 'exploration' ? 'Open verification search' : 'Open linked source'} />
                 </article>
                 )
               })}
@@ -975,12 +1087,12 @@ function SafetyResearch({ result }) {
 }
 
 function UniversalReport({ condition, form, result }) {
+  const displayCondition = displayConditionName(result?.patient?.condition || condition) || 'Condition'
   const trialCount = result?.trials?.length || 0
   const resultIsEmpty = result?.status === 'empty'
   const resultIsExploration = result?.status === 'exploration'
   const hasAiStartingMap = Boolean(result?.exploration)
   const centerMode = result?.centerMode === 'active-research-sites'
-  const clinicalTrialsSearchUrl = `https://clinicaltrials.gov/search?cond=${encodeURIComponent(condition || '')}`
   const summaryPills = [
     form.stage || 'Stage not supplied',
     form.location || 'Location not supplied',
@@ -992,14 +1104,14 @@ function UniversalReport({ condition, form, result }) {
       <div className="report-masthead">
         <div>
           <p className="eyebrow">Any-condition research brief</p>
-          <h2>{condition || 'Condition'} research workspace</h2>
+          <h2>{displayCondition} research workspace</h2>
           <p>
             {result
               ? resultIsEmpty
-                ? `The live research search needs another try for ${condition}.`
+                ? `The live research search needs another try for ${displayCondition}.`
                 : resultIsExploration
-                  ? `This AI research map makes condition-specific connections for ${condition}. Every idea is clearly marked for source verification.`
-                : `This report brings together treatment research, current trials, daily-life research, and specialist or study-site information for ${condition}.`
+                  ? `This AI research map makes condition-specific connections for ${displayCondition}. Every idea is clearly marked for source verification.`
+                : `This report brings together established treatment information, current trials, research leads, and study-site details for ${displayCondition}.`
               : 'Enter any diagnosis or subtype, then run the search to build a plain-language report from current research and clinical-trial sources.'}
           </p>
         </div>
@@ -1048,13 +1160,14 @@ function UniversalReport({ condition, form, result }) {
         </section>
       ) : (
         <>
-          <ReportOverview condition={condition} result={result} />
-          <SafetyResearch result={result} />
-          <ResearchIdeas condition={condition} result={result} />
+          <ReportOverview condition={displayCondition} result={result} />
+          <EstablishedTreatments condition={displayCondition} result={result} />
+          <TrialDirectory condition={displayCondition} result={result} />
+          <ResearchIdeas condition={displayCondition} result={result} />
           <LifestyleResearch result={result} />
+          <SafetyResearch result={result} />
 
-          <section className="two-column-section">
-            <section className="section-surface centers-surface">
+          <section className="section-surface centers-surface">
               <SectionHeader eyebrow="Institutions & specialists" title={centerMode ? 'Research institutions and study sites' : 'Institutions in this source pack'} action={<StatusPill tone="neutral">Location-aware</StatusPill>} />
               {result.centers?.length ? <div className="center-list">{result.centers.map((center, index) => <CenterCard key={`${center.name}-${center.city}`} center={{ ...center, index: String(index + 1).padStart(2, '0') }} result={result} />)}</div> : <RequiredSectionEmptyState title={hasAiStartingMap ? 'Find a specialty team next.' : 'Use the live trial search to find study sites.'} icon="search">{hasAiStartingMap ? <>Use the research questions and search directions in this map to find academic disease-specific centers, then confirm expertise with a clinician or disease foundation.</> : <>You can also ask a clinician or disease foundation for a specialist directory. The app will not invent a “best doctor” list.</>}</RequiredSectionEmptyState>}
               {result.researchers?.length ? (
@@ -1065,12 +1178,6 @@ function UniversalReport({ condition, form, result }) {
                 </div>
               ) : null}
               <div className="investigator-note"><Icon name="shield" size={16} /><p>{centerMode ? <><strong>Important:</strong> these are active research sites, not a quality ranking or a guarantee of eligibility. When registry sites are otherwise comparable, U.S. and European locations are shown first as a research-navigation preference.</> : <>The institution list comes from the condition’s curated source pack.</>}</p></div>
-            </section>
-
-            <section className="section-surface trials-surface">
-              <SectionHeader eyebrow="Current clinical trials" title={`Current ${condition} trials`} action={<StatusPill tone={trialCount ? 'safe' : 'neutral'}>{trialCount ? `${trialCount} live results` : hasAiStartingMap ? 'Search next' : 'Registry search'}</StatusPill>} />
-              {trialCount ? <div className="trial-list">{result.trials.map((trial) => <TrialCard key={trial.id} trial={trial} />)}</div> : <RequiredSectionEmptyState title={hasAiStartingMap ? 'Search current studies next.' : 'Use the live registry to continue this search.'} icon="search">Use the condition, subtype, and treatment directions above in <a href={clinicalTrialsSearchUrl} target="_blank" rel="noreferrer">the live ClinicalTrials.gov search</a>. A registry search is the right next step when this report has no matched study card.</RequiredSectionEmptyState>}
-            </section>
           </section>
 
           {result.leads?.length ? (
@@ -1118,7 +1225,7 @@ function WorkspaceHeader({ condition, activeTab, onTabChange, onLock }) {
           </div>
         </div>
         <div className="mrc-pulse" />
-        <div className="mrc-context"><span>Researching:</span> <strong>{condition || 'Choose a condition'}</strong></div>
+        <div className="mrc-context"><span>Researching:</span> <strong>{displayConditionName(condition) || 'Choose a condition'}</strong></div>
       </header>
       <nav className="mrc-tabs" aria-label="Research workspace">
         <div className="mrc-tabs__inner">
@@ -1322,21 +1429,22 @@ function IpfResearchWorkspace({ report, result, copied, onCopy }) {
 
 const reportExportText = ({ form, report, result }) => {
   const isIpf = /ipf|idiopathic pulmonary fibrosis/i.test(form.condition)
-  const condition = form.condition || result?.patient?.condition || 'this condition'
+  const condition = displayConditionName(result?.patient?.condition || form.condition) || 'this condition'
   const citedLine = (text, citations) => [text, citationText(citations)].filter(Boolean).join(' ')
   const sources = result?.sources?.length ? result.sources : (isIpf ? report.core.citations : [])
   const sourceLines = sources.map((source) => `- ${source.origin || source.type || 'Source'}: ${sourceLabel(source)} (${source.url})`).join('\n')
   const coverageLines = (result?.sourceCoverage || []).map((lane) => `- ${lane.label}: ${lane.status}; ${lane.records || 0} records. ${lane.detail}`).join('\n')
   const trialLines = (result?.trials || []).map((trial) => citedLine(`- ${trial.id}: ${trial.title}`, trial?.url ? [trial] : [])).join('\n')
-  const interventionLines = treatmentIdeasForReport(result, form.condition)
+  const interventionLines = treatmentIdeasForReport(result, condition)
     .map((idea) => citedLine(
       `- ${idea.title}: ${idea.summary || idea.rationale || 'Named in current condition-specific research.'} ${idea.whyItMayMatter ? `Why it may matter: ${idea.whyItMayMatter}` : ''}`.trim(),
       claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' }),
     ))
     .join('\n')
-  const hypotheses = Array.isArray(result?.review?.hypotheses) && result.review.hypotheses.length
-    ? result.review.hypotheses
-    : explorationConnectionIdeas(result)
+  const officialLabelLines = officialLabelIdeasForReport(result, condition)
+    .map((idea) => citedLine(`- ${idea.title}: ${idea.summary} Boundary: ${idea.caution}`, claimCitations(result, idea, condition)))
+    .join('\n')
+  const hypotheses = researchIdeaQuestionsForReport(result, condition)
   const hypothesisLines = hypotheses
     .map((idea) => citedLine(`- ${idea.title}: ${idea.whyItIsAQuestion} Boundary: ${idea.caution}`, claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' })))
     .join('\n')
@@ -1377,7 +1485,7 @@ const reportExportText = ({ form, report, result }) => {
     ? 'AI starting map: These connections are not verified facts or personal treatment advice. Check trusted sources and a clinician before acting on any idea.'
     : 'Source-linked report: Use the cited records to check every treatment and research question.'
   return [
-    `Researching My Condition - ${form.condition || 'Condition research'}`,
+    `Researching My Condition - ${condition}`,
     '',
     'Important safety note',
     'This report is for learning and research only. It is not medical advice, a diagnosis, a prescription, or a medical recommendation. Do not start, stop, or change treatment based on this report. Talk with a licensed clinician before making a health decision.',
@@ -1399,23 +1507,23 @@ const reportExportText = ({ form, report, result }) => {
     'Report boundary',
     mapNote,
     '',
-    'Sources',
-    sourceLines || 'Live source links were not available in this run. Use the AI research map and a new live search to continue.',
+    'Official U.S. treatment labels',
+    officialLabelLines || 'No exact official U.S. label record was returned in this search. This does not prove that no established treatment exists.',
     '',
-    'Database coverage',
-    coverageLines || 'No database coverage ledger has been retrieved yet.',
+    'Current clinical trials',
+    trialLines || `Use ClinicalTrials.gov to continue the live search for ${condition}.`,
     '',
-    'Recruiting trials',
-    trialLines || `Use ClinicalTrials.gov to continue the live search for ${form.condition || 'this condition'}.`,
-    '',
-    'Important safety points',
-    safetyLines || 'Use a clinician or pharmacist to review medicines, allergies, other conditions, and pregnancy status before acting on an idea.',
-    '',
-    'Treatment ideas to discuss',
+    'Researched treatment leads',
     interventionLines || 'Use the condition subtype, gene result, symptoms, and treatment goals to build more focused treatment directions.',
+    '',
+    'AI ideas to investigate',
+    hypothesisLines || 'Use the treatment leads above as starting questions for a clinician or trusted-source search.',
     '',
     'Lifestyle changes worth discussing',
     lifestyleLines || 'Add daily-life symptoms, activity limits, or environmental concerns to make this section more specific.',
+    '',
+    'Important safety points',
+    safetyLines || 'Use a clinician or pharmacist to review medicines, allergies, other conditions, and pregnancy status before acting on an idea.',
     '',
     'Research institutions and study sites',
     centerLines || 'Use the live ClinicalTrials.gov search and a clinician or disease foundation directory to find an appropriate specialty team.',
@@ -1423,8 +1531,11 @@ const reportExportText = ({ form, report, result }) => {
     'Researchers named in source records',
     researcherLines || 'Use the linked studies and specialty-center directories to find named research contacts.',
     '',
-    'AI research connections',
-    hypothesisLines || 'Use the treatment and lifestyle directions above as starting questions for a clinician or trusted-source search.',
+    'Sources',
+    sourceLines || 'Live source links were not available in this run. Use the AI research map and a new live search to continue.',
+    '',
+    'Database coverage',
+    coverageLines || 'No database coverage ledger has been retrieved yet.',
     '',
     'Research support, not medical advice. Verify sources with a licensed clinician.',
   ].join('\n')
