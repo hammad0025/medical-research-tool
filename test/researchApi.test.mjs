@@ -7,6 +7,12 @@ import { createVercelApiHandler } from '../server/vercelApi.mjs'
 const env = {
   ANTHROPIC_RESEARCH_DISABLED: 'true',
   OPENAI_API_KEY: 'test-key',
+  // Keep unit tests isolated from any real Vercel access settings used at build time.
+  VERCEL: '',
+  AWS_LAMBDA_FUNCTION_NAME: '',
+  SITE_ACCESS_PASSCODE: '',
+  SITE_ACCESS_SESSION_SECRET: '',
+  SITE_ACCESS_SECURE_COOKIE: '',
 }
 
 const pubMedXml = `
@@ -462,9 +468,9 @@ test('the research endpoint requires consent and rejects obvious direct identifi
 
 test('the offline starting map stays condition-specific for common and arbitrary demo conditions', { concurrency: false }, async () => {
   const routes = apiRoutes({
+    ...env,
     ANTHROPIC_RESEARCH_DISABLED: 'true',
     OPENAI_API_KEY: '',
-    SITE_ACCESS_PASSCODE: '',
   })
   const unavailableFetch = async () => { throw new Error('Network unavailable for fallback test') }
   const runFallback = (condition, geneticVariant = '') => withMockedFetch(unavailableFetch, () => callRoute(
