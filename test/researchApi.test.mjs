@@ -508,6 +508,7 @@ test('the offline starting map stays condition-specific for common and arbitrary
     assert.match(response.body.exploration.treatmentPaths[0].title, expectedTitle)
     assert.ok(response.body.exploration.treatmentPaths.every((item) => item.needsVerification))
     assert.ok(response.body.exploration.connections.every((item) => item.needsVerification))
+    assert.ok(!response.body.exploration.treatmentPaths.some((item) => /\b(?:supplement|nutrition|goji berry)\b/i.test(`${item.title} ${item.summary}`)))
     assert.match(response.body.exploration.briefing, new RegExp(condition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
   }
 })
