@@ -1171,9 +1171,9 @@ Hard boundaries:
 - Give every source-specific research question one or more sourceIds from the packet so the app can show the reader exactly where the question came from.
 - Every research question must be a short, everyday question a person can read aloud to a doctor. Use 12 words or fewer, one idea only, and common words. Prefer "Could this study fit me?", "Which symptoms should I mention?", or "What safety risks should I ask about?" over formal or technical wording. Do not use phrases such as "whether this is relevant," "eligibility criteria," "condition-specific," or "research direction."
 - Do not characterize a guideline's recommendation strength. Use neutral, source-limited language such as "the label indicates" or "a cited trial evaluated" instead.
-- Return up to 6 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, supplement, procedure, device, cell or gene therapy, or other intervention named in a source or live trial. Do not pad the list. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
+- Return up to 10 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, procedure, device, cell or gene therapy, RNA treatment, or other intervention named in a source or live trial. Use the intervention name, not the paper title. For example, write "RPGR gene therapy" or "N-acetylcysteine," never "Systematic review of RPGR gene therapy." Rank gene, RNA, cell, drug, device, and procedure research ahead of supplements. Include a supplement only when the packet names that exact supplement in a condition-specific source or live trial. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
 - The “research hypotheses” lane is explicitly exploratory. It must use uncertainty language and must never say a patient should take an agent.
-- Always return 2 to 4 research hypotheses when the packet contains a source or trial. A hypothesis may connect a named intervention, pathway, or research topic that appears in the packet to a careful question. The "candidate" field must use exact wording from the packet. Do not create hypotheses about diagnosis or monitoring steps.
+- Return up to 10 distinct research hypotheses when the packet contains a source or trial. Prefer hypotheses tied to a named intervention, gene, RNA approach, cell approach, device, procedure, or biological pathway from the packet. Do not pad with generic supplement or food ideas. A hypothesis may connect a named intervention, pathway, or research topic that appears in the packet to a careful question. The "candidate" field must use exact wording from the packet. Do not create hypotheses about diagnosis or monitoring steps.
 - Each hypothesis must be an open question, not a claim that a treatment will help. Explain why the source raises the question and what a specialist could investigate next.
 - The “safety” lane may contain up to 4 condition-specific cautions from the packet, such as a source-reported contraindication, interaction, warning, urgent red flag, or reason to use a specialist team. Do not add a generic disclaimer, dosing, or an instruction to start, stop, or avoid a treatment.
 - The “lifestyle” lane may contain only condition-specific, non-drug findings supported by packet sources and tied to a modifiable factor such as activity, diet, sleep, tobacco, alcohol, environment, sun exposure, rehabilitation, or vision rehabilitation. Do not turn quality-of-life observations, awareness, monitoring, genetics, or generic wellness advice into a lifestyle item.
@@ -1227,6 +1227,9 @@ Hard boundaries:
 - Do not claim a drug works, is safe, is approved, or is right for a person.
 - Do not name a doctor, hospital, clinical trial, study result, or paper as if it has been checked.
 - You may suggest a drug class, treatment type, biological pathway, cell or gene approach, supplement topic, or daily-life question only as a research direction to verify.
+- Prefer concrete gene, RNA, cell, pathway, device, procedure, or named-treatment directions. Do not create generic supplement, vitamin, food, or wellness cards unless the supplied research context names that exact topic.
+- If the supplied research context lists named candidates, use those exact names in relevant cards. They are starting points, not proof that a treatment works.
+- Do not turn medicines, vitamins, supplements, or foods listed only in the patient profile into research cards. They must also appear in the supplied research context.
 - Return 10 distinct treatment paths and 10 distinct connections. Keep each one short, concrete, and clearly exploratory. A treatment-path title must name a medicine class, treatment platform, supplement topic, procedure, device, or biological pathway, not a vague instruction to "do more research." If a specific drug name is uncertain, use a specific class or pathway instead of inventing a drug.
 - Every connection's "question" must be a short question for a doctor: 12 words or fewer, one idea, and plain language. Do not use jargon or formal research wording.
 - Use the supplied profile to make connections where possible. A subtype, gene result, current medicine, symptom, or stated goal can make a question more useful, but do not treat it as a diagnosis or proof.
@@ -1942,21 +1945,40 @@ const fillExplorationCards = (primary, fallback, limit) => {
   return cards
 }
 
-const genericExplorationMap = (condition) => ({
+const genericExplorationMap = (condition, context = {}) => {
+  const namedCandidates = [...new Set((Array.isArray(context?.namedCandidates) ? context.namedCandidates : [])
+    .map((candidate) => cleanText(candidate, 120))
+    .filter(Boolean))]
+    .slice(0, 4)
+  const candidateTreatmentPaths = namedCandidates.map((candidate) => ({
+    title: `${candidate} research path`,
+    summary: `Explore how ${candidate} is being studied for ${condition}, including the subtype and study group involved.`,
+    whyItMayMatter: 'A named research candidate is more useful when checked against the exact condition and study details.',
+  }))
+  const candidateConnections = namedCandidates.map((candidate) => ({
+    title: `${candidate}: a focused research question`,
+    researchAngle: candidate,
+    whyItCouldConnect: 'This named candidate appeared in the research context for this report. It still needs condition-specific evidence.',
+    question: `Is ${candidate} worth discussing?`,
+  }))
+
+  return {
   briefing: `This is an AI starting map for ${condition}. It makes possible connections and gives practical questions to investigate, but each idea still needs a source check before it is treated as a fact.`,
   treatmentPaths: conditionMapCards([
+    ...candidateTreatmentPaths,
     { title: 'Current medicine and repurposing research', summary: `Explore which existing medicine classes researchers are studying or repurposing for ${condition}.`, whyItMayMatter: 'This can help separate routine care from early treatment questions.' },
     { title: 'Disease-pathway treatment research', summary: `Explore biological pathways that researchers connect to ${condition}, such as inflammation, immune activity, scarring, cell stress, or repair signals.`, whyItMayMatter: 'A pathway map can point to treatment classes worth checking in trusted sources.' },
     { title: 'Inflammation or immune-pathway research', summary: 'Explore whether inflammation or immune signaling is a research topic for this condition and whether that leads to condition-specific treatment studies.', whyItMayMatter: 'Similar pathway names can mean different things across conditions, so the exact disease evidence matters.' },
     { title: 'Cell stress and repair-pathway research', summary: 'Explore research on cell stress, tissue injury, and repair pathways that could be relevant to the condition.', whyItMayMatter: 'These mechanisms may explain why researchers are testing different medicine classes.' },
     { title: 'Gene-targeted research', summary: 'Explore whether a gene result, gene therapy, RNA approach, or gene-editing research direction is relevant to this condition.', whyItMayMatter: 'Gene-related research is often specific to a disease subtype or study group.' },
+    { title: 'RNA and antisense treatment research', summary: 'Explore whether RNA, antisense, or gene-silencing approaches are being studied for the condition or its subtype.', whyItMayMatter: 'These research platforms can be highly specific to a gene or disease mechanism.' },
     { title: 'Cell, exosome, and regenerative-research questions', summary: 'Explore whether there are legitimate academic studies of cell or exosome approaches, and how the evidence is being tested.', whyItMayMatter: 'This helps separate registered research from private-pay marketing claims.' },
-    { title: 'Supplement and nutrition research', summary: 'Explore whether any supplement, vitamin, nutrition, or metabolic research questions have condition-specific evidence worth checking.', whyItMayMatter: 'A broad supplement claim should not be assumed to apply without a direct source.' },
     { title: 'Device, procedure, or surgery research', summary: 'Explore whether devices, procedures, surgery, implants, or rehabilitation technologies are being studied for this condition.', whyItMayMatter: 'Non-drug research may matter even when medicines are the main focus.' },
     { title: 'Combination-treatment research', summary: 'Explore whether researchers are studying combinations of established care, newer medicines, procedures, or support programs.', whyItMayMatter: 'A combination question needs exact study details and safety review.' },
     { title: 'Symptom-support and rehabilitation research', summary: 'Explore supportive care, rehabilitation, adaptive tools, and symptom-focused studies alongside disease-targeted treatment research.', whyItMayMatter: 'Daily function can shape useful research questions even when a cure is not available.' },
-  ], condition),
+  ].slice(0, 10), condition),
   connections: conditionMapCards([
+    ...candidateConnections,
     { title: 'Subtype could change the research map', researchAngle: 'Subtype, gene result, or test detail', whyItCouldConnect: `Different forms of ${condition} may be studied in different ways.`, question: 'Is there a subtype, gene result, or test detail that should change the research search?' },
     { title: 'Gene results may change the research question', researchAngle: 'Gene-specific research', whyItCouldConnect: 'Some disease pathways and trials may be linked to a particular gene or variant.', question: 'Could a gene result help narrow the treatment and trial search?' },
     { title: 'Current treatment history can shape the next question', researchAngle: 'Current and past treatments', whyItCouldConnect: 'Current medicines, past benefit, and side effects may change which research questions are useful.', question: 'Which current or past treatment details should a specialist review before exploring a new idea?' },
@@ -1967,7 +1989,7 @@ const genericExplorationMap = (condition) => ({
     { title: 'Trial eligibility may be part of the research plan', researchAngle: 'Study design and eligibility', whyItCouldConnect: 'Trials often enroll a narrow group, so disease details can change whether a study is worth discussing.', question: 'Which study eligibility details should be checked before treating a trial as relevant?' },
     { title: 'Safety and interactions need their own source check', researchAngle: 'Safety, interactions, and monitoring', whyItCouldConnect: 'A treatment idea may have separate safety questions that are not answered by a short abstract or registry page.', question: 'Which safety source and clinician review would be needed before taking this idea seriously?' },
     { title: 'Source quality can change the conclusion', researchAngle: 'Study quality and independent review', whyItCouldConnect: 'A registry record, abstract, marketing page, and reviewed trial can support very different levels of confidence.', question: 'What kind of source would make this research claim strong enough to discuss with a specialty team?' },
-  ], condition),
+  ].slice(0, 10), condition),
   lifestyle: conditionMapCards([
     { title: 'Daily function and symptom triggers', summary: 'Explore whether activity, sleep, food, environment, vision, pain, fatigue, or another daily-life factor changes the condition experience.' },
     { title: 'Support and rehabilitation questions', summary: 'Explore which condition-specific support, rehabilitation, or adaptive-care topics may be worth discussing.' },
@@ -1983,11 +2005,12 @@ const genericExplorationMap = (condition) => ({
     `${condition} subtype gene research`,
     `${condition} disease mechanism treatment research`,
   ],
-})
+  }
+}
 
-const fallbackExplorationMap = (patient) => {
+const fallbackExplorationMap = (patient, context = {}) => {
   const condition = cleanText(patient?.condition, 120) || 'this condition'
-  const generic = genericExplorationMap(condition)
+  const generic = genericExplorationMap(condition, context)
   const profile = contextualExplorationProfiles.find((candidate) => candidate.matches.test(condition))
   const geneHint = cleanText(patient?.geneticVariant, 160)
   if (profile) {
@@ -2079,8 +2102,8 @@ const safeExplorationText = (value, limit = 440) => {
   return text && !hasUnsafeRecommendationLanguage(text) && !hasUnsupportedGuidelineStrength(text) ? text : ''
 }
 
-const normalizeExplorationMap = (draft, patient) => {
-  const fallback = fallbackExplorationMap(patient)
+const normalizeExplorationMap = (draft, patient, context = {}) => {
+  const fallback = fallbackExplorationMap(patient, context)
   const normalizeCards = (items, fields, limit, fallbackCards) => {
     const normalized = (Array.isArray(items) ? items : [])
       .map((item) => {
@@ -2119,28 +2142,28 @@ const normalizeExplorationMap = (draft, patient) => {
   }
 }
 
-const structuredExplorationMap = (patient) => ({
+const structuredExplorationMap = (patient, context = {}) => ({
   status: 'ready',
   mode: 'structured-starting-map',
   writer: { status: 'fallback', provider: '', model: '' },
   reviewer: { status: 'not-run', provider: '', model: '', independent: false },
-  ...normalizeExplorationMap(null, patient),
+  ...normalizeExplorationMap(null, patient, context),
 })
 
-const runExplorationMap = async ({ patient, env }) => {
+const runExplorationMap = async ({ patient, env, context = {} }) => {
   try {
     const runDate = new Date().toISOString().slice(0, 10)
     const writerRequest = {
       system: explorationSystemPrompt,
-      user: `CURRENT DATE: ${runDate}\n\nRESEARCH PROFILE\n${JSON.stringify(patient)}`,
+      user: `CURRENT DATE: ${runDate}\n\nRESEARCH PROFILE\n${JSON.stringify(patient)}\n\nRESEARCH CONTEXT (named candidates only; not proof of benefit)\n${JSON.stringify(context)}`,
       env,
       maxTokens: 4_200,
     }
     let writerResponse = await callAnthropic(writerRequest)
     if (!writerResponse.ok) writerResponse = await callOpenAi({ ...writerRequest, models: openAiWriterModels(env) })
 
-    const writerMap = normalizeExplorationMap(extractJson(writerResponse.text), patient)
-    if (!writerResponse.ok) return structuredExplorationMap(patient)
+    const writerMap = normalizeExplorationMap(extractJson(writerResponse.text), patient, context)
+    if (!writerResponse.ok) return structuredExplorationMap(patient, context)
 
     const reviewerRequest = {
       system: explorationReviewerSystemPrompt,
@@ -2152,7 +2175,7 @@ const runExplorationMap = async ({ patient, env }) => {
     const reviewerResponse = openAiConfigured
       ? await callOpenAi({ ...reviewerRequest, models: openAiReviewerModels(env) })
       : await callAnthropic(reviewerRequest)
-    const reviewerMap = reviewerResponse.ok ? normalizeExplorationMap(extractJson(reviewerResponse.text), patient) : writerMap
+    const reviewerMap = reviewerResponse.ok ? normalizeExplorationMap(extractJson(reviewerResponse.text), patient, context) : writerMap
     const reviewerProvider = reviewerResponse.provider || (openAiConfigured ? 'OpenAI' : 'Anthropic')
 
     return {
@@ -2169,7 +2192,7 @@ const runExplorationMap = async ({ patient, env }) => {
     }
   } catch {
     // A provider outage must not turn a completed source search into a blank report.
-    return structuredExplorationMap(patient)
+    return structuredExplorationMap(patient, context)
   }
 }
 
@@ -2310,6 +2333,21 @@ const createPacket = ({ patient, bundle, trials, sites, researchers }) => ({
   trials,
 })
 
+const explorationContextFor = (packet, review) => {
+  const seen = new Set()
+  const namedCandidates = [
+    ...(Array.isArray(review?.treatmentIdeas) ? review.treatmentIdeas.map((item) => item?.title) : []),
+    ...(Array.isArray(packet?.trials) ? packet.trials.flatMap(therapeuticTrialCandidateNames) : []),
+  ].map((candidate) => cleanText(candidate, 120)).filter((candidate) => {
+    const key = candidate.toLowerCase()
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 8)
+
+  return { namedCandidates }
+}
+
 const runResearch = async (body, env) => {
   const patient = normalizePatient(body?.patient)
   const conditionIsIpf = isIpfCondition(patient.condition)
@@ -2358,7 +2396,9 @@ const runResearch = async (body, env) => {
     || !Array.isArray(review.safety) || !review.safety.length
     || !packet.trials.length
     || !packet.centers.length
-  const exploration = needsExplorationMap ? await runExplorationMap({ patient, env }) : null
+  const exploration = needsExplorationMap
+    ? await runExplorationMap({ patient, env, context: explorationContextFor(packet, review) })
+    : null
   // An unavailable live service still returns a structured research guide.
   // We never publish an empty finished report for a valid condition request.
   const reportStatus = hasUsableResearch ? 'ready' : 'exploration'
