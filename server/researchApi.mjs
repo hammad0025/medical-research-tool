@@ -421,16 +421,11 @@ const isConditionScopedSource = (source, condition) => {
   const sourceText = `${title} ${normalizedEvidenceText(source.summary)}`.trim()
   const requestedSyndrome = /\bsyndrome\b/i.test(condition)
   const sourceMatchesCondition = terms.some((term) => ` ${sourceText} `.includes(` ${term} `))
-  const titleMatchesCondition = terms.some((term) => ` ${title} `.includes(` ${term} `))
 
   if (!terms.length || !sourceMatchesCondition) return false
   if (/\bsyndrome\b/i.test(source.title) && !requestedSyndrome) return false
-
-  const variant = normalizedEvidenceText(conditionVariantToken(condition))
-  if (variant && variant.length >= 3) {
-    return ` ${sourceText} `.includes(` ${variant} `) || titleMatchesCondition
-  }
-
+  // A gene or subtype refines the report but must not hide broad condition
+  // evidence when a paper names the disease in its abstract instead of title.
   return true
 }
 
@@ -529,8 +524,13 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
 
   if (!conditionPhrase || !usableCandidates.length) return []
 
-  const searches = usableCandidates
-    .flatMap((candidate) => candidate.searchNames.map((searchName) => ({ candidate, searchName })))
+  // Check every candidate's main name before spending queries on aliases.
+  // Otherwise two or three aliases for the first item can starve the rest.
+  const searches = [
+    ...usableCandidates.map((candidate) => ({ candidate, searchName: candidate.searchNames[0] || candidate.name })),
+    ...usableCandidates.flatMap((candidate) => candidate.searchNames.slice(1).map((searchName) => ({ candidate, searchName }))),
+  ]
+    .filter(({ searchName }) => Boolean(searchName))
     .slice(0, 12)
   const searchResults = []
   // PubMed's public endpoint is rate limited. Small batches keep the scout
@@ -1610,7 +1610,7 @@ const callOpenAi = async ({ system, user, env, maxTokens = 3_200, models }) => {
 
 const candidateScoutSystemPrompt = `You are Candidate Scout in a medical-research product. Produce search seeds only, never treatment advice.
 
-Given a condition and optional subtype, return up to 10 exact candidate names that could be checked in the literature. Cover a useful mix when relevant: established or repurposed medicines, supplements or food products, procedures or devices, and research programs. Put practical medicine, food, supplement, or procedure candidates before trial-only or advanced programs, but do not invent a name merely to fill a slot. Prefer names a patient could recognize over generic labels such as "gene therapy." When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
+Given a condition and optional subtype, return up to 10 exact candidate names that could be checked in the literature. Cover a useful mix when relevant: established or repurposed medicines, supplements or food products, procedures, rehabilitation or adaptive supports, devices, and research programs. Put practical medicine, food, supplement, procedure, or support candidates before trial-only or advanced programs. Start with actual named things a patient or clinician could recognize, not broad classes such as "gene therapy" or "antioxidants." Include a candidate only when you believe a condition-specific paper, abstract, or trial record could name that exact thing; do not invent a name merely to fill a slot. When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
 
 Return strict JSON only:
 {
