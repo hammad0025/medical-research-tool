@@ -1169,6 +1169,7 @@ Hard boundaries:
 - When the source packet says patient.readingLevel is "eighth-grade", write every patient-facing sentence at about an eighth-grade level. Prefer short sentences, common words, and active voice. Explain a needed medical term the first time it appears. Say "anti-scarring medicine" instead of "antifibrotic" unless quoting a source. Keep drug, gene, and trial names exact. Do not make the language less careful or less safe.
 - Never write a statement of benefit, safety, approval, stage, or trial status without one or more sourceIds from the packet.
 - Give every source-specific research question one or more sourceIds from the packet so the app can show the reader exactly where the question came from.
+- Every research question must be a short, everyday question a person can read aloud to a doctor. Use 12 words or fewer, one idea only, and common words. Prefer "Could this study fit me?", "Which symptoms should I mention?", or "What safety risks should I ask about?" over formal or technical wording. Do not use phrases such as "whether this is relevant," "eligibility criteria," "condition-specific," or "research direction."
 - Do not characterize a guideline's recommendation strength. Use neutral, source-limited language such as "the label indicates" or "a cited trial evaluated" instead.
 - Return up to 6 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, supplement, procedure, device, cell or gene therapy, or other intervention named in a source or live trial. Do not pad the list. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
 - The “research hypotheses” lane is explicitly exploratory. It must use uncertainty language and must never say a patient should take an agent.
@@ -1201,7 +1202,7 @@ Return strict JSON only:
 
 const reviewerSystemPrompt = `You are Reviewer Agent, a skeptical clinical-evidence reviewer. You receive an untrusted writer draft plus the exact source packet that writer was allowed to use.
 
-Your job is to prevent hallucination, overclaiming, and clinical irrelevance. Reject anything that is not traceable to an exact sourceId, names an entity outside the packet, implies a personalized treatment recommendation, gives dosing, promotes investigational/cell/exosome therapies as established care, or calls a research site a recommended, leading, or top center. Reject a treatment idea if it is not a named intervention in the supplied source material, or if it is a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step. Reject a safety item unless it is a source-specific caution or red flag and it does not give a direct instruction. Reject a lifestyle item unless it names a real modifiable non-drug factor. A hypothesis may use a named intervention, pathway, or research topic from the packet, but it must be a useful cautious connection and not a diagnosis or monitoring step. When the source packet says patient.readingLevel is "eighth-grade", rewrite every patient-facing item in short, plain sentences at about an eighth-grade level. Use "anti-scarring medicine" instead of "antifibrotic" unless quoting a source, while keeping required medical names and source IDs exact. Do not state or paraphrase a guideline recommendation's strength unless an exact quote in the packet supports it.
+Your job is to prevent hallucination, overclaiming, and clinical irrelevance. Reject anything that is not traceable to an exact sourceId, names an entity outside the packet, implies a personalized treatment recommendation, gives dosing, promotes investigational/cell/exosome therapies as established care, or calls a research site a recommended, leading, or top center. Reject a treatment idea if it is not a named intervention in the supplied source material, or if it is a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step. Reject a safety item unless it is a source-specific caution or red flag and it does not give a direct instruction. Reject a lifestyle item unless it names a real modifiable non-drug factor. A hypothesis may use a named intervention, pathway, or research topic from the packet, but it must be a useful cautious connection and not a diagnosis or monitoring step. When the source packet says patient.readingLevel is "eighth-grade", rewrite every patient-facing item in short, plain sentences at about an eighth-grade level. Use "anti-scarring medicine" instead of "antifibrotic" unless quoting a source, while keeping required medical names and source IDs exact. Every approved or rewritten question must be a simple doctor question: 12 words or fewer, one idea, no jargon, and easy to read aloud. Do not state or paraphrase a guideline recommendation's strength unless an exact quote in the packet supports it.
 
 Return strict JSON only:
 {
@@ -1227,6 +1228,7 @@ Hard boundaries:
 - Do not name a doctor, hospital, clinical trial, study result, or paper as if it has been checked.
 - You may suggest a drug class, treatment type, biological pathway, cell or gene approach, supplement topic, or daily-life question only as a research direction to verify.
 - Return 10 distinct treatment paths and 10 distinct connections. Keep each one short, concrete, and clearly exploratory. A treatment-path title must name a medicine class, treatment platform, supplement topic, procedure, device, or biological pathway, not a vague instruction to "do more research." If a specific drug name is uncertain, use a specific class or pathway instead of inventing a drug.
+- Every connection's "question" must be a short question for a doctor: 12 words or fewer, one idea, and plain language. Do not use jargon or formal research wording.
 - Use the supplied profile to make connections where possible. A subtype, gene result, current medicine, symptom, or stated goal can make a question more useful, but do not treat it as a diagnosis or proof.
 - Do not promote private-pay stem-cell or exosome clinics. If those topics are relevant, frame them as questions about legitimate academic research and evidence quality.
 - Do not say that nothing was found or leave a section blank. Give the user a practical map to investigate.
@@ -1251,7 +1253,7 @@ Return strict JSON only:
 
 const explorationReviewerSystemPrompt = `You are the second safety pass for an AI-generated medical research starting map. Rewrite or remove anything that sounds like a diagnosis, a treatment recommendation, a dose, a proven benefit, a safety guarantee, an approval claim, or a named provider recommendation.
 
-Keep the map useful. Every point must remain a cautious research question or possible connection to verify. Use short, plain language. Do not leave any section blank and do not say that nothing was found.
+Keep the map useful. Every point must remain a cautious research question or possible connection to verify. Use short, plain language. Rewrite every connection question as a simple question for a doctor: 12 words or fewer, one idea, no jargon. Do not leave any section blank and do not say that nothing was found.
 
 Return the same strict JSON shape as the Research Connections Agent.`
 
@@ -1519,8 +1521,29 @@ const normalizeSafetyItem = (item, allowedSourceIds) => {
   return { title, summary, caution, sourceIds }
 }
 
+const simpleDoctorQuestion = (value) => {
+  const text = cleanText(value, 250).replace(/[;:]+/g, ',')
+  if (!text) return ''
+  const question = text.endsWith('?') ? text : `${text}?`
+  const words = question.match(/[A-Za-z0-9']+/g) || []
+  const needsSimplifying = words.length > 12
+    || /\b(?:whether|relevant|eligibility|condition-specific|research direction|specialist|discussion|academic(?:ally)?|independent review)\b/i.test(question)
+  if (!needsSimplifying) return question
+
+  if (/\b(?:safety|side effect|risk|interaction|allerg|pregnan)\b/i.test(question)) return 'What safety risks should I ask about?'
+  if (/\b(?:source|evidence|claim|marketing|study design)\b/i.test(question)) return 'What source should I trust?'
+  if (/\b(?:gene|genetic|variant|mutation)\b/i.test(question)) return 'Does my gene result matter?'
+  if (/\b(?:symptom|pain|fatigue|vision|cough|breath|movement|mood|daily)\b/i.test(question)) return 'Which symptoms should I mention?'
+  if (/\b(?:test|scan|mri|lab|stage)\b/i.test(question)) return 'Which test results matter most?'
+  if (/\b(?:history|current medicine|past medicine|previous medicine)\b/i.test(question)) return 'How does my treatment history matter?'
+  if (/\b(?:support|rehab|therapy|care plan|caregiver)\b/i.test(question)) return 'What support could help most?'
+  if (/\b(?:trial|study|recruit)\b/i.test(question)) return 'Could this study fit me?'
+  if (/\b(?:treatment|medicine|drug)\b/i.test(question)) return 'Is this treatment worth discussing?'
+  return 'What should I ask about this?'
+}
+
 const normalizeResearchQuestion = (question, allowedSourceIds) => {
-  const text = cleanText(isRecord(question) ? question.text : question, 250)
+  const text = simpleDoctorQuestion(isRecord(question) ? question.text : question)
   const sourceIds = sourceIdsFrom(isRecord(question) ? question.sourceIds : [], allowedSourceIds)
   if (!text || !sourceIds.length || hasUnsafeRecommendationLanguage(text) || hasUnsupportedGuidelineStrength(text)) return null
   return { text, sourceIds }
@@ -1630,7 +1653,7 @@ const applyReview = (review, writer, allowedSourceIds, allowedCandidates, candid
   const questions = (Array.isArray(review.questions) ? review.questions : [])
     .map((item) => {
       const index = Number(item?.index)
-      const text = cleanText(item?.text, 250)
+      const text = simpleDoctorQuestion(item?.text)
       if (!Number.isInteger(index) || index < 0 || index >= writer.researchQuestions.length) return null
       if (!['approve', 'rewrite'].includes(item?.decision) || !text || hasUnsafeRecommendationLanguage(text)) return null
       const sourceIds = sourceIdsFrom(item?.sourceIds, allowedSourceIds)
@@ -1902,6 +1925,7 @@ const contextualExplorationProfiles = [
 const replaceConditionToken = (value, condition) => String(value || '').replaceAll('{condition}', condition)
 const conditionMapCards = (cards, condition) => cards.map((card) => ({
   ...Object.fromEntries(Object.entries(card).map(([key, value]) => [key, typeof value === 'string' ? replaceConditionToken(value, condition) : value])),
+  question: card.question ? simpleDoctorQuestion(replaceConditionToken(card.question, condition)) : card.question,
   caution: explorationBoundary,
 }))
 
@@ -2065,7 +2089,12 @@ const normalizeExplorationMap = (draft, patient) => {
         // A model may omit the caution field. The fixed boundary below is
         // safer than discarding an otherwise useful, clearly exploratory card.
         if (fields.some(([key]) => key !== 'caution' && !card[key])) return null
-        return { ...card, caution: card.caution || explorationBoundary, needsVerification: true }
+        return {
+          ...card,
+          question: card.question ? simpleDoctorQuestion(card.question) : card.question,
+          caution: card.caution || explorationBoundary,
+          needsVerification: true,
+        }
       })
       .filter(Boolean)
       .slice(0, limit)
