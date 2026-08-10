@@ -533,6 +533,7 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
     .filter(({ searchName }) => Boolean(searchName))
     .slice(0, 12)
   const searchResults = []
+  let completedSearches = 0
   // PubMed's public endpoint is rate limited. Small batches keep the scout
   // useful without turning a single report into a burst of failed requests.
   for (let index = 0; index < searches.length; index += 2) {
@@ -542,7 +543,9 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
       ids: await searchPubMed(`("${conditionPhrase}"[Title/Abstract]) AND ("${searchName}"[Title/Abstract])`),
     })))
     searchResults.push(...results)
+    completedSearches += results.filter((result) => result.status === 'fulfilled').length
   }
+  if (!completedSearches && searches.length) throw new Error('PubMed candidate searches did not return a usable response.')
   const candidateById = new Map()
 
   for (const result of searchResults) {
@@ -583,35 +586,37 @@ const fetchPubMedEvidence = async (condition) => {
   const titleAbstractTerm = `"${baseCondition}"[Title/Abstract]`
   const qualityTerm = '(guideline[Publication Type] OR systematic review[Publication Type] OR meta-analysis[Publication Type] OR randomized controlled trial[Publication Type])'
   const variantTerm = variant ? ` AND ${variant}[Title/Abstract]` : ''
-  const treatmentTerm = `("${baseCondition}"[Title/Abstract]${variantTerm}) AND (treat*[Title/Abstract] OR therap*[Title/Abstract] OR drug*[Title/Abstract] OR trial[Title/Abstract])`
-  const searchTerms = [
-    `(${titleTerm}${variantTerm}) AND ${qualityTerm}`,
-    `(${treatmentTerm}) AND ${qualityTerm}`,
-    treatmentTerm,
-    `${titleTerm} AND ${qualityTerm}`,
-    titleTerm,
-    titleAbstractTerm,
+  const focusedTreatmentTerm = `(${titleAbstractTerm}) AND (treat*[Title/Abstract] OR therap*[Title/Abstract] OR drug*[Title/Abstract] OR medic*[Title/Abstract] OR supplement*[Title/Abstract] OR vitamin*[Title/Abstract] OR diet*[Title/Abstract] OR nutrition*[Title/Abstract] OR procedure*[Title/Abstract] OR surg*[Title/Abstract] OR rehabilitation[Title/Abstract] OR device*[Title/Abstract])`
+  const searchPlans = [
+    // A gene or subtype helps refine a report, but broad condition research
+    // must still be visible when it has not been tagged with that variant.
+    ...(variant ? [{ term: `(${titleTerm}${variantTerm}) AND ${qualityTerm}`, limit: 8 }] : []),
+    { term: `(${focusedTreatmentTerm}) AND ${qualityTerm}`, limit: 12 },
+    { term: focusedTreatmentTerm, limit: 12 },
+    { term: `${titleTerm} AND ${qualityTerm}`, limit: 8 },
+    { term: titleTerm, limit: 6 },
+    { term: titleAbstractTerm, limit: 6 },
   ]
   const ids = []
-  for (const term of searchTerms) {
-    const results = await searchPubMed(term)
-    for (const id of results) {
+  for (const plan of searchPlans) {
+    const results = await searchPubMed(plan.term)
+    for (const id of results.slice(0, plan.limit)) {
       if (!ids.includes(id)) ids.push(id)
     }
-    if (ids.length >= 24) break
+    if (ids.length >= 40) break
   }
   if (!ids.length) return []
 
   const url = new URL(PUBMED_FETCH_URL)
   url.searchParams.set('db', 'pubmed')
   url.searchParams.set('retmode', 'xml')
-  url.searchParams.set('id', ids.slice(0, 24).join(','))
+  url.searchParams.set('id', ids.slice(0, 40).join(','))
 
   const response = await fetchWithTimeout(url, {}, 18_000)
   if (!response.ok) throw new Error(`PubMed fetch returned ${response.status}.`)
   return pubmedArticlesFromXml(await response.text())
     .filter((source) => isConditionScopedSource(source, condition))
-    .slice(0, 10)
+    .slice(0, 18)
 }
 
 const normalizedDoi = (value) => cleanText(value, 220)
@@ -676,46 +681,165 @@ const europePmcTypes = (record) => {
 
 const europePmcRecordIsRetracted = (record) => ['true', 'y', 'yes'].includes(String(record?.isRetracted || '').toLowerCase())
 
-const fetchEuropePmcEvidence = async (condition) => {
-  const phrase = conditionPhrase(condition)
-  if (!phrase) return []
-
+const europePmcRecordsForQuery = async (query, pageSize = 25) => {
   const url = new URL(EUROPE_PMC_SEARCH_URL)
-  url.searchParams.set('query', `TITLE_ABS:"${phrase}"`)
+  url.searchParams.set('query', query)
   url.searchParams.set('format', 'json')
   url.searchParams.set('resultType', 'core')
-  url.searchParams.set('pageSize', '25')
+  url.searchParams.set('pageSize', String(pageSize))
 
   const response = await fetchWithTimeout(url, {}, 18_000)
   if (!response.ok) throw new Error(`Europe PMC search returned ${response.status}.`)
   const data = await response.json()
-  const records = Array.isArray(data?.resultList?.result) ? data.resultList.result : []
+  return Array.isArray(data?.resultList?.result) ? data.resultList.result : []
+}
 
+const europePmcSourceFromRecord = (record) => {
+  if (!record || europePmcRecordIsRetracted(record)) return null
+  const source = cleanText(record.source, 20).toUpperCase() || 'MED'
+  const recordId = cleanText(record.id, 80)
+  if (!recordId) return null
+  const abstract = cleanText(decodeXml(record.abstractText), 620)
+  const pmid = cleanText(record.pmid || (source === 'MED' ? recordId : ''), 40)
+  const doi = normalizedDoi(record.doi)
+  const journal = cleanText(record.journalTitle, 180) || 'Europe PMC'
+  return {
+    id: `epmc-${source.toLowerCase()}-${recordId}`,
+    title: cleanText(record.title, 320),
+    url: `https://europepmc.org/article/${source}/${recordId}`,
+    type: publicationKind(europePmcTypes(record)),
+    year: cleanText(record.pubYear || record.firstPublicationDate, 12),
+    summary: abstract || 'Europe PMC did not provide an abstract. This record is shown for traceability but is not sent to the AI reviewers.',
+    journal,
+    pmid,
+    doi,
+    origin: 'Europe PMC',
+    aiEligible: Boolean(abstract),
+  }
+}
+
+const europePmcPhrase = (value) => cleanText(value, 180).replace(/["\\]/g, ' ').trim()
+
+const fetchEuropePmcEvidence = async (condition) => {
+  const phrase = conditionPhrase(condition)
+  if (!phrase) return []
+
+  const conditionQuery = `TITLE_ABS:"${europePmcPhrase(phrase)}"`
+  const treatmentQuery = `(${conditionQuery}) AND (treatment OR therapy OR drug OR medicine OR supplement OR vitamin OR diet OR nutrition OR procedure OR surgery OR rehabilitation OR device)`
+  const results = await Promise.allSettled([
+    europePmcRecordsForQuery(treatmentQuery),
+    europePmcRecordsForQuery(conditionQuery),
+  ])
+  const records = results.flatMap((result) => result.status === 'fulfilled' ? result.value : [])
+  if (!records.length && results.every((result) => result.status === 'rejected')) {
+    throw results.find((result) => result.status === 'rejected')?.reason || new Error('Europe PMC did not return usable records.')
+  }
+
+  const seen = new Set()
   return records
-    .filter((record) => !europePmcRecordIsRetracted(record))
-    .map((record) => {
-      const source = cleanText(record.source, 20).toUpperCase() || 'MED'
-      const recordId = cleanText(record.id, 80)
-      const abstract = cleanText(decodeXml(record.abstractText), 620)
-      const pmid = cleanText(record.pmid || (source === 'MED' ? recordId : ''), 40)
-      const doi = normalizedDoi(record.doi)
-      const journal = cleanText(record.journalTitle, 180) || 'Europe PMC'
-      return {
-        id: `epmc-${source.toLowerCase()}-${recordId}`,
-        title: cleanText(record.title, 320),
-        url: `https://europepmc.org/article/${source}/${recordId}`,
-        type: publicationKind(europePmcTypes(record)),
-        year: cleanText(record.pubYear || record.firstPublicationDate, 12),
-        summary: abstract || 'Europe PMC did not provide an abstract. This record is shown for traceability but is not sent to the AI reviewers.',
-        journal,
-        pmid,
-        doi,
-        origin: 'Europe PMC',
-        aiEligible: Boolean(abstract),
-      }
-    })
+    .map(europePmcSourceFromRecord)
+    .filter(Boolean)
     .filter((source) => isConditionScopedSource(source, condition))
-    .slice(0, 6)
+    .filter((source) => {
+      if (seen.has(source.id)) return false
+      seen.add(source.id)
+      return true
+    })
+    .slice(0, 12)
+}
+
+// Europe PMC is a second source path for candidate verification. A public
+// PubMed outage must not turn a live, source-backed report into a list of
+// trial products simply because one literature endpoint did not respond.
+const fetchEuropePmcCandidateEvidence = async (condition, candidates) => {
+  const phrase = conditionPhrase(condition)
+  const usableCandidates = (Array.isArray(candidates) ? candidates : [])
+    .map((candidate) => ({
+      name: cleanCandidateName(candidate?.name),
+      category: cleanText(candidate?.category, 80) || 'Treatment research',
+      searchNames: candidateSearchNamesFor(candidate),
+    }))
+    .filter((candidate) => candidate.name.length >= 3)
+    .slice(0, 12)
+  if (!phrase || !usableCandidates.length) return []
+
+  const conditionQuery = `TITLE_ABS:"${europePmcPhrase(phrase)}"`
+  const searches = [
+    ...usableCandidates.map((candidate) => ({ candidate, searchName: candidate.searchNames[0] || candidate.name })),
+    ...usableCandidates.flatMap((candidate) => candidate.searchNames.slice(1).map((searchName) => ({ candidate, searchName }))),
+  ]
+    .filter(({ searchName }) => Boolean(searchName))
+    .slice(0, 12)
+  const matchedSources = new Map()
+  let completedSearches = 0
+
+  for (let index = 0; index < searches.length; index += 3) {
+    const batch = searches.slice(index, index + 3)
+    const results = await Promise.allSettled(batch.map(async ({ candidate, searchName }) => ({
+      candidate,
+      records: await europePmcRecordsForQuery(`(${conditionQuery}) AND TITLE_ABS:"${europePmcPhrase(searchName)}"`, 4),
+    })))
+    completedSearches += results.filter((result) => result.status === 'fulfilled').length
+
+    for (const result of results) {
+      if (result.status !== 'fulfilled') continue
+      for (const record of result.value.records) {
+        const source = europePmcSourceFromRecord(record)
+        if (!source || !isConditionScopedSource(source, condition) || !sourceMentionsCandidate(source, result.value.candidate)) continue
+        const existing = matchedSources.get(source.id)
+        const candidateLeads = [...(existing?.candidateLeads || [])]
+        if (!candidateLeads.some((item) => candidateKey(item.name) === candidateKey(result.value.candidate.name))) {
+          candidateLeads.push(result.value.candidate)
+        }
+        matchedSources.set(source.id, { ...(existing || source), candidateLeads })
+      }
+    }
+  }
+  if (!completedSearches && searches.length) throw new Error('Europe PMC candidate searches did not return a usable response.')
+
+  return Array.from(matchedSources.values())
+}
+
+const fetchCandidateEvidence = async (condition, candidates) => {
+  const adapters = [
+    {
+      id: 'candidate-pubmed',
+      label: 'PubMed treatment evidence gate',
+      url: sourceSearchPage('pubmed', condition),
+      fetch: () => fetchPubMedCandidateEvidence(condition, candidates),
+    },
+    {
+      id: 'candidate-europe-pmc',
+      label: 'Europe PMC treatment evidence gate',
+      url: sourceSearchPage('europe-pmc', condition),
+      fetch: () => fetchEuropePmcCandidateEvidence(condition, candidates),
+    },
+  ]
+  const results = await Promise.allSettled(adapters.map((adapter) => adapter.fetch()))
+  const successful = results.filter((result) => result.status === 'fulfilled')
+  if (!successful.length) {
+    throw results.find((result) => result.status === 'rejected')?.reason || new Error('Candidate evidence services were unavailable.')
+  }
+
+  const coverage = results.map((result, index) => {
+    const adapter = adapters[index]
+    const sources = result.status === 'fulfilled' ? result.value : []
+    return {
+      id: adapter.id,
+      label: adapter.label,
+      url: adapter.url,
+      status: result.status === 'fulfilled' ? 'ready' : 'unavailable',
+      records: sources.length,
+      detail: result.status === 'fulfilled'
+        ? 'Candidate names were released only when the exact condition and name appeared in the same source record.'
+        : 'This candidate-evidence source did not return a usable response for this run.',
+    }
+  })
+
+  return {
+    sources: dedupeEvidenceSources(successful.flatMap((result) => result.value), 18),
+    coverage,
+  }
 }
 
 const rebuildOpenAlexAbstract = (invertedIndex) => {
@@ -1610,7 +1734,7 @@ const callOpenAi = async ({ system, user, env, maxTokens = 3_200, models }) => {
 
 const candidateScoutSystemPrompt = `You are Candidate Scout in a medical-research product. Produce search seeds only, never treatment advice.
 
-Given a condition and optional subtype, return up to 10 exact candidate names that could be checked in the literature. Cover a useful mix when relevant: established or repurposed medicines, supplements or food products, procedures, rehabilitation or adaptive supports, devices, and research programs. Put practical medicine, food, supplement, procedure, or support candidates before trial-only or advanced programs. Start with actual named things a patient or clinician could recognize, not broad classes such as "gene therapy" or "antioxidants." Include a candidate only when you believe a condition-specific paper, abstract, or trial record could name that exact thing; do not invent a name merely to fill a slot. When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
+Given a condition and optional subtype, return up to 16 exact candidate names that could be checked in the literature. Cover a useful mix when relevant: established or repurposed medicines, supplements or food products, procedures, rehabilitation or adaptive supports, devices, and research programs. Aim first for at least eight practical, patient-recognizable medicine, food, supplement, procedure, rehabilitation, or support candidates when the condition has literature for them. Limit trial-only, gene, cell, and device programs to four candidates or fewer. Start with actual named things a patient or clinician could recognize, not broad classes such as "gene therapy" or "antioxidants." Include a candidate only when you believe a condition-specific paper, abstract, or trial record could name that exact thing; do not invent a name merely to fill a slot. When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
 
 Return strict JSON only:
 {
@@ -1640,7 +1764,20 @@ const normalizeScoutCandidates = (draft) => {
       seen.add(key)
       return true
     })
-    .slice(0, 10)
+    .slice(0, 16)
+}
+
+const mergeScoutCandidates = (...candidateLists) => {
+  const seen = new Set()
+  return candidateLists.flat()
+    .filter(Boolean)
+    .filter((candidate) => {
+      const key = candidateKey(candidate.name)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 16)
 }
 
 const scoutResearchCandidates = async (patient, env) => {
@@ -1649,19 +1786,27 @@ const scoutResearchCandidates = async (patient, env) => {
     subtypeOrGene: cleanText(patient?.geneticVariant, 300),
     goals: cleanText(patient?.goals, 700),
   })
-  const request = { system: candidateScoutSystemPrompt, user, env, maxTokens: 800 }
-  let response = await callAnthropic(request)
-  if (!response.ok) response = await callOpenAi({ ...request, models: openAiWriterModels(env) })
-  if (!response.ok) return { status: response.code || 'unavailable', candidates: [], detail: response.message }
+  const request = { system: candidateScoutSystemPrompt, user, env, maxTokens: 1_500 }
+  // Independent scouts reduce the odds that one model only returns flashy
+  // trial programs and overlooks ordinary, patient-discussible literature.
+  const [anthropicResponse, openAiResponse] = await Promise.all([
+    callAnthropic(request),
+    callOpenAi({ ...request, models: openAiWriterModels(env) }),
+  ])
+  const responses = [anthropicResponse, openAiResponse].filter((response) => response.ok)
+  if (!responses.length) {
+    const failed = openAiResponse.ok ? anthropicResponse : openAiResponse
+    return { status: failed.code || 'unavailable', candidates: [], detail: failed.message }
+  }
 
-  const candidates = normalizeScoutCandidates(extractJson(response.text))
+  const candidates = mergeScoutCandidates(...responses.map((response) => normalizeScoutCandidates(extractJson(response.text))))
   return {
     status: 'ready',
     candidates,
-    provider: response.provider || '',
-    model: response.model || '',
+    provider: responses.map((response) => response.provider).filter(Boolean).join(' + '),
+    model: responses.map((response) => response.model).filter(Boolean).join(' + '),
     detail: candidates.length
-      ? `${candidates.length} candidate names were sent through exact condition-plus-candidate PubMed searches.`
+      ? `${candidates.length} candidate names were sent through exact condition-plus-candidate searches.`
       : 'The candidate scout did not return usable names, so no unverified lead was added.',
   }
 }
@@ -3002,11 +3147,14 @@ const runResearch = async (body, env) => {
     : { status: 'unavailable', candidates: [], detail: 'The candidate scout could not be reached for this run.' }
   const [candidateEvidenceResult, packetCandidateResult] = await Promise.allSettled([
     scout.candidates?.length
-      ? fetchPubMedCandidateEvidence(patient.condition, scout.candidates)
-      : Promise.resolve([]),
+      ? fetchCandidateEvidence(patient.condition, scout.candidates)
+      : Promise.resolve({ sources: [], coverage: [] }),
     extractPacketCandidates({ patient, sources: bundle.sources, trials: trialData.trials }, env),
   ])
-  const candidateSources = candidateEvidenceResult.status === 'fulfilled' ? candidateEvidenceResult.value : []
+  const candidateEvidence = candidateEvidenceResult.status === 'fulfilled'
+    ? candidateEvidenceResult.value
+    : { sources: [], coverage: [] }
+  const candidateSources = candidateEvidence.sources || []
   const packetCandidateExtraction = packetCandidateResult.status === 'fulfilled'
     ? packetCandidateResult.value
     : { status: 'unavailable', candidates: [], detail: 'The source-bound candidate extractor could not be reached for this run.' }
@@ -3015,24 +3163,27 @@ const runResearch = async (body, env) => {
   const trialRecordsWithCandidates = attachPacketCandidates(trialData.trials, packetCandidates)
   const sourceCandidateLeadCount = sourceRecordsWithCandidates
     .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
+  const candidateSourceLeadCount = candidateSources
+    .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
   const candidateVerificationAvailable = candidateEvidenceResult.status === 'fulfilled' && packetCandidateResult.status === 'fulfilled'
   const enrichedBundle = {
     ...bundle,
     sources: dedupeEvidenceSources([sourceRecordsWithCandidates, candidateSources], 24),
     sourceCoverage: [
       ...(bundle.sourceCoverage || []),
+      ...(candidateEvidence.coverage || []),
       {
         id: 'candidate-verification',
         label: 'Named treatment evidence gate',
         url: sourceSearchPage('pubmed', patient.condition),
         status: candidateVerificationAvailable ? 'ready' : 'unavailable',
-        records: sourceCandidateLeadCount + candidateSources.length,
+        records: sourceCandidateLeadCount + candidateSourceLeadCount,
         detail: sourceCandidateLeadCount
-          ? `${sourceCandidateLeadCount} named treatment lead${sourceCandidateLeadCount === 1 ? '' : 's'} was read from retrieved records and matched back to exact source text.${candidateSources.length ? ` ${candidateSources.length} additional PubMed record${candidateSources.length === 1 ? '' : 's'} also passed the condition-plus-candidate check.` : ''}`
-          : candidateSources.length
-            ? `${candidateSources.length} candidate-linked PubMed record${candidateSources.length === 1 ? '' : 's'} passed the exact condition and candidate gate.`
+          ? `${sourceCandidateLeadCount} named treatment lead${sourceCandidateLeadCount === 1 ? '' : 's'} was read from retrieved records and matched back to exact source text.${candidateSourceLeadCount ? ` ${candidateSourceLeadCount} additional candidate lead${candidateSourceLeadCount === 1 ? '' : 's'} also passed an exact condition-plus-candidate check.` : ''}`
+          : candidateSourceLeadCount
+            ? `${candidateSourceLeadCount} candidate-linked lead${candidateSourceLeadCount === 1 ? '' : 's'} passed an exact condition and candidate gate.`
             : scout.candidates?.length
-              ? 'Candidate names were checked, but no matching PubMed record passed both the condition and candidate gate.'
+              ? 'Candidate names were checked across the available literature sources, but no matching record passed both the condition and candidate gate.'
               : packetCandidateExtraction.detail || scout.detail || 'No unverified candidate was added to the report.',
       },
     ],
