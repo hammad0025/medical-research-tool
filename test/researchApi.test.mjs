@@ -21,7 +21,7 @@ const pubMedXml = `
     <PMID>1001</PMID>
     <Article>
       <Journal><Title>Test Retina Journal</Title></Journal>
-      <ArticleTitle>AAV-RP therapy and vision rehabilitation in retinitis pigmentosa</ArticleTitle>
+      <ArticleTitle>AAV-RP therapy and vision rehabilitation</ArticleTitle>
       <Abstract>
         <AbstractText>AAV-RP therapy is being researched for retinitis pigmentosa. Vision rehabilitation is also described for people living with retinitis pigmentosa.</AbstractText>
       </Abstract>
@@ -92,7 +92,7 @@ const writerDraft = {
     title: 'Vision rehabilitation',
     summary: 'A source describes vision rehabilitation for people with retinitis pigmentosa.',
     caution: 'This group research finding is not a personal plan.',
-    sourceIds: ['pmid-1001'],
+    sourceIds: ['pmid-1001', 'epmc-med-1001'],
   }],
   safety: [{
     title: 'Investigational treatment needs review',
@@ -177,6 +177,21 @@ const sparseReviewerDraft = {
   theoryIdeas: [],
 }
 
+const candidateScoutDraft = {
+  candidates: [
+    { name: 'AAV-RP therapy', category: 'gene or cell program' },
+    { name: 'Unrelated treatment', category: 'medicine' },
+  ],
+}
+
+const packetCandidateDraft = {
+  candidates: [
+    { name: 'Vision rehabilitation', category: 'procedure or rehabilitation', sourceIds: ['pmid-1001', 'epmc-med-1001'] },
+    { name: 'AAV-RP therapy', category: 'gene or cell program', sourceIds: ['NCT00000001'] },
+    { name: 'Made-up treatment', category: 'medicine', sourceIds: ['pmid-1001'] },
+  ],
+}
+
 const jsonResponse = (body, status = 200) => ({
   ok: status >= 200 && status < 300,
   status,
@@ -191,7 +206,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, sparseReview = false, malformedReview = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false } = {}) => {
   const pubMedTerms = []
 
   return {
@@ -200,16 +215,33 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, sparseRevie
       const url = String(input)
 
       if (url.includes('/esearch.fcgi')) {
-        if (failEvidence) throw new Error('PubMed is unavailable')
+        if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         pubMedTerms.push(new URL(url).searchParams.get('term') || '')
         return jsonResponse({ esearchresult: { idlist: ['1001'] } })
       }
       if (url.includes('/efetch.fcgi')) {
-        if (failEvidence) throw new Error('PubMed is unavailable')
+        if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         return textResponse(pubMedXml)
       }
-      if (url.includes('europepmc.org')) {
+      if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
+        const query = new URL(url).searchParams.get('query') || ''
+        if (/AAV-RP therapy/i.test(query)) {
+          return jsonResponse({
+            resultList: {
+              result: [{
+                source: 'MED',
+                id: '2002',
+                pmid: '2002',
+                title: 'AAV-RP therapy for retinitis pigmentosa',
+                abstractText: 'AAV-RP therapy is being studied for retinitis pigmentosa.',
+                pubYear: '2025',
+                journalTitle: 'Europe PMC Retina Journal',
+                pubType: 'Clinical Trial',
+              }],
+            },
+          })
+        }
         return jsonResponse({
           resultList: {
             result: [{
@@ -235,7 +267,11 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, sparseRevie
         if (malformedReview && !request.instructions.includes('Researcher Agent') && !request.instructions.includes('Research Connections Agent')) {
           return jsonResponse({ status: 'completed', output_text: 'This response is not valid JSON.' })
         }
-        const output = request.instructions.includes('Research Connections Agent') || request.instructions.includes('second safety pass')
+        const output = request.instructions.includes('Packet Candidate Extractor')
+          ? packetCandidateDraft
+          : request.instructions.includes('Candidate Scout')
+            ? candidateScoutDraft
+          : request.instructions.includes('Research Connections Agent') || request.instructions.includes('second safety pass')
           ? explorationDraft
           : request.instructions.includes('Researcher Agent')
             ? writerDraft
@@ -301,9 +337,19 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.status, 'ready')
   assert.equal(response.body.patient.condition, 'Retinitis Pigmentosa')
   assert.ok(mock.pubMedTerms.some((term) => term.includes('Retinitis Pigmentosa')))
-  assert.equal(response.body.sources.length, 3)
+  assert.ok(response.body.sources.length >= 3)
   assert.ok(response.body.sources.some((source) => source.id === 'rp-nei-condition-overview'))
   assert.ok(response.body.sources.some((source) => source.id === 'rp-fda-luxturna-rpe65'))
+  const candidateSource = response.body.sources.find((source) => source.candidateLeads?.some((candidate) => candidate.name === 'AAV-RP therapy'))
+  assert.ok(candidateSource)
+  assert.ok(candidateSource.candidateLeads.some((candidate) => candidate.name === 'AAV-RP therapy'))
+  assert.ok(response.body.sources.some((source) => source.candidateLeads?.some((candidate) => candidate.name === 'Vision rehabilitation')))
+  assert.ok(!candidateSource.candidateLeads.some((candidate) => /unrelated/i.test(candidate.name)))
+  assert.ok(!candidateSource.candidateLeads.some((candidate) => /made-up/i.test(candidate.name)))
+  assert.ok(mock.pubMedTerms.some((term) => term.includes('AAV-RP therapy')))
+  const candidateGate = response.body.sourceCoverage.find((lane) => lane.id === 'candidate-verification')
+  assert.equal(candidateGate.status, 'ready')
+  assert.match(candidateGate.detail, /exact source text/i)
   assert.equal(response.body.trials.length, 1)
   assert.deepEqual(response.body.trials.map((item) => item.id), ['NCT00000001'])
   assert.ok(!response.body.trials.some((item) => /NAION|umbilical cord/i.test(item.title)))
@@ -314,6 +360,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.review.hypotheses.length, 1)
   assert.equal(response.body.review.theoryIdeas.length, 10)
   assert.ok(response.body.review.theoryIdeas.some((idea) => idea.title === 'Vitamin D signaling and retinal cell stress'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.providerQuestion))
   assert.ok(response.body.review.theoryIdeas.every((idea) => !/\bhigh[-\s]?dose\b/i.test(`${idea.title} ${idea.whyItCouldConnect} ${idea.caution}`)))
   assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
   assert.equal(response.body.review.questions[0].text, 'Could this study fit me?')
@@ -334,10 +381,33 @@ test('a registry outage is labeled unavailable instead of as an empty trial sear
   const registry = response.body.sourceCoverage.find((lane) => lane.id === 'clinicaltrials-gov')
   assert.equal(response.status, 200)
   assert.equal(response.body.status, 'ready')
-  assert.equal(response.body.sources.length, 3)
+  assert.ok(response.body.sources.length >= 3)
   assert.equal(response.body.trials.length, 0)
   assert.equal(registry.status, 'unavailable')
   assert.match(registry.detail, /could not be reached/i)
+})
+
+test('Europe PMC keeps candidate evidence available when PubMed is unavailable', { concurrency: false }, async () => {
+  const mock = createMockFetch({ failPubMed: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.equal(response.body.status, 'ready')
+  assert.equal(response.body.sourceCoverage.find((lane) => lane.id === 'pubmed').status, 'unavailable')
+  const candidatePubMed = response.body.sourceCoverage.find((lane) => lane.id === 'candidate-pubmed')
+  const candidateEuropePmc = response.body.sourceCoverage.find((lane) => lane.id === 'candidate-europe-pmc')
+  assert.ok(candidatePubMed, JSON.stringify(response.body.sourceCoverage))
+  assert.ok(candidateEuropePmc, JSON.stringify(response.body.sourceCoverage))
+  assert.equal(candidatePubMed.status, 'unavailable')
+  assert.equal(candidateEuropePmc.status, 'ready')
+  assert.equal(response.body.sourceCoverage.find((lane) => lane.id === 'candidate-verification').status, 'ready')
+  const candidateSource = response.body.sources.find((source) => source.id === 'epmc-med-2002')
+  assert.ok(candidateSource)
+  assert.ok(candidateSource.candidateLeads.some((candidate) => candidate.name === 'AAV-RP therapy'))
 })
 
 test('a source-backed run keeps a source-linked overview when a report lane is empty', { concurrency: false }, async () => {
@@ -350,7 +420,7 @@ test('a source-backed run keeps a source-linked overview when a report lane is e
 
   assert.equal(response.status, 200)
   assert.equal(response.body.status, 'ready')
-  assert.equal(response.body.sources.length, 3)
+  assert.ok(response.body.sources.length >= 3)
   assert.equal(response.body.trials.length, 1)
   assert.equal(response.body.review.treatmentIdeas.length, 0)
   assert.equal(response.body.exploration, null)
@@ -411,6 +481,13 @@ test('the passcode gate protects the API with a server-only session cookie', asy
 
   const wrongLogin = await callRoute(routes.get('/api/access/login'), 'POST', { passcode: 'wrong' })
   assert.equal(wrongLogin.status, 401)
+
+  // A real demo user can mistype a shared passcode several times. The correct
+  // passcode must recover access instead of inheriting that temporary limit.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const retry = await callRoute(routes.get('/api/access/login'), 'POST', { passcode: `wrong-${attempt}` })
+    assert.equal(retry.status, 401)
+  }
 
   const login = await callRoute(routes.get('/api/access/login'), 'POST', { passcode })
   assert.equal(login.status, 200)
