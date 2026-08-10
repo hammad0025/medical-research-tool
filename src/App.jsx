@@ -633,20 +633,6 @@ function CitedParagraph({ children, citations, className = '' }) {
   return <p className={className}>{children}<InlineCitationLinks citations={citations} /></p>
 }
 
-const splitIntoSentences = (value) => (String(value || '').match(/[^.!?]+[.!?]+(?:\s|$)|[^.!?]+$/g) || [])
-  .map((sentence) => sentence.trim())
-  .filter(Boolean)
-
-function CitedSentences({ text, citations, className = '' }) {
-  const sentences = splitIntoSentences(text)
-  if (sentences.length < 2) return <CitedParagraph className={className} citations={citations}>{text}</CitedParagraph>
-  return (
-    <div className={`${className} cited-sentences`}>
-      {sentences.map((sentence, index) => <CitedParagraph key={`${sentence}-${index}`} citations={citations}>{sentence}</CitedParagraph>)}
-    </div>
-  )
-}
-
 function CitationActions({ citations, label = 'Open source' }) {
   if (!citations?.length) return null
   return (
@@ -899,6 +885,61 @@ function RequiredSectionEmptyState({ icon = 'search', title, children }) {
   )
 }
 
+const overviewFactsForReport = (result, condition) => {
+  const labels = officialLabelIdeasForReport(result, condition)
+  const trials = Array.isArray(result?.trials) ? result.trials : []
+  const leads = treatmentIdeasForReport(result, condition)
+  const sources = Array.isArray(result?.sources) ? result.sources : []
+  const sourceById = new Map(sources.map((source) => [source.id, source]))
+  const researchSources = sources.filter((source) => !isOfficialLabelSource(source))
+  const recruitingCount = trials.filter((trial) => String(trial?.status || '').toUpperCase() === 'RECRUITING').length
+  const otherCurrentCount = Math.max(0, trials.length - recruitingCount)
+  const researchTypes = [...new Set(leads.map((lead) => lead.category).filter(Boolean))].slice(0, 3)
+  const leadSources = leads.flatMap((lead) => [
+    ...(lead.trials || []),
+    ...(lead.sourceIds || []).map((sourceId) => sourceById.get(sourceId)).filter(Boolean),
+  ]).filter((source, index, items) => source?.url && items.findIndex((item) => item?.url === source.url) === index)
+
+  return [
+    {
+      icon: 'shield',
+      label: 'Official U.S. labels',
+      value: labels.length ? `${labels.length} records` : 'Check labels',
+      detail: labels.length
+        ? 'Official prescribing-label records matched this condition.'
+        : 'No exact label record was returned in this run.',
+      citations: sources.filter(isOfficialLabelSource).slice(0, 3),
+      actionLabel: 'Open official label',
+    },
+    {
+      icon: 'search',
+      label: 'Current studies',
+      value: trials.length ? `${trials.length} live` : 'Open registry',
+      detail: trials.length
+        ? `${recruitingCount} recruiting${otherCurrentCount ? ` · ${otherCurrentCount} other current` : ''}`
+        : 'Use the registry link below to continue the live search.',
+      citations: trials.slice(0, 3),
+      actionLabel: 'Open current study',
+    },
+    {
+      icon: 'brain',
+      label: 'Named research leads',
+      value: leads.length ? `${Math.min(leads.length, 10)} linked` : 'Building list',
+      detail: researchTypes.length ? researchTypes.join(' · ') : 'Named treatments and research technologies.',
+      citations: leadSources.slice(0, 3),
+      actionLabel: 'Open lead source',
+    },
+    {
+      icon: 'database',
+      label: 'Research sources',
+      value: researchSources.length ? `${researchSources.length} linked` : 'Source search',
+      detail: researchSources.length ? 'Journal and research-database records in this report.' : 'Use the linked source search for more records.',
+      citations: researchSources.slice(0, 3),
+      actionLabel: 'Open research source',
+    },
+  ]
+}
+
 function ReportOverview({ condition, result }) {
   const review = result?.review
   const exploration = result?.exploration
@@ -923,7 +964,17 @@ function ReportOverview({ condition, result }) {
         title={`What we found about ${condition || 'this condition'}`}
         action={exploration && !review?.briefing?.text ? <StatusPill tone="caution">Research ideas to verify</StatusPill> : null}
       />
-      {briefing ? <CitedSentences className="report-overview__briefing" citations={briefingCitations} text={briefing} /> : <p className="report-overview__briefing">This report brings together treatment research, daily-life questions, current studies, and source links for discussion with a clinician.</p>}
+      {briefing ? <CitedParagraph className="report-overview__briefing" citations={briefingCitations}>{briefing}</CitedParagraph> : <p className="report-overview__briefing">This report brings together treatment research, daily-life questions, current studies, and source links for discussion with a clinician.</p>}
+      <div className="overview-fact-grid" aria-label="Report at a glance">
+        {overviewFactsForReport(result, condition).map((fact) => (
+          <article className="overview-fact-card" key={fact.label}>
+            <div className="overview-fact-card__topline"><span><Icon name={fact.icon} size={16} /></span><p>{fact.label}</p></div>
+            <strong>{fact.value}</strong>
+            <p>{fact.detail}</p>
+            <CitationActions citations={fact.citations} label={fact.actionLabel} />
+          </article>
+        ))}
+      </div>
       {questions.length ? (
         <div className="report-overview__questions">
           <h3>Simple questions to ask your doctor</h3>
