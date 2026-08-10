@@ -357,10 +357,13 @@ const sourceTreatmentIdeas = (sources, condition) => {
         sourceIds: [source.id],
         kind: 'source',
       })
-      if (ideas.length === 10) return ideas
     }
   }
-  return ideas
+  // Candidate extraction can encounter a gene or device program before a
+  // later, practical source such as rehabilitation or a named medicine.
+  // Keep the full source pool and place formal-access programs after items
+  // that can be discussed directly with a clinician or pharmacist.
+  return ideas.sort((left, right) => Number(looksLikeAdvancedResearch(left)) - Number(looksLikeAdvancedResearch(right)))
 }
 
 const isOfficialLabelSource = (source) => source?.origin === 'openFDA'
@@ -454,7 +457,7 @@ const allTreatmentIdeasForReport = (result, condition) => {
 
   return treatmentIdeas
     .sort((left, right) => practicalityScore(right) - practicalityScore(left))
-    .slice(0, 20)
+    .slice(0, 40)
 }
 
 const uniqueIdeas = (ideas, limit = 10) => {
