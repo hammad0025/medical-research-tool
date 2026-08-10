@@ -282,6 +282,43 @@ const toSource = (item) => ({
   aiEligible: item.aiEligible !== false,
 })
 
+// Some conditions are commonly documented under a gene-specific or subtype-
+// specific name. Add a small authoritative foundation record so a broad search
+// does not hide a real, narrow approval behind an empty label result.
+const conditionFoundationSources = (condition) => {
+  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
+
+  return [
+    {
+      id: 'rp-nei-condition-overview',
+      title: 'Retinitis Pigmentosa',
+      url: 'https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/retinitis-pigmentosa',
+      type: 'NIH condition overview',
+      year: '2025',
+      origin: 'National Eye Institute',
+      summary: 'Retinitis pigmentosa is a group of rare inherited eye diseases that damage the retina over time. It often starts with trouble seeing in dim light and loss of side vision. The gene result and the parts of the retina that still work can change which care and research options are relevant.',
+      conditionOverview: {
+        whatItIs: 'Retinitis pigmentosa is a group of rare inherited eye diseases that slowly damage the retina, the light-sensitive tissue at the back of the eye.',
+        whatToWatch: 'Trouble seeing in dim light and loss of side vision are common early changes. Vision loss can progress at different speeds for different people.',
+        researchPath: 'The gene result, the subtype, and how much working retina remains can change which studies and gene-specific options are relevant.',
+      },
+      aiEligible: true,
+    },
+    {
+      id: 'rp-fda-luxturna-rpe65',
+      title: 'FDA approval: LUXTURNA (voretigene neparvovec-rzyl)',
+      url: 'https://www.fda.gov/vaccines-blood-biologics/cellular-gene-therapy-products/luxturna',
+      type: 'FDA approval record',
+      year: '2017',
+      origin: 'U.S. Food and Drug Administration',
+      summary: 'FDA-approved gene therapy for people with confirmed biallelic RPE65 mutation-associated retinal dystrophy. This is not an approval for every form of retinitis pigmentosa.',
+      caution: 'This approval is limited to confirmed biallelic RPE65 mutation-associated retinal dystrophy. A retinal specialist must confirm whether the gene result and retinal findings fit the labeled use.',
+      approvalScope: 'subtype',
+      aiEligible: true,
+    },
+  ]
+}
+
 const selectedSources = (reference) => {
   const byId = new Map((reference.items || []).map((item) => [item.id, item]))
   return IPF_SOURCE_IDS
@@ -493,10 +530,13 @@ const sourceEvidenceKey = (source) => {
 const sourceQualityScore = (source) => {
   const type = cleanText(source?.type, 120).toLowerCase()
   let score = source?.aiEligible === false ? 0 : 10
+  if (source?.conditionOverview) score += 120
   if (source?.origin === 'Curated IPF reference') score += 100
+  if (source?.origin === 'National Eye Institute') score += 105
   if (type.includes('guideline')) score += 50
   if (type.includes('systematic review') || type.includes('meta-analysis')) score += 40
   if (type.includes('randomized trial')) score += 30
+  if (type.includes('fda approval record') || source?.origin === 'U.S. Food and Drug Administration') score += 85
   if (source?.origin === 'openFDA') score += 24
   if (source?.origin === 'PubMed') score += 12
   if (source?.origin === 'Europe PMC') score += 8
@@ -1191,26 +1231,28 @@ const sourcePacketForPrompt = ({ patient, sources, centers, trials, evidenceMode
   })),
 })
 
-const writerSystemPrompt = `You are Researcher Agent in a clinical-research product. Your job is to draft a short, patient-specific research briefing that will be checked by a separate clinical evidence reviewer.
+const writerSystemPrompt = `You are Researcher Agent in a clinical-research product. Your job is to draft a plain-language disease overview and treatment research briefing that will be checked by a separate clinical evidence reviewer.
 
 Hard boundaries:
 - This is decision-support education, never a diagnosis, prescription, dose, or instruction to start/stop treatment.
 - Use only entities and source IDs inside the supplied packet. Do not use background knowledge.
 - When the source packet says patient.readingLevel is "eighth-grade", write every patient-facing sentence at about an eighth-grade level. Prefer short sentences, common words, and active voice. Explain a needed medical term the first time it appears. Say "anti-scarring medicine" instead of "antifibrotic" unless quoting a source. Keep drug, gene, and trial names exact. Do not make the language less careful or less safe.
+- The briefing is a real disease overview, not a dashboard summary. Explain what the condition is, what it often affects, and which subtype, gene, stage, or test details could change the research path. Never mention record counts, this app, a source packet, or a search process in the briefing.
 - Never write a statement of benefit, safety, approval, stage, or trial status without one or more sourceIds from the packet.
 - Give every source-specific research question one or more sourceIds from the packet so the app can show the reader exactly where the question came from.
 - Every research question must be a short, everyday question a person can read aloud to a doctor. Use 12 words or fewer, one idea only, and common words. Prefer "Could this study fit me?", "Which symptoms should I mention?", or "What safety risks should I ask about?" over formal or technical wording. Do not use phrases such as "whether this is relevant," "eligibility criteria," "condition-specific," or "research direction."
 - Do not characterize a guideline's recommendation strength. Use neutral, source-limited language such as "the label indicates" or "a cited trial evaluated" instead.
 - Return up to 10 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, procedure, device, cell or gene therapy, RNA treatment, or other intervention named in a source or live trial. Use the intervention name, not the paper title. For example, write "RPGR gene therapy" or "N-acetylcysteine," never "Systematic review of RPGR gene therapy." Rank gene, RNA, cell, drug, device, and procedure research ahead of supplements. Include a supplement only when the packet names that exact supplement in a condition-specific source or live trial. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
-- The “research hypotheses” lane is explicitly exploratory. It must use uncertainty language and must never say a patient should take an agent.
-- Return up to 10 distinct research hypotheses when the packet contains a source or trial. Prefer hypotheses tied to a named intervention, gene, RNA approach, cell approach, device, procedure, or biological pathway from the packet. Do not pad with generic supplement or food ideas. A hypothesis may connect a named intervention, pathway, or research topic that appears in the packet to a careful question. The "candidate" field must use exact wording from the packet. Do not create hypotheses about diagnosis or monitoring steps.
-- Each hypothesis must be an open question, not a claim that a treatment will help. Explain why the source raises the question and what a specialist could investigate next.
+- The "theoryIdeas" lane is intentionally different from treatmentIdeas. It is for 10 new hypotheses that were NOT found as a named, condition-specific treatment lead in this packet. A theory idea may use cautious biomedical reasoning, but it is not evidence that the idea works for this condition.
+- For every theory idea, state a concrete target, pathway, gene/RNA approach, treatment platform, or named compound to verify. Favor gene, RNA, pathway, cell, device, or drug-target ideas. Do not pad with generic wellness, food, or supplement ideas. A supplement is allowed only when the idea is specific, gives no dose, and is clearly framed as a mechanism to verify, not an action.
+- Never write a dose, "high dose," a start/stop instruction, or a claim that the condition is autoimmune unless the supplied packet proves that exact claim. Do not include private-pay stem-cell or exosome clinics. A cell, exosome, or stem-cell concept may appear only as a research platform that needs legitimate study verification.
+- Every theory idea must plainly say why it is not established for this condition and give a short PubMed-style verification query. Attach sourceIds only for the condition background; do not pretend those sources prove the theory idea itself.
 - The “safety” lane may contain up to 4 condition-specific cautions from the packet, such as a source-reported contraindication, interaction, warning, urgent red flag, or reason to use a specialist team. Do not add a generic disclaimer, dosing, or an instruction to start, stop, or avoid a treatment.
 - The “lifestyle” lane may contain only condition-specific, non-drug findings supported by packet sources and tied to a modifiable factor such as activity, diet, sleep, tobacco, alcohol, environment, sun exposure, rehabilitation, or vision rehabilitation. Do not turn quality-of-life observations, awareness, monitoring, genetics, or generic wellness advice into a lifestyle item.
 - Do not promote stem cells, exosomes, or private-pay regenerative clinics. If relevant, make the question about legitimate academic trials and evidence quality.
 - Do not call a research site, hospital, or clinician a recommended, leading, or top center. A site may only be described as an active research site when it appears in the packet.
 - Do not invent a physician, a center, a paper, an NCT number, a URL, or a source ID.
-- The app builds the treatment, lifestyle, and study cards directly from the exact records. Keep this response compact: write a useful overview, up to three doctor questions, and a few atomic claims for the second pass. Leave the other arrays empty unless a source record makes a short, clearly useful item unavoidable.
+- The app builds the treatment, lifestyle, and study cards directly from the exact records. Keep this response compact: write a useful overview, up to three doctor questions, up to 10 source-backed treatment leads, 10 theory ideas, and a few atomic claims for the second pass. Leave lifestyle and safety empty unless a source record makes a short, clearly useful item unavoidable.
 
 Return strict JSON only:
 {
@@ -1225,15 +1267,15 @@ Return strict JSON only:
   "safety": [
     {"title": "short label", "summary": "careful source-limited caution", "caution": "why it needs clinician context", "sourceIds": ["source id"]}
   ],
-  "hypotheses": [
-    {"title": "short label", "candidate": "exact intervention, pathway, or research topic from the packet", "mechanism": "what is being explored", "whyItIsAQuestion": "careful rationale", "caution": "why it is not a recommendation", "sourceIds": ["source id"]}
+  "theoryIdeas": [
+    {"title": "concrete theory to verify", "category": "gene, RNA, drug target, pathway, cell platform, device, or supplement mechanism", "whyItCouldConnect": "short cautious biological rationale", "whyNotEstablished": "why this is not a source-backed treatment lead for this condition", "caution": "not a personal treatment recommendation; no dose or action", "verificationQuery": "condition plus exact theory term", "sourceIds": ["condition-background source id"]}
   ],
   "claimsForReview": [{"claim": "atomic factual statement", "sourceIds": ["source id"]}]
 }`
 
 const reviewerSystemPrompt = `You are Reviewer Agent, a skeptical clinical-evidence reviewer. You receive an untrusted writer draft plus the exact source packet that writer was allowed to use.
 
-Your job is to prevent hallucination, overclaiming, and clinical irrelevance. Reject anything that is not traceable to an exact sourceId, names an entity outside the packet, implies a personalized treatment recommendation, gives dosing, promotes investigational/cell/exosome therapies as established care, or calls a research site a recommended, leading, or top center. Reject a treatment idea if it is not a named intervention in the supplied source material, or if it is a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step. Reject a safety item unless it is a source-specific caution or red flag and it does not give a direct instruction. Reject a lifestyle item unless it names a real modifiable non-drug factor. A hypothesis may use a named intervention, pathway, or research topic from the packet, but it must be a useful cautious connection and not a diagnosis or monitoring step. When the source packet says patient.readingLevel is "eighth-grade", rewrite every patient-facing item in short, plain sentences at about an eighth-grade level. Use "anti-scarring medicine" instead of "antifibrotic" unless quoting a source, while keeping required medical names and source IDs exact. Every approved or rewritten question must be a simple doctor question: 12 words or fewer, one idea, no jargon, and easy to read aloud. Do not state or paraphrase a guideline recommendation's strength unless an exact quote in the packet supports it.
+Your job is to prevent hallucination, overclaiming, and clinical irrelevance. Reject anything that is not traceable to an exact sourceId, names an entity outside the packet, implies a personalized treatment recommendation, gives dosing, promotes investigational/cell/exosome therapies as established care, or calls a research site a recommended, leading, or top center. Reject a treatment idea if it is not a named intervention in the supplied source material, or if it is a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step. Reject a safety item unless it is a source-specific caution or red flag and it does not give a direct instruction. Reject a lifestyle item unless it names a real modifiable non-drug factor. A theory idea is the one exception to the source-entity rule: it may name a new target or mechanism for verification, but it must be absent from the condition-specific treatment records, state that it is not established for this condition, include a usable verification query, and never include a dose or action. Do not approve a theory idea that says the condition is autoimmune unless the packet proves it, or that markets a supplement, exosome, stem cell, or private clinic. When the source packet says patient.readingLevel is "eighth-grade", rewrite every patient-facing item in short, plain sentences at about an eighth-grade level. Use "anti-scarring medicine" instead of "antifibrotic" unless quoting a source, while keeping required medical names and source IDs exact. Every approved or rewritten question must be a simple doctor question: 12 words or fewer, one idea, no jargon, and easy to read aloud. Do not state or paraphrase a guideline recommendation's strength unless an exact quote in the packet supports it.
 
 The app creates the record cards itself. Focus this pass on the briefing and doctor questions. Do not add items to a currently empty treatment, lifestyle, safety, or hypothesis array just to make the response longer.
 
@@ -1245,7 +1287,7 @@ Return strict JSON only:
   "treatmentIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "summary": "", "whyItMayMatter": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
   "lifestyle": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "summary": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
   "safety": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "summary": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
-  "hypotheses": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "candidate": "", "mechanism": "", "whyItIsAQuestion": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
+  "theoryIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "whyItCouldConnect": "", "whyNotEstablished": "", "caution": "", "verificationQuery": "", "sourceIds": []}, "reason": "short reason"}],
   "flags": ["short safety or evidence flag"]
 }`
 
@@ -1492,7 +1534,7 @@ const sourceIdsFrom = (value, allowedSourceIds) => Array.from(new Set(
     .filter((id) => allowedSourceIds.has(id)),
 ))
 
-const hasUnsafeRecommendationLanguage = (text) => /\b(start|stop|switch|increase|decrease|prescribe|dos(?:e|age)|\d+\s?(mg|mcg|units?)|should take|must take)\b/i.test(text)
+const hasUnsafeRecommendationLanguage = (text) => /\b(start|stop|switch|increase|decrease|prescribe|dos(?:e|age)|high[-\s]?dose|\d+\s?(mg|mcg|units?)|should take|must take)\b/i.test(text)
 const hasUnsupportedGuidelineStrength = (text) => /\b(?:strongly|conditionally)\s+recommend(?:s|ed)?\b|\bguideline(?:s)?\s+(?:strongly\s+|conditionally\s+)?recommend(?:s|ed)?\b/i.test(text)
 
 const candidateKey = (value) => cleanText(value, 120).toLocaleLowerCase()
@@ -1529,6 +1571,27 @@ const normalizeHypothesis = (item, allowedSourceIds, allowedCandidates, candidat
   const candidateIsSupported = allowedCandidates.has(candidateKey(candidate)) || candidateAppearsInEvidence(candidate, candidateEvidenceText)
   if (!title || !candidate || !candidateIsSupported || !isSpecificTrialIntervention(candidate) || !whyItIsAQuestion || !caution || !sourceIds.length || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
   return { title, candidate, mechanism, whyItIsAQuestion, caution, sourceIds }
+}
+
+// Theory ideas live in their own lane. They are allowed to name a hypothesis
+// that is absent from the condition packet, but cannot look like treatment advice.
+const normalizeTheoryIdea = (item, allowedSourceIds, candidateEvidenceText) => {
+  if (!isRecord(item)) return null
+  const title = cleanText(item.title, 140)
+  const category = cleanText(item.category, 90) || 'Theory to verify'
+  const whyItCouldConnect = cleanText(item.whyItCouldConnect, 440)
+  const whyNotEstablished = cleanText(item.whyNotEstablished, 360)
+  const caution = cleanText(item.caution, 420)
+  const verificationQuery = cleanText(item.verificationQuery, 220)
+  const sourceIds = sourceIdsFrom(item.sourceIds, allowedSourceIds)
+  const whole = `${title} ${category} ${whyItCouldConnect} ${whyNotEstablished} ${caution} ${verificationQuery}`
+  const alreadyInConditionEvidence = candidateAppearsInEvidence(title, candidateEvidenceText)
+  const claimsAutoimmunityWithoutEvidence = /\bautoimmun(?:e|ity)\b/i.test(whole) && !/\bautoimmun(?:e|ity)\b/i.test(candidateEvidenceText)
+  const promotesCommercialRegenerativeCare = /\b(?:private[-\s]?pay|clinic|medical tourism|buy|purchase)\b/i.test(whole)
+  if (!title || !whyItCouldConnect || !whyNotEstablished || !caution || !verificationQuery || !sourceIds.length
+    || alreadyInConditionEvidence || claimsAutoimmunityWithoutEvidence || promotesCommercialRegenerativeCare
+    || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
+  return { title, category, whyItCouldConnect, whyNotEstablished, caution, verificationQuery, sourceIds }
 }
 
 const hasLifestyleActionSignal = (text) => /\b(activity|exercise|rehabilitation|diet|nutrition|sleep|smoking|tobacco|alcohol|sun|ultraviolet|environment|occupational|weight|physical therapy|vision rehabilitation)\b/i.test(text)
@@ -1612,6 +1675,10 @@ const normalizeWriterDraft = (draft, allowedSourceIds, allowedCandidates, candid
     .map((item) => normalizeHypothesis(item, allowedSourceIds, allowedCandidates, candidateEvidenceText))
     .filter(Boolean)
     .slice(0, 10)
+  const theoryIdeas = (Array.isArray(draft?.theoryIdeas) ? draft.theoryIdeas : [])
+    .map((item) => normalizeTheoryIdea(item, allowedSourceIds, candidateEvidenceText))
+    .filter(Boolean)
+    .slice(0, 10)
   const claims = (Array.isArray(draft?.claimsForReview) ? draft.claimsForReview : [])
     .map((item) => ({
       claim: cleanText(item?.claim, 330),
@@ -1639,6 +1706,7 @@ const normalizeWriterDraft = (draft, allowedSourceIds, allowedCandidates, candid
     lifestyle,
     safety,
     hypotheses,
+    theoryIdeas,
     claims,
   }
 }
@@ -1655,6 +1723,7 @@ const defaultReview = (reason = 'The live model review was not run.') => ({
   lifestyle: [],
   safety: [],
   hypotheses: [],
+  theoryIdeas: [],
   decisions: [
     { label: 'Source-linked evidence', outcome: 'Passed', detail: 'The retrieval packet remains visible and is never rewritten by the model.' },
     { label: 'Live AI layer', outcome: 'Held', detail: reason },
@@ -1675,6 +1744,7 @@ const sourceGateReview = (writer, reason, reviewer = {}) => ({
   lifestyle: writer.lifestyle,
   safety: writer.safety,
   hypotheses: writer.hypotheses,
+  theoryIdeas: writer.theoryIdeas,
   decisions: [
     { label: 'Source check', outcome: 'Passed', detail: 'Every displayed item has a source ID from this research packet.' },
     { label: 'Second AI pass', outcome: 'Unavailable', detail: reason },
@@ -1762,6 +1832,17 @@ const applyReview = (review, writer, allowedSourceIds, allowedCandidates, candid
     .filter(Boolean)
     .slice(0, 10)
 
+  const theoryIdeas = (Array.isArray(review.theoryIdeas) ? review.theoryIdeas : [])
+    .map((entry) => {
+      const index = Number(entry?.index)
+      if (!Number.isInteger(index) || index < 0 || index >= writer.theoryIdeas.length) return null
+      if (!['approve', 'rewrite'].includes(entry?.decision)) return null
+      const item = normalizeTheoryIdea(entry.item, allowedSourceIds, candidateEvidenceText)
+      return item ? { ...item, reason: cleanText(entry.reason, 240) } : null
+    })
+    .filter(Boolean)
+    .slice(0, 10)
+
   const flags = (Array.isArray(review.flags) ? review.flags : []).map((flag) => cleanText(flag, 220)).filter(Boolean).slice(0, 5)
   const overallVerdict = ['approved', 'approved-with-edits', 'rejected'].includes(review.overallVerdict)
     ? review.overallVerdict
@@ -1777,9 +1858,10 @@ const applyReview = (review, writer, allowedSourceIds, allowedCandidates, candid
     lifestyle,
     safety,
     hypotheses,
+    theoryIdeas,
     decisions: [
       { label: 'Writer draft', outcome: 'Completed', detail: `${writer.claims.length} source-linked claims entered review.` },
-      { label: 'Reviewer gate', outcome: overallVerdict.replaceAll('-', ' '), detail: `${safety.length} safety item(s), ${lifestyle.length} lifestyle item(s), and ${hypotheses.length} exploratory item(s) survived the evidence and safety screen.` },
+      { label: 'Reviewer gate', outcome: overallVerdict.replaceAll('-', ' '), detail: `${safety.length} safety item(s), ${lifestyle.length} lifestyle item(s), and ${theoryIdeas.length} theory idea(s) survived the evidence and safety screen.` },
       { label: 'Withheld claims', outcome: rejectedClaims > 0 ? 'Withheld' : 'None', detail: rejectedClaims > 0 ? 'Unapproved or insufficiently grounded content was not displayed.' : 'No source-linked briefing claim was withheld.' },
     ],
     flags,
@@ -1798,38 +1880,9 @@ const shortQuestionForCandidate = (candidate) => {
 // AI map. These sentences only describe the records already in the packet.
 const sourceBackedReportFallback = (packet) => {
   const condition = cleanText(packet?.patient?.condition, 120) || 'this condition'
-  const trials = Array.isArray(packet?.trials) ? packet.trials : []
   const sources = Array.isArray(packet?.sources) ? packet.sources : []
-  const labelCount = sources.filter((source) => source?.origin === 'openFDA' || /FDA drug label/i.test(source?.type || '')).length
-  const articleCount = sources.length - labelCount
-  const researchTypes = [...new Set(
-    trials
-      .flatMap((trial) => Array.isArray(trial?.interventionDetails) ? trial.interventionDetails : [])
-      .map((entry) => cleanText(entry?.type, 60).toUpperCase())
-      .filter(Boolean)
-      .map((type) => ({
-        GENETIC: 'gene',
-        BIOLOGICAL: 'cell or biologic',
-        DRUG: 'drug',
-        COMBINATION_PRODUCT: 'combination-treatment',
-        DIETARY_SUPPLEMENT: 'supplement',
-        DEVICE: 'device',
-        PROCEDURE: 'procedure',
-        RADIATION: 'procedure',
-      }[type]))
-      .filter(Boolean),
-  )].slice(0, 4)
-  const researchTypeText = researchTypes.length === 1
-    ? researchTypes[0]
-    : researchTypes.length === 2
-      ? researchTypes.join(' and ')
-      : researchTypes.length > 2
-        ? `${researchTypes.slice(0, -1).join(', ')}, and ${researchTypes[researchTypes.length - 1]}`
-        : ''
-  const sourceIds = [
-    ...trials.slice(0, 3).map((trial) => trial?.id),
-    ...sources.slice(0, 2).map((source) => source?.id),
-  ].map((id) => cleanText(id, 100)).filter(Boolean)
+  const overviewSource = sources.find((source) => isRecord(source?.conditionOverview) && source?.id)
+  const fallbackSource = overviewSource || sources.find((source) => source?.id && source?.summary)
   const questionEntries = []
   const seenCandidates = new Set()
 
@@ -1853,13 +1906,23 @@ const sourceBackedReportFallback = (packet) => {
   }
 
   return {
-    briefing: sourceIds.length
+    briefing: overviewSource
       ? {
-        text: `This report brings together ${trials.length} current study record${trials.length === 1 ? '' : 's'} and ${articleCount} source-linked research record${articleCount === 1 ? '' : 's'} for ${condition}.${labelCount ? ' It also found official U.S. drug-label records that mention this condition.' : ''}${researchTypeText ? ` The current studies include ${researchTypeText} research.` : ''} The cards below separate official label information from early research and link to the exact records.`,
-        sourceIds,
-        reason: 'Built directly from the live source packet because the AI briefing was unavailable or withheld.',
+        text: [
+          cleanText(overviewSource.conditionOverview.whatItIs, 280),
+          cleanText(overviewSource.conditionOverview.whatToWatch, 280),
+          cleanText(overviewSource.conditionOverview.researchPath, 280),
+        ].filter(Boolean).join(' '),
+        sourceIds: [overviewSource.id],
+        reason: 'Built from an authoritative condition overview because the AI briefing was unavailable or withheld.',
       }
-      : null,
+      : fallbackSource
+        ? {
+          text: `Here is a plain-language starting point for ${condition}: ${cleanText(fallbackSource.summary, 460)} The linked sections below separate established options from early research and current studies.`,
+          sourceIds: [fallbackSource.id],
+          reason: 'Built from the strongest available source record because the AI briefing was unavailable or withheld.',
+        }
+        : null,
     questions: questionEntries,
   }
 }
@@ -1873,6 +1936,7 @@ const completeSourceBackedReview = (review, packet) => {
     ...(review || defaultReview()),
     briefing: hasBriefing ? review.briefing : fallback.briefing,
     questions: hasQuestions ? review.questions : fallback.questions,
+    theoryIdeas: completeTheoryIdeasForPacket(review?.theoryIdeas, packet),
   }
 }
 
@@ -2237,6 +2301,106 @@ const fallbackExplorationMap = (patient, context = {}) => {
   }
 }
 
+const theoryTemplatesForCondition = (condition) => {
+  if (/\b(?:retinitis pigmentosa|\brp\b|rod-cone dystrophy|inherited retinal)\b/i.test(condition)) {
+    return [
+      ['Vitamin D signaling and retinal cell stress', 'Supplement mechanism to verify', 'Vitamin D signaling is a biological topic that could be checked for a link to retinal cell stress. This report does not show that it treats RP.', 'Vitamin D was not a source-backed RP treatment lead in this report.', 'retinitis pigmentosa vitamin D retinal cell stress'],
+      ['Nrf2 oxidative-stress response', 'Cell-protection pathway', 'The Nrf2 pathway is a possible way to ask whether cell-stress research has any direct RP evidence.', 'This report did not find a named RP treatment lead based on Nrf2.', 'retinitis pigmentosa Nrf2 oxidative stress'],
+      ['Mitochondrial energy pathway', 'Cell-energy pathway', 'Retinal cells need energy, so mitochondrial research could be worth checking against the exact RP subtype.', 'This is a mechanism question, not an RP treatment result.', 'retinitis pigmentosa mitochondrial dysfunction treatment'],
+      ['cGMP signaling control', 'Cell-signaling pathway', 'cGMP is a signaling pathway that could be checked for a role in the exact retinal subtype.', 'The current report does not establish cGMP control as an RP treatment.', 'retinitis pigmentosa cGMP pathway therapy'],
+      ['Retinoid-cycle support', 'Visual-cycle pathway', 'The visual cycle is a distinct retina pathway that may be relevant to some inherited retinal conditions.', 'The report did not find a source-backed RP treatment lead for this exact idea.', 'retinitis pigmentosa retinoid cycle treatment'],
+      ['Protein quality control and autophagy', 'Protein-handling pathway', 'Protein cleanup and recycling pathways could be checked when a gene change affects retinal-cell health.', 'This is not a proven treatment path for RP in this report.', 'retinitis pigmentosa autophagy protein homeostasis therapy'],
+      ['Microglia and complement signaling', 'Retinal immune-signaling pathway', 'Retinal immune signaling could be investigated as a mechanism question without assuming RP is an autoimmune disease.', 'The report does not establish this pathway as an RP treatment.', 'retinitis pigmentosa microglia complement pathway'],
+      ['RNA splice-correction platform', 'RNA research platform', 'An RNA approach could be relevant when a confirmed gene result changes how the cell reads a gene message.', 'It is not a treatment option unless exact-gene RP evidence is found.', 'retinitis pigmentosa RNA splicing therapy'],
+      ['Gene-editing platform', 'Gene research platform', 'Gene editing could be a research question for some inherited retinal genes, but it must match the exact gene and study design.', 'The report does not show a gene-editing treatment that fits every form of RP.', 'retinitis pigmentosa gene editing clinical research'],
+      ['Neuroprotective growth-factor pathway', 'Cell-survival pathway', 'Cell-survival signaling could be checked for research on protecting remaining retinal cells.', 'This is a hypothesis to verify, not a proven RP treatment lead.', 'retinitis pigmentosa neuroprotection growth factor research'],
+    ]
+  }
+
+  if (/\b(?:ipf|idiopathic pulmonary fibrosis)\b/i.test(condition)) {
+    return [
+      ['TGF-beta scarring signal', 'Scarring pathway', 'TGF-beta is a biological pathway that could be checked for direct evidence in lung-scarring research.', 'This report does not make it a personal treatment option.', 'idiopathic pulmonary fibrosis TGF beta pathway therapy'],
+      ['Integrin alpha-v beta-6 target', 'Drug-target pathway', 'This target could be checked for its connection to scar-forming signals in the lung.', 'It is a theory to verify, not an established option in this row.', 'idiopathic pulmonary fibrosis integrin alpha v beta 6 therapy'],
+      ['Cell-senescence pathway', 'Cell-aging pathway', 'Cell aging is a possible research angle for lung repair and scarring questions.', 'The report does not establish it as an IPF treatment.', 'idiopathic pulmonary fibrosis senescence pathway treatment'],
+      ['Epithelial repair pathway', 'Tissue-repair pathway', 'Lung lining-cell repair could be checked as a way to frame research questions.', 'This remains a research hypothesis for this report.', 'idiopathic pulmonary fibrosis epithelial repair therapy'],
+      ['Mitochondrial stress pathway', 'Cell-energy pathway', 'Cell-energy stress could be checked for a link to tissue injury and repair research.', 'This row is not proof of benefit or safety.', 'idiopathic pulmonary fibrosis mitochondrial dysfunction therapy'],
+      ['Macrophage signaling', 'Immune-cell pathway', 'Macrophage signaling could be checked as a lung-inflammation research question.', 'It is not a reason to self-treat or change medicine.', 'idiopathic pulmonary fibrosis macrophage signaling therapy'],
+      ['Extracellular-matrix stiffness', 'Tissue-mechanics pathway', 'Tissue stiffness could be checked for a link to scarring research and drug targets.', 'The report does not establish a treatment from this mechanism.', 'idiopathic pulmonary fibrosis extracellular matrix stiffness therapy'],
+      ['RNA-based lung repair platform', 'RNA research platform', 'RNA platforms could be checked for research that targets a defined lung pathway.', 'Exact study evidence is needed before this becomes a treatment lead.', 'idiopathic pulmonary fibrosis RNA therapy research'],
+      ['Genetic risk pathway', 'Genetic research pathway', 'A genetic risk signal could change what a research team investigates, but not prove a treatment fit.', 'This report does not use a gene result as a treatment recommendation.', 'idiopathic pulmonary fibrosis genetic risk therapy research'],
+      ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'A combination strategy could be checked against disease stage and existing care in real studies.', 'No combination should be inferred from this theory row.', 'idiopathic pulmonary fibrosis combination treatment research'],
+    ]
+  }
+
+  if (/\b(?:huntington(?:'s)? disease|huntington disease|hd)\b/i.test(condition)) {
+    return [
+      ['Somatic CAG-repeat expansion', 'Gene-stability pathway', 'Changes in repeat length over time could be checked as a research target in Huntington disease.', 'This is a research hypothesis, not a treatment result.', 'Huntington disease somatic CAG expansion therapy'],
+      ['RNA-based HTT lowering', 'RNA research platform', 'RNA approaches could be checked for how they aim to change huntingtin-related signals.', 'Exact study evidence is needed before this is treated as an option.', 'Huntington disease RNA HTT lowering research'],
+      ['Mutant huntingtin protein clearance', 'Protein-clearance pathway', 'Protein-clearance pathways could be checked for direct Huntington disease research.', 'The report does not show that this approach works for a person.', 'Huntington disease mutant huntingtin protein clearance therapy'],
+      ['Mitochondrial energy support', 'Cell-energy pathway', 'Cell-energy research could be checked for a connection to brain-cell stress.', 'This is not a supplement or medicine recommendation.', 'Huntington disease mitochondrial dysfunction treatment'],
+      ['Synapse-protection pathway', 'Nerve-cell pathway', 'Protecting nerve connections could be checked as a way to frame research questions.', 'No direct treatment claim is made in this row.', 'Huntington disease synapse protection therapy'],
+      ['Neuroinflammation signaling', 'Brain immune-signaling pathway', 'Brain immune signaling could be checked as a possible disease-mechanism question.', 'This report does not establish an anti-inflammatory treatment.', 'Huntington disease neuroinflammation treatment research'],
+      ['Autophagy and protein recycling', 'Protein-handling pathway', 'Cell recycling pathways could be checked for their link to huntingtin protein handling.', 'It remains a theory until condition-specific evidence is reviewed.', 'Huntington disease autophagy therapy'],
+      ['Gene-editing research platform', 'Gene research platform', 'Gene-editing approaches could be checked as research platforms, not as ready care.', 'A platform idea is not a patient-specific treatment option.', 'Huntington disease gene editing clinical research'],
+      ['Brain-network stimulation research', 'Device research platform', 'Stimulation approaches could be checked for condition-specific studies and outcomes.', 'This does not show that a device is right for any person.', 'Huntington disease brain stimulation clinical research'],
+      ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'Combinations of symptom care and disease-targeted research could be checked in real studies.', 'This row does not recommend combining treatments.', 'Huntington disease combination treatment research'],
+    ]
+  }
+
+  return [
+    ['Gene or RNA target identification', 'Gene and RNA research pathway', 'A known gene, subtype, or cell message could change which research routes are worth checking.', 'The report did not find a direct treatment lead for this exact theory.', `${condition} gene RNA therapy research`],
+    ['Cell-stress response pathway', 'Cell-protection pathway', 'Cell-stress pathways could be checked for direct disease research and drug targets.', 'This is a mechanism question, not an established treatment.', `${condition} cellular stress pathway therapy`],
+    ['Mitochondrial energy pathway', 'Cell-energy pathway', 'Cell-energy research could be checked for a direct link to the condition.', 'The report does not show this is a treatment option.', `${condition} mitochondrial dysfunction treatment`],
+    ['Inflammation signaling', 'Immune-signaling pathway', 'Inflammation signaling could be checked only if the exact condition research supports it.', 'This row does not assume inflammation is the cause of the condition.', `${condition} inflammation pathway treatment`],
+    ['Protein quality-control pathway', 'Protein-handling pathway', 'Protein folding, recycling, or clearance could be checked for condition-specific research.', 'The report did not find a treatment lead based on this idea.', `${condition} protein homeostasis therapy`],
+    ['Tissue repair pathway', 'Repair and regeneration pathway', 'Repair signals could be checked for how researchers study damaged tissue in this condition.', 'This is not a claim that regenerative care works.', `${condition} tissue repair research`],
+    ['Drug-repurposing screen', 'Drug-discovery pathway', 'Existing medicines could be checked for disease-specific repurposing studies.', 'No medicine should be used from this theory alone.', `${condition} drug repurposing research`],
+    ['Gene or cell research platform', 'Advanced research platform', 'Gene or cell platforms could be checked for legitimate condition-specific studies.', 'A platform is not proof of benefit or access.', `${condition} gene cell therapy clinical research`],
+    ['Device or procedure research platform', 'Device and procedure pathway', 'A device or procedure could be checked when a disease affects function or daily living.', 'This is not a recommendation to pursue a device or procedure.', `${condition} device procedure clinical research`],
+    ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'Disease stage and current care could change how researchers test combinations.', 'The report does not recommend a combination from this theory.', `${condition} combination treatment research`],
+  ]
+}
+
+const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
+  const condition = cleanText(packet?.patient?.condition, 120) || 'this condition'
+  const sources = Array.isArray(packet?.sources) ? packet.sources : []
+  const trials = Array.isArray(packet?.trials) ? packet.trials : []
+  const candidateEvidenceText = [
+    ...sources.map((source) => `${source?.title || ''} ${source?.summary || ''}`),
+    ...trials.map((trial) => `${trial?.title || ''} ${(trial?.interventions || []).join(' ')} ${trial?.summary || ''}`),
+  ].join(' ')
+  const backgroundSourceIds = [
+    ...sources.filter((source) => source?.conditionOverview || /guideline|systematic review|meta-analysis/i.test(source?.type || '')).map((source) => source.id),
+    ...sources.map((source) => source.id),
+    ...trials.map((trial) => trial.id),
+  ].map((id) => cleanText(id, 100)).filter(Boolean).slice(0, 2)
+  const seen = new Set()
+  const ideas = []
+  const add = (idea) => {
+    const title = cleanText(idea?.title, 140)
+    const key = title.toLowerCase()
+    if (!title || seen.has(key)) return
+    seen.add(key)
+    ideas.push(idea)
+  }
+
+  ;(Array.isArray(reviewedIdeas) ? reviewedIdeas : []).forEach(add)
+  for (const [title, category, whyItCouldConnect, whyNotEstablished, verificationQuery] of theoryTemplatesForCondition(condition)) {
+    if (ideas.length >= 10 || candidateAppearsInEvidence(title, candidateEvidenceText)) continue
+    add({
+      title,
+      category,
+      whyItCouldConnect,
+      whyNotEstablished,
+      caution: 'This is a theory to verify, not a personal treatment recommendation. Do not make a treatment change from this row.',
+      verificationQuery,
+      sourceIds: backgroundSourceIds,
+      kind: 'theory-fallback',
+    })
+  }
+  return ideas.slice(0, 10)
+}
+
 const safeExplorationText = (value, limit = 440) => {
   const text = cleanText(value, limit)
   return text && !hasUnsafeRecommendationLanguage(text) && !hasUnsupportedGuidelineStrength(text) ? text : ''
@@ -2353,7 +2517,7 @@ const runDualAgentReview = async ({ packet, env }) => {
     system: writerSystemPrompt,
     user: `CURRENT DATE: ${runDate}\n\nSOURCE PACKET\n${promptPacket}`,
     env,
-    maxTokens: 1_600,
+    maxTokens: 2_200,
   }
 
   let writerResponse = await callAnthropic(writerRequest)
@@ -2378,6 +2542,7 @@ const runDualAgentReview = async ({ packet, env }) => {
     || draft?.lifestyle?.length
     || draft?.safety?.length
     || draft?.hypotheses?.length
+    || draft?.theoryIdeas?.length
     || draft?.researchQuestions?.length,
   )
 
@@ -2407,7 +2572,7 @@ const runDualAgentReview = async ({ packet, env }) => {
     system: reviewerSystemPrompt,
     user: `CURRENT DATE: ${runDate}\n\nSOURCE PACKET\n${promptPacket}\n\nUNTRUSTED WRITER DRAFT\n${JSON.stringify(writerDraft)}`,
     env,
-    maxTokens: 1_600,
+    maxTokens: 2_200,
   }
   const openAiConfigured = Boolean(env.OPENAI_API_KEY || process.env.OPENAI_API_KEY)
   const reviewerResponse = openAiConfigured
@@ -2478,13 +2643,26 @@ const ipfEvidenceBundle = async (condition, env) => {
 
 const retrievedEvidenceBundle = async (condition, env) => {
   const liveEvidence = await retrieveEvidenceSources(condition, env)
+  const foundationSources = conditionFoundationSources(condition)
   return {
     mode: 'live-retrieved',
     sourceLabel: 'Multi-source live evidence packet',
-    sources: liveEvidence.sources,
+    sources: dedupeEvidenceSources([foundationSources, liveEvidence.sources], 18),
     centers: [],
     researchers: [],
-    sourceCoverage: liveEvidence.coverage,
+    sourceCoverage: foundationSources.length
+      ? [
+        {
+          id: 'condition-foundation',
+          label: 'Authoritative condition foundation',
+          url: foundationSources[0].url,
+          status: 'ready',
+          records: foundationSources.length,
+          detail: 'Condition overview and subtype-specific regulatory record added before the live literature search.',
+        },
+        ...liveEvidence.coverage,
+      ]
+      : liveEvidence.coverage,
   }
 }
 
