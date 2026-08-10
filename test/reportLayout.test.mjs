@@ -31,12 +31,13 @@ test('the patient-first dossier flow keeps practical decisions ahead of the full
     lastPosition = position
   }
   assert.match(appSource, /function ResearchedLeadTable/)
-  assert.match(appSource, /function ResearchQuestionTable/)
+  assert.match(appSource, /function TheoryIdeaTable/)
   assert.match(appSource, /function TreatmentDevelopment/)
   assert.match(appSource, /function ResearchAccessPlan/)
-  assert.match(appSource, /id="condition-snapshot"/)
+  assert.match(appSource, /id="condition-overview"/)
   assert.match(appSource, /id="clinical-trials"/)
-  assert.match(appSource, /10 researched leads \+ 10 questions to investigate/)
+  assert.match(appSource, /10 researched leads \+ 10 theory leads/)
+  assert.match(appSource, /Theory leads to verify/)
   assert.match(appSource, /Full current trial directory/)
 })
 
@@ -46,14 +47,14 @@ test('Word and PDF exports keep the same practical dossier sections', () => {
     appSource.indexOf('function ExportActions'),
   )
   const headingsInOrder = [
-    '1. Condition snapshot',
+    '1. Condition overview',
     '2. Approved and established options',
     '3. Centers and experts',
     '4. Lifestyle changes worth discussing',
     '5. Treatments in development',
     '6. Gene, cell, device, and procedure research',
     '7. Researched treatment leads',
-    '8. Research questions to investigate',
+    '8. Theory leads to verify',
     '9. Current clinical trials',
     '10. Your research and access plan',
     '11. Simple questions to ask your doctor',
