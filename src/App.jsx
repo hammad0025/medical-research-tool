@@ -256,6 +256,25 @@ const sameTreatmentFamily = (leftTitle, rightTitle) => {
   return !/^(?:and|with|plus|or|versus|vs)\b/.test(longer.slice(shorter.length).trim())
 }
 
+const addDistinctTreatmentIdea = (ideas, nextIdea) => {
+  const key = treatmentIdeaKey(nextIdea?.title)
+  if (!key) return false
+  const existing = ideas.find((idea) => sameTreatmentFamily(idea?.title, nextIdea?.title))
+  if (!existing) {
+    ideas.push(nextIdea)
+    return true
+  }
+
+  // One card can carry every supporting source. This keeps a formulation and
+  // its parent treatment from appearing twice while preserving the extra link.
+  existing.sourceIds = [...new Set([...(existing.sourceIds || []), ...(nextIdea.sourceIds || [])])]
+  if (Array.isArray(existing.trials) || Array.isArray(nextIdea.trials)) {
+    existing.trials = [...(existing.trials || []), ...(nextIdea.trials || [])]
+      .filter((trial, index, list) => trial?.id && list.findIndex((item) => item?.id === trial.id) === index)
+  }
+  return false
+}
+
 const researchGeneFromText = (text) => {
   const matches = [
     text.match(/\b([A-Z][A-Z0-9-]{2,12})[- ]associated\b/),
@@ -381,19 +400,16 @@ const allTreatmentIdeasForReport = (result, condition) => {
   const sourcedIdeas = (Array.isArray(result?.review?.treatmentIdeas) ? result.review.treatmentIdeas : [])
     .filter((idea) => !(idea?.sourceIds || []).some((sourceId) => isOfficialLabelSource(sourceById.get(sourceId))))
   const treatmentIdeas = []
-  const treatmentKeys = new Set()
 
   for (const idea of sourcedIdeas) {
     const key = treatmentIdeaKey(idea?.title)
-    if (!key || treatmentKeys.has(key) || isArticleTitleLike(idea?.title)) continue
-    treatmentKeys.add(key)
-    treatmentIdeas.push({ ...idea, title: cleanTreatmentDisplayName(idea.title), kind: 'source' })
+    if (!key || isArticleTitleLike(idea?.title)) continue
+    addDistinctTreatmentIdea(treatmentIdeas, { ...idea, title: cleanTreatmentDisplayName(idea.title), kind: 'source' })
   }
   for (const idea of trialInterventionIdeas(result?.trials, condition).slice(0, 10)) {
     const key = treatmentIdeaKey(idea?.title)
-    if (!key || treatmentKeys.has(key)) continue
-    treatmentKeys.add(key)
-    treatmentIdeas.push({ ...idea, kind: 'trial' })
+    if (!key) continue
+    addDistinctTreatmentIdea(treatmentIdeas, { ...idea, kind: 'trial' })
   }
   for (const trial of result?.trials || []) {
     const candidates = sourceTreatmentCandidates({
@@ -403,9 +419,8 @@ const allTreatmentIdeasForReport = (result, condition) => {
     })
     for (const candidate of candidates) {
       const key = treatmentIdeaKey(candidate.title)
-      if (!key || treatmentKeys.has(key)) continue
-      treatmentKeys.add(key)
-      treatmentIdeas.push({
+      if (!key) continue
+      addDistinctTreatmentIdea(treatmentIdeas, {
         ...candidate,
         trials: [trial],
         rationale: `This named research approach appears in a current study for ${condition || 'this condition'}.`,
@@ -417,9 +432,8 @@ const allTreatmentIdeasForReport = (result, condition) => {
   }
   for (const idea of sourceTreatmentIdeas(result?.sources, condition)) {
     const key = treatmentIdeaKey(idea?.title)
-    if (!key || treatmentKeys.has(key)) continue
-    treatmentKeys.add(key)
-    treatmentIdeas.push(idea)
+    if (!key) continue
+    addDistinctTreatmentIdea(treatmentIdeas, idea)
   }
   const practicalityScore = (idea) => {
     let score = idea.kind === 'source' ? 80 : 0
