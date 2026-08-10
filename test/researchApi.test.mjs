@@ -1,0 +1,496 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { Readable } from 'node:stream'
+import { createResearchApiPlugin } from '../server/researchApi.mjs'
+import { createVercelApiHandler } from '../server/vercelApi.mjs'
+
+const env = {
+  ANTHROPIC_RESEARCH_DISABLED: 'true',
+  OPENAI_API_KEY: 'test-key',
+}
+
+const pubMedXml = `
+<PubmedArticle>
+  <MedlineCitation>
+    <PMID>1001</PMID>
+    <Article>
+      <Journal><Title>Test Retina Journal</Title></Journal>
+      <ArticleTitle>AAV-RP therapy and vision rehabilitation in retinitis pigmentosa</ArticleTitle>
+      <Abstract>
+        <AbstractText>AAV-RP therapy is being researched for retinitis pigmentosa. Vision rehabilitation is also described for people living with retinitis pigmentosa.</AbstractText>
+      </Abstract>
+      <PublicationTypeList><PublicationType>Randomized Controlled Trial</PublicationType></PublicationTypeList>
+      <JournalIssue><PubDate><Year>2025</Year></PubDate></JournalIssue>
+    </Article>
+  </MedlineCitation>
+  <PubmedData><ArticleIdList><ArticleId IdType="doi">10.1000/test-rp</ArticleId></ArticleIdList></PubmedData>
+</PubmedArticle>`
+
+const trial = {
+  protocolSection: {
+    identificationModule: {
+      nctId: 'NCT00000001',
+      briefTitle: 'AAV-RP Therapy for Retinitis Pigmentosa',
+    },
+    statusModule: { overallStatus: 'RECRUITING' },
+    designModule: { studyType: 'INTERVENTIONAL', phases: ['PHASE2'] },
+    sponsorCollaboratorsModule: { leadSponsor: { name: 'Test Retina Institute' } },
+    conditionsModule: { conditions: ['Retinitis Pigmentosa'] },
+    descriptionModule: { briefSummary: 'A study of AAV-RP therapy for retinitis pigmentosa.' },
+    armsInterventionsModule: { interventions: [{ name: 'Genetic: AAV-RP therapy', type: 'GENETIC' }] },
+    contactsLocationsModule: {
+      locations: [{ facility: 'Test Retina Institute', city: 'Cleveland', state: 'Ohio', country: 'United States' }],
+      overallOfficials: [{ name: 'Taylor Researcher', affiliation: 'Test Retina Institute', role: 'Principal Investigator' }],
+    },
+  },
+}
+
+// This mirrors the live false-positive we found in the previous app: a
+// recruiting stem-cell study for NAION must never appear in an RP report.
+const unrelatedStemCellTrial = {
+  protocolSection: {
+    identificationModule: {
+      nctId: 'NCT05147701',
+      briefTitle: 'Safety of Cultured Allogeneic Adult Umbilical Cord Derived Mesenchymal Stem Cells for NAION',
+    },
+    statusModule: { overallStatus: 'RECRUITING' },
+    designModule: { studyType: 'INTERVENTIONAL', phases: ['PHASE1'] },
+    sponsorCollaboratorsModule: { leadSponsor: { name: 'Unrelated Eye Research Center' } },
+    conditionsModule: {
+      conditions: ['Nonarteritic Anterior Ischemic Optic Neuropathy'],
+      keywords: ['Retinitis Pigmentosa', 'stem cells'],
+    },
+    descriptionModule: { briefSummary: 'A stem-cell safety study for NAION.' },
+    armsInterventionsModule: { interventions: [{ name: 'Allogeneic umbilical cord mesenchymal stem cells', type: 'BIOLOGICAL' }] },
+    contactsLocationsModule: {
+      locations: [{ facility: 'Unrelated Eye Research Center', city: 'Miami', state: 'Florida', country: 'United States' }],
+    },
+  },
+}
+
+const writerDraft = {
+  briefing: 'This packet includes a current study and source-linked research for retinitis pigmentosa.',
+  researchQuestions: ['Could a retina specialist explain whether this study is relevant to the person’s condition?'],
+  treatmentIdeas: [{
+    title: 'AAV-RP therapy',
+    category: 'Gene treatment',
+    summary: 'A current study is testing AAV-RP therapy for retinitis pigmentosa.',
+    whyItMayMatter: 'It is a named gene treatment being studied in a current trial.',
+    caution: 'It is experimental and is not a personal treatment recommendation.',
+    sourceIds: ['NCT00000001'],
+  }],
+  lifestyle: [{
+    title: 'Vision rehabilitation',
+    summary: 'A source describes vision rehabilitation for people with retinitis pigmentosa.',
+    caution: 'This group research finding is not a personal plan.',
+    sourceIds: ['pmid-1001'],
+  }],
+  safety: [{
+    title: 'Investigational treatment needs review',
+    summary: 'AAV-RP therapy is still being studied, so its safety and benefit are not established.',
+    caution: 'A trial listing does not show that a treatment works or is right for one person.',
+    sourceIds: ['NCT00000001'],
+  }],
+  hypotheses: [{
+    title: 'AAV-RP therapy research question',
+    candidate: 'AAV-RP therapy',
+    mechanism: 'Researchers are studying a gene treatment approach.',
+    whyItIsAQuestion: 'The current study is evaluating this named intervention for retinitis pigmentosa.',
+    caution: 'This is a research question, not a recommendation to use the treatment.',
+    sourceIds: ['NCT00000001'],
+  }],
+  claimsForReview: [{
+    claim: 'A current study is testing AAV-RP therapy for retinitis pigmentosa.',
+    sourceIds: ['NCT00000001'],
+  }],
+}
+
+const reviewerDraft = {
+  overallVerdict: 'approved',
+  briefing: {
+    decision: 'approve',
+    text: writerDraft.briefing,
+    reason: 'It is linked to the source packet.',
+    sourceIds: ['pmid-1001'],
+  },
+  questions: [{ index: 0, decision: 'approve', text: writerDraft.researchQuestions[0], reason: 'Safe question.' }],
+  treatmentIdeas: [{ index: 0, decision: 'approve', item: writerDraft.treatmentIdeas[0], reason: 'Named trial intervention.' }],
+  lifestyle: [{ index: 0, decision: 'approve', item: writerDraft.lifestyle[0], reason: 'Source-linked daily-life topic.' }],
+  safety: [{ index: 0, decision: 'approve', item: writerDraft.safety[0], reason: 'Source-linked caution.' }],
+  hypotheses: [{ index: 0, decision: 'approve', item: writerDraft.hypotheses[0], reason: 'Clearly exploratory.' }],
+  flags: [],
+}
+
+const explorationDraft = {
+  briefing: 'This is an AI starting map for retinitis pigmentosa. It gives possible research connections to verify with trusted sources and a specialist.',
+  treatmentPaths: [{
+    title: 'Gene and cell pathway research',
+    summary: 'Researchers may study gene, cell, or retina-protection approaches for retinitis pigmentosa.',
+    whyItMayMatter: 'Different disease causes could point to different research paths.',
+    caution: 'This is a research direction to verify, not a personal treatment plan.',
+  }],
+  connections: [{
+    title: 'Gene result could shape the search',
+    researchAngle: 'Gene-specific retina research',
+    whyItCouldConnect: 'A genetic subtype may change which studies are worth checking.',
+    question: 'Could a gene result make the treatment and trial search more specific?',
+    caution: 'This is a research question to verify with a specialist.',
+  }],
+  lifestyle: [{
+    title: 'Daily function and vision support',
+    summary: 'Explore which condition-specific support or rehabilitation questions may matter in daily life.',
+    caution: 'Check this topic with trusted sources and a clinician before acting on it.',
+  }],
+  safety: [{
+    title: 'Check treatment claims carefully',
+    summary: 'Any possible treatment path may need a review of medicines, allergies, and study quality.',
+    caution: 'Verify safety questions with a clinician or pharmacist before acting on an idea.',
+  }],
+  searchTerms: ['retinitis pigmentosa treatment review', 'retinitis pigmentosa gene clinical trials'],
+}
+
+const sparseReviewerDraft = {
+  ...reviewerDraft,
+  treatmentIdeas: [],
+  lifestyle: [],
+  safety: [],
+  hypotheses: [],
+}
+
+const jsonResponse = (body, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: async () => body,
+  text: async () => JSON.stringify(body),
+})
+
+const textResponse = (body, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: async () => JSON.parse(body),
+  text: async () => body,
+})
+
+const createMockFetch = ({ failTrials = false, failEvidence = false, sparseReview = false } = {}) => {
+  const pubMedTerms = []
+
+  return {
+    pubMedTerms,
+    fetch: async (input, options = {}) => {
+      const url = String(input)
+
+      if (url.includes('/esearch.fcgi')) {
+        if (failEvidence) throw new Error('PubMed is unavailable')
+        pubMedTerms.push(new URL(url).searchParams.get('term') || '')
+        return jsonResponse({ esearchresult: { idlist: ['1001'] } })
+      }
+      if (url.includes('/efetch.fcgi')) {
+        if (failEvidence) throw new Error('PubMed is unavailable')
+        return textResponse(pubMedXml)
+      }
+      if (url.includes('europepmc.org')) {
+        if (failEvidence) throw new Error('Europe PMC is unavailable')
+        return jsonResponse({
+          resultList: {
+            result: [{
+              source: 'MED',
+              id: '1001',
+              pmid: '1001',
+              title: 'Vision rehabilitation in retinitis pigmentosa',
+              abstractText: 'Vision rehabilitation is discussed for people with retinitis pigmentosa.',
+              pubYear: '2025',
+              journalTitle: 'Test Retina Journal',
+              pubType: 'Systematic Review',
+            }],
+          },
+        })
+      }
+      if (url.includes('clinicaltrials.gov/api/v2/studies')) {
+        if (failTrials) throw new Error('ClinicalTrials.gov is unavailable')
+        return jsonResponse({ studies: [trial, unrelatedStemCellTrial] })
+      }
+      if (url.includes('open.fda.gov/drug/label.json')) return jsonResponse({ error: { message: 'No matches found' } }, 404)
+      if (url.includes('api.openai.com/v1/responses')) {
+        const request = JSON.parse(options.body)
+        const output = request.instructions.includes('Research Connections Agent') || request.instructions.includes('second safety pass')
+          ? explorationDraft
+          : request.instructions.includes('Researcher Agent')
+            ? writerDraft
+            : sparseReview
+              ? sparseReviewerDraft
+              : reviewerDraft
+        return jsonResponse({ status: 'completed', output_text: JSON.stringify(output) })
+      }
+
+      throw new Error(`Unexpected request in test: ${url}`)
+    },
+  }
+}
+
+const apiRoutes = (runtimeEnv = env) => {
+  const handlers = new Map()
+  createResearchApiPlugin(runtimeEnv).configureServer({
+    middlewares: { use: (path, handler) => handlers.set(path, handler) },
+  })
+  return handlers
+}
+
+const callRoute = async (handler, method, payload, { headers = {}, url = '', parsedBody } = {}) => new Promise((resolve, reject) => {
+  const request = Readable.from(payload ? [Buffer.from(JSON.stringify(payload))] : [])
+  request.method = method
+  request.headers = headers
+  request.url = url
+  if (parsedBody !== undefined) request.body = parsedBody
+  const responseHeaders = {}
+  const response = {
+    statusCode: 200,
+    setHeader(name, value) { responseHeaders[String(name).toLowerCase()] = value },
+    end(body) {
+      try {
+        resolve({ status: this.statusCode, headers: responseHeaders, body: JSON.parse(String(body || '{}')) })
+      } catch (error) {
+        reject(error)
+      }
+    },
+  }
+  Promise.resolve(handler(request, response)).catch(reject)
+})
+
+const withMockedFetch = async (mockFetch, run) => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = mockFetch
+  try {
+    return await run()
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+}
+
+test('RP expands to retinitis pigmentosa and returns a source-gated report', { concurrency: false }, async () => {
+  const mock = createMockFetch()
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'RP', geneticVariant: 'USH2A', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.equal(response.body.status, 'ready')
+  assert.equal(response.body.patient.condition, 'RP')
+  assert.ok(mock.pubMedTerms.some((term) => term.includes('Retinitis Pigmentosa')))
+  assert.equal(response.body.sources.length, 1)
+  assert.equal(response.body.trials.length, 1)
+  assert.deepEqual(response.body.trials.map((item) => item.id), ['NCT00000001'])
+  assert.ok(!response.body.trials.some((item) => /NAION|umbilical cord/i.test(item.title)))
+  assert.equal(response.body.centers.length, 1)
+  assert.equal(response.body.review.treatmentIdeas.length, 1)
+  assert.equal(response.body.review.lifestyle.length, 1)
+  assert.equal(response.body.review.safety.length, 1)
+  assert.equal(response.body.review.hypotheses.length, 1)
+  assert.equal(response.body.review.mode, 'dual-agent')
+  assert.equal(response.body.review.independent, false)
+})
+
+test('a registry outage is labeled unavailable instead of as an empty trial search', { concurrency: false }, async () => {
+  const mock = createMockFetch({ failTrials: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  const registry = response.body.sourceCoverage.find((lane) => lane.id === 'clinicaltrials-gov')
+  assert.equal(response.status, 200)
+  assert.equal(response.body.status, 'ready')
+  assert.equal(response.body.sources.length, 1)
+  assert.equal(response.body.trials.length, 0)
+  assert.equal(registry.status, 'unavailable')
+  assert.match(registry.detail, /could not be reached/i)
+})
+
+test('a source-backed run still receives an AI map when a required report lane is empty', { concurrency: false }, async () => {
+  const mock = createMockFetch({ sparseReview: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.equal(response.body.status, 'ready')
+  assert.equal(response.body.sources.length, 1)
+  assert.equal(response.body.trials.length, 1)
+  assert.equal(response.body.review.treatmentIdeas.length, 0)
+  assert.equal(response.body.exploration.mode, 'two-pass-ai-map')
+  assert.ok(response.body.exploration.treatmentPaths.length > 0)
+  assert.ok(response.body.exploration.connections.length > 0)
+})
+
+test('an AI research map replaces the blank-report dead end when live sources are unavailable', { concurrency: false }, async () => {
+  const mock = createMockFetch({ failTrials: true, failEvidence: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.equal(response.body.status, 'exploration')
+  assert.equal(response.body.sources.length, 0)
+  assert.equal(response.body.trials.length, 0)
+  assert.equal(response.body.exploration.mode, 'two-pass-ai-map')
+  assert.ok(response.body.exploration.treatmentPaths.length > 0)
+  assert.ok(response.body.exploration.connections.length > 0)
+  assert.ok(response.body.exploration.lifestyle.length > 0)
+  assert.ok(response.body.exploration.safety.length > 0)
+  assert.match(response.body.exploration.briefing, /starting map/i)
+})
+
+test('a report request without a condition is rejected before any research starts', { concurrency: false }, async () => {
+  const response = await callRoute(apiRoutes().get('/api/research-run'), 'POST', { privacyAcknowledged: true, patient: { condition: ' ' } })
+  assert.equal(response.status, 400)
+  assert.equal(response.body.error, 'Enter a condition before starting research.')
+})
+
+test('the passcode gate protects the API with a server-only session cookie', async () => {
+  const passcode = 'test-only-demo-passcode'
+  const routes = apiRoutes({ ...env, SITE_ACCESS_PASSCODE: passcode })
+
+  const locked = await callRoute(routes.get('/api/health'), 'GET')
+  assert.equal(locked.status, 401)
+  assert.equal(locked.body.code, 'access_required')
+
+  const wrongLogin = await callRoute(routes.get('/api/access/login'), 'POST', { passcode: 'wrong' })
+  assert.equal(wrongLogin.status, 401)
+
+  const login = await callRoute(routes.get('/api/access/login'), 'POST', { passcode })
+  assert.equal(login.status, 200)
+  assert.equal(login.body.access, 'granted')
+  assert.match(login.headers['set-cookie'], /HttpOnly/)
+  assert.match(login.headers['set-cookie'], /SameSite=Strict/)
+  assert.doesNotMatch(login.headers['set-cookie'], new RegExp(passcode))
+
+  const cookie = login.headers['set-cookie'].split(';')[0]
+  const open = await callRoute(routes.get('/api/health'), 'GET', undefined, { headers: { cookie } })
+  assert.equal(open.status, 200)
+  assert.equal(open.body.ok, true)
+
+  const logout = await callRoute(routes.get('/api/access/logout'), 'POST', undefined, { headers: { cookie } })
+  assert.equal(logout.status, 200)
+  assert.match(logout.headers['set-cookie'], /Max-Age=0/)
+
+  const relocked = await callRoute(routes.get('/api/health'), 'GET', undefined, { headers: { cookie } })
+  assert.equal(relocked.status, 401)
+})
+
+test('the Vercel API adapter validates a signed session across separate function instances', async () => {
+  const passcode = 'test-only-demo-passcode'
+  const runtimeEnv = {
+    ...env,
+    VERCEL: '1',
+    SITE_ACCESS_PASSCODE: passcode,
+    SITE_ACCESS_SESSION_SECRET: '0123456789abcdef0123456789abcdef0123456789abcdef',
+    SITE_ACCESS_SECURE_COOKIE: 'true',
+  }
+  const firstInstance = createVercelApiHandler(runtimeEnv)
+
+  const locked = await callRoute(firstInstance, 'GET', undefined, { url: '/api/health' })
+  assert.equal(locked.status, 401)
+
+  const login = await callRoute(
+    firstInstance,
+    'POST',
+    undefined,
+    { url: '/api/access/login', parsedBody: { passcode } },
+  )
+  assert.equal(login.status, 200)
+  assert.match(login.headers['set-cookie'], /HttpOnly/)
+  assert.match(login.headers['set-cookie'], /SameSite=Strict/)
+  assert.match(login.headers['set-cookie'], /Secure/)
+
+  const cookie = login.headers['set-cookie'].split(';')[0]
+  const secondInstance = createVercelApiHandler(runtimeEnv)
+  const open = await callRoute(secondInstance, 'GET', undefined, { url: '/api/health', headers: { cookie } })
+  assert.equal(open.status, 200)
+  assert.equal(open.body.ok, true)
+
+  const status = await callRoute(secondInstance, 'GET', undefined, { url: '/access/status', headers: { cookie } })
+  assert.equal(status.status, 200)
+  assert.equal(status.body.access, 'granted')
+
+  const missing = await callRoute(secondInstance, 'GET', undefined, { url: '/api/not-a-real-route' })
+  assert.equal(missing.status, 404)
+})
+
+test('a serverless deployment without session security configuration keeps the API locked', async () => {
+  const missingSecret = createVercelApiHandler({
+    ...env,
+    VERCEL: '1',
+    SITE_ACCESS_PASSCODE: 'test-only-demo-passcode',
+  })
+
+  const status = await callRoute(missingSecret, 'GET', undefined, { url: '/api/access/status' })
+  assert.equal(status.status, 200)
+  assert.equal(status.body.access, 'setup-required')
+
+  const health = await callRoute(missingSecret, 'GET', undefined, { url: '/api/health' })
+  assert.equal(health.status, 401)
+
+  const insecureCookie = createVercelApiHandler({
+    ...env,
+    VERCEL: '1',
+    SITE_ACCESS_PASSCODE: 'test-only-demo-passcode',
+    SITE_ACCESS_SESSION_SECRET: '0123456789abcdef0123456789abcdef0123456789abcdef',
+  })
+  const insecureStatus = await callRoute(insecureCookie, 'GET', undefined, { url: '/api/access/status' })
+  assert.equal(insecureStatus.body.access, 'setup-required')
+})
+
+test('the research endpoint requires consent and rejects obvious direct identifiers', async () => {
+  const routes = apiRoutes()
+  const noConsent = await callRoute(routes.get('/api/research-run'), 'POST', { patient: { condition: 'Retinitis Pigmentosa' } })
+  assert.equal(noConsent.status, 400)
+  assert.match(noConsent.body.error, /privacy and safety notice/i)
+
+  const directIdentifier = await callRoute(routes.get('/api/research-run'), 'POST', {
+    privacyAcknowledged: true,
+    patient: { condition: 'Retinitis Pigmentosa', currentMeds: 'Send the report to patient@example.com' },
+  })
+  assert.equal(directIdentifier.status, 400)
+  assert.match(directIdentifier.body.error, /email address/i)
+})
+
+test('the offline starting map stays condition-specific for common and arbitrary demo conditions', { concurrency: false }, async () => {
+  const routes = apiRoutes({
+    ANTHROPIC_RESEARCH_DISABLED: 'true',
+    OPENAI_API_KEY: '',
+    SITE_ACCESS_PASSCODE: '',
+  })
+  const unavailableFetch = async () => { throw new Error('Network unavailable for fallback test') }
+  const runFallback = (condition, geneticVariant = '') => withMockedFetch(unavailableFetch, () => callRoute(
+    routes.get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition, geneticVariant } },
+  ))
+
+  const cases = [
+    ['Idiopathic Pulmonary Fibrosis', '', /anti-scarring/i],
+    ['Retinitis Pigmentosa', 'USH2A', /gene-specific/i],
+    ['Huntington Disease', '', /HTT-lowering/i],
+    ['Fabry Disease', '', /enzyme-replacement/i],
+    ['Koolen-de Vries syndrome', '', /current and repurposed medicine research/i],
+  ]
+
+  for (const [condition, geneticVariant, expectedTitle] of cases) {
+    const response = await runFallback(condition, geneticVariant)
+    assert.equal(response.status, 200)
+    assert.equal(response.body.status, /ipf|idiopathic pulmonary fibrosis/i.test(condition) ? 'ready' : 'exploration')
+    assert.equal(response.body.exploration.mode, 'structured-starting-map')
+    assert.equal(response.body.exploration.treatmentPaths.length, 3)
+    assert.equal(response.body.exploration.connections.length, 3)
+    assert.equal(response.body.exploration.lifestyle.length, 2)
+    assert.equal(response.body.exploration.safety.length, 2)
+    assert.match(response.body.exploration.treatmentPaths[0].title, expectedTitle)
+    assert.match(response.body.exploration.briefing, new RegExp(condition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+  }
+})

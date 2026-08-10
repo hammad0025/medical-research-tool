@@ -1,296 +1,107 @@
-# researchingmycondition.com
+# Evidence Atlas - Any-Condition Monday Demo
 
-![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
-![Status](https://img.shields.io/badge/status-Phase%203-brightgreen.svg)
-![License](https://img.shields.io/badge/license-Proprietary-red.svg)
+A source-first medical-research prototype for Dorothy's review. It accepts any entered diagnosis, subtype, gene, or phenotype; IPF is an enriched example with a curator-reviewed reference pack.
 
-An AI-powered medical research platform (researchingmycondition.com) that gives patients, caregivers, and
-clinicians evidence-based treatment research for any condition — grounded in
-peer-reviewed literature, cross-audited by a second AI model, and personalized
-to the patient's actual medications, comorbidities, and labs.
+## What it demonstrates
 
-**Developer:** Syed Hammad Haque (<shaque025@gmail.com>)
+- Live multi-source evidence retrieval for any condition: PubMed, Europe PMC, openFDA labels when relevant, and OpenAlex when configured
+- An optional plain-language intake that extracts only explicitly stated facts into reviewable profile fields
+- A curator-reviewed IPF evidence core that does not depend on model memory
+- A separate, explicitly exploratory workbench for mechanisms and research questions
+- Live recruiting interventional trials and active research sites from ClinicalTrials.gov
+- A source-coverage ledger that separates retrieved records, metadata-only records withheld from AI, unavailable databases, and authoritative manual search routes
+- A hard source gate: ungrounded, prescriptive, dosing, and unsupported guideline-strength language is withheld
+- A visible audit ledger so reviewers can open the cited sources themselves
+- A server-checked passcode, privacy acknowledgement, and plain-language safety notices
 
----
+The suggestion chips are only shortcuts. A user can enter any condition, subtype, gene, or phenotype. The report always shows the main sections: treatment ideas, research questions, daily-life topics, study sites, and current-trial next steps. When live retrieval is thin or temporarily unavailable, a clearly labeled AI starting map fills the gap with cautious ideas to verify. It does not pretend those ideas are proven evidence or personal medical advice.
 
-## Why this exists
+## Run locally
 
-Consumer AI tools are confidently wrong about medicine. They cite papers that
-don't say what they claim, recommend drugs that interact badly with what the
-patient is already taking, and gloss over findings they can't verify. A patient
-researching a serious diagnosis deserves better than that.
+```bash
+cd /Users/hammadhaque/Documents/Codex/2026-08-08/s/work/app
+npm run dev
+```
 
-This tool is built around six principles:
+Open the local Vite URL, normally `http://127.0.0.1:5173`.
 
-1. **Grounded citations only.** The AI can only cite from a live-fetched
-   evidence pack of real peer-reviewed sources. If the pack doesn't support a
-   claim, the AI must say so instead of making one up.
-2. **Honest access tagging.** Every citation is labeled `[FULL-TEXT]`,
-   `[ABSTRACT-ONLY]`, or `[METADATA-ONLY]` so you know exactly how much of the
-   paper the AI actually read.
-3. **Curated knowledge-base floor.** For conditions we've hand-curated
-   (currently IPF), landmark guidelines, RCTs, and FDA labels are pinned into
-   every query — you get the canonical ground truth *plus* this week's new
-   PubMed research, never one without the other.
-4. **Cross-AI audit.** A second, independent model (Perplexity / OpenAI / xAI)
-   independently re-checks every factual claim against the same evidence pack
-   and flags confirmed / disputed / unsupported / hallucinated citations.
-5. **Patient-specific safety.** Every recommendation is checked against the
-   patient's current medications for interactions and against comorbidities for
-   contraindications.
-6. **Low-quality sources excluded.** Stem-cell clinics in jurisdictions with no
-   meaningful regulatory oversight, and drug source-labs with active FDA
-   warning letters, are flagged and deprioritized.
+Create `.env.local` from `.env.example` and set a private passcode before starting the demo:
 
-## Features
+```bash
+SITE_ACCESS_PASSCODE=choose-a-long-private-passcode
+SITE_ACCESS_SECURE_COOKIE=false
+npm run dev
+```
 
-### AI Treatment Research
+Restart the dev server after changing `.env.local`. The passcode is checked by the local server and creates a 12-hour HttpOnly session cookie. `SITE_ACCESS_SECURE_COOKIE` must be `true` when the app is served over HTTPS; keep it `false` for local HTTP.
 
-Works for any condition. Personalized to the patient's full profile
-(age, gender, weight, smoking, exercise, all diagnoses, all medications,
-symptoms, labs/PFTs, imaging). Audience toggle between **10th-grade
-layperson** and **medical professional**. Structured output:
+For a Vercel deployment, set these **server-side** Vercel environment variables before deploying. The included `api/[...path].js` function serves the same API routes used locally, and `vercel.json` makes Vercel run the release gate before building:
 
-- Standard of care
-- Best experts and clinics worldwide (peer-recognition, not self-advertising)
-- Ranked treatments (Efficacy 0–100, Safety 0–100, verbatim quoted evidence)
-- Drug-drug interaction check against the patient's current medications
-- Non-drug / lifestyle recommendations
-- Stem cell landscape (excluding low-reliability jurisdictions)
-- Gene therapy landscape
-- Cost and insurance-coverage outlook
+```bash
+SITE_ACCESS_PASSCODE=choose-a-long-private-passcode
+SITE_ACCESS_SECURE_COOKIE=true
+SITE_ACCESS_SESSION_SECRET=at-least-32-random-characters
+```
 
-### Drug Repurposing (EveryCure-style)
+`SITE_ACCESS_SESSION_SECRET` is required on serverless hosting so the signed access cookie works across separate function instances. Generate a different random value for each environment and keep it in the host secret store. A Vercel deployment without a strong signing secret or secure cookies stays locked instead of exposing the research API. The included Vercel function is allowed up to five minutes so it matches the app's four-minute report timeout; make sure Fluid Compute remains enabled in the Vercel project.
 
-"Professor-to-students" reasoning that scans existing FDA-approved drugs and
-supplements for mechanistic logic suggesting they could help a condition they
-aren't formally indicated for. Each candidate has:
+The IPF evidence core works without any model key. Configure a local server-side Anthropic or OpenAI key to enable the writer and a separate source-check pass. When Anthropic writes and OpenAI reviews, the reviewer is a different provider; if the writer falls back to OpenAI, the app labels the result as a separate second pass rather than an independent-provider review. OpenAlex is optional and adds a separate scholarly-metadata lane when its key is configured:
 
-- Mechanism of action / molecular target
-- Evidence strength (from empirical trials to pure hypothesis)
-- Confidence score
-- Safety profile
-- Patient-specific risks (interactions with current meds, contraindications)
-- Talking points for a physician conversation
+```bash
+ANTHROPIC_API_KEY=...
+OPENAI_API_KEY=...
+OPENALEX_API_KEY=...
+npm run dev
+```
 
-### Clinical Trials Deep-Dive
-
-Live query against ClinicalTrials.gov v2. Every field that matters for a
-decision: phase, recruiting status, accepting new patients, placebo vs.
-open-label, fast-track / breakthrough / orphan designations, post-trial /
-expanded-access / compassionate-use availability, IRB and DSMB status,
-country, and contact info. A per-patient AI narrative ranks the best trials
-and names specific interactions with the patient's current medications.
-
-### Curated Knowledge Base
-
-Per-disease JSON files under `data/kb/` contain hand-curated landmark
-references (guidelines, RCTs, FDA labels, authoritative reviews). The KB is
-pinned into every query on that condition as a ground-truth floor, then
-supplemented by live-fetched PubMed / Europe PMC / OpenAlex / Unpaywall /
-openFDA results.
-
-Shipped now: **Idiopathic Pulmonary Fibrosis** (21 curated items including
-the ATS/ERS/JRS/ALAT 2022 guideline, CAPACITY, ASCEND, INPULSIS, INBUILD,
-PANTHER-IPF, and FDA labels for pirfenidone and nintedanib).
-
-### Cross-AI Citation Audit
-
-After Claude produces an analysis, a second independent model (Perplexity
-with live web search is preferred; OpenAI GPT or xAI Grok are fallbacks)
-re-checks every factual claim against the same evidence pack. Output:
-overall agreement score, and structured lists of claims that are confirmed,
-disputed, unsupported, or citations that were hallucinated.
+`ANTHROPIC_API_KEY` enables the preferred writer. `OPENAI_API_KEY` enables a writer fallback and reviewer. PubMed, Europe PMC, openFDA, and ClinicalTrials.gov work without additional keys. `OPENALEX_API_KEY` is optional; without it, its source lane is shown as not connected. No key is sent to the browser.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Frontend (index.html · React via Babel · Vercel static)        │
-└───────────────┬─────────────────────────────────────────────────┘
-                │
-┌───────────────┴─────────────────────────────────────────────────┐
-│  Vercel serverless (api/)                                       │
-│                                                                  │
-│  POST /api/research   →  Claude pipeline + utility modes          │
-│  POST /api/trials     →  ClinicalTrials.gov v2                  │
-│  GET  /api/health     →  readiness probe                        │
-│  POST /api/alerts-*   →  weekly digest subscribe + cron         │
-│  GET  /api/brain-cron →  nightly dynamic-KB refresh              │
-│                                                                  │
-│  lib/ (in-process — not separate HTTP routes)                   │
-│    evidence.js    →  fan-out PubMed / EPMC / OpenAlex / FDA     │
-│    validate.js    →  cross-AI citation audit                    │
-│    kb.js          →  curated per-disease ground truth             │
-│    pubmed.js, europe-pmc.js, openalex.js, openfda.js, unpaywall  │
-└─────────────────────────────────────────────────────────────────┘
-```
+1. The browser first requests a server-issued passcode session, then collects a temporary research intake and calls `/api/research-run`.
+2. The browser requires a privacy and safety acknowledgement. The server rejects missing acknowledgement and blocks several obvious direct identifiers, such as email addresses, phone numbers, full dates of birth, medical-record numbers, and street addresses.
+3. If the optional plain-language intake is used, Anthropic extracts only explicitly stated facts into the form; the user reviews those fields before research can run.
+4. For IPF, the local server adds its curated reference packet; every run also retrieves independent exact-condition records from PubMed, Europe PMC, openFDA labels where relevant, and OpenAlex when configured.
+5. The server deduplicates records by PMID, DOI, or title, rejects retracted or condition-mismatched sources, and withholds metadata-only records from the AI packet while retaining them in the source ledger.
+6. The server pulls live recruiting studies from ClinicalTrials.gov and shows matching active research sites, never an invented "best doctor" ranking.
+7. Cochrane Library, WHO ICTRP, and EU CTIS appear as authoritative search routes until a supported record-level or licensed connector is integrated. They are not scraped or represented as retrieved evidence.
+8. The preferred Anthropic writer, or OpenAI fallback, receives only the eligible source packet and returns structured JSON. It may only discuss entities and source IDs in that packet.
+9. A second reviewer request receives the draft plus the same packet and may approve, rewrite, or reject every item. The interface calls it an independent-provider review only when the writer and reviewer use different providers.
+10. A deterministic server gate accepts only known source IDs and blocks medical instructions, dosage language, unsafe promotional claims, invented center rankings, and ungrounded content.
 
-See [api/README.md](api/README.md) for full endpoint documentation.
+The important product choice is that the AI cannot rewrite retrieved or curated source material. It can only produce a separately labeled research briefing after the reviewer accepts it. Accepted model content renders with direct source links.
 
-## Quick Start
-
-### Deploy to Vercel (recommended)
-
-1. Get an Anthropic API key from <https://console.anthropic.com/settings/keys>
-2. Sign in to <https://vercel.com> with GitHub
-3. Import this repository
-4. Add environment variable `ANTHROPIC_API_KEY`
-5. Deploy
-
-**Optional** environment variables to unlock extra features:
-
-| Variable                    | Purpose                                                       |
-| --------------------------- | ------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY`         | Required. Primary AI model.                                   |
-| `PERPLEXITY_API_KEY`        | Recommended. Cross-AI audit (web-search verification).        |
-| `OPENAI_API_KEY`            | Alternative cross-AI auditor.                                 |
-| `XAI_API_KEY`               | Alternative cross-AI auditor (Grok).                          |
-| `NCBI_API_KEY`              | Lifts PubMed rate limit from 3 req/s to 10 req/s.             |
-| `RESEND_API_KEY`            | Enables weekly email digests (free tier 3k/month at resend.com). |
-| `ALERTS_EMAIL_FROM`         | "From" address for digests. Default `onboarding@resend.dev`.  |
-| `ALERTS_PUBLIC_URL`         | Base URL for unsubscribe links in emails (e.g. `https://…vercel.app`). |
-| `UPSTASH_REDIS_REST_URL`    | Persistent subscription store. Free tier at upstash.com.      |
-| `UPSTASH_REDIS_REST_TOKEN`  | Paired with the URL above.                                    |
-| `CRON_SECRET`               | Gates `/api/alerts-cron` against unauthenticated invocations. |
-| `MRT_ACCESS_PASSCODE`       | Private-preview access gate. Comma-separate to issue multiple passcodes (one per tester). Every `/api/*` endpoint requires a matching `x-access-passcode` header. Fail-open when unset. |
-
-### Weekly email digests
-
-`vercel.json` registers a cron at `0 14 * * 1` (Monday 14:00 UTC / 9am CT)
-that hits `/api/alerts-cron`. For each active subscription the cron runs
-the same grounded pipeline the webapp uses, diffs against a per-subscriber
-"already sent" ledger, and emails the net-new items via Resend.
-
-To enable in production:
-
-1. Create an account at [resend.com](https://resend.com) and set
-   `RESEND_API_KEY` in Vercel. For your own domain, verify it in Resend
-   and update `ALERTS_EMAIL_FROM`.
-2. Create a free database at [upstash.com](https://upstash.com) → "Redis"
-   → copy the REST URL + token into `UPSTASH_REDIS_REST_URL` and
-   `UPSTASH_REDIS_REST_TOKEN`. Without these, subscriptions live in an
-   in-memory Map that resets on every cold start.
-3. Set `CRON_SECRET` to a random string and add the same value to Vercel's
-   cron-job config so only the scheduler can trigger it.
-4. Set `ALERTS_PUBLIC_URL` to your deployment URL so unsubscribe links
-   in the emails resolve correctly.
-
-You can fire the cron manually for testing:
+## Verification
 
 ```bash
-# Dry run (no emails sent) — returns the rendered subjects + counts
-curl "https://YOUR-APP.vercel.app/api/alerts-cron?dryRun=1&secret=$CRON_SECRET"
-
-# Real run targeting one email only
-curl "https://YOUR-APP.vercel.app/api/alerts-cron?onlyEmail=you@example.com&secret=$CRON_SECRET"
+npm run check
+npm run build
 ```
 
-### Local development
+`npm run build` runs `npm run check` first, so a normal Vercel or other Node-hosted deployment fails before publishing if linting or unit tests fail.
 
-The UI and `/api/*` serverless functions only work together when served by
-the Vercel dev server. **Do not** open `index.html` directly (`file://`) or
-use `python -m http.server` — those serve static files only and every
-`/api/*` call will 404 or fail with a generic server error.
+## Deployment verification
+
+Use the release check after a deploy. It makes only fictional requests and does not use a real patient profile. Without a test passcode, it confirms that the landing page works, the server-side passcode is enabled, anonymous API access is blocked, and an incorrect passcode is rejected:
 
 ```bash
-git clone https://github.com/hammad0025/medical-research-tool.git
-cd medical-research-tool
-npm i -g vercel   # if needed
-vercel env pull .env.local   # must include ANTHROPIC_API_KEY
-npm run dev        # same as: vercel dev
+DEPLOYMENT_URL=https://your-deployment.example npm run verify:deployment
 ```
 
-Then open **http://localhost:3000** (not the file path).
-
-**Port 3000 already in use?** Another app may be bound to it (common on
-Mac). Stop that process or run on another port:
+For a complete release check, store the deployed site's `SITE_ACCESS_PASSCODE` again as `DEPLOYMENT_TEST_PASSCODE` in your CI secret store. The command then signs in, verifies the privacy acknowledgement, runs a fictional Retinitis Pigmentosa report, confirms it contains treatment ideas, lifestyle topics, safety items, and research connections, then confirms logout re-locks the API:
 
 ```bash
-vercel dev --listen 3001
-# open http://localhost:3001
+DEPLOYMENT_URL=https://your-deployment.example \
+DEPLOYMENT_TEST_PASSCODE=your-ci-only-test-passcode \
+npm run verify:deployment
 ```
 
-**501 / "Server unavailable" on localhost** usually means `vercel dev` is
-not running, you opened the wrong port, or something other than Vercel is
-listening on that port (e.g. a React dev server that does not proxy
-`/api/research`).
+Keep `DEPLOYMENT_TEST_PASSCODE` in your deployment or CI secret store, never in source code, browser variables, screenshots, or chat. The checker expects the deployed server to have the same value in `SITE_ACCESS_PASSCODE`. Set `DEPLOYMENT_FULL_RUN=false` only when you deliberately want an authenticated API check without spending a report run.
 
-Or run the end-to-end test harness against the local functions (no browser):
+## Privacy and safety
 
-```bash
-npm run e2e
-```
-
-## Evidence pipeline
-
-On every query for a condition:
-
-1. **Curated KB lookup** (instant, in-process) — if the condition has a KB
-   file, 20+ pinned landmark references are loaded.
-2. **Live fan-out** (parallel, ~3–5 s) — PubMed, Europe PMC, OpenAlex, and
-   Cochrane are queried for the core condition plus any named treatments.
-   openFDA is queried for every named drug. Rate limits are respected.
-3. **Open-access upgrade** — for paywalled top-ranked items, Unpaywall is
-   queried for legal OA copies (NIH / funder-mandated author manuscripts).
-4. **Dedup and rank** — items are merged by DOI / PMID. Scoring uses journal
-   tier (A+/A/B/C), citation count, recency, open-access status, study type
-   (meta-analysis > RCT > review), and a large bonus for curated-KB items.
-5. **Access-level tagging** — each item is stamped `full-text`, `abstract`,
-   or `metadata-only` based on what content is actually available.
-6. **Prompt pack assembly** — the top 25 items are fed to Claude, guaranteed
-   to include both KB-curated and live-fetched items (no layer monopolizes).
-7. **Cross-AI audit** — after Claude responds, a second model independently
-   re-checks every claim against the same pack.
-
-A typical IPF query yields **60–80 unique peer-reviewed sources** in the
-pool; **25 reach Claude's prompt** (≈15 curated KB + ≈10 freshly fetched).
-
-## Use cases
-
-### Patients and caregivers
-- Understand current and emerging treatments for a diagnosis.
-- Explore clinical trials matched to the patient's specific profile.
-- Get plain-language explanations (10th-grade reading level option).
-- Compare treatments with safety and efficacy numbers.
-- Identify world-class experts and treatment centers.
-- Check current medications for interactions and contraindications.
-
-### Medical professionals
-- Rapid literature reviews grounded in peer-reviewed sources.
-- Clinical trial identification with IRB / fast-track / orphan flags.
-- Patient-specific recommendations considering comorbidities, meds, age, labs.
-- Cost and insurance outlook.
-- Stem-cell and gene-therapy landscape scanning.
-- Second-opinion cross-AI citation verification before quoting a paper.
-
-## Journal / source quality
-
-| Tier | Examples                                                       | Weight |
-| ---- | -------------------------------------------------------------- | ------ |
-| A+   | NEJM, Lancet, JAMA, BMJ, Nature Medicine, Cochrane Reviews     | Full   |
-| A    | AJRCCM, European Respiratory Journal, Thorax, Chest, Circulation, ERJ, JACC | High |
-| B    | Mid-tier specialty journals                                    | Moderate |
-| C    | Everything else                                                | Low    |
-
-Geographic weighting: US and Western European research is weighted normally;
-research from jurisdictions with documented systemic integrity concerns is
-flagged and deprioritized. Stem cell clinics in regions without meaningful
-regulatory oversight are excluded from recommendations by default.
-
-## Disclaimers
-
-- **Decision-support research only.** Not medical advice, not a diagnosis,
-  not a substitute for a licensed physician.
-- **Not HIPAA-compliant.** Do not enter real patient identifying information.
-  Strip names, DOBs, MRNs, addresses, and anything else identifying before
-  pasting medical content.
-- **AI outputs must be independently verified** before acting on them. The
-  cross-AI audit layer reduces but does not eliminate hallucination risk.
-- **Evidence cutoffs** are inherent in any research tool; the live fan-out
-  reaches whatever PubMed / Europe PMC have indexed at query time.
-
-## License
-
-Proprietary. See [LICENSE](LICENSE). Contact <shaque025@gmail.com> for
-licensing inquiries.
+- This is for learning and research. It is not medical advice, a diagnosis, a prescription, or a medical recommendation. It is not for emergencies.
+- Do not enter real patient details. The optional profile helper and a research run send supplied context to the configured AI providers and research services. The built-in identifier check is only a safety net; it cannot reliably catch every identifying detail.
+- The demo does not persist the form after a run, but it is not HIPAA-ready and must not be described as HIPAA compliant.
+- The passcode protects this local Vite server and its API routes. For a public deployment, put an equivalent server-side or host-level access control in front of the full site and API. A browser-only passcode screen is not sufficient security.
+- Real patient use requires legal, privacy, security, clinical-governance, and vendor-contract review before launch, including the controls required for the specific organization and data involved.
