@@ -504,6 +504,15 @@ const sourceMentionsCandidate = (source, candidate) => {
   })
 }
 
+const recordMentionsCandidate = (record, candidate) => sourceMentionsCandidate({
+  title: record?.title,
+  summary: [
+    record?.summary,
+    ...(Array.isArray(record?.interventions) ? record.interventions : []),
+    ...(Array.isArray(record?.interventionDetails) ? record.interventionDetails.map((item) => item?.name) : []),
+  ].filter(Boolean).join(' '),
+}, candidate)
+
 // The scout can suggest names, but a name is never shown just because a model
 // produced it. Each name must survive an exact condition-plus-candidate PubMed
 // search and must also appear in the returned title or abstract.
@@ -1654,6 +1663,92 @@ const scoutResearchCandidates = async (patient, env) => {
     detail: candidates.length
       ? `${candidates.length} candidate names were sent through exact condition-plus-candidate PubMed searches.`
       : 'The candidate scout did not return usable names, so no unverified lead was added.',
+  }
+}
+
+const packetCandidateExtractorSystemPrompt = `You are Packet Candidate Extractor in a medical-research product. Extract names only from the supplied source packet. You are not allowed to use outside knowledge or invent a treatment.
+
+Find up to 10 specific interventions that are explicitly named in a source title, abstract, or trial intervention field. An intervention can be a medicine, supplement, food product, surgery or procedure, rehabilitation or adaptive support, device, gene or RNA program, cell program, or other named treatment. Keep practical, patient-discussible items ahead of trial-only or advanced programs when the packet contains both. Use the exact intervention name or a faithful shorter name that still appears in the cited record. Do not return generic labels such as "gene therapy", "cell therapy", "nutritional supplementation", "supportive care", or "clinical trial". Do not return tests, scans, biomarkers, questionnaires, monitoring steps, a person, a center, a disease name, or a paper title. Do not add doses, benefit claims, safety claims, access claims, or advice.
+
+Every candidate must cite one or more exact sourceIds where its name appears. A candidate is discarded if its name is not present in that cited record.
+
+Return strict JSON only:
+{
+  "candidates": [
+    {"name": "exact named intervention", "searchNames": ["exact name or alias from the record"], "category": "medicine, supplement or food, procedure or rehabilitation, device, gene or cell program, or other", "sourceIds": ["exact source id"]}
+  ]
+}`
+
+const normalizePacketCandidates = (draft, records) => {
+  const recordById = new Map((records || []).filter((record) => record?.id).map((record) => [record.id, record]))
+  const seen = new Set()
+  const candidates = []
+
+  for (const rawCandidate of Array.isArray(draft?.candidates) ? draft.candidates : []) {
+    const name = cleanCandidateName(rawCandidate?.name)
+    const category = cleanText(rawCandidate?.category, 80) || 'Treatment research'
+    const searchNames = candidateSearchNamesFor(rawCandidate)
+    const key = candidateKey(name)
+    if (!isSpecificCandidateName(name) || !key || seen.has(key)) continue
+    const sourceIds = [...new Set((Array.isArray(rawCandidate?.sourceIds) ? rawCandidate.sourceIds : [])
+      .map((id) => cleanText(id, 100))
+      .filter((id) => recordById.has(id)))]
+      .filter((id) => recordMentionsCandidate(recordById.get(id), { name, searchNames }))
+    if (!sourceIds.length) continue
+    seen.add(key)
+    candidates.push({ name, category, searchNames, sourceIds })
+    if (candidates.length === 10) break
+  }
+
+  return candidates
+}
+
+const attachPacketCandidates = (records, candidates) => (records || []).map((record) => {
+  const directMatches = (candidates || [])
+    .filter((candidate) => candidate.sourceIds.includes(record?.id) && recordMentionsCandidate(record, candidate))
+  if (!directMatches.length) return record
+
+  const candidateLeads = [...(record?.candidateLeads || []), ...directMatches]
+    .filter((candidate, index, list) => candidate?.name && list.findIndex((entry) => candidateKey(entry.name) === candidateKey(candidate.name)) === index)
+  return { ...record, candidateLeads }
+})
+
+const extractPacketCandidates = async ({ patient, sources, trials }, env) => {
+  const records = [...(sources || []), ...(trials || [])].filter((record) => record?.id)
+  if (!records.length) return { status: 'not-run', candidates: [], detail: 'No source records were available for named-intervention extraction.' }
+
+  const packet = {
+    condition: cleanText(patient?.condition, 120),
+    sourceRecords: (sources || []).filter((source) => source?.aiEligible !== false).slice(0, 18).map((source) => ({
+      id: source.id,
+      title: source.title,
+      summary: source.summary,
+    })),
+    trialRecords: (trials || []).slice(0, 14).map((trial) => ({
+      id: trial.id,
+      title: trial.title,
+      summary: trial.summary,
+      interventions: trial.interventions,
+      interventionDetails: trial.interventionDetails,
+    })),
+  }
+  const request = {
+    system: packetCandidateExtractorSystemPrompt,
+    user: JSON.stringify(packet),
+    env,
+    maxTokens: 1_100,
+  }
+  let response = await callAnthropic(request)
+  if (!response.ok) response = await callOpenAi({ ...request, models: openAiWriterModels(env) })
+  if (!response.ok) return { status: response.code || 'unavailable', candidates: [], detail: response.message }
+
+  const candidates = normalizePacketCandidates(extractJson(response.text), records)
+  return {
+    status: 'ready',
+    candidates,
+    detail: candidates.length
+      ? `${candidates.length} named intervention${candidates.length === 1 ? '' : 's'} was extracted from retrieved records and matched back to the exact source text.`
+      : 'No named intervention was released unless it matched exact text in a retrieved source record.',
   }
 }
 
@@ -2905,33 +3000,44 @@ const runResearch = async (body, env) => {
   const scout = scoutResult.status === 'fulfilled'
     ? scoutResult.value
     : { status: 'unavailable', candidates: [], detail: 'The candidate scout could not be reached for this run.' }
-  const candidateEvidenceResult = scout.candidates?.length
-    ? await Promise.allSettled([fetchPubMedCandidateEvidence(patient.condition, scout.candidates)])
-    : []
-  const candidateSources = candidateEvidenceResult[0]?.status === 'fulfilled'
-    ? candidateEvidenceResult[0].value
-    : []
-  const candidateVerificationAvailable = Boolean(!scout.candidates?.length || candidateEvidenceResult[0]?.status === 'fulfilled')
+  const [candidateEvidenceResult, packetCandidateResult] = await Promise.allSettled([
+    scout.candidates?.length
+      ? fetchPubMedCandidateEvidence(patient.condition, scout.candidates)
+      : Promise.resolve([]),
+    extractPacketCandidates({ patient, sources: bundle.sources, trials: trialData.trials }, env),
+  ])
+  const candidateSources = candidateEvidenceResult.status === 'fulfilled' ? candidateEvidenceResult.value : []
+  const packetCandidateExtraction = packetCandidateResult.status === 'fulfilled'
+    ? packetCandidateResult.value
+    : { status: 'unavailable', candidates: [], detail: 'The source-bound candidate extractor could not be reached for this run.' }
+  const packetCandidates = packetCandidateExtraction.candidates || []
+  const sourceRecordsWithCandidates = attachPacketCandidates(bundle.sources, packetCandidates)
+  const trialRecordsWithCandidates = attachPacketCandidates(trialData.trials, packetCandidates)
+  const sourceCandidateLeadCount = sourceRecordsWithCandidates
+    .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
+  const candidateVerificationAvailable = candidateEvidenceResult.status === 'fulfilled' && packetCandidateResult.status === 'fulfilled'
   const enrichedBundle = {
     ...bundle,
-    sources: dedupeEvidenceSources([bundle.sources, candidateSources], 24),
+    sources: dedupeEvidenceSources([sourceRecordsWithCandidates, candidateSources], 24),
     sourceCoverage: [
       ...(bundle.sourceCoverage || []),
       {
         id: 'candidate-verification',
-        label: 'Candidate source verification',
+        label: 'Named treatment evidence gate',
         url: sourceSearchPage('pubmed', patient.condition),
         status: candidateVerificationAvailable ? 'ready' : 'unavailable',
-        records: candidateSources.length,
-        detail: candidateSources.length
-          ? `${candidateSources.length} candidate-linked PubMed record${candidateSources.length === 1 ? '' : 's'} passed the exact condition and candidate gate.`
-          : scout.candidates?.length
-            ? 'Candidate names were checked, but no matching PubMed record passed both the condition and candidate gate.'
-            : scout.detail || 'No unverified candidate was added to the report.',
+        records: sourceCandidateLeadCount + candidateSources.length,
+        detail: sourceCandidateLeadCount
+          ? `${sourceCandidateLeadCount} named treatment lead${sourceCandidateLeadCount === 1 ? '' : 's'} was read from retrieved records and matched back to exact source text.${candidateSources.length ? ` ${candidateSources.length} additional PubMed record${candidateSources.length === 1 ? '' : 's'} also passed the condition-plus-candidate check.` : ''}`
+          : candidateSources.length
+            ? `${candidateSources.length} candidate-linked PubMed record${candidateSources.length === 1 ? '' : 's'} passed the exact condition and candidate gate.`
+            : scout.candidates?.length
+              ? 'Candidate names were checked, but no matching PubMed record passed both the condition and candidate gate.'
+              : packetCandidateExtraction.detail || scout.detail || 'No unverified candidate was added to the report.',
       },
     ],
   }
-  const packet = createPacket({ patient, bundle: enrichedBundle, trials: trialData.trials, sites: trialData.sites, researchers: trialData.researchers })
+  const packet = createPacket({ patient, bundle: enrichedBundle, trials: trialRecordsWithCandidates, sites: trialData.sites, researchers: trialData.researchers })
   const agentsPromise = packet.sources.length || packet.trials.length
     ? runDualAgentReview({ packet, env })
     : Promise.resolve({
@@ -3006,11 +3112,13 @@ const runResearch = async (body, env) => {
       { id: 'trials', label: 'Live ClinicalTrials.gov pull', status: packet.trials.length ? 'passed' : 'held', detail: packet.trials.length ? `${packet.trials.length} current interventional studies returned.` : 'Use the live registry link to check for newly posted studies.' },
       {
         id: 'scout',
-        label: 'AI candidate scout and source gate',
-        status: candidateSources.length ? 'passed' : 'held',
-        detail: candidateSources.length
-          ? 'Candidate names were checked against PubMed before they could appear in the report.'
-          : 'No candidate entered the report without an exact condition-specific source match.',
+        label: 'Named treatment source gate',
+        status: sourceCandidateLeadCount || candidateSources.length ? 'passed' : 'held',
+        detail: sourceCandidateLeadCount
+          ? 'Named interventions were extracted only from retrieved records and matched back to exact source text.'
+          : candidateSources.length
+            ? 'Candidate names were checked against PubMed before they could appear in the report.'
+            : 'No candidate entered the report without an exact condition-specific source match.',
       },
       ...(exploration ? [{
         id: 'exploration',
