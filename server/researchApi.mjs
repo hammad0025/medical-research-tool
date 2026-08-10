@@ -1527,7 +1527,7 @@ const simpleDoctorQuestion = (value) => {
   const question = text.endsWith('?') ? text : `${text}?`
   const words = question.match(/[A-Za-z0-9']+/g) || []
   const needsSimplifying = words.length > 12
-    || /\b(?:whether|relevant|eligibility|condition-specific|research direction|specialist|discussion|academic(?:ally)?|independent review)\b/i.test(question)
+    || /\b(?:whether|relevant|eligibility|condition-specific|research direction|specialist|discussion|academic(?:ally)?|independent review|contraindicat(?:ion|ions)?|biomarker|mechanism|pathway|phenotype|genotype|comorbidit(?:y|ies)|intervention|antifibrotic|investigational)\b/i.test(question)
   if (!needsSimplifying) return question
 
   if (/\b(?:safety|side effect|risk|interaction|allerg|pregnan)\b/i.test(question)) return 'What safety risks should I ask about?'
