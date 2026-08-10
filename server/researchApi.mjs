@@ -1852,7 +1852,20 @@ Return strict JSON only:
   ]
 }`
 
-const normalizePacketCandidates = (draft, records) => {
+const practicalPacketCandidateExtractorSystemPrompt = `You are Practical Packet Candidate Extractor in a medical-research product. Extract names only from the supplied source packet. You are not allowed to use outside knowledge or invent a treatment.
+
+Find up to 20 specific, patient-discussible interventions that are explicitly named in a source title or abstract. Focus on exact medicines, supplements or foods, named procedures, rehabilitation, adaptive support, and symptom-care treatments. Do not return gene therapy, RNA, cell therapy, exosomes, implants, study products, trial IDs, or other trial-only programs. Do not return broad classes such as "antioxidants," "vitamins," "inhibitors," "supplements," "carotenoids," or "supportive care." Use the exact intervention name or a faithful shorter name that still appears in the cited record. Do not return tests, scans, biomarkers, questionnaires, monitoring steps, a person, a center, a disease name, or a paper title. Do not add doses, benefit claims, safety claims, access claims, or advice.
+
+Every candidate must cite one or more exact sourceIds where its name appears. A candidate is discarded if its name is not present in that cited record.
+
+Return strict JSON only:
+{
+  "candidates": [
+    {"name": "exact named patient-discussible intervention", "searchNames": ["exact name or alias from the record"], "category": "medicine, supplement or food, procedure or rehabilitation, or other", "sourceIds": ["exact source id"]}
+  ]
+}`
+
+const normalizePacketCandidates = (draft, records, maximum = 10) => {
   const recordById = new Map((records || []).filter((record) => record?.id).map((record) => [record.id, record]))
   const seen = new Set()
   const candidates = []
@@ -1870,7 +1883,7 @@ const normalizePacketCandidates = (draft, records) => {
     if (!sourceIds.length) continue
     seen.add(key)
     candidates.push({ name, category, searchNames, sourceIds })
-    if (candidates.length === 10) break
+    if (candidates.length === maximum) break
   }
 
   return candidates
@@ -1886,18 +1899,24 @@ const attachPacketCandidates = (records, candidates) => (records || []).map((rec
   return { ...record, candidateLeads }
 })
 
-const extractPacketCandidates = async ({ patient, sources, trials }, env) => {
+const extractPacketCandidates = async ({ patient, sources, trials }, env, {
+  system = packetCandidateExtractorSystemPrompt,
+  sourceLimit = 18,
+  trialLimit = 14,
+  maximum = 10,
+  maxTokens = 1_100,
+} = {}) => {
   const records = [...(sources || []), ...(trials || [])].filter((record) => record?.id)
   if (!records.length) return { status: 'not-run', candidates: [], detail: 'No source records were available for named-intervention extraction.' }
 
   const packet = {
     condition: cleanText(patient?.condition, 120),
-    sourceRecords: (sources || []).filter((source) => source?.aiEligible !== false).slice(0, 18).map((source) => ({
+    sourceRecords: (sources || []).filter((source) => source?.aiEligible !== false).slice(0, sourceLimit).map((source) => ({
       id: source.id,
       title: source.title,
       summary: source.summary,
     })),
-    trialRecords: (trials || []).slice(0, 14).map((trial) => ({
+    trialRecords: (trials || []).slice(0, trialLimit).map((trial) => ({
       id: trial.id,
       title: trial.title,
       summary: trial.summary,
@@ -1906,16 +1925,16 @@ const extractPacketCandidates = async ({ patient, sources, trials }, env) => {
     })),
   }
   const request = {
-    system: packetCandidateExtractorSystemPrompt,
+    system,
     user: JSON.stringify(packet),
     env,
-    maxTokens: 1_100,
+    maxTokens,
   }
   let response = await callAnthropic(request)
   if (!response.ok) response = await callOpenAi({ ...request, models: openAiWriterModels(env) })
   if (!response.ok) return { status: response.code || 'unavailable', candidates: [], detail: response.message }
 
-  const candidates = normalizePacketCandidates(extractJson(response.text), records)
+  const candidates = normalizePacketCandidates(extractJson(response.text), records, maximum)
   return {
     status: 'ready',
     candidates,
@@ -1923,6 +1942,35 @@ const extractPacketCandidates = async ({ patient, sources, trials }, env) => {
       ? `${candidates.length} named intervention${candidates.length === 1 ? '' : 's'} was extracted from retrieved records and matched back to the exact source text.`
       : 'No named intervention was released unless it matched exact text in a retrieved source record.',
   }
+}
+
+const extractPracticalPacketCandidates = ({ patient, sources }, env) => extractPacketCandidates(
+  { patient, sources, trials: [] },
+  env,
+  {
+    system: practicalPacketCandidateExtractorSystemPrompt,
+    sourceLimit: 24,
+    trialLimit: 0,
+    maximum: 20,
+    maxTokens: 1_700,
+  },
+)
+
+const mergePacketCandidates = (...candidateLists) => {
+  const byKey = new Map()
+  for (const candidate of candidateLists.flat()) {
+    const key = candidateKey(candidate?.name)
+    if (!key) continue
+    const existing = byKey.get(key)
+    byKey.set(key, existing
+      ? {
+        ...existing,
+        sourceIds: [...new Set([...(existing.sourceIds || []), ...(candidate.sourceIds || [])])],
+        searchNames: [...new Set([...(existing.searchNames || []), ...(candidate.searchNames || [])])],
+      }
+      : candidate)
+  }
+  return [...byKey.values()]
 }
 
 const extractIntake = async (body, env) => {
@@ -3173,11 +3221,12 @@ const runResearch = async (body, env) => {
   const scout = scoutResult.status === 'fulfilled'
     ? scoutResult.value
     : { status: 'unavailable', candidates: [], detail: 'The candidate scout could not be reached for this run.' }
-  const [candidateEvidenceResult, packetCandidateResult] = await Promise.allSettled([
+  const [candidateEvidenceResult, packetCandidateResult, practicalPacketCandidateResult] = await Promise.allSettled([
     scout.candidates?.length
       ? fetchCandidateEvidence(patient.condition, scout.candidates)
       : Promise.resolve({ sources: [], coverage: [] }),
     extractPacketCandidates({ patient, sources: bundle.sources, trials: trialData.trials }, env),
+    extractPracticalPacketCandidates({ patient, sources: bundle.sources }, env),
   ])
   const candidateEvidence = candidateEvidenceResult.status === 'fulfilled'
     ? candidateEvidenceResult.value
@@ -3186,14 +3235,21 @@ const runResearch = async (body, env) => {
   const packetCandidateExtraction = packetCandidateResult.status === 'fulfilled'
     ? packetCandidateResult.value
     : { status: 'unavailable', candidates: [], detail: 'The source-bound candidate extractor could not be reached for this run.' }
-  const packetCandidates = packetCandidateExtraction.candidates || []
+  const practicalPacketCandidateExtraction = practicalPacketCandidateResult.status === 'fulfilled'
+    ? practicalPacketCandidateResult.value
+    : { status: 'unavailable', candidates: [], detail: 'The practical source extractor could not be reached for this run.' }
+  const packetCandidates = mergePacketCandidates(
+    packetCandidateExtraction.candidates || [],
+    practicalPacketCandidateExtraction.candidates || [],
+  )
   const sourceRecordsWithCandidates = attachPacketCandidates(bundle.sources, packetCandidates)
   const trialRecordsWithCandidates = attachPacketCandidates(trialData.trials, packetCandidates)
   const sourceCandidateLeadCount = sourceRecordsWithCandidates
     .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
   const candidateSourceLeadCount = candidateSources
     .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
-  const candidateVerificationAvailable = candidateEvidenceResult.status === 'fulfilled' && packetCandidateResult.status === 'fulfilled'
+  const candidateVerificationAvailable = candidateEvidenceResult.status === 'fulfilled'
+    && (packetCandidateResult.status === 'fulfilled' || practicalPacketCandidateResult.status === 'fulfilled')
   const enrichedBundle = {
     ...bundle,
     sources: dedupeEvidenceSources([sourceRecordsWithCandidates, candidateSources], 24),
@@ -3212,7 +3268,7 @@ const runResearch = async (body, env) => {
             ? `${candidateSourceLeadCount} candidate-linked lead${candidateSourceLeadCount === 1 ? '' : 's'} passed an exact condition and candidate gate.`
             : scout.candidates?.length
               ? 'Candidate names were checked across the available literature sources, but no matching record passed both the condition and candidate gate.'
-              : packetCandidateExtraction.detail || scout.detail || 'No unverified candidate was added to the report.',
+              : practicalPacketCandidateExtraction.detail || packetCandidateExtraction.detail || scout.detail || 'No unverified candidate was added to the report.',
       },
     ],
   }
