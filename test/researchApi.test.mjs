@@ -285,7 +285,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
 
   assert.equal(response.status, 200)
   assert.equal(response.body.status, 'ready')
-  assert.equal(response.body.patient.condition, 'RP')
+  assert.equal(response.body.patient.condition, 'Retinitis Pigmentosa')
   assert.ok(mock.pubMedTerms.some((term) => term.includes('Retinitis Pigmentosa')))
   assert.equal(response.body.sources.length, 1)
   assert.equal(response.body.trials.length, 1)
@@ -299,9 +299,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
   assert.equal(response.body.review.questions[0].text, 'Could this study fit me?')
   assert.ok((response.body.review.questions[0].text.match(/[A-Za-z0-9']+/g) || []).length <= 12)
-  assert.equal(response.body.exploration.treatmentPaths.length, 10)
-  assert.equal(response.body.exploration.connections.length, 10)
-  assert.ok(response.body.exploration.connections.every((item) => (item.question.match(/[A-Za-z0-9']+/g) || []).length <= 12))
+  assert.equal(response.body.exploration, null)
   assert.equal(response.body.review.mode, 'dual-agent')
   assert.equal(response.body.review.independent, false)
 })
@@ -323,7 +321,7 @@ test('a registry outage is labeled unavailable instead of as an empty trial sear
   assert.match(registry.detail, /could not be reached/i)
 })
 
-test('a source-backed run still receives an AI map when a required report lane is empty', { concurrency: false }, async () => {
+test('a source-backed run keeps a source-linked overview when a report lane is empty', { concurrency: false }, async () => {
   const mock = createMockFetch({ sparseReview: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
@@ -336,9 +334,11 @@ test('a source-backed run still receives an AI map when a required report lane i
   assert.equal(response.body.sources.length, 1)
   assert.equal(response.body.trials.length, 1)
   assert.equal(response.body.review.treatmentIdeas.length, 0)
-  assert.equal(response.body.exploration.mode, 'two-pass-ai-map')
-  assert.ok(response.body.exploration.treatmentPaths.length > 0)
-  assert.ok(response.body.exploration.connections.length > 0)
+  assert.equal(response.body.exploration, null)
+  assert.match(response.body.review.briefing.text, /source-linked research/i)
+  assert.ok(response.body.review.briefing.sourceIds.length)
+  assert.ok(response.body.review.questions.length)
+  assert.ok(response.body.review.questions.every((question) => question.sourceIds.length))
 })
 
 test('an AI research map replaces the blank-report dead end when live sources are unavailable', { concurrency: false }, async () => {
@@ -499,7 +499,13 @@ test('the offline starting map stays condition-specific for common and arbitrary
   for (const [condition, geneticVariant, expectedTitle] of cases) {
     const response = await runFallback(condition, geneticVariant)
     assert.equal(response.status, 200)
-    assert.equal(response.body.status, /ipf|idiopathic pulmonary fibrosis/i.test(condition) ? 'ready' : 'exploration')
+    const usesCuratedIpfSources = /ipf|idiopathic pulmonary fibrosis/i.test(condition)
+    assert.equal(response.body.status, usesCuratedIpfSources ? 'ready' : 'exploration')
+    if (usesCuratedIpfSources) {
+      assert.equal(response.body.exploration, null)
+      assert.match(response.body.review.briefing.text, /current study records and source-linked research/i)
+      continue
+    }
     assert.equal(response.body.exploration.mode, 'structured-starting-map')
     assert.equal(response.body.exploration.treatmentPaths.length, 10)
     assert.equal(response.body.exploration.connections.length, 10)
