@@ -295,7 +295,7 @@ const sourceTreatmentCandidates = (source) => {
 
 const isArticleTitleLike = (title) => /\b(?:systematic review|meta-analysis|safety and efficacy|phase\s*\d|a study comparing|clinical trial|review of)\b/i.test(String(title || ''))
 const isSupplementIdea = (idea) => /supplement|food|vitamin|fish oil|omega[- ]?3|dietary/i.test(`${idea?.category || ''} ${idea?.title || ''}`)
-const looksLikeAdvancedResearch = (idea) => /gene|rna|cell|biologic|device|procedure|radiation|optogenetic|implant/i.test(`${idea?.category || ''} ${idea?.type || ''} ${idea?.title || ''}`)
+const looksLikeAdvancedResearch = (idea) => /gene|rna|cell|biologic|radiation|optogenetic|implant|exosome|stem/i.test(`${idea?.category || ''} ${idea?.type || ''} ${idea?.title || ''}`)
 
 const sourceTreatmentIdeas = (sources, condition) => {
   const ideas = []
@@ -385,6 +385,7 @@ const allTreatmentIdeasForReport = (result, condition) => {
     const candidates = sourceTreatmentCandidates({
       title: trial?.title,
       summary: `${trial?.summary || ''} ${(trial?.interventions || []).join(' ')}`,
+      candidateLeads: trial?.candidateLeads,
     })
     for (const candidate of candidates) {
       const key = treatmentIdeaKey(candidate.title)
