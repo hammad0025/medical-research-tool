@@ -235,6 +235,7 @@ const trialInterventionIdeas = (trials, condition) => {
 const treatmentIdeaKey = (title) => String(title || '')
   .toLowerCase()
   .replace(/^(?:drug|biological|combination product|dietary supplement|genetic|device|procedure|radiation):\s*/g, '')
+  .replace(/\([^)]{1,80}\)/g, '')
   .replace(/\b(?:dietary\s+)?supplement(?:ation)?\b/g, '')
   .replace(/\b(?:low|high|intermediate|selected)\s+dose\b/g, '')
   .replace(/\b(?:standard|modified)\s+corticosteroid regimen\b/g, '')
@@ -242,6 +243,18 @@ const treatmentIdeaKey = (title) => String(title || '')
   .replace(/\b(?:hydrochloride|dihydrochloride|tartrate|mesylate|sodium|tablets?|capsules?|extended[- ]release)\b/g, '')
   .replace(/[^a-z0-9]+/g, ' ')
   .trim()
+
+const sameTreatmentFamily = (leftTitle, rightTitle) => {
+  const left = treatmentIdeaKey(leftTitle)
+  const right = treatmentIdeaKey(rightTitle)
+  if (!left || !right) return false
+  if (left === right) return true
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left]
+  if (!longer.startsWith(`${shorter} `)) return false
+  // Keep distinct combinations such as "drug A plus drug B". Formulation
+  // variants from the same source should not fill two report cards.
+  return !/^(?:and|with|plus|or|versus|vs)\b/.test(longer.slice(shorter.length).trim())
+}
 
 const researchGeneFromText = (text) => {
   const matches = [
@@ -258,7 +271,7 @@ const sourceTreatmentCandidates = (source) => {
   const add = (title, category) => {
     const cleanTitle = cleanTreatmentDisplayName(title)
     if (!cleanTitle || !isDisplayableTrialIntervention(cleanTitle)) return
-    if (!candidates.some((candidate) => treatmentIdeaKey(candidate.title) === treatmentIdeaKey(cleanTitle))) {
+    if (!candidates.some((candidate) => sameTreatmentFamily(candidate.title, cleanTitle))) {
       candidates.push({ title: cleanTitle, category })
     }
   }
