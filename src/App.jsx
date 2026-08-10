@@ -327,7 +327,6 @@ const sourceTreatmentCandidates = (source) => {
   if (/\bN-?acetylcysteine\b|\bNAC\b/i.test(text)) add('N-acetylcysteine', 'Drug research')
   if (/\bcataract surgery\b/i.test(text)) add('Cataract surgery', 'Procedure research')
   if (/\b(?:retinal implant|retinal prosthe)\b/i.test(text)) add('Retinal implant research', 'Device research')
-  if (/\b(?:micropulse|laser)\b/i.test(text)) add('Laser treatment research', 'Procedure research')
   if (/\bvitamin\s+A\b/i.test(text)) add('Vitamin A', 'Supplement research')
   if (/\b(?:fish oil|omega[- ]?3)\b/i.test(text)) add('Fish oil or omega-3', 'Supplement research')
 
@@ -337,7 +336,7 @@ const sourceTreatmentCandidates = (source) => {
 const isArticleTitleLike = (title) => /\b(?:systematic review|meta-analysis|safety and efficacy|phase\s*\d|a study comparing|clinical trial|review of)\b/i.test(String(title || ''))
 const isSupplementIdea = (idea) => /supplement|food|vitamin|fish oil|omega[- ]?3|dietary/i.test(`${idea?.category || ''} ${idea?.title || ''}`)
 const looksLikeAdvancedResearch = (idea) => /gene|rna|cell|biologic|radiation|optogenetic|implant|prosthe|exosome|stem/i.test(`${idea?.category || ''} ${idea?.type || ''} ${idea?.title || ''}`)
-const isBroadTreatmentClass = (idea) => /\b(?:inhibitors|agonists|antagonists|modulators|blockers|agents|drugs|medicines|therapies|supplements|vitamins|procedures|devices)\b$/i.test(treatmentIdeaKey(idea?.title))
+const isBroadTreatmentClass = (idea) => /\b(?:inhibitors|agonists|antagonists|modulators|blockers|agents|drugs|medicines|therapies|supplements|vitamins|carotenoids?|procedures|devices|research)\b$/i.test(treatmentIdeaKey(idea?.title))
 
 const sourceTreatmentIdeas = (sources, condition) => {
   const ideas = []
