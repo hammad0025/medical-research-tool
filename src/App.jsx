@@ -1345,7 +1345,7 @@ const sourceTextForIdea = (result, idea) => (idea?.sourceIds || [])
   .join(' ')
 
 const evidencePointsAway = (result, idea) => idea?.accessClass === 'evidence-points-away'
-  || /\b(?:worse|harm(?:ful|ed)?|failed|futility|stopped early|recommend(?:s|ed|ation)? against|no (?:benefit|evidence|effect|improvement|significant difference)|did not (?:support|improve|show|meet)|does not (?:support|improve|show|establish)|not (?:shown|proven|supported)|negative (?:outcome|result|trial)|missed (?:its |the )?primary endpoint)\b/i.test(`${idea?.summary || ''} ${idea?.caution || ''} ${sourceTextForIdea(result, idea)}`)
+  || /\b(?:worse|harm(?:ful|ed)?|failed|futility|stopped early|recommend(?:s|ed|ation)? against|no (?:benefit|evidence|effect|improvement|significant difference)|did not (?:support|improve|show|meet)|does not (?:support|improve|show|establish)|not (?:shown|proven|supported)|negative (?:outcome|result|trial)|missed (?:its |the )?primary endpoint)\b/i.test(`${idea?.summary || ''} ${sourceTextForIdea(result, idea)}`)
 
 const isMismatchedNamedGeneProgram = (result, idea) => {
   const enteredGene = String(result?.patient?.geneticVariant || '').trim().toUpperCase().match(/\b[A-Z0-9-]{3,}\b/)?.[0]
