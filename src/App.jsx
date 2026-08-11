@@ -321,7 +321,7 @@ const sourceTreatmentIdeas = (sources, condition) => {
   const ideas = []
   const used = new Set()
   for (const source of sources || []) {
-    if (!source?.id || isOfficialLabelSource(source)) continue
+    if (!source?.id || isOfficialLabelSource(source) || source.conditionScope === 'related-preclinical') continue
     for (const candidate of sourceTreatmentCandidates(source)) {
       const key = treatmentIdeaKey(candidate.title)
       if (!key || used.has(key)) continue
@@ -342,6 +342,38 @@ const sourceTreatmentIdeas = (sources, condition) => {
   // Keep the full source pool and place formal-access programs after items
   // that can be discussed directly with a clinician or pharmacist.
   return ideas.sort((left, right) => Number(looksLikeAdvancedResearch(left)) - Number(looksLikeAdvancedResearch(right)))
+}
+
+const readableResearchName = (value) => {
+  const name = cleanTreatmentDisplayName(value)
+  return /^[a-z]/.test(name) ? `${name[0].toUpperCase()}${name.slice(1)}` : name
+}
+
+const earlyResearchIdeasForReport = (result, condition) => {
+  const ideas = []
+  const conditionLabel = displayConditionName(condition) || 'this condition'
+
+  for (const source of result?.sources || []) {
+    if (source?.conditionScope !== 'related-preclinical' || !source?.id) continue
+    for (const candidate of source?.candidateLeads || []) {
+      if (candidate?.roleVerified !== true || candidate?.relationship !== 'condition-family-preclinical') continue
+      const title = readableResearchName(candidate?.name)
+      if (!title || !isDisplayableTrialIntervention(title)) continue
+      addDistinctTreatmentIdea(ideas, {
+        title,
+        category: 'Early animal or lab research',
+        summary: `The linked study examined ${title} in animal or lab research on ${source.conditionScopeLabel || 'a related disease model'}.`,
+        whyItMayMatter: source.relatedConditionContext || `This is related to ${conditionLabel}, but it is not a study in people with ${conditionLabel}.`,
+        accessExplanation: 'This is not a treatment someone can obtain today. It needs human studies before it can be considered in care.',
+        providerQuestion: `Are there any human studies of ${title} for ${conditionLabel}?`,
+        caution: `This is early animal or lab research, not a treatment for people with ${conditionLabel}. Do not buy, compound, or use ${title} based on this study.`,
+        sourceIds: [source.id],
+        kind: 'early-preclinical',
+      })
+    }
+  }
+
+  return ideas.slice(0, 2)
 }
 
 const isOfficialLabelSource = (source) => source?.origin === 'openFDA'
@@ -402,7 +434,10 @@ const curatedDiscussionIdeasForReport = (result) => {
 const allTreatmentIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
   const sourcedIdeas = (Array.isArray(result?.review?.treatmentIdeas) ? result.review.treatmentIdeas : [])
-    .filter((idea) => !(idea?.sourceIds || []).some((sourceId) => isOfficialLabelSource(sourceById.get(sourceId))))
+    .filter((idea) => !(idea?.sourceIds || []).some((sourceId) => {
+      const source = sourceById.get(sourceId)
+      return isOfficialLabelSource(source) || source?.conditionScope === 'related-preclinical'
+    }))
   const treatmentIdeas = []
 
   for (const idea of curatedDiscussionIdeasForReport(result)) {
@@ -1309,6 +1344,29 @@ const PatientLeadCards = ({ condition, result, ideas }) => (
   </div>
 )
 
+const EarlyResearchCards = ({ condition, result, ideas }) => (
+  <div className="research-ideas-grid">
+    {ideas.map((idea, index) => {
+      const citations = claimCitations(result, idea, condition)
+      return (
+        <article className="research-idea-card research-idea-card--early" key={idea.title}>
+          <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
+          <div className="card-topline"><p className="card-kicker">{idea.category}</p><StatusPill tone="experimental">Not in people yet</StatusPill></div>
+          <h3>{idea.title}</h3>
+          <CitedParagraph citations={citations}><strong>What the study looked at:</strong> {idea.summary}</CitedParagraph>
+          <dl className="research-idea-facts">
+            <div><dt>Why it may matter</dt><dd>{idea.whyItMayMatter}</dd></div>
+            <div><dt>What this means today</dt><dd>{idea.accessExplanation}</dd></div>
+            <div><dt>Ask your healthcare provider</dt><dd>{idea.providerQuestion}</dd></div>
+          </dl>
+          <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
+          <CitationActions citations={citations} label="Open study" />
+        </article>
+      )
+    })}
+  </div>
+)
+
 const TheoryIdeaCards = ({ condition, result, ideas }) => (
   <div className="research-ideas-grid">
     {ideas.slice(0, 10).map((idea, index) => {
@@ -1337,12 +1395,14 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
 
 function ResearchIdeas({ condition, result }) {
   const patientIdeas = patientDiscussionIdeasForReport(result, condition)
+  const earlyResearchIdeas = earlyResearchIdeasForReport(result, condition)
   const theoryIdeas = theoryIdeasForReport(result, condition)
+  const theoryLaneNumber = earlyResearchIdeas.length ? 3 : 2
 
   return (
     <section id="research-ideas" className="research-ideas section-surface">
       <SectionHeader eyebrow="4. Treatment ideas" title="Specific options to discuss, plus research ideas to investigate" />
-      <p className="section-intro">The first list names real medicines, supplements, procedures, equipment, and support options found in the sources. Each card explains the takeaway, how it could be explored, and a simple question to ask. The second list makes careful connections to possible drug targets, genes, cell platforms, or research paths. Neither list is a treatment plan.</p>
+      <p className="section-intro">The first list names real medicines, supplements, procedures, equipment, and support options found in the sources. A separate middle lane shows clearly labeled early animal or lab research. The final list makes careful connections to possible drug targets, genes, cell platforms, or research paths. None of these lists is a treatment plan.</p>
 
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
@@ -1353,9 +1413,19 @@ function ResearchIdeas({ condition, result }) {
           {patientIdeas.length ? <PatientLeadCards condition={condition} result={result} ideas={patientIdeas} /> : <div className="research-idea-empty"><Icon name="shield" size={18} /><p>This lane stays separate on purpose. The report did not move trial-only programs here; use the approved-options and research-program sections to prepare the next discussion.</p></div>}
         </section>
 
+        {earlyResearchIdeas.length ? (
+          <section className="research-idea-lane research-idea-lane--early">
+            <div className="research-idea-lane__header">
+              <div><p className="card-kicker">2. Early research worth watching</p><p>Recent animal or lab findings connected to this condition's disease family. These cards are not human treatment studies and are not ways to self-treat.</p></div>
+              <StatusPill tone="experimental">{earlyResearchIdeas.length} early stud{earlyResearchIdeas.length === 1 ? 'y' : 'ies'}</StatusPill>
+            </div>
+            <EarlyResearchCards condition={condition} result={result} ideas={earlyResearchIdeas} />
+          </section>
+        ) : null}
+
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">2. Possible research ideas to investigate</p><p>Ten careful hypotheses that connect a target or pathway to concrete drug classes, supplements, gene/RNA work, cell platforms, devices, or trials. These cards explain how to investigate the idea, not what to take or buy.</p></div>
+            <div><p className="card-kicker">{theoryLaneNumber}. Possible research ideas to investigate</p><p>Ten careful hypotheses that connect a target or pathway to concrete drug classes, supplements, gene/RNA work, cell platforms, devices, or trials. These cards explain how to investigate the idea, not what to take or buy.</p></div>
             <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length}/10 theories</StatusPill>
           </div>
           {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>Use the linked PubMed and trial searches to build a theory list with a specialist. This app will not turn a guess into a treatment claim.</p></div>}
@@ -1907,6 +1977,12 @@ const reportExportText = ({ form, report, result }) => {
       )
     })
     .join('\n')
+  const earlyResearchLines = earlyResearchIdeasForReport(result, condition)
+    .map((idea) => citedLine(
+      `- ${idea.title}: What the study looked at: ${idea.summary} Why it may matter: ${idea.whyItMayMatter} What this means today: ${idea.accessExplanation} Ask your healthcare provider: ${idea.providerQuestion} Boundary: ${idea.caution}`,
+      claimCitations(result, idea, condition),
+    ))
+    .join('\n')
   const officialLabelLines = officialLabelIdeasForReport(result, condition)
     .map((idea) => citedLine(`- ${idea.title}: ${idea.summary} Boundary: ${idea.caution}`, claimCitations(result, idea, condition)))
     .join('\n')
@@ -1994,26 +2070,28 @@ const reportExportText = ({ form, report, result }) => {
     '5. Researched leads to discuss now',
     patientLeadLines || 'This lane stays separate from trial-only research. Use the approved-options and research-program sections to prepare the next discussion.',
     '',
-    '6. Theory leads to verify',
+    ...(earlyResearchLines ? ['', '6. Early animal and lab research worth watching', earlyResearchLines] : []),
+    '',
+    `${earlyResearchLines ? 7 : 6}. Theory leads to verify`,
     theoryLines || 'Use the condition-specific PubMed and trial searches to build a responsible theory list.',
     '',
-    '7. Research programs that need a formal access route',
+    `${earlyResearchLines ? 8 : 7}. Research programs that need a formal access route`,
     researchProgramLines || 'Use the live trial directory to check programs that may need formal study enrollment or another verified access route.',
     '',
-    '8. Current clinical trials',
+    `${earlyResearchLines ? 9 : 8}. Current clinical trials`,
     recruitingTrialLines || `Use ClinicalTrials.gov to check the latest recruiting studies for ${condition}.`,
     ...(otherCurrentTrialLines ? ['', 'Other current clinical studies', otherCurrentTrialLines] : []),
     '',
-    '9. Your research and access plan',
+    `${earlyResearchLines ? 10 : 9}. Your research and access plan`,
     accessPlanLines,
     '',
-    '10. Simple questions to ask your doctor',
+    `${earlyResearchLines ? 11 : 10}. Simple questions to ask your doctor`,
     questionLines || 'Use the source-linked treatment and trial tables to prepare questions for a clinician.',
     '',
     'Report boundary',
     mapNote,
     '',
-    '11. Important safety points',
+    `${earlyResearchLines ? 12 : 11}. Important safety points`,
     safetyLines || 'Use a clinician or pharmacist to review medicines, allergies, other conditions, and pregnancy status before acting on an idea.',
     '',
     'Researchers named in source records',
