@@ -39,7 +39,7 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /id="condition-overview"/)
   assert.match(appSource, /id="clinical-trials"/)
   assert.match(appSource, /What you can discuss now, plus research questions to check/)
-  assert.match(appSource, /Researched medicines, supplements, and procedures/)
+  assert.match(appSource, /Researched medicines, supplements, procedures, and study programs/)
   assert.match(appSource, /Early research worth watching/)
   assert.match(appSource, /Not in people yet/)
   assert.match(appSource, /supportingSourceIds/)
@@ -47,6 +47,7 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /New repurposing questions/)
   assert.match(appSource, /Plain takeaway/)
   assert.match(appSource, /Named item to investigate/)
+  assert.match(appSource, /Study may be enrolling/)
   assert.match(appSource, /isExplicitlyExcludedTreatment/)
   assert.match(appSource, /Source for disease biology/)
   assert.match(appSource, /Search to check next/)
@@ -75,7 +76,7 @@ test('Word and PDF exports keep the same practical report sections', () => {
     '2. Approved and established options',
     '3. Centers and study sites',
     '4. Lifestyle changes worth discussing',
-    '5. Researched medicines, supplements, and procedures',
+    '5. Researched medicines, supplements, procedures, and study programs',
     'Early animal and lab research worth watching',
     'New repurposing questions',
     'Treatments studied but not listed as options',
