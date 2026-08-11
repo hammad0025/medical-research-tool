@@ -190,6 +190,11 @@ const cleanTreatmentDisplayName = (title) => {
 
   if (/^BI\s*1015550$/i.test(cleaned)) return 'Nerandomilast (Jascayd; BI 1015550)'
   if (/^NAL\s*ER$/i.test(cleaned)) return 'Nalbuphine extended-release (NAL ER)'
+  if (/^Esbriet$/i.test(cleaned)) return 'Pirfenidone (Esbriet)'
+  if (/^Ofev$/i.test(cleaned)) return 'Nintedanib (Ofev)'
+  if (/^Jascayd$/i.test(cleaned)) return 'Nerandomilast (Jascayd)'
+  if (/^lung transplantation$/i.test(cleaned)) return 'Lung transplant evaluation'
+  if (/^nitrate-rich beetroot juice\b/i.test(cleaned)) return 'Nitrate-rich beetroot juice'
   return cleaned
 }
 
@@ -1557,11 +1562,17 @@ const isAdvancedResearchProgram = (idea) => looksLikeAdvancedResearch(idea)
 const isResearchProgramIdea = (idea) => idea?.accessClass !== 'prescription-or-label-check'
   && (isAdvancedResearchProgram(idea)
   || idea?.kind === 'trial'
+  || idea?.accessClass === 'study-access-only'
   || Boolean(Array.isArray(idea?.trials) && idea.trials.length))
 
 const patientDiscussionIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
+  const sourceNeedsStudyAccess = (idea) => idea?.kind === 'source' && (idea?.sourceIds || []).some((sourceId) => {
+    const source = sourceById.get(sourceId)
+    return /(?:clinical|randomized|controlled|experimental medicine|phase\s*[1-4])\s+(?:study|trial)|randomized|randomised/i.test(`${source?.type || ''} ${source?.title || ''} ${source?.summary || ''}`)
+  })
   const allIdeas = allTreatmentIdeasForReport(result, condition)
+    .map((idea) => sourceNeedsStudyAccess(idea) ? { ...idea, accessClass: 'study-access-only' } : idea)
   const hasTraceableSource = (idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId))
     || (idea?.trials || []).some((trial) => trial?.id && trial?.url)
   const directDiscussionIdeas = allIdeas
