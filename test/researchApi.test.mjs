@@ -747,6 +747,9 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   assert.ok(blockedNac.aliases.some((alias) => /^NAC$/i.test(alias)))
 
   assert.equal(response.body.curatedTheoryIdeas.length, 10)
+  assert.equal(response.body.review.theoryIdeas.length, 10)
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
   const cellResearch = response.body.curatedTheoryIdeas.find((idea) => idea.title === 'Academic cell and exosome research')
   assert.ok(cellResearch)
   assert.ok(cellResearch.potentialInterventions.some((item) => /exosome/i.test(item)))
