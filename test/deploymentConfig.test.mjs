@@ -6,6 +6,7 @@ test('Vercel uses the release gate and bundles the server-side IPF reference', a
   const configUrl = new URL('../vercel.json', import.meta.url)
   const config = JSON.parse(await readFile(configUrl, 'utf8'))
   const apiFunction = config.functions?.['api/**']
+  const headerValues = Object.fromEntries((config.headers?.[0]?.headers || []).map((header) => [header.key, header.value]))
   const apiRoutes = [
     '../api/access/status.js',
     '../api/access/login.js',
@@ -19,5 +20,11 @@ test('Vercel uses the release gate and bundles the server-side IPF reference', a
   assert.equal(config.buildCommand, 'npm run build')
   assert.equal(apiFunction?.maxDuration, 300)
   assert.equal(apiFunction?.includeFiles, 'ipf-reference.json')
+  assert.match(headerValues['Content-Security-Policy'] || '', /frame-ancestors 'none'/)
+  assert.match(headerValues['Content-Security-Policy'] || '', /connect-src 'self'/)
+  assert.equal(headerValues['X-Frame-Options'], 'DENY')
+  assert.equal(headerValues['X-Content-Type-Options'], 'nosniff')
+  assert.match(headerValues['Permissions-Policy'] || '', /camera=\(\)/)
+  assert.equal(headerValues['X-Robots-Tag'], 'noindex, nofollow')
   assert.ok(routeContents.every((route) => /createVercelApiHandler/.test(route)))
 })

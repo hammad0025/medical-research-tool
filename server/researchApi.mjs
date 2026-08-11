@@ -25,6 +25,11 @@ const ACCESS_COOKIE_NAME = 'rmc_demo_access'
 const ACCESS_SESSION_TTL_MS = 12 * 60 * 60 * 1_000
 const ACCESS_LOGIN_WINDOW_MS = 15 * 60 * 1_000
 const ACCESS_LOGIN_MAX_ATTEMPTS = 5
+// Research runs call several public services and may call AI providers. This
+// is a best-effort per-instance guard against accidental repeat clicks and
+// paid-API abuse; it is not presented as a patient or clinical limit.
+const RESEARCH_RUN_WINDOW_MS = 10 * 60 * 1_000
+const RESEARCH_RUN_MAX_PER_WINDOW = 6
 const CURRENT_INTERVENTIONAL_STATUSES = new Set([
   'RECRUITING',
   'NOT_YET_RECRUITING',
@@ -149,14 +154,20 @@ const createSiteAccessControl = (env) => {
   const requiresSessionSecret = serverlessRuntime(env)
   const sessions = new Map()
   const failedAttempts = new Map()
+  const researchRuns = new Map()
   const secureCookie = String(environmentValue(env, 'SITE_ACCESS_SECURE_COOKIE') || '').toLowerCase() === 'true'
   const sessionSecretIsValid = !sessionSecret || sessionSecret.length >= 32
   const sessionIsConfigured = sessionSecretIsValid && (!requiresSessionSecret || (Boolean(sessionSecret) && secureCookie))
+  const configuredRunLimit = Number(environmentValue(env, 'RESEARCH_RUN_MAX_PER_WINDOW'))
+  const researchRunLimit = Number.isInteger(configuredRunLimit) && configuredRunLimit > 0
+    ? Math.min(configuredRunLimit, 30)
+    : RESEARCH_RUN_MAX_PER_WINDOW
 
   const pruneExpired = () => {
     const now = Date.now()
     for (const [token, expiresAt] of sessions) if (expiresAt <= now) sessions.delete(token)
     for (const [address, attempt] of failedAttempts) if (attempt.resetAt <= now) failedAttempts.delete(address)
+    for (const [address, attempt] of researchRuns) if (attempt.resetAt <= now) researchRuns.delete(address)
   }
 
   const requestAddress = (request) => cleanText(String(request.headers?.['x-forwarded-for'] || request.socket?.remoteAddress || 'unknown').split(',')[0], 160)
@@ -219,6 +230,22 @@ const createSiteAccessControl = (env) => {
       const token = parseCookies(request)[ACCESS_COOKIE_NAME]
       if (token && !sessionSecret) sessions.delete(token)
       clearSessionCookie(response)
+    },
+    reserveResearchRun(request) {
+      pruneExpired()
+      const address = requestAddress(request)
+      const current = researchRuns.get(address)
+      const now = Date.now()
+      if (current?.count >= researchRunLimit && current.resetAt > now) {
+        return {
+          ok: false,
+          retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1_000)),
+        }
+      }
+      researchRuns.set(address, current?.resetAt > now
+        ? { count: current.count + 1, resetAt: current.resetAt }
+        : { count: 1, resetAt: now + RESEARCH_RUN_WINDOW_MS })
+      return { ok: true }
     },
     require(request, response) {
       if (!expectedPasscode && !requiresSessionSecret) return true
@@ -4364,6 +4391,11 @@ export const createResearchApiHandlers = (env = {}) => {
         if (body?.privacyAcknowledged !== true) return sendJson(response, 400, { error: privacyAcknowledgementError })
         const privacyIssue = findProfilePrivacyIssue(body?.patient)
         if (privacyIssue) return sendJson(response, 400, { error: privacyIssueMessage(privacyIssue) })
+        const reservation = access.reserveResearchRun(request)
+        if (!reservation.ok) {
+          response.setHeader('Retry-After', String(reservation.retryAfterSeconds))
+          return sendJson(response, 429, { error: 'Too many reports were started from this connection. Wait a few minutes, then try again.' })
+        }
         const result = await runResearch(body, env)
         return sendJson(response, 200, result)
       } catch (error) {

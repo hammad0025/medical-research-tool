@@ -922,6 +922,20 @@ test('the research endpoint requires consent and rejects obvious direct identifi
   assert.match(directIdentifier.body.error, /email address/i)
 })
 
+test('the research endpoint limits repeat runs before paid providers are called', { concurrency: false }, async () => {
+  const mock = createMockFetch()
+  const routes = apiRoutes({ ...env, RESEARCH_RUN_MAX_PER_WINDOW: '2' })
+  const run = () => callRoute(routes.get('/api/research-run'), 'POST', {
+    privacyAcknowledged: true,
+    patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' },
+  })
+
+  const responses = await withMockedFetch(mock.fetch, async () => [await run(), await run(), await run()])
+  assert.deepEqual(responses.map((response) => response.status), [200, 200, 429])
+  assert.match(responses[2].body.error, /too many reports/i)
+  assert.ok(Number(responses[2].headers['retry-after']) > 0)
+})
+
 test('the offline starting map stays condition-specific for common and arbitrary demo conditions', { concurrency: false }, async () => {
   const routes = apiRoutes({
     ...env,

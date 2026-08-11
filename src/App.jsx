@@ -696,7 +696,7 @@ function Icon({ name, size = 18 }) {
   return <svg {...common}>{paths[name] || paths.spark}</svg>
 }
 
-function SiteAccessGate({ access, onGranted }) {
+function SiteAccessGate({ access, onGranted, onOpenLegal }) {
   const [passcode, setPasscode] = useState('')
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
@@ -713,7 +713,7 @@ function SiteAccessGate({ access, onGranted }) {
     event.preventDefault()
     if (!passcode) {
       setStatus('error')
-      setMessage('Enter the passcode to open this demo.')
+      setMessage('Enter the passcode to open this private beta.')
       return
     }
 
@@ -734,12 +734,12 @@ function SiteAccessGate({ access, onGranted }) {
     <main className="mrc-access-shell">
       <section className="mrc-access-card" aria-labelledby="site-access-title">
         <div className="mrc-access-mark"><Icon name="lock" size={24} /></div>
-        <p className="mrc-kicker">Private research demo</p>
+        <p className="mrc-kicker">Private research beta</p>
         <h1 id="site-access-title">Enter the site passcode.</h1>
-        <p>This demo is for invited users. It is a research tool, not a medical service.</p>
+        <p>This private beta is for invited users. It is a research tool, not a medical service.</p>
         <div className="mrc-access-notice">
           <Icon name="shield" size={18} />
-          <p><strong>Privacy and safety:</strong> This demo is not HIPAA-ready. Do not enter a real person’s name, birthday, address, phone number, email, medical record number, or other identifying detail. It does not give medical advice or medical recommendations.</p>
+          <p><strong>Privacy and safety:</strong> The app does not create patient accounts or save profiles in an application database. Do not enter a real person’s name, birthday, address, phone number, email, medical record number, or other identifying detail. It does not give medical advice or medical recommendations.</p>
         </div>
         {setupRequired ? (
           <p className="mrc-access-message mrc-access-message--error">Passcode protection has not been set up on the server yet.</p>
@@ -754,14 +754,71 @@ function SiteAccessGate({ access, onGranted }) {
               <input type="password" value={passcode} onChange={(event) => setPasscode(event.target.value)} autoComplete="current-password" autoFocus aria-describedby="site-access-help" />
             </label>
             <button className="mrc-button mrc-button--primary" type="submit" disabled={status === 'working'}>
-              {status === 'working' ? <><span className="mrc-spinner" /> Opening demo</> : <><Icon name="lock" size={16} /> Open research demo</>}
+              {status === 'working' ? <><span className="mrc-spinner" /> Opening beta</> : <><Icon name="lock" size={16} /> Open research beta</>}
             </button>
             {message ? <p className={`mrc-access-message mrc-access-message--${status}`} role="alert">{message}</p> : null}
           </form>
         )}
         <p id="site-access-help" className="mrc-access-help">The passcode is checked by the server. It is not stored in the page code.</p>
+        <p className="mrc-access-legal">By opening the beta, you agree to the <LegalLink view="terms" onOpenLegal={onOpenLegal}>Terms of use</LegalLink> and acknowledge the <LegalLink view="privacy" onOpenLegal={onOpenLegal}>Privacy notice</LegalLink>.</p>
         <p className="mrc-access-footnote">If this may be an emergency, call 911 or your local emergency number now.</p>
       </section>
+    </main>
+  )
+}
+
+function LegalLink({ view, onOpenLegal, children }) {
+  return <a href={`#${view}`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); onOpenLegal(view) }}>{children}</a>
+}
+
+function LegalPage({ view, onClose, onOpenLegal }) {
+  const privacy = view === 'privacy'
+  const title = privacy ? 'Privacy notice' : 'Terms of use'
+
+  return (
+    <main className="mrc-legal-shell">
+      <article className="mrc-legal-card" aria-labelledby="legal-title">
+        <div className="mrc-legal-topline">
+          <span className="mrc-brand__mark"><Icon name="shield" size={18} /></span>
+          <span>researchingmycondition.com</span>
+          <button type="button" className="mrc-legal-close" onClick={onClose}>Back to the beta</button>
+        </div>
+        <p className="mrc-kicker">Private beta · effective August 11, 2026</p>
+        <h1 id="legal-title">{title}</h1>
+        {privacy ? (
+          <div className="mrc-legal-copy">
+            <p><strong>Short version:</strong> this beta is designed not to create patient accounts or save profiles and reports in an application database. Do not enter information that identifies a real person.</p>
+            <h2>What the app processes</h2>
+            <p>During a report run, the condition and details you submit are sent to the research sources and AI providers configured for this app so they can retrieve and organize research. Those providers process information under their own terms and data policies.</p>
+            <h2>What the app does not keep</h2>
+            <p>The app is designed not to save your profile or completed report in an application database. Your form stays in this browser while you use it. Choosing <strong>Lock &amp; clear</strong> clears the form and report from this browser view. If you download a Word, PDF, or text report, that file is stored and controlled by you on your device.</p>
+            <h2>Information you must leave out</h2>
+            <p>Do not submit names, full dates of birth, addresses, phone numbers, email addresses, medical-record numbers, insurance numbers, photos, or other identifying details. Use a fictional example or broad, non-identifying facts instead.</p>
+            <h2>Technical information</h2>
+            <p>The hosting and service providers may process normal technical information needed to operate and secure the beta, such as request time, browser information, and IP address. Do not rely on this beta to store or manage medical records.</p>
+            <h2>Your choices</h2>
+            <p>You can clear the form at any time or use <strong>Lock &amp; clear</strong> to end the browser session. For a privacy question, contact the person who gave you access to this private beta.</p>
+          </div>
+        ) : (
+          <div className="mrc-legal-copy">
+            <p><strong>Purpose:</strong> this private beta organizes public research and clinical-study information into source-linked discussion material. It is not a medical service.</p>
+            <h2>Not medical advice</h2>
+            <p>The beta does not diagnose, prescribe, recommend, or replace a clinician. It does not tell you what to take, stop, combine, or change. Discuss every health decision with a licensed clinician. If this may be an emergency, call 911 or your local emergency number.</p>
+            <h2>Research limits</h2>
+            <p>Research can be incomplete, outdated, wrong for a person’s situation, or changed by newer findings. Source links are provided so you can review the underlying records. A study, a source link, or an idea card is not proof that a treatment works, is safe, is available, or is right for anyone.</p>
+            <h2>Your responsibilities</h2>
+            <p>Use only fictional or non-identifying information. Do not use this beta as a medical record, a clinical decision system, or an emergency service. You are responsible for safeguarding any report file you download or share.</p>
+            <h2>Private beta status</h2>
+            <p>The beta may change, pause, or be removed while it is tested. We may update these terms when the product changes. Continued use after a posted update means you accept the updated terms.</p>
+            <h2>Questions</h2>
+            <p>For access, privacy, or product questions, contact the person who gave you access to this private beta.</p>
+          </div>
+        )}
+        <nav className="mrc-legal-nav" aria-label="Legal documents">
+          <LegalLink view="terms" onOpenLegal={onOpenLegal}>Terms of use</LegalLink>
+          <LegalLink view="privacy" onOpenLegal={onOpenLegal}>Privacy notice</LegalLink>
+        </nav>
+      </article>
     </main>
   )
 }
@@ -1758,7 +1815,7 @@ function UniversalReport({ condition, form, result }) {
 
       <footer className="report-footer">
         <div><Icon name="shield" size={18} /><p><strong>Research only, not medical advice or a medical recommendation.</strong> A licensed clinician should make diagnosis and treatment decisions.</p></div>
-        <div><Icon name="lock" size={18} /><p><strong>Privacy note.</strong> This demo is not HIPAA-ready. Do not enter real patient details. The details you enter are sent to the research services and AI providers used to make this report.</p></div>
+        <div><Icon name="lock" size={18} /><p><strong>Privacy note.</strong> This beta does not create patient accounts or save profiles in an application database. Do not enter real patient details. The details you enter are sent to the research services and AI providers used to make this report.</p></div>
       </footer>
     </section>
   )
@@ -1785,7 +1842,7 @@ function WorkspaceHeader({ condition, activeTab, onTabChange, onLock }) {
           </a>
           <div className="mrc-header__controls">
             <span className="mrc-style-select"><span>Report style</span><strong>Simple language</strong></span>
-            <span className="mrc-run-pill"><span /> Unlimited runs</span>
+            <span className="mrc-run-pill"><span /> Private beta</span>
             <button className="mrc-lock-site" type="button" onClick={onLock}><Icon name="lock" size={14} /> Lock & clear</button>
           </div>
         </div>
@@ -1820,6 +1877,7 @@ function ProfileWorkspace({
   serviceHealth,
   privacyAcknowledged,
   onPrivacyAcknowledged,
+  onOpenLegal,
 }) {
   const isIpf = /ipf|idiopathic pulmonary fibrosis/i.test(form.condition)
   const fields = [
@@ -1872,8 +1930,8 @@ function ProfileWorkspace({
         <div><Icon name="lock" size={18} /></div>
         <div>
           <strong>Privacy comes first</strong>
-          <p>This demo does not save your form after the run. To make a report, it sends the details you enter to the research services and AI providers used by this app. This demo is not HIPAA-ready. Do not enter real patient details.</p>
-          <p>We try to block obvious contact and ID details, but that check cannot catch everything. Please leave out all identifying information.</p>
+          <p>This beta does not create a patient account or save your profile and report in an application database. To make a report, it sends the details you enter to the research services and AI providers used by this app.</p>
+          <p>Use fictional or broad non-identifying facts only. We block some obvious identifiers, but that check cannot catch everything. Read the <LegalLink view="privacy" onOpenLegal={onOpenLegal}>Privacy notice</LegalLink>.</p>
         </div>
       </section>
 
@@ -1884,7 +1942,7 @@ function ProfileWorkspace({
           <p>This tool is for learning and research. It does not diagnose, prescribe, or recommend treatment. It is not for emergencies.</p>
           <label className="mrc-consent-check">
             <input type="checkbox" checked={privacyAcknowledged} onChange={(event) => onPrivacyAcknowledged(event.target.checked)} />
-            <span>I understand this is not medical advice or a medical recommendation. I will not enter real patient details, and I will discuss any decision with a licensed clinician.</span>
+            <span>I agree to the <LegalLink view="terms" onOpenLegal={onOpenLegal}>Terms of use</LegalLink>, acknowledge the <LegalLink view="privacy" onOpenLegal={onOpenLegal}>Privacy notice</LegalLink>, will not enter identifying details, and will discuss health decisions with a licensed clinician.</span>
           </label>
           <details>
             <summary>What should I leave out?</summary>
@@ -2099,7 +2157,7 @@ const reportExportText = ({ form, report, result }) => {
     'This report is for learning and research only. It is not medical advice, a diagnosis, a prescription, or a medical recommendation. Do not start, stop, or change treatment based on this report. Talk with a licensed clinician before making a health decision.',
     '',
     'Privacy note',
-    'This demo is not HIPAA-ready. Do not include real patient names, full birthdays, addresses, phone numbers, emails, medical record numbers, insurance details, or photos.',
+    'This private beta does not create patient accounts or save profiles in an application database. Do not include real patient names, full birthdays, addresses, phone numbers, emails, medical record numbers, insurance details, or photos.',
     '',
     'Research context',
     `Location: ${form.location || 'Not supplied'}`,
@@ -2517,6 +2575,12 @@ function LegacyApp() {
 void LegacyApp
 void IpfResearchWorkspace
 
+const legalViewFromHash = () => {
+  if (typeof window === 'undefined') return ''
+  const view = window.location.hash.replace(/^#/, '').toLowerCase()
+  return view === 'privacy' || view === 'terms' ? view : ''
+}
+
 function App() {
   const [form, setForm] = useState(() => createInitialProfile())
   const [runState, setRunState] = useState({ status: 'idle', result: null, error: '' })
@@ -2524,6 +2588,7 @@ function App() {
   const [intakeAssist, setIntakeAssist] = useState({ status: 'idle', message: '' })
   const [activeTab, setActiveTab] = useState('profile')
   const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false)
+  const [legalView, setLegalView] = useState(() => legalViewFromHash())
   const [siteAccess, setSiteAccess] = useState({ status: 'checking', message: '' })
   const [exportFeedback, setExportFeedback] = useState('')
   const [health, setHealth] = useState({ status: 'checking', aiConfigured: false })
@@ -2570,6 +2635,12 @@ function App() {
       .then((data) => active && setSiteAccess({ status: data.access || 'locked', ...data }))
       .catch(() => active && setSiteAccess({ status: 'offline', message: 'The local access service is not available.' }))
     return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    const updateLegalView = () => setLegalView(legalViewFromHash())
+    window.addEventListener('hashchange', updateLegalView)
+    return () => window.removeEventListener('hashchange', updateLegalView)
   }, [])
 
   useEffect(() => {
@@ -2651,6 +2722,17 @@ function App() {
     setActiveTab('profile')
   }
 
+  const openLegal = (view) => {
+    window.location.hash = view
+    setLegalView(view)
+  }
+
+  const closeLegal = () => {
+    window.history.replaceState(null, '', window.location.pathname)
+    setLegalView('')
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }
+
   const fillProfileFromNarrative = async () => {
     if (!privacyAcknowledged) {
       setIntakeAssist({ status: 'held', message: 'Read and check the privacy and safety notice before using the profile helper.' })
@@ -2663,7 +2745,7 @@ function App() {
 
     const directIdentifier = findDirectIdentifier(narrative)
     if (directIdentifier) {
-      setIntakeAssist({ status: 'error', message: `Remove ${directIdentifier} before continuing. Do not send real patient details to this demo.` })
+      setIntakeAssist({ status: 'error', message: `Remove ${directIdentifier} before continuing. Do not send real patient details to this private beta.` })
       return
     }
 
@@ -2798,8 +2880,10 @@ function App() {
     }
   }
 
+  if (legalView) return <LegalPage view={legalView} onClose={closeLegal} onOpenLegal={openLegal} />
+
   if (siteAccess.status !== 'granted') {
-    return <SiteAccessGate access={siteAccess} onGranted={(result) => setSiteAccess({ status: 'granted', ...result })} />
+    return <SiteAccessGate access={siteAccess} onGranted={(result) => setSiteAccess({ status: 'granted', ...result })} onOpenLegal={openLegal} />
   }
 
   return (
@@ -2822,6 +2906,7 @@ function App() {
             serviceHealth={health}
             privacyAcknowledged={privacyAcknowledged}
             onPrivacyAcknowledged={setPrivacyAcknowledged}
+            onOpenLegal={openLegal}
           />
         ) : null}
 
@@ -2877,7 +2962,7 @@ function App() {
       </main>
       <footer className="mrc-footer">
         <p><strong>For learning and research only.</strong> This tool is not medical advice, a diagnosis, a prescription, or a medical recommendation. Talk with a licensed clinician before making a health decision. If this may be an emergency, call 911 or your local emergency number.</p>
-        <p><strong>Privacy:</strong> This demo is not HIPAA-ready. Do not enter real patient details. The app does not save the form after a run, but the research details you enter are sent to the source services and AI providers used to prepare the report.</p>
+        <p><strong>Privacy:</strong> This beta does not create patient accounts or save profiles in an application database. Do not enter real patient details. Research details are sent to the source services and AI providers needed to prepare a report. <span className="mrc-footer-links"><LegalLink view="privacy" onOpenLegal={openLegal}>Privacy notice</LegalLink><LegalLink view="terms" onOpenLegal={openLegal}>Terms of use</LegalLink></span></p>
       </footer>
       {exportFeedback ? <div className="mrc-export-toast" role="status">{exportFeedback}</div> : null}
       <div className="mrc-fixed-disclaimer"><strong>NOT MEDICAL ADVICE OR MEDICAL RECOMMENDATION.</strong> For research only. Do not enter real patient details. Talk with a licensed clinician before making a health decision.</div>
