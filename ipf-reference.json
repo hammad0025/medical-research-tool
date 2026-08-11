@@ -965,20 +965,19 @@
   ],
   "theoryLeads": [
     {
-      "title": "TOLLIP-guided NAC research",
-      "category": "Gene-informed supplement research",
-      "whyItCouldConnect": "NAC has already been studied in IPF without broad benefit. A gene-defined subgroup question could be worth checking before anyone treats NAC as a personal option.",
+      "title": "Autotaxin and lysophosphatidic-acid signaling",
+      "category": "Scarring-signal research",
+      "whyItCouldConnect": "Autotaxin helps make lysophosphatidic acid, a signal researchers connect to tissue scarring. This gives researchers a specific target to check in IPF studies.",
       "potentialInterventions": [
-        "N-acetylcysteine in a TOLLIP-focused research question",
-        "gene-informed treatment research"
+        "autotaxin inhibitors"
       ],
-      "accessRoute": "Specialist or academic-study discussion only. This is not a reason to buy NAC for IPF.",
-      "whyNotEstablished": "The linked broad IPF study did not show benefit from NAC alone, and this report does not prove a genetic subgroup benefit.",
-      "providerQuestion": "Would a gene result change the NAC question?",
-      "caution": "This is a theory to verify, not a supplement recommendation or a dosing plan.",
-      "verificationQuery": "idiopathic pulmonary fibrosis TOLLIP acetylcysteine research",
+      "accessRoute": "Academic-study discussion only. A target name is not a medicine a person should seek or compound.",
+      "whyNotEstablished": "A scarring-pathway connection does not show that an autotaxin inhibitor helps a person with IPF.",
+      "providerQuestion": "Are any autotaxin studies relevant to IPF?",
+      "caution": "This is a theory to verify, not a treatment recommendation.",
+      "verificationQuery": "idiopathic pulmonary fibrosis autotaxin inhibitor clinical research",
       "sourceIds": [
-        "ipf-panther-nac-2014"
+        "ipf-fda-condition-overview"
       ]
     },
     {
@@ -986,7 +985,6 @@
       "category": "Scarring-pathway drug research",
       "whyItCouldConnect": "These signals are often studied in lung-scarring biology and could point researchers toward ways to limit scar formation.",
       "potentialInterventions": [
-        "TGF-beta pathway drug research",
         "integrin alpha-v beta-6 inhibitors"
       ],
       "accessRoute": "Look for a legitimate academic trial or ask an ILD specialist about current research. It is not a compounding or self-treatment route.",
@@ -1003,8 +1001,7 @@
       "category": "Drug-target research",
       "whyItCouldConnect": "LPA1 is a signaling target that researchers are exploring in lung scarring. It may be a useful way to search for newer IPF programs.",
       "potentialInterventions": [
-        "LPA1-blocking drug research",
-        "current IPF trial programs"
+        "LPA1 inhibitors"
       ],
       "accessRoute": "Use trial records and an ILD specialist to check real programs. Do not treat a target name as an available medicine.",
       "whyNotEstablished": "This report does not show a currently approved LPA1 treatment for IPF.",
@@ -1020,8 +1017,7 @@
       "category": "Cell-aging pathway",
       "whyItCouldConnect": "Cell aging is studied as one possible part of lung injury and repair. It could be a useful way to search for early drug research.",
       "potentialInterventions": [
-        "senolytic drug research",
-        "cell-aging pathway studies"
+        "senolytics"
       ],
       "accessRoute": "Research or academic-trial search only. No over-the-counter or compounded product is established for this purpose.",
       "whyNotEstablished": "This report does not show that a cell-aging treatment works for IPF.",
@@ -1037,8 +1033,7 @@
       "category": "Cell-energy pathway",
       "whyItCouldConnect": "Cell-energy stress may be part of lung injury research. It can lead to questions about repurposed medicines, but those questions need human evidence.",
       "potentialInterventions": [
-        "mitochondria-targeted drug research",
-        "formal repurposing studies"
+        "mitochondria-targeted medicines"
       ],
       "accessRoute": "Use a specialist and published human studies. Do not use a compounded or existing prescription medicine just because a pathway sounds relevant.",
       "whyNotEstablished": "The metformin example in this report shows why a lab idea does not automatically become a useful IPF treatment.",
@@ -1054,8 +1049,7 @@
       "category": "Immune-cell pathway research",
       "whyItCouldConnect": "Immune cells are studied in lung injury and scarring. That can be a research question without assuming that IPF is an autoimmune disease.",
       "potentialInterventions": [
-        "macrophage-targeted research",
-        "cytokine-pathway research"
+        "macrophage signaling inhibitors"
       ],
       "accessRoute": "Academic research or trial search only. This does not support using an immune medicine off label.",
       "whyNotEstablished": "This report does not prove that changing immune signals helps IPF.",
@@ -1071,8 +1065,7 @@
       "category": "RNA research platform",
       "whyItCouldConnect": "RNA approaches may let researchers study how lung cells handle injury and repair. The platform can be searched without assuming it is ready care.",
       "potentialInterventions": [
-        "RNA delivery research",
-        "gene-expression targeting research"
+        "inhaled RNA medicines"
       ],
       "accessRoute": "Look for academic studies with a clear protocol. There is no routine prescription or compounding path from this card.",
       "whyNotEstablished": "This report does not establish an RNA treatment for IPF.",
@@ -1088,8 +1081,7 @@
       "category": "Tissue-mechanics pathway",
       "whyItCouldConnect": "Lung scar tissue becomes stiff. Research on collagen structure and tissue stiffness may point to new drug targets.",
       "potentialInterventions": [
-        "collagen cross-linking target research",
-        "extracellular-matrix drug research"
+        "LOXL2 inhibitors"
       ],
       "accessRoute": "Search formal research programs with a specialist. A target name is not a medicine a person can obtain.",
       "whyNotEstablished": "This report does not show that changing tissue stiffness improves IPF outcomes.",
@@ -1105,8 +1097,8 @@
       "category": "Regenerative research platform",
       "whyItCouldConnect": "Cell and extracellular-vesicle research is sometimes discussed for lung repair. The key question is whether a controlled academic study exists.",
       "potentialInterventions": [
-        "formal stem-cell studies",
-        "extracellular-vesicle or exosome research"
+        "academic mesenchymal stromal cells",
+        "academic exosome products"
       ],
       "accessRoute": "Only investigate legitimate academic studies with clear oversight. Private-pay clinics are not an evidence-based access route.",
       "whyNotEstablished": "The linked review did not show proven IPF benefit from cell products.",
@@ -1122,8 +1114,7 @@
       "category": "Repurposing research strategy",
       "whyItCouldConnect": "Existing medicines are often tested for new uses. A careful screen can help separate promising human studies from lab-only ideas.",
       "potentialInterventions": [
-        "formal prescription-drug repurposing studies",
-        "human IPF outcome studies"
+        "approved-drug library candidates"
       ],
       "accessRoute": "Discuss a named study with a clinician or use an academic trial. Do not self-medicate or seek a compounded version.",
       "whyNotEstablished": "A medicine approved for another condition is not automatically useful or safe for IPF.",
