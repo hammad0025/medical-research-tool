@@ -181,6 +181,23 @@
   ],
   "items": [
     {
+      "id": "ipf-fda-condition-overview",
+      "category": "condition-overview",
+      "tier": "A+",
+      "title": "FDA overview: Idiopathic pulmonary fibrosis",
+      "authors": "U.S. Food and Drug Administration",
+      "journal": "U.S. Food and Drug Administration",
+      "year": 2025,
+      "url": "https://www.fda.gov/drugs/news-events-human-drugs/fda-approves-drug-treat-idiopathic-pulmonary-fibrosis",
+      "accessLevel": "full-text",
+      "summary": "FDA describes idiopathic pulmonary fibrosis as a rare, serious lung disease that causes scarring around the air sacs in the lungs. The scarring can make breathing harder and the condition can worsen at different speeds.",
+      "conditionOverview": {
+        "whatItIs": "Idiopathic pulmonary fibrosis is a serious lung disease that causes scarring in the lungs. The scarring can make breathing harder over time.",
+        "whatToWatch": "Shortness of breath, a dry cough, tiredness, and changes in activity can matter. IPF can worsen slowly or more quickly.",
+        "researchPath": "Breathing tests, scan results, oxygen needs, current medicine, and disease stage can change which treatments, support, and trials are worth discussing."
+      }
+    },
+    {
       "id": "ipf-ats-ers-2022",
       "category": "clinical-guideline",
       "tier": "A+",
@@ -398,8 +415,9 @@
       "title": "ESBRIET (pirfenidone) — US FDA Prescribing Information",
       "authors": "Genentech / Roche",
       "journal": "US FDA",
+      "treatmentName": "Pirfenidone (Esbriet)",
       "year": 2023,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=2e8c3537-36d7-4de5-9b5c-7a624b9a9e6e",
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2023/208780s007%2C022535s016lbl.pdf",
       "accessLevel": "full-text",
       "summary": "Current FDA-approved label for pirfenidone (Esbriet). Indication: treatment of idiopathic pulmonary fibrosis. Target dose: 2403 mg/day (three 267 mg capsules three times daily with food) reached by three-week titration. Key warnings: hepatic function elevations (check LFTs monthly x6 then q3mo), photosensitivity/rash, GI (nausea, dyspepsia, diarrhea). Interaction: strong CYP1A2 inhibitors (fluvoxamine, enoxacin) are contraindicated; CYP1A2 inducers (smoking) reduce exposure.",
       "keyPassages": [
@@ -424,8 +442,9 @@
       "title": "OFEV (nintedanib) — US FDA Prescribing Information",
       "authors": "Boehringer Ingelheim",
       "journal": "US FDA",
-      "year": 2022,
-      "url": "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid=da1c9f37-779e-4682-816f-93d0faa4cfc9",
+      "treatmentName": "Nintedanib (Ofev)",
+      "year": 2024,
+      "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/205832s028lbl.pdf",
       "accessLevel": "full-text",
       "summary": "Current FDA-approved label for nintedanib (Ofev). Indications: IPF, chronic fibrosing ILD with progressive phenotype (post-INBUILD), and systemic sclerosis-associated ILD. Dose: 150 mg BID with food. Key warnings: hepatotoxicity (LFTs baseline, monthly x3, q3mo; DILI reported), GI (diarrhea in ~62%, nausea, vomiting, abdominal pain), arterial thromboembolic events, bleeding risk (antiplatelet/anticoagulant interaction), GI perforation, embryo-fetal toxicity. P-gp substrate — rifampin reduces exposure, ketoconazole increases it.",
       "keyPassages": [
@@ -622,6 +641,7 @@
       "title": "JASCAYD (nerandomilast) — US FDA Prescribing Information",
       "authors": "Boehringer Ingelheim",
       "journal": "US FDA",
+      "treatmentName": "Nerandomilast (Jascayd)",
       "year": 2026,
       "url": "https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/218764s001lbl.pdf",
       "accessLevel": "full-text",
