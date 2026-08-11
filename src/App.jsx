@@ -664,7 +664,34 @@ const plainLifestyleFallbackSummary = (title) => ({
 
 const usableLifestyleIdea = (item) => item?.title && item?.summary && item?.caution
 
+// Keep profile-aware cards narrow: they appear only when both the entered
+// details and the exact supporting condition sources are present.
+const profileAwareLifestyleIdeas = (result, condition) => {
+  const conditionText = String(condition || result?.patient?.condition || '').toLowerCase()
+  const symptoms = String(result?.patient?.symptoms || '').toLowerCase()
+  const stage = String(result?.patient?.stage || '').trim()
+  const availableSourceIds = new Set((result?.sources || []).map((source) => source?.id).filter(Boolean))
+  const isRetinitisPigmentosa = /\b(?:retinitis pigmentosa|rp|inherited retinal)\b/i.test(conditionText)
+  const hasNightVisionConcern = /\b(?:night blindness|night vision|nyctalopia|dim light|low light)\b/i.test(symptoms)
+
+  if (!isRetinitisPigmentosa || !hasNightVisionConcern) return []
+
+  const sourceIds = ['rp-nei-condition-overview', 'rp-nei-low-vision']
+    .filter((sourceId) => availableSourceIds.has(sourceId))
+  if (sourceIds.length < 2) return []
+
+  return [{
+    title: 'Night-time travel and driving safety',
+    summary: 'Night blindness can make it harder to see in dim light. Ask an eye-care or low-vision team whether night driving is safe for this person and what travel supports or alternatives fit.',
+    providerQuestion: 'Is night driving safe for me, and should I see a low-vision specialist?',
+    caution: 'Do not use this report to decide whether to drive. Follow local vision rules and an eye-care professional\'s assessment.',
+    sourceIds,
+    profileContext: ['symptom: night blindness', stage ? `stage: ${stage}` : ''].filter(Boolean),
+  }]
+}
+
 const lifestyleIdeasForReport = (result, _condition) => {
+  const profileIdeas = profileAwareLifestyleIdeas(result, _condition)
   const curatedIdeas = (Array.isArray(result?.curatedLifestyleIdeas) ? result.curatedLifestyleIdeas : [])
     .filter(usableLifestyleIdea)
   const reviewedIdeas = (Array.isArray(result?.review?.lifestyle) ? result.review.lifestyle : [])
@@ -689,7 +716,7 @@ const lifestyleIdeasForReport = (result, _condition) => {
 
   const primaryIdeas = []
   const seenTitles = new Set()
-  for (const idea of [...curatedIdeas, ...reviewedIdeas, ...sourceFallbackIdeas]) {
+  for (const idea of [...profileIdeas, ...curatedIdeas, ...reviewedIdeas, ...sourceFallbackIdeas]) {
     const key = String(idea?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
     if (!key || seenTitles.has(key)) continue
     seenTitles.add(key)
@@ -1814,7 +1841,7 @@ function LifestyleResearch({ result }) {
           const citations = claimCitations(result, item, condition)
           return (
             <article className="lifestyle-card" key={item.id || item.title}>
-              <p className="card-kicker">Source-linked discussion point</p>
+              <p className="card-kicker">{item.profileContext?.length ? `Matched to your profile: ${item.profileContext.join(' · ')}` : 'Source-linked discussion point'}</p>
               <h3>{item.title}</h3>
               <CitedParagraph citations={citations}>{item.summary}</CitedParagraph>
               {item.providerQuestion ? <div className="lifestyle-question"><strong>Ask your healthcare provider</strong><span>{item.providerQuestion}</span></div> : null}
