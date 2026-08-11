@@ -370,6 +370,27 @@ const toCuratedDiscussionLead = (item) => {
   }
 }
 
+const toCuratedLifestyleIdea = (item) => {
+  if (!isRecord(item)) return null
+  const title = cleanText(item.title, 140)
+  const summary = cleanText(item.summary, 480)
+  const caution = cleanText(item.caution, 440)
+  const sourceIds = (Array.isArray(item.sourceIds) ? item.sourceIds : [])
+    .map((id) => cleanText(id, 100))
+    .filter(Boolean)
+    .slice(0, 4)
+  if (!title || !summary || !caution || !sourceIds.length) return null
+
+  return {
+    title,
+    summary,
+    providerQuestion: simpleDoctorQuestion(item.providerQuestion || 'What should I ask about this?'),
+    caution,
+    sourceIds,
+    kind: 'curated-lifestyle',
+  }
+}
+
 const toCuratedTheoryIdea = (item) => {
   if (!isRecord(item)) return null
   const title = cleanText(item.title, 140)
@@ -4209,6 +4230,7 @@ const ipfEvidenceBundle = async (condition, env) => {
     sourceLabel: 'Curated IPF and current research sources',
     sources: dedupeEvidenceSources([curatedSources, liveEvidence.sources], 24),
     curatedDiscussionLeads: (reference.discussionLeads || []).map(toCuratedDiscussionLead).filter(Boolean),
+    curatedLifestyleIdeas: (reference.lifestyleCards || []).map(toCuratedLifestyleIdea).filter(Boolean),
     curatedTheoryIdeas: (reference.theoryLeads || []).map(toCuratedTheoryIdea).filter(Boolean),
     excludedTreatments: (reference.excludedAgents || []).map(toExcludedTreatment).filter(Boolean),
     centers: (reference.topCenters || []).slice(0, 6).map((center) => ({
@@ -4274,6 +4296,7 @@ const retrievedEvidenceBundle = async (condition, env) => {
     sourceLabel: 'Current research sources',
     sources: dedupeEvidenceSources([foundationSources, recentResearchSources, liveEvidence.sources], 18),
     curatedDiscussionLeads: foundationDiscussionLeads.map(toCuratedDiscussionLead).filter(Boolean),
+    curatedLifestyleIdeas: [],
     curatedTheoryIdeas: [],
     excludedTreatments: foundationExcludedTreatments.map(toExcludedTreatment).filter(Boolean),
     centers: [],
@@ -4292,6 +4315,7 @@ const createPacket = ({ patient, bundle, trials, sites, researchers }) => ({
   researchers: bundle.researchers?.length ? bundle.researchers : researchers,
   trials,
   curatedDiscussionLeads: Array.isArray(bundle.curatedDiscussionLeads) ? bundle.curatedDiscussionLeads : [],
+  curatedLifestyleIdeas: Array.isArray(bundle.curatedLifestyleIdeas) ? bundle.curatedLifestyleIdeas : [],
   curatedTheoryIdeas: Array.isArray(bundle.curatedTheoryIdeas) ? bundle.curatedTheoryIdeas : [],
   excludedTreatments: Array.isArray(bundle.excludedTreatments) ? bundle.excludedTreatments : [],
 })
@@ -4467,6 +4491,7 @@ const runResearch = async (body, env) => {
     centers: packet.centers,
     researchers: packet.researchers,
     curatedDiscussionLeads: packet.curatedDiscussionLeads,
+    curatedLifestyleIdeas: packet.curatedLifestyleIdeas,
     curatedTheoryIdeas: packet.curatedTheoryIdeas,
     excludedTreatments: packet.excludedTreatments,
     centerMode: enrichedBundle.centers.length ? 'curated-centers' : 'active-research-sites',
