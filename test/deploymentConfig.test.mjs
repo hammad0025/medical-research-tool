@@ -18,7 +18,7 @@ test('Vercel uses the release gate and bundles the server-side IPF reference', a
   const routeContents = await Promise.all(apiRoutes.map((route) => readFile(new URL(route, import.meta.url), 'utf8')))
 
   assert.equal(config.buildCommand, 'npm run build')
-  assert.equal(apiFunction?.maxDuration, 300)
+  assert.equal(apiFunction?.maxDuration, 360)
   assert.equal(apiFunction?.includeFiles, 'ipf-reference.json')
   assert.match(headerValues['Content-Security-Policy'] || '', /frame-ancestors 'none'/)
   assert.match(headerValues['Content-Security-Policy'] || '', /connect-src 'self'/)
