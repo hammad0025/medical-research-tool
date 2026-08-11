@@ -8,7 +8,7 @@ import {
 import { findDirectIdentifier, findProfilePrivacyIssue, privacyIssueMessage } from './lib/privacy.js'
 import { createPdfDocument, createWordDocument, downloadExport, reportFilename } from './lib/reportExports.js'
 import { extractResearchIntake, getResearchHealth, getSiteAccessStatus, loginSiteAccess, logoutSiteAccess, runResearchReview } from './lib/researchApi.js'
-import { citationText, citationsFor, citationsForClaim, sourceLabel, verificationLinks } from './lib/sourceLinks.js'
+import { citationText, citationsFor, citationsForClaim, citationsForItem, sourceLabel, verificationLinks } from './lib/sourceLinks.js'
 import { buildLifestyleFallbackTopics } from './lib/lifestyleFallback.js'
 
 const conditions = [
@@ -106,11 +106,10 @@ const displayConditionName = (condition) => {
 }
 
 const claimCitations = (result, item, condition, { verifyWhenEmpty = false } = {}) => {
-  const trialCitations = Array.isArray(item?.trials) ? item.trials.filter((trial) => trial?.url) : []
-  if (trialCitations.length) return trialCitations
-  return citationsForClaim({
+  return citationsForItem({
     result,
     sourceIds: item?.sourceIds,
+    trials: item?.trials,
     condition,
     searchTerms: searchTermsFor(result),
     verifyWhenEmpty,
@@ -2283,7 +2282,7 @@ function LegacyApp() {
               <span><Icon name="search" size={15} /> Scout {health.status === 'checking' ? 'checking' : health.scoutConfigured ? 'connected' : 'optional'}</span>
             </div>
             {runState.error ? <div className="run-error"><Icon name="alert" size={17} /><p>{runState.error}</p></div> : null}
-            {runState.status === 'held' ? <div className="run-held"><Icon name="shield" size={17} /><p>{runState.result?.message || 'This run is held by the source-pack rule.'}</p></div> : null}
+            {runState.status === 'held' ? <div className="run-held"><Icon name="shield" size={17} /><p>{runState.result?.message || 'This report needs working source links before it can be shown.'}</p></div> : null}
           </aside>
         </section>
 
@@ -2291,23 +2290,23 @@ function LegacyApp() {
           <section className="report-shell">
             <div className="report-masthead">
               <div>
-                <p className="eyebrow">Verified IPF brief</p>
+                <p className="eyebrow">IPF research report</p>
                 <h2>{report.title}</h2>
                 <p>{report.core.summary}</p>
               </div>
               <div className="report-actions">
-                <div className="evidence-score"><span>Trust floor</span><strong>Source-linked</strong><small>{report.metadata.lastUpdated} review set</small></div>
+                <div className="evidence-score"><span>Report sources</span><strong>Source-linked</strong><small>References updated {report.metadata.lastUpdated}</small></div>
                 <button className="secondary-button" type="button" onClick={copyBrief}><Icon name="copy" size={16} /> {copied ? 'Copied' : 'Copy core brief'}</button>
               </div>
             </div>
 
             <div className="summary-bar">
               {summaryPills.map((pill) => <span key={pill}>{pill}</span>)}
-              <span><Icon name="shield" size={14} /> Missing data is flagged, not inferred</span>
+              <span><Icon name="shield" size={14} /> Details not entered are not guessed</span>
             </div>
 
             <section className="verified-core section-surface">
-              <SectionHeader eyebrow="Evidence floor" title="What is already well-supported" action={<StatusPill tone="safe"><Icon name="shield" size={13} /> Verified lane</StatusPill>} />
+              <SectionHeader eyebrow="Source-linked overview" title="What the linked sources support" action={<StatusPill tone="safe"><Icon name="shield" size={13} /> Sources checked</StatusPill>} />
               <div className="core-grid">
                 {report.core.keyPoints.map((item) => <article className="core-item" key={item.title}><span className="core-index">0{report.core.keyPoints.indexOf(item) + 1}</span><h3>{item.title}</h3><p>{item.body}</p></article>)}
               </div>
@@ -2315,15 +2314,15 @@ function LegacyApp() {
             </section>
 
             <section className="section-surface">
-              <SectionHeader eyebrow="Evidence-backed options" title="The trusted treatment and support lane" action={<p className="section-note">Cards include context and cautions, not prescribing.</p>} />
+              <SectionHeader eyebrow="Options found in research" title="Treatment and support options" action={<p className="section-note">Cards include context and cautions, not prescribing.</p>} />
               <div className="evidence-grid">
                 {report.verifiedOptions.map((item) => <EvidenceCard item={item} key={item.name} />)}
               </div>
             </section>
 
             <section className="exploratory-section section-surface">
-              <SectionHeader eyebrow="Research workbench" title="Good questions are not the same as good treatments" action={<StatusPill tone="experimental"><Icon name="spark" size={13} /> Explicitly exploratory</StatusPill>} />
-              <p className="section-intro">The workbench is where a care team can explore mechanisms, trial-fit questions, and things to monitor. Nothing here gets promoted into the trusted lane without direct evidence.</p>
+              <SectionHeader eyebrow="Research ideas" title="Ideas that still need proof" action={<StatusPill tone="experimental"><Icon name="spark" size={13} /> Needs more research</StatusPill>} />
+              <p className="section-intro">These cards make careful connections between research pathways and questions to investigate. They are not treatment recommendations and need direct studies in this condition.</p>
               <div className="idea-grid">
                 {report.brainstorm.map((idea) => (
                   <article className="idea-card" key={idea.title}>
@@ -2364,9 +2363,9 @@ function LegacyApp() {
             ) : null}
 
             <section className="audit-section section-surface">
-              <SectionHeader eyebrow="Evidence audit" title="The source ledger Dorothy can inspect" action={<span className="audit-count">{runState.result?.sources?.length || 13} pinned references</span>} />
+              <SectionHeader eyebrow="Sources & links" title="Original research sources" action={<span className="audit-count">{runState.result?.sources?.length || 13} source links</span>} />
               <div className="audit-grid">
-                {(runState.result?.sources || []).length ? runState.result.sources.map((source) => <a className="audit-source" href={source.url} target="_blank" rel="noreferrer" key={source.id}><span>{source.type}</span><h3>{source.title}</h3><p>{source.summary}</p><small>{source.id} · {source.year || 'Date not listed'} <Icon name="external" size={12} /></small></a>) : report.core.citations.map((citation) => <a className="audit-source" href={citation.url} target="_blank" rel="noreferrer" key={citation.url}><span>pinned reference</span><h3>{citation.label}</h3><p>Source linked to the verified IPF evidence floor.</p><small><Icon name="external" size={12} /> Open source</small></a>)}
+                {(runState.result?.sources || []).length ? runState.result.sources.map((source) => <a className="audit-source" href={source.url} target="_blank" rel="noreferrer" key={source.id}><span>{source.type}</span><h3>{source.title}</h3><p>{source.summary}</p><small>{source.id} · {source.year || 'Date not listed'} <Icon name="external" size={12} /></small></a>) : report.core.citations.map((citation) => <a className="audit-source" href={citation.url} target="_blank" rel="noreferrer" key={citation.url}><span>condition reference</span><h3>{citation.label}</h3><p>This original IPF source is linked in the report.</p><small><Icon name="external" size={12} /> Open source</small></a>)}
               </div>
             </section>
 
