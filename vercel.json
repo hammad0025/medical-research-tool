@@ -4,7 +4,7 @@
   "buildCommand": "npm run build",
   "functions": {
     "api/**": {
-      "maxDuration": 300,
+      "maxDuration": 360,
       "includeFiles": "ipf-reference.json"
     }
   },
