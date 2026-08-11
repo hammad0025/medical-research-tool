@@ -58,6 +58,20 @@ const titleFallbackPubMedXml = `
   </MedlineCitation>
 </PubmedArticle>`
 
+const nonConditionComparisonPubMedXml = `
+<PubmedArticle>
+  <MedlineCitation>
+    <PMID>1003</PMID>
+    <Article>
+      <Journal><Title>Test Rare Disease Journal</Title></Journal>
+      <ArticleTitle>Pharmacokinetic evaluation of single-dose migalastat in non-Fabry disease subjects with ESRD receiving dialysis treatment, and use of modeling to select dose regimens in Fabry disease subjects with ESRD receiving dialysis treatment.</ArticleTitle>
+      <Abstract><AbstractText>This record compares a non-Fabry dialysis population with a modeling question for Fabry disease.</AbstractText></Abstract>
+      <PublicationTypeList><PublicationType>Clinical Trial</PublicationType></PublicationTypeList>
+      <JournalIssue><PubDate><Year>2025</Year></PubDate></JournalIssue>
+    </Article>
+  </MedlineCitation>
+</PubmedArticle>`
+
 const trial = {
   protocolSection: {
     identificationModule: {
@@ -248,7 +262,7 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       }
       if (url.includes('/efetch.fcgi')) {
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
-        return textResponse(titleFallback ? titleFallbackPubMedXml : pubMedXml)
+        return textResponse(titleFallback ? `${titleFallbackPubMedXml}${nonConditionComparisonPubMedXml}` : pubMedXml)
       }
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
@@ -476,6 +490,7 @@ test('a condition-titled treatment source survives an unavailable AI relation ch
   assert.ok(titleFallbackSource.candidateLeads.some((candidate) => candidate.name === 'enzyme replacement therapy'))
   assert.ok(titleFallbackSource.candidateLeads.every((candidate) => candidate.roleVerified && candidate.sourceTitleDerived))
   assert.ok(!response.body.sources.some((source) => source.candidateLeads?.some((candidate) => /mineralocorticoid/i.test(candidate.name))))
+  assert.ok(!response.body.sources.some((source) => source.candidateLeads?.some((candidate) => /single-dose migalastat/i.test(candidate.name))))
 })
 
 test('a source-backed run keeps a source-linked overview when a report lane is empty', { concurrency: false }, async () => {

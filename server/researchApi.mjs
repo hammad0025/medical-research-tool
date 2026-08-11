@@ -1805,8 +1805,19 @@ const titleCandidateIsUseful = (candidate, condition) => {
 const titleHasCloseConditionReference = (text, condition) => {
   const normalized = normalizedEvidenceText(text)
   return conditionEvidenceTerms(condition).some((term) => {
-    const index = normalized.indexOf(term)
-    return index >= 0 && index <= 35
+    let searchFrom = 0
+    while (searchFrom < normalized.length) {
+      const index = normalized.indexOf(term, searchFrom)
+      if (index < 0) return false
+      const prefix = normalized.slice(Math.max(0, index - 16), index)
+      // "non-Fabry" and similar phrases describe a comparison population,
+      // not the requested condition. They must not turn a background mention
+      // into a treatment card for this report.
+      const negatedCondition = /\b(?:non|not|without|unrelated)\s*$/.test(prefix)
+      if (!negatedCondition && index <= 35) return true
+      searchFrom = index + term.length
+    }
+    return false
   })
 }
 
@@ -2627,6 +2638,24 @@ const overviewSentenceFromSource = (source, condition) => {
     || ''
 }
 
+const plainOverviewSentenceFromSource = (source, condition) => {
+  const sentence = overviewSentenceFromSource(source, condition)
+  const conditionLabel = cleanText(condition, 120) || 'This condition'
+  const inherited = /\b(?:inherited|genetic|x[- ]linked|gene)\b/i.test(sentence)
+  const rare = /\brare\b/i.test(sentence)
+  const multiSystem = /\b(?:multiple|several|many)\s+(?:organ|body)\s+systems?\b|\bacross\s+(?:multiple|several|many)\s+organs?\b|\bmultisystem\b/i.test(sentence)
+
+  // A record can describe a condition accurately in specialist language. This
+  // is a faithful, shorter paraphrase of only the broad facts stated there.
+  if (rare && inherited && multiSystem) {
+    return `${conditionLabel} is a rare inherited condition that can affect more than one part of the body over time.`
+  }
+  if (rare && inherited) return `${conditionLabel} is a rare inherited condition.`
+  if (inherited && multiSystem) return `${conditionLabel} is an inherited condition that can affect more than one part of the body.`
+  if (multiSystem) return `${conditionLabel} can affect more than one part of the body.`
+  return sentence
+}
+
 // The source search can succeed even when a model response is withheld. In that
 // case, keep the reader in a real report rather than dropping into a generic
 // AI map. These sentences only describe the records already in the packet.
@@ -2673,7 +2702,7 @@ const sourceBackedReportFallback = (packet) => {
       }
       : fallbackSource
         ? {
-          text: `${overviewSentenceFromSource(fallbackSource, condition)} The linked sections below separate established options from early research and current studies.`,
+          text: `${plainOverviewSentenceFromSource(fallbackSource, condition)} The linked sections below separate established options from early research and current studies.`,
           sourceIds: [fallbackSource.id],
           reason: 'Built from the strongest available source record because the AI briefing was unavailable or withheld.',
         }
