@@ -616,6 +616,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.ok(response.body.sources.length >= 3)
   assert.ok(response.body.sources.some((source) => source.id === 'rp-nei-condition-overview'))
   assert.ok(response.body.sources.some((source) => source.id === 'rp-nei-vision-rehabilitation'))
+  assert.ok(response.body.sources.some((source) => source.id === 'rp-nei-low-vision'))
   assert.ok(response.body.sources.some((source) => source.id === 'rp-fda-luxturna-rpe65'))
   assert.ok(response.body.sources.some((source) => source.id === 'rp-lycium-barbarum-rct-2019'))
   assert.deepEqual(
