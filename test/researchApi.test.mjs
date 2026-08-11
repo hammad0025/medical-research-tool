@@ -54,9 +54,9 @@ const medlinePlusParkinsonXml = `
 <nlmSearchResult>
   <list>
     <document url="https://medlineplus.gov/parkinsonsdisease.html" rank="0">
-      <content name="title">Parkinson's Disease</content>
+      <content name="title">&lt;span class="qt0"&gt;Parkinson's Disease&lt;/span&gt;</content>
       <content name="organizationName">National Library of Medicine</content>
-      <content name="FullSummary"><![CDATA[Parkinson's disease is a movement disorder that affects the nervous system. Symptoms often begin gradually and can include tremor, stiffness, slow movement, and balance problems. Diagnosis uses a person's history, symptoms, and a neurological exam.]]></content>
+      <content name="FullSummary">&lt;p&gt;Parkinson's disease is a movement disorder that affects the nervous system.&lt;/p&gt;&lt;p&gt;Symptoms often begin gradually and can include tremor, stiffness, slow movement, and balance problems. Diagnosis uses a person's history, symptoms, and a neurological exam.&lt;/p&gt;</content>
     </document>
   </list>
 </nlmSearchResult>`
@@ -592,6 +592,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.review.hypotheses.length, 1)
   assert.equal(response.body.review.theoryIdeas.length, 10)
   assert.ok(response.body.review.theoryIdeas.some((idea) => idea.title === 'Vitamin D signaling and retinal cell stress'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.providerQuestion))
   assert.ok(response.body.review.theoryIdeas.every((idea) => !/\bhigh[-\s]?dose\b/i.test(`${idea.title} ${idea.whyItCouldConnect} ${idea.caution}`)))
   assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
@@ -615,9 +616,13 @@ test('an any-condition report uses MedlinePlus for the disease overview', { conc
   const overview = response.body.sources.find((source) => source.origin === 'MedlinePlus')
   assert.ok(overview)
   assert.equal(overview.title, "Parkinson's Disease")
+  assert.doesNotMatch(`${overview.title} ${overview.summary}`, /<[^>]+>/)
   assert.match(overview.conditionOverview.whatItIs, /movement disorder/i)
   assert.match(overview.conditionOverview.whatToWatch, /tremor|stiffness/i)
   assert.ok(response.body.sourceCoverage.some((lane) => lane.id === 'medlineplus' && lane.status === 'ready'))
+  assert.equal(response.body.review.theoryIdeas.length, 10)
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.verificationQuery))
 })
 
 test('a direct condition-matched CAR-T or cell study stays in the live trial list', { concurrency: false }, async () => {

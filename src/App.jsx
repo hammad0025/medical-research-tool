@@ -2098,7 +2098,7 @@ const reportExportText = ({ form, report, result }) => {
   const theoryIdeas = theoryIdeasForReport(result)
   const theoryLines = theoryIdeas
     .map((idea) => citedLine(
-      `- ${idea.title}: Why this is a question: ${idea.whyItCouldConnect} Named item to discuss: ${theoryPotentialInterventions(idea).join('; ')} Not established: ${idea.whyNotEstablished} Ask your healthcare provider: ${idea.providerQuestion || 'What should I ask about this?'} Boundary: ${idea.caution}`,
+      `- ${idea.title}: Why this is a research question: ${idea.whyItCouldConnect} Named item to investigate: ${theoryPotentialInterventions(idea).join('; ')} Not established: ${idea.whyNotEstablished} Search to check next: ${idea.verificationQuery || 'Run a condition-specific literature search.'} Ask your healthcare provider: ${idea.providerQuestion || 'What should I ask about this?'} Boundary: ${idea.caution}`,
       claimCitations(result, idea, condition),
     ))
     .join('\n')
