@@ -1006,6 +1006,16 @@ const conditionFoundationSources = (condition) => {
       aiEligible: true,
     },
     {
+      id: 'rp-nei-low-vision',
+      title: 'Low Vision',
+      url: 'https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/low-vision',
+      type: 'NIH daily-life support guidance',
+      year: '2025',
+      origin: 'National Eye Institute',
+      summary: 'The National Eye Institute says low vision can make daily tasks such as reading and driving harder. It advises asking an eye doctor about vision rehabilitation when vision loss gets in the way of daily activities.',
+      aiEligible: true,
+    },
+    {
       id: 'rp-fda-luxturna-rpe65',
       title: 'FDA approval: LUXTURNA (voretigene neparvovec-rzyl)',
       url: 'https://www.fda.gov/vaccines-blood-biologics/cellular-gene-therapy-products/luxturna',
