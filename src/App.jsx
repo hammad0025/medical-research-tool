@@ -617,7 +617,7 @@ const lifestyleSourceMatchers = [
   { title: 'Food and nutrition', pattern: /\b(?:diet|nutrition|nutritional|dietary)\b/i },
   { title: 'Sleep and daily routine', pattern: /\b(?:sleep|insomnia|circadian)\b/i },
   { title: 'Environmental exposures', pattern: /\b(?:environmental|occupational|air pollution|sun exposure|ultraviolet)\b/i },
-  { title: 'Daily-life support', pattern: /\b(?:quality of life|low vision|daily living|activities of daily living)\b/i },
+  { title: 'Daily-life support', pattern: /\b(?:low vision|daily living|activities of daily living)\b/i },
 ]
 
 const plainLifestyleFallbackSummary = (title) => ({
@@ -632,11 +632,14 @@ const plainLifestyleFallbackSummary = (title) => ({
 const usableLifestyleIdea = (item) => item?.title && item?.summary && item?.caution
 
 const lifestyleIdeasForReport = (result, _condition) => {
+  const curatedIdeas = (Array.isArray(result?.curatedLifestyleIdeas) ? result.curatedLifestyleIdeas : [])
+    .filter(usableLifestyleIdea)
   const reviewedIdeas = (Array.isArray(result?.review?.lifestyle) ? result.review.lifestyle : [])
     .filter(usableLifestyleIdea)
   const sourceFallbackIdeas = []
   const usedTopics = new Set()
   for (const source of result?.sources || []) {
+    if (/\b(?:negative|failed)\b/i.test(source?.type || '')) continue
     const sourceText = `${source?.title || ''} ${source?.summary || ''}`
     const match = lifestyleSourceMatchers.find((entry) => entry.pattern.test(sourceText))
     if (!match || usedTopics.has(match.title) || !source?.id) continue
@@ -651,7 +654,7 @@ const lifestyleIdeasForReport = (result, _condition) => {
     if (sourceFallbackIdeas.length === 5) break
   }
 
-  const primaryIdeas = reviewedIdeas.length ? reviewedIdeas : sourceFallbackIdeas
+  const primaryIdeas = curatedIdeas.length ? curatedIdeas : reviewedIdeas.length ? reviewedIdeas : sourceFallbackIdeas
   return primaryIdeas.slice(0, 5)
 }
 
