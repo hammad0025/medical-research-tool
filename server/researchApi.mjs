@@ -1667,9 +1667,50 @@ const isSpecificTrialIntervention = (value) => {
   const name = cleanInterventionName(value)
   return Boolean(name)
     && !/^(?:arm|group|cohort)\s*(?:\d+|[a-z])$|^(?:placebo|sham|no intervention|standard(?: care| treatment)?|usual(?: care| treatment)?|routine(?: care| treatment)?|supportive care|observation(?:al)?)(?:\b|:)/i.test(name)
+    && !/^(?:adjuvant|adjunctive|combination|maintenance|rescue|supportive|standard|usual|conventional|experimental|investigational)\s+(?:therapy|treatment|care)$/i.test(name)
+    && !/^(?:enhance|improve|optimize|evaluate|compare|measure|monitor)\b/i.test(name)
+    && !/\b(?:following|before|after)\s+(?:treatment|therapy|procedure|surgery|device|start|initiation)\b/i.test(name)
+    && !/^(?:[a-z0-9]+(?:[-\s][a-z0-9]+){0,3})\s+(?:inhibitor|agonist|antagonist|modulator|activator|blocker)$/i.test(name)
+    && !/^(?:blood dopamine|(?:blood|serum|plasma|urine|salivary|cerebrospinal fluid)\s+.+\b(?:level|levels|concentration|marker|biomarker|measurement))$/i.test(name)
     && !/\b(?:blood (?:test|draw|sample)|biomarker|imaging|scan|mri|pet|diagnostic|diagnosis|screening|assessment|questionnaire|survey|monitoring|registry|observation|electroretinograph|visual field|visual acuity|perimetr|ophthalmoscop|tomograph)\b/i.test(name)
     && !/\b(?:sutur(?:e|ing)|gas injection|tamponade|irrigation|incision|capsular tension ring)\b/i.test(name)
     && !/\b(?:clinical|sham)\s+(?:dbs\s+)?(?:setting|configuration|programming)\b|\bimmunosuppressive regimen\b|\bcustomized microinjection device\b/i.test(name)
+}
+
+const genericResearchSiteName = (value) => {
+  const name = cleanText(value, 220)
+  return !name
+    || /^(?:site|location|facility)(?:\s*#?\s*[a-z0-9-]+)?$/i.test(name)
+    || /^(?:clinical\s+)?(?:trial|study|research|investigative|investigator)\s+(?:site|center|centre)(?:\s*#?\s*[a-z0-9-]+)?$/i.test(name)
+    || /\b(?:investigative|investigator)\s+site$/i.test(name)
+}
+
+const institutionNameScore = (value) => {
+  const name = cleanText(value, 220)
+  let score = 0
+  if (/\b(?:university|college|hospital|medical center|medical centre|health system|healthcare|clinic|institute|foundation|nhs|trust)\b/i.test(name)) score += 4
+  if (/\b(?:neurolog|neuroscien|movement disorder|retina|ophthalm|pulmon|fibrosis|cancer|children|pediatric|research institute)\b/i.test(name)) score += 2
+  if (/\b(?:research|trials?|network|investigative)\b/i.test(name)) score -= 1
+  return score
+}
+
+const preferredTrialLocation = (locations, locationHint) => {
+  const hint = cleanText(locationHint, 100).toLowerCase()
+  const ranked = (Array.isArray(locations) ? locations : [])
+    .map((location, index) => ({
+      location,
+      index,
+      locationMatch: Boolean(hint && `${location.facility || ''} ${location.city || ''} ${location.state || ''} ${location.country || ''}`.toLowerCase().includes(hint)),
+      meaningful: !genericResearchSiteName(location.facility),
+      researchRegionPriority: isPrioritizedResearchRegion(location.country),
+      institutionScore: institutionNameScore(location.facility),
+    }))
+    .sort((left, right) => Number(right.locationMatch) - Number(left.locationMatch)
+      || Number(right.meaningful) - Number(left.meaningful)
+      || Number(right.researchRegionPriority) - Number(left.researchRegionPriority)
+      || right.institutionScore - left.institutionScore
+      || left.index - right.index)
+  return ranked[0]?.location
 }
 
 const therapeuticTrialInterventionTypes = new Set([
@@ -1733,13 +1774,7 @@ const formatTrial = (study, locationHint, condition, geneticVariant) => {
     ? 'Cell or exosome technology is investigational. A registry entry alone does not establish benefit, safety, or regulatory standing; review the exact protocol with a qualified specialty team.'
     : ''
   const locations = protocol.contactsLocationsModule?.locations || []
-  const hint = cleanText(locationHint, 100).toLowerCase()
-  const locationMatch = locations.find((entry) => {
-    const place = `${entry.city || ''} ${entry.state || ''} ${entry.country || ''}`.toLowerCase()
-    return hint && place.includes(hint)
-  })
-  const regionalMatch = locations.find((entry) => isPrioritizedResearchRegion(entry.country))
-  const preferred = locationMatch || regionalMatch || locations[0]
+  const preferred = preferredTrialLocation(locations, locationHint)
 
   return {
     id: cleanText(identification.nctId, 30),
@@ -1775,9 +1810,16 @@ const collectResearchSites = (studies, locationHint) => {
     locations.forEach((location) => {
       const name = cleanText(location.facility, 220)
       const city = [location.city, location.state, location.country].filter(Boolean).join(', ')
-      if (!name || !city) return
+      if (genericResearchSiteName(name) || !city) return
       const key = `${name}|${city}`.toLowerCase()
-      const current = bySite.get(key) || { name, city, trials: [], locationMatch: false, researchRegionPriority: false }
+      const current = bySite.get(key) || {
+        name,
+        city,
+        trials: [],
+        locationMatch: false,
+        researchRegionPriority: false,
+        institutionScore: institutionNameScore(name),
+      }
       current.trials.push({ id: nctId, title })
       current.locationMatch ||= Boolean(hint && `${name} ${city}`.toLowerCase().includes(hint))
       current.researchRegionPriority ||= isPrioritizedResearchRegion(location.country)
@@ -1792,11 +1834,14 @@ const collectResearchSites = (studies, locationHint) => {
       why: `Listed on a current research record for ${site.trials.slice(0, 2).map((trial) => trial.id).filter(Boolean).join(', ') || 'a condition-specific study'}.`,
       trials: site.trials.slice(0, 2),
       source: 'ClinicalTrials.gov live registry',
+      siteKind: site.institutionScore > 0 ? 'academic-or-clinical-center' : 'current-study-site',
       locationMatch: site.locationMatch,
       researchRegionPriority: site.researchRegionPriority,
+      institutionScore: site.institutionScore,
     }))
     .sort((a, b) => Number(b.locationMatch) - Number(a.locationMatch)
       || Number(b.researchRegionPriority) - Number(a.researchRegionPriority)
+      || b.institutionScore - a.institutionScore
       || b.trials.length - a.trials.length)
     .slice(0, 6)
 }

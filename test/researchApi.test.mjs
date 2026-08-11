@@ -24,7 +24,7 @@ const pubMedXml = `
       <Journal><Title>Test Retina Journal</Title></Journal>
       <ArticleTitle>AAV-RP therapy and vision rehabilitation</ArticleTitle>
       <Abstract>
-        <AbstractText>AAV-RP therapy is being researched for retinitis pigmentosa. Vision rehabilitation is also described for people living with retinitis pigmentosa. A person with a separate aHUS diagnosis was given cyclophosphamide.</AbstractText>
+        <AbstractText>AAV-RP therapy is being researched for retinitis pigmentosa. Vision rehabilitation is also described for people living with retinitis pigmentosa. Blood dopamine was measured, an Orai-1 inhibitor class was discussed, and adjuvant therapy was mentioned without a named intervention. A person with a separate aHUS diagnosis was given cyclophosphamide.</AbstractText>
       </Abstract>
       <PublicationTypeList><PublicationType>Randomized Controlled Trial</PublicationType></PublicationTypeList>
       <JournalIssue><PubDate><Year>2025</Year></PubDate></JournalIssue>
@@ -103,7 +103,11 @@ const trial = {
     descriptionModule: { briefSummary: 'A study of AAV-RP therapy for retinitis pigmentosa.' },
     armsInterventionsModule: { interventions: [{ name: 'Genetic: AAV-RP therapy', type: 'GENETIC' }] },
     contactsLocationsModule: {
-      locations: [{ facility: 'Test Retina Institute', city: 'Cleveland', state: 'Ohio', country: 'United States' }],
+      locations: [
+        { facility: 'Clinical Trial Site', city: 'New York', state: 'New York', country: 'United States' },
+        { facility: 'Novartis Investigative Site', city: 'Boston', state: 'Massachusetts', country: 'United States' },
+        { facility: 'Test Retina Institute', city: 'Cleveland', state: 'Ohio', country: 'United States' },
+      ],
       overallOfficials: [{ name: 'Taylor Researcher', affiliation: 'Test Retina Institute', role: 'Principal Investigator' }],
     },
   },
@@ -163,6 +167,24 @@ const writerDraft = {
     whyItMayMatter: 'It is a named gene treatment being studied in a current trial.',
     caution: 'It is experimental and is not a personal treatment recommendation.',
     sourceIds: ['NCT00000001'],
+  }, {
+    title: 'blood dopamine',
+    category: 'Biomarker mistaken for a treatment',
+    summary: 'A source measured blood dopamine during research.',
+    caution: 'A measurement is not a treatment.',
+    sourceIds: ['pmid-1001'],
+  }, {
+    title: 'adjuvant therapy',
+    category: 'Unnamed therapy class',
+    summary: 'A source used a broad therapy label without naming an intervention.',
+    caution: 'A broad label is not a treatment option.',
+    sourceIds: ['pmid-1001'],
+  }, {
+    title: 'Orai-1 inhibitor',
+    category: 'Unnamed drug class',
+    summary: 'A source discussed a target class without naming a drug.',
+    caution: 'A target class is not a named treatment.',
+    sourceIds: ['pmid-1001'],
   }],
   lifestyle: [{
     title: 'Vision rehabilitation',
@@ -208,7 +230,7 @@ const reviewerDraft = {
     sourceIds: ['pmid-1001'],
   },
   questions: [{ index: 0, decision: 'approve', text: writerDraft.researchQuestions[0].text, reason: 'Safe question.', sourceIds: ['NCT00000001'] }],
-  treatmentIdeas: [{ index: 0, decision: 'approve', item: writerDraft.treatmentIdeas[0], reason: 'Named trial intervention.' }],
+  treatmentIdeas: writerDraft.treatmentIdeas.map((item, index) => ({ index, decision: 'approve', item, reason: 'Test reviewer response.' })),
   lifestyle: [{ index: 0, decision: 'approve', item: writerDraft.lifestyle[0], reason: 'Source-linked daily-life topic.' }],
   safety: [{ index: 0, decision: 'approve', item: writerDraft.safety[0], reason: 'Source-linked caution.' }],
   hypotheses: [{ index: 0, decision: 'approve', item: writerDraft.hypotheses[0], reason: 'Clearly exploratory.' }],
@@ -266,6 +288,9 @@ const packetCandidateDraft = {
     { name: 'AAV-RP therapy', category: 'gene or cell program', sourceIds: ['NCT00000001'] },
     { name: 'Cyclophosphamide', category: 'medicine', sourceIds: ['pmid-1001'] },
     { name: 'Made-up treatment', category: 'medicine', sourceIds: ['pmid-1001'] },
+    { name: 'blood dopamine', category: 'medicine', sourceIds: ['pmid-1001'] },
+    { name: 'adjuvant therapy', category: 'medicine', sourceIds: ['pmid-1001'] },
+    { name: 'Orai-1 inhibitor', category: 'medicine', sourceIds: ['pmid-1001'] },
   ],
 }
 
@@ -526,7 +551,11 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.deepEqual(response.body.trials.map((item) => item.id), ['NCT00000001'])
   assert.ok(!response.body.trials.some((item) => /NAION|umbilical cord/i.test(item.title)))
   assert.equal(response.body.centers.length, 1)
+  assert.equal(response.body.centers[0].name, 'Test Retina Institute')
+  assert.equal(response.body.centers[0].siteKind, 'academic-or-clinical-center')
+  assert.equal(response.body.trials[0].siteName, 'Test Retina Institute')
   assert.equal(response.body.review.treatmentIdeas.length, 1)
+  assert.ok(!response.body.review.treatmentIdeas.some((idea) => /blood dopamine|adjuvant therapy|Orai-1 inhibitor/i.test(idea.title)))
   assert.equal(response.body.review.lifestyle.length, 1)
   assert.equal(response.body.review.safety.length, 1)
   assert.equal(response.body.review.hypotheses.length, 1)

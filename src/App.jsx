@@ -1154,6 +1154,7 @@ function CenterCard({ center, result }) {
       <div>
         <h3>{center.name}</h3>
         <p className="center-location">{center.city}</p>
+        {center.siteKind ? <span className="center-priority">{center.siteKind === 'academic-or-clinical-center' ? 'Academic or clinical study site' : 'Current study site'}</span> : null}
         {center.researchRegionPriority ? <span className="center-priority">U.S. / Europe site preference</span> : null}
         <CitedParagraph citations={citations}>{center.why}</CitedParagraph>
         {officialSource ? <CitationActions citations={[officialSource]} label="Open official center page" /> : null}
@@ -1167,14 +1168,15 @@ function CareLocations({ condition, result, hasAiStartingMap }) {
   const centers = Array.isArray(result?.centers) ? result.centers : []
   const centerMode = result?.centerMode === 'active-research-sites'
   const clinicalTrialsSearchUrl = `https://clinicaltrials.gov/search?cond=${encodeURIComponent(condition || '')}`
+  const sectionTitle = centerMode ? 'Research institutions and current study sites' : 'Specialty centers and study sites'
   return (
     <section id="centers-experts" className="section-surface centers-surface care-locations">
       <SectionHeader
         eyebrow="2. Centers and study sites"
-        title="Specialty centers and study sites"
+        title={sectionTitle}
         action={<StatusPill tone={centers.length ? 'safe' : 'neutral'}>{centers.length ? `${centers.length} place${centers.length === 1 ? '' : 's'}` : 'Study sites'}</StatusPill>}
       />
-      <p className="section-intro">Start with source-linked specialty centers and study sites. These are places to investigate, not a quality ranking or a promise that a person can join a study.</p>
+      <p className="section-intro">{centerMode ? 'These institutions and locations are named in current condition-specific study records. They are not a ranking, a specialist endorsement, or a promise that a person can join.' : 'Start with source-linked specialty centers and study sites. These are places to investigate, not a quality ranking or a promise that a person can join a study.'}</p>
       {centers.length ? (
         <div className="center-list">{centers.map((center, index) => <CenterCard key={`${center.name}-${center.city}`} center={{ ...center, index: String(index + 1).padStart(2, '0') }} result={result} />)}</div>
       ) : (
