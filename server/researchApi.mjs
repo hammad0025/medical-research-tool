@@ -13,6 +13,7 @@ const CROSSREF_WORKS_URL = 'https://api.crossref.org/works'
 const SEMANTIC_SCHOLAR_SEARCH_URL = 'https://api.semanticscholar.org/graph/v1/paper/search'
 const NIH_REPORTER_PROJECTS_URL = 'https://api.reporter.nih.gov/v2/projects/search'
 const PERPLEXITY_SEARCH_URL = 'https://api.perplexity.ai/search'
+const MEDLINEPLUS_SEARCH_URL = 'https://wsearch.nlm.nih.gov/ws/query'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
 const MAX_BODY_BYTES = 60_000
@@ -932,6 +933,7 @@ const sourceQualityScore = (source) => {
   if (source?.conditionOverview) score += 120
   if (source?.origin === 'Curated IPF reference') score += 100
   if (source?.origin === 'National Eye Institute') score += 105
+  if (source?.origin === 'MedlinePlus') score += 110
   if (type.includes('guideline')) score += 50
   if (type.includes('systematic review') || type.includes('meta-analysis')) score += 40
   if (type.includes('randomized trial')) score += 30
@@ -980,6 +982,72 @@ const sourceTextMentionsCondition = (text, condition) => {
   const conditionTerms = conditionEvidenceTerms(condition)
   const sourceText = normalizedEvidenceText(text)
   return conditionTerms.some((term) => ` ${sourceText} `.includes(` ${term} `))
+}
+
+const medlinePlusContent = (documentXml, name) => {
+  const expression = new RegExp(`<content\\s+name=["']${name}["'][^>]*>([\\s\\S]*?)<\\/content>`, 'i')
+  return decodeXml(String(documentXml || '').match(expression)?.[1] || '')
+}
+
+const medlinePlusOverviewFromSummary = (summary, condition) => {
+  const sentences = (cleanText(summary, 2_400).match(/[^.!?]+[.!?]?/g) || [])
+    .map((sentence) => cleanText(sentence, 360))
+    .filter(Boolean)
+  const conditionLabel = cleanText(condition, 120) || 'This condition'
+  const defining = sentences.find((sentence) => sourceTextMentionsCondition(sentence, condition)
+    && /\b(?:is|are|means|happens when|caused by|affects?)\b/i.test(sentence)) || sentences[0] || ''
+  const symptom = sentences.find((sentence) => sentence !== defining
+    && /\b(?:symptoms?|signs?|may notice|can cause|often starts?|include|affects?)\b/i.test(sentence)) || ''
+  const path = sentences.find((sentence) => sentence !== defining && sentence !== symptom
+    && /\b(?:diagnos|test|exam|gene|genetic|type|subtype|treat|cause|risk)\b/i.test(sentence)) || ''
+
+  return {
+    whatItIs: cleanText(defining || `${conditionLabel} is described in the linked MedlinePlus health topic.`, 360),
+    whatToWatch: cleanText(symptom || 'The linked overview describes symptoms and day-to-day changes that may matter.', 360),
+    researchPath: cleanText(path || 'The linked overview explains known causes, tests, and treatment topics for this condition.', 360),
+  }
+}
+
+const fetchMedlinePlusOverview = async (condition) => {
+  const phrase = conditionPhrase(condition)
+  if (!phrase) return []
+
+  const url = new URL(MEDLINEPLUS_SEARCH_URL)
+  url.searchParams.set('db', 'healthTopics')
+  url.searchParams.set('term', `title:"${phrase}"`)
+  url.searchParams.set('rettype', 'brief')
+  url.searchParams.set('retmax', '5')
+  url.searchParams.set('tool', 'researchingmycondition')
+  url.searchParams.set('email', 'research@example.invalid')
+
+  const response = await fetchWithTimeout(url, {}, 18_000)
+  if (!response.ok) throw new Error(`MedlinePlus search returned ${response.status}.`)
+  const documents = (String(await response.text()).match(/<document\b[\s\S]*?<\/document>/gi) || [])
+    .map((documentXml) => ({
+      title: medlinePlusContent(documentXml, 'title'),
+      altTitle: medlinePlusContent(documentXml, 'altTitle'),
+      summary: medlinePlusContent(documentXml, 'FullSummary') || medlinePlusContent(documentXml, 'fullSummary'),
+      url: decodeXml(documentXml.match(/<document\b[^>]*\burl=["']([^"']+)["']/i)?.[1] || ''),
+    }))
+    .filter((document) => document.title && document.summary && document.url)
+
+  const exactCondition = normalizedEvidenceText(condition)
+  const best = documents.find((document) => normalizedEvidenceText(document.title) === exactCondition)
+    || documents.find((document) => normalizedEvidenceText(document.altTitle).split(' also called ').includes(exactCondition))
+    || documents.find((document) => sourceTextMentionsCondition(`${document.title} ${document.altTitle}`, condition))
+  if (!best) return []
+
+  return [{
+    id: `medlineplus-${normalizedEvidenceText(best.title).replace(/\s+/g, '-').slice(0, 90)}`,
+    title: best.title,
+    url: best.url,
+    type: 'NIH condition overview',
+    year: '',
+    origin: 'MedlinePlus',
+    summary: cleanText(best.summary, 1_200),
+    conditionOverview: medlinePlusOverviewFromSummary(best.summary, condition),
+    aiEligible: true,
+  }]
 }
 
 const europePmcTypes = (record) => {
@@ -1420,7 +1488,10 @@ const fetchPerplexityWebDiscovery = async (condition, env) => {
 const fetchOpenFdaLabelRecords = async (phrase) => {
   const url = new URL(OPEN_FDA_LABEL_URL)
   url.searchParams.set('search', `indications_and_usage:"${phrase}"`)
-  url.searchParams.set('limit', '24')
+  // The first results often contain many label revisions for one medicine.
+  // Pull a larger page, then deduplicate by medicine name below so established
+  // options are not accidentally reduced to a single product.
+  url.searchParams.set('limit', '100')
 
   const response = await fetchWithTimeout(url, {}, 18_000)
   if (response.status === 404) return []
@@ -1490,6 +1561,12 @@ const sourceSearchPage = (provider, condition) => {
 
 const retrieveEvidenceSources = async (condition, env) => {
   const adapters = [
+    {
+      id: 'medlineplus',
+      label: 'MedlinePlus condition overview',
+      url: 'https://medlineplus.gov/healthtopics.html',
+      fetch: async () => ({ status: 'ready', sources: await fetchMedlinePlusOverview(condition), detail: 'A National Library of Medicine health-topic record supplies the disease overview before treatment papers are considered.' }),
+    },
     {
       id: 'pubmed',
       label: 'PubMed abstracts',
@@ -1677,12 +1754,26 @@ const isSpecificTrialIntervention = (value) => {
     && !/\b(?:clinical|sham)\s+(?:dbs\s+)?(?:setting|configuration|programming)\b|\bimmunosuppressive regimen\b|\bcustomized microinjection device\b/i.test(name)
 }
 
+// Rehabilitation and activity findings belong in the dedicated lifestyle and
+// support section. The treatment-card lane is reserved for a concrete named
+// medicine, supplement, product, procedure, device, or research program.
+const isConcreteTreatmentCardCandidate = (value) => {
+  const name = cleanInterventionName(value)
+  return isSpecificTrialIntervention(name)
+    && !/^(?:versus|vs\.?|compared\s+with|comparison\s+with)\b/i.test(name)
+    && !/\b(?:physical therapy|physiotherapy|rehabilitation|telerehabilitation|exercise training|occupational therapy)\b/i.test(name)
+    && !/^(?:initial|first[- ]line|second[- ]line|adjunctive|combined|conventional|standard|usual)\b/i.test(name)
+    && !/^(?:[a-z0-9]+(?:[-\s][a-z0-9]+){0,4})\s+(?:inhibitor|agonist|antagonist|modulator|activator|blocker)(?:\s+(?:therapy|treatment))?$/i.test(name)
+}
+
 const genericResearchSiteName = (value) => {
   const name = cleanText(value, 220)
+  const hasCareOrAcademicIdentity = /\b(?:university|college|hospital|medical|health|clinic|institute|foundation|nhs|trust)\b/i.test(name)
   return !name
     || /^(?:site|location|facility)(?:\s*#?\s*[a-z0-9-]+)?$/i.test(name)
     || /^(?:clinical\s+)?(?:trial|study|research|investigative|investigator)\s+(?:site|center|centre)(?:\s*#?\s*[a-z0-9-]+)?$/i.test(name)
     || /\b(?:investigative|investigator)\s+site$/i.test(name)
+    || (!hasCareOrAcademicIdentity && /\b(?:development|pharmaceuticals?|therapeutics?|biotech|biosciences?|laboratories?)\b.*\b(?:lp|llc|inc|ltd|corp(?:oration)?)\.?$/i.test(name))
 }
 
 const institutionNameScore = (value) => {
@@ -2340,7 +2431,7 @@ Return strict JSON only:
 
 const practicalCandidateScoutSystemPrompt = `You are Practical Candidate Scout in a medical-research product. Produce search seeds only, never treatment advice.
 
-Given a condition and optional subtype, return up to 14 exact, patient-discussible names that are worth checking in condition-specific literature. Focus on established or repurposed medicines, supplements or foods, procedures, rehabilitation, adaptive supports, and symptom-care treatments. Do not return gene therapy, RNA, cell therapy, exosomes, implants, trial IDs, proprietary study products, or other trial-only programs. Start with exact names a patient or clinician can recognize, not broad classes such as "antioxidants," "vitamins," or "rehabilitation." Include a candidate only when you believe an exact condition-specific paper or abstract could name it; do not invent names to fill the list. When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
+Given a condition and optional subtype, return up to 14 exact, patient-discussible names that are worth checking in condition-specific literature. Focus first on established or repurposed medicines, supplements or foods, and concrete named procedures. Rehabilitation, physical therapy, exercise, and adaptive support are handled in a separate lifestyle section and must not be returned here. Do not return gene therapy, RNA, cell therapy, exosomes, implants, trial IDs, proprietary study products, or other trial-only programs. Start with exact names a patient or clinician can recognize, not broad classes such as "antioxidants," "vitamins," "inhibitors," or "therapy." Include a candidate only when you believe an exact condition-specific paper or abstract could name it; do not invent names to fill the list. When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
 
 Return strict JSON only:
 {
@@ -2351,7 +2442,7 @@ Return strict JSON only:
 
 const practicalCoverageScoutSystemPrompt = `You are Practical Coverage Candidate Scout in a medical-research product. Produce search seeds only, never treatment advice.
 
-Given a condition and optional subtype, look for a broad, patient-useful spread of exact named candidates that could appear in condition-specific papers or abstracts. Search conceptually across historically studied medicines, repurposed medicines, supplements or food products, procedures, rehabilitation, adaptive support, and symptom-care treatments. Do not return gene therapy, RNA, cell therapy, exosomes, implants, trial IDs, proprietary study products, or other trial-only programs. Prefer names that are practical to discuss with a clinician or pharmacist. Do not return broad labels such as "antioxidants," "vitamins," "rehabilitation," "inhibitors," or "supportive care." Include a candidate only when you believe an exact condition-specific paper or abstract could name it; do not invent names to fill the list. When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
+Given a condition and optional subtype, look for a broad, patient-useful spread of exact named candidates that could appear in condition-specific papers or abstracts. Search conceptually across historically studied medicines, repurposed medicines, supplements or food products, and concrete named procedures. Rehabilitation, physical therapy, exercise, and adaptive support are handled in a separate lifestyle section and must not be returned here. Do not return gene therapy, RNA, cell therapy, exosomes, implants, trial IDs, proprietary study products, or other trial-only programs. Prefer names that are practical to discuss with a clinician or pharmacist. Do not return broad labels such as "antioxidants," "vitamins," "rehabilitation," "inhibitors," or "supportive care." Include a candidate only when you believe an exact condition-specific paper or abstract could name it; do not invent names to fill the list. When a common name and a scientific, formal, or brand name differ, include up to three exact search names so the source search can check both. Do not add doses, benefits, safety claims, doctors, clinics, study IDs, or access claims.
 
 Return strict JSON only:
 {
@@ -2372,6 +2463,7 @@ const cleanTitleTreatmentCandidate = (value) => cleanCandidateName(value)
   .replace(/^(?:head[- ]to[- ]head\s+)?(?:trial|study|comparison|evaluation|assessment|use|impact|efficacy|safety|outcomes?)\s+of\s+/i, '')
   .replace(/^(?:(?:an?|the)\s+)?(?:(?:oral|intravenous|long[- ]acting|pharmacological)\s+)*(?:chaperone|inhibitor)\s+/i, '')
   .replace(/^(?:with|despite|late|early|first|long[- ]term)\s+/i, '')
+  .replace(/^(?:versus|vs\.?|compared\s+with|comparison\s+with)\s+/i, '')
   .replace(/\s+(?:or|and)\s+placebo$/i, '')
   .replace(/\bagalsidase-beta\b/i, 'agalsidase beta')
   .replace(/\s+/g, ' ')
@@ -2385,6 +2477,7 @@ const titleCandidateIsUseful = (candidate, condition) => {
     && !conditionTerms.some((term) => normalized === term || normalized.includes(`${term} `))
     && !/\b(?:diagnos(?:is|tic)|screening|monitoring|biomarker|imaging|mri|scan|manifestation|symptom|patients?|disease|syndrome|review|meta.analysis|clinical trial|study|trial|placebo|outcome|function|guideline|options?|first|experience|stability|late|early|long[- ]term)\b/i.test(candidate)
     && !/^(?:the|a|an|oral|intravenous|historical control|head to head|treatment options?)\b/i.test(candidate)
+    && isConcreteTreatmentCardCandidate(candidate)
 }
 
 const titleHasCloseConditionReference = (text, condition) => {
@@ -2404,6 +2497,16 @@ const titleHasCloseConditionReference = (text, condition) => {
     }
     return false
   })
+}
+
+const titleDirectlyConnectsCandidateToCondition = (title, candidate, condition) => {
+  const cleanTitle = cleanText(title, 360)
+  const name = cleanCandidateName(candidate?.name || candidate)
+  return Boolean(cleanTitle && name)
+    && isConcreteTreatmentCardCandidate(name)
+    && sourceTextMentionsCondition(cleanTitle, condition)
+    && sourceMentionsCandidate({ title: cleanTitle, summary: '' }, { ...candidate, name })
+    && /\b(?:treat(?:ment|ed|ing)?|therap(?:y|ies|eutic)|trial|study|effect|efficacy|safety|outcomes?|use|evaluation|candidate agents?|protect(?:ion|ive)|for|in|among)\b/i.test(cleanTitle)
 }
 
 const sourceTitleTreatmentCandidates = (source, condition) => {
@@ -2580,7 +2683,7 @@ Return strict JSON only:
 
 const practicalPacketCandidateExtractorSystemPrompt = `You are Practical Packet Candidate Extractor in a medical-research product. Extract names only from the supplied source packet. You are not allowed to use outside knowledge or invent a treatment.
 
-Find up to 20 specific, patient-discussible interventions that are explicitly named in a source title or abstract. Focus on exact medicines, supplements or foods, named procedures, rehabilitation, adaptive support, and symptom-care treatments. A name belongs in the list only when the record uses or studies it for the requested condition itself, or for a clearly stated complication or symptom caused by that condition. Do not return a medicine used for a separate diagnosis or comorbidity, a procedure step, a premedication, background medicine, adverse-event medicine, transplant regimen, or unrelated study arm. If the relationship is unclear, leave it out. Do not return anything from a source with conditionScope "related-preclinical" because that lane is not patient-accessible. Do not return gene therapy, RNA, cell therapy, exosomes, implants, study products, trial IDs, or other trial-only programs. Do not return broad classes such as "antioxidants," "vitamins," "inhibitors," "supplements," "carotenoids," or "supportive care." Use the exact intervention name or a faithful shorter name that still appears in the cited record. Do not return tests, scans, biomarkers, questionnaires, monitoring steps, a person, a center, a disease name, or a paper title. Do not add doses, benefit claims, safety claims, access claims, or advice.
+Find up to 20 specific, patient-discussible interventions that are explicitly named in a source title or abstract. Focus on exact medicines, supplements or foods, and concrete named procedures. Rehabilitation, physical therapy, exercise, and adaptive support are handled in a separate lifestyle section and must not be returned as treatment cards. A name belongs in the list only when the record uses or studies it for the requested condition itself, or for a clearly stated complication or symptom caused by that condition. Do not return a medicine used for a separate diagnosis or comorbidity, a procedure step, a premedication, background medicine, adverse-event medicine, transplant regimen, or unrelated study arm. If the relationship is unclear, leave it out. Do not return anything from a source with conditionScope "related-preclinical" because that lane is not patient-accessible. Do not return gene therapy, RNA, cell therapy, exosomes, implants, study products, trial IDs, or other trial-only programs. Do not return broad classes such as "antioxidants," "vitamins," "inhibitors," "supplements," "carotenoids," or "supportive care." Use the exact intervention name or a faithful shorter name that still appears in the cited record. Do not return tests, scans, biomarkers, questionnaires, monitoring steps, a person, a center, a disease name, or a paper title. Do not add doses, benefit claims, safety claims, access claims, or advice.
 
 Every candidate must cite one or more exact sourceIds where its name appears. A candidate is discarded if its name is not present in that cited record.
 
@@ -2746,7 +2849,7 @@ const reviewCandidateRelationships = async ({ patient, records }, env) => {
   }
 }
 
-const applyCandidateRelationshipReview = (records, relationReview) => {
+const applyCandidateRelationshipReview = (records, relationReview, condition) => {
   const decisions = new Map((relationReview?.decisions || []).map((decision) => [candidateRelationKey(decision.recordId, decision.candidate), decision]))
   return (records || []).map((record) => {
     const ambiguousCaseRecord = /\b(?:case report|case series|comorbid|coexisting|trilogy)\b/i.test(cleanText(record?.title, 360))
@@ -2766,6 +2869,7 @@ const applyCandidateRelationshipReview = (records, relationReview) => {
         // This blocks a paper that only mentions an established treatment as
         // background while studying a different intervention.
         const titleNamesCandidate = sourceMentionsCandidate({ title: record?.title, summary: '' }, candidate)
+        const directTitleConnection = titleDirectlyConnectsCandidateToCondition(record?.title, candidate, condition)
         const earlyPreclinicalFallback = relatedPreclinicalRecord
           && candidate?.sourceEarlyResearchDerived === true
           && candidate?.roleVerified === true
@@ -2778,6 +2882,9 @@ const applyCandidateRelationshipReview = (records, relationReview) => {
         // A title-derived lead uses a narrow deterministic grammar that ties
         // the candidate directly to the condition in the paper title. Keep it
         // as a safe fallback when an AI source-role response is unavailable.
+        if (directTitleConnection) {
+          return { ...candidate, roleVerified: true, relationship: 'direct-condition-treatment', relationEvidence: cleanText(record?.title, 180) }
+        }
         return (candidate?.sourceTitleDerived === true || earlyPreclinicalFallback) && candidate?.roleVerified === true ? candidate : null
       })
       .filter(Boolean)
@@ -2943,7 +3050,7 @@ const normalizeTreatmentIdea = (item, allowedSourceIds, allowedCandidates) => {
   const sourceIds = sourceIdsFrom(item.sourceIds, allowedSourceIds)
   const whole = `${title} ${category} ${summary} ${takeaway} ${whyItMayMatter} ${accessExplanation} ${providerQuestion} ${caution}`
   const titleIsSupported = allowedCandidates.has(candidateKey(title))
-  if (!title || !summary || !caution || !sourceIds.length || !titleIsSupported || !isSpecificTrialIntervention(title) || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
+  if (!title || !summary || !caution || !sourceIds.length || !titleIsSupported || !isConcreteTreatmentCardCandidate(title) || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
   return { title, category: category || 'Treatment being researched', summary, takeaway, whyItMayMatter, accessClass, accessExplanation, providerQuestion, caution, sourceIds }
 }
 
@@ -2957,7 +3064,7 @@ const normalizeHypothesis = (item, allowedSourceIds, allowedCandidates, candidat
   const sourceIds = sourceIdsFrom(item.sourceIds, allowedSourceIds)
   const whole = `${title} ${mechanism} ${whyItIsAQuestion} ${caution}`
   const candidateIsSupported = allowedCandidates.has(candidateKey(candidate)) || candidateAppearsInEvidence(candidate, candidateEvidenceText)
-  if (!title || !candidate || !candidateIsSupported || !isSpecificTrialIntervention(candidate) || !whyItIsAQuestion || !caution || !sourceIds.length || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
+  if (!title || !candidate || !candidateIsSupported || !isConcreteTreatmentCardCandidate(candidate) || !whyItIsAQuestion || !caution || !sourceIds.length || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
   return { title, candidate, mechanism, whyItIsAQuestion, caution, sourceIds }
 }
 
@@ -4219,9 +4326,9 @@ const runResearch = async (body, env) => {
     decisions: [],
     detail: 'The extra candidate check was unavailable, so only direct source titles were used.',
   }))
-  const verifiedSourceRecords = applyCandidateRelationshipReview(sourceRecordsWithCandidates, candidateRelationReview)
-  const verifiedCandidateSources = applyCandidateRelationshipReview(candidateSourcesWithTitleCandidates, candidateRelationReview)
-  const verifiedTrialRecords = applyCandidateRelationshipReview(trialRecordsWithCandidates, candidateRelationReview)
+  const verifiedSourceRecords = applyCandidateRelationshipReview(sourceRecordsWithCandidates, candidateRelationReview, patient.condition)
+  const verifiedCandidateSources = applyCandidateRelationshipReview(candidateSourcesWithTitleCandidates, candidateRelationReview, patient.condition)
+  const verifiedTrialRecords = applyCandidateRelationshipReview(trialRecordsWithCandidates, candidateRelationReview, patient.condition)
   const sourceCandidateLeadCount = verifiedSourceRecords
     .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
   const candidateSourceLeadCount = verifiedCandidateSources

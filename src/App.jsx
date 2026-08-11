@@ -148,6 +148,12 @@ const FDA_EXPANDED_ACCESS_SOURCE = {
 
 const isDisplayableTrialIntervention = (title) => !/^(?:arm|group|cohort)\s*(?:\d+|[a-z])$|^(?:placebo|sham|no intervention|standard(?: care| treatment)?|usual(?: care| treatment)?|routine(?: care| treatment)?|supportive care|observation(?:al)?)(?:\b|:)|\b(?:blood (?:test|draw|sample)|biomarker|imaging|scan|mri|pet|diagnostic|diagnosis|screening|assessment|questionnaire|survey|monitoring|registry|observation)\b|\b(?:clinical|sham)\s+(?:dbs\s+)?(?:setting|configuration|programming)\b|\bimmunosuppressive regimen\b|\bcustomized microinjection device\b/i.test(title)
 
+const isConcretePatientTreatmentTitle = (title) => isDisplayableTrialIntervention(title)
+  && !/^(?:versus|vs\.?|compared\s+with|comparison\s+with)\b/i.test(String(title || ''))
+  && !/\b(?:physical therapy|physiotherapy|rehabilitation|telerehabilitation|exercise training|occupational therapy)\b/i.test(String(title || ''))
+  && !/^(?:initial|first[- ]line|second[- ]line|adjunctive|combined|conventional|standard|usual)\b/i.test(String(title || ''))
+  && !/^(?:[a-z0-9]+(?:[-\s][a-z0-9]+){0,4})\s+(?:inhibitor|agonist|antagonist|modulator|activator|blocker)(?:\s+(?:therapy|treatment))?$/i.test(String(title || ''))
+
 const treatmentInterventionTypes = new Set([
   'DRUG',
   'BIOLOGICAL',
@@ -309,7 +315,7 @@ const sourceTreatmentCandidates = (source) => {
   const candidates = []
   const add = (title, category) => {
     const cleanTitle = cleanTreatmentDisplayName(title)
-    if (!cleanTitle || !isDisplayableTrialIntervention(cleanTitle)) return
+    if (!cleanTitle || !isConcretePatientTreatmentTitle(cleanTitle)) return
     if (!candidates.some((candidate) => sameTreatmentFamily(candidate.title, cleanTitle))) {
       candidates.push({ title: cleanTitle, category })
     }
@@ -559,12 +565,6 @@ const isSpecificRepurposingCandidate = (value) => {
   return !/\b(?:research|study|studies|platform|pathway|target|treatment|therapy|drug class|cell program|gene program|rna program|formal|academic|question|screen|search|trial)\b/i.test(text)
 }
 
-const sourceMentionsRepurposingCandidate = (source, candidate) => {
-  const sourceText = treatmentIdeaKey(`${source?.title || ''} ${source?.summary || ''}`)
-  const candidateText = treatmentIdeaKey(candidate)
-  return candidateText.length >= 3 && ` ${sourceText} `.includes(` ${candidateText} `)
-}
-
 const repurposingCandidatesForIdea = (idea) => (Array.isArray(idea?.potentialInterventions) ? idea.potentialInterventions : [])
   .map((item) => String(item || '').trim())
   .filter(isSpecificRepurposingCandidate)
@@ -583,7 +583,10 @@ const theoryIdeasForReport = (result) => {
     .filter((idea) => !idea.potentialInterventions.some((candidate) => isExplicitlyExcludedTreatment(result, { title: candidate })))
     .filter((idea) => {
       const sources = (idea.sourceIds || []).map((sourceId) => sourcesById.get(sourceId)).filter(Boolean)
-      return sources.some((source) => idea.potentialInterventions.some((candidate) => sourceMentionsRepurposingCandidate(source, candidate)))
+      // These cards are intentionally about candidates not yet established in
+      // the condition literature. Their links support the condition biology;
+      // the verification query is how the named candidate is checked next.
+      return sources.length > 0
     }), 10)
 }
 
@@ -1430,14 +1433,15 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
           <div className="card-topline"><p className="card-kicker">{idea.category || 'Repurposing question'}</p><StatusPill tone="experimental">Not established</StatusPill></div>
           <h3>{idea.title}</h3>
-          <CitedParagraph citations={citations}><strong>Why this is a question:</strong> {idea.whyItCouldConnect}</CitedParagraph>
+          <CitedParagraph citations={citations}><strong>Why this is a research question:</strong> {idea.whyItCouldConnect}</CitedParagraph>
           <dl className="research-idea-facts">
-            <div><dt>Named item to discuss</dt><dd>{theoryPotentialInterventions(idea).join(' · ')}</dd></div>
+            <div><dt>Named item to investigate</dt><dd>{theoryPotentialInterventions(idea).join(' · ')}</dd></div>
             <div><dt>Why it is not an option yet</dt><dd>{idea.whyNotEstablished}</dd></div>
             <div><dt>Ask your healthcare provider</dt><dd>{idea.providerQuestion || 'What should I ask about this?'}</dd></div>
+            {idea.verificationQuery ? <div><dt>Search to check next</dt><dd>{idea.verificationQuery}</dd></div> : null}
           </dl>
           <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
-          <CitationActions citations={citations} label="Source for this question" />
+          <CitationActions citations={citations} label="Source for disease biology" />
         </article>
       )
     })}
@@ -1476,10 +1480,10 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">{theoryLaneNumber}. New repurposing questions</p><p>These are not treatment suggestions. A card appears only when the report has a concrete named item and a relevant source for why the question belongs in this condition. It never uses a generic pathway link as proof.</p></div>
+            <div><p className="card-kicker">{theoryLaneNumber}. New repurposing questions</p><p>These are not treatment suggestions. Each card names something to investigate, links the condition biology behind the question, and gives a search to check whether direct research exists. The link does not prove the item works.</p></div>
             <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Source-linked questions' : 'Strict source check'}</StatusPill>
           </div>
-          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>How this screen works: it needs a named drug, supplement, or other item plus a source that actually discusses it. A broad pathway alone is not enough to create a card.</p></div>}
+          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No careful repurposing question passed this run. A card needs a named item, a condition-biology source, and a clear search to check next.</p></div>}
         </section>
       </div>
     </section>
@@ -1537,6 +1541,7 @@ const patientDiscussionIdeasForReport = (result, condition) => {
     .filter((idea) => !isEstablishedTreatmentIdea(idea))
     .filter((idea) => !isResearchProgramIdea(idea))
     .filter((idea) => !isBroadTreatmentClass(idea))
+    .filter((idea) => isConcretePatientTreatmentTitle(idea?.title))
     .filter((idea) => !evidencePointsAway(result, idea))
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
     .filter((idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId)))

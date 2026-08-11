@@ -50,6 +50,17 @@ const relatedPreclinicalPubMedXml = `
   <PubmedData><ArticleIdList><ArticleId IdType="doi">10.1038/s41593-026-02341-w</ArticleId></ArticleIdList></PubmedData>
 </PubmedArticle>`
 
+const medlinePlusParkinsonXml = `
+<nlmSearchResult>
+  <list>
+    <document url="https://medlineplus.gov/parkinsonsdisease.html" rank="0">
+      <content name="title">Parkinson's Disease</content>
+      <content name="organizationName">National Library of Medicine</content>
+      <content name="FullSummary"><![CDATA[Parkinson's disease is a movement disorder that affects the nervous system. Symptoms often begin gradually and can include tremor, stiffness, slow movement, and balance problems. Diagnosis uses a person's history, symptoms, and a neurological exam.]]></content>
+    </document>
+  </list>
+</nlmSearchResult>`
+
 const titleFallbackPubMedXml = `
 <PubmedArticle>
   <MedlineCitation>
@@ -106,6 +117,7 @@ const trial = {
       locations: [
         { facility: 'Clinical Trial Site', city: 'New York', state: 'New York', country: 'United States' },
         { facility: 'Novartis Investigative Site', city: 'Boston', state: 'Massachusetts', country: 'United States' },
+        { facility: 'PPD Development, LP', city: 'Austin', state: 'Texas', country: 'United States' },
         { facility: 'Test Retina Institute', city: 'Cleveland', state: 'Ohio', country: 'United States' },
       ],
       overallOfficials: [{ name: 'Taylor Researcher', affiliation: 'Test Retina Institute', role: 'Principal Investigator' }],
@@ -184,6 +196,24 @@ const writerDraft = {
     category: 'Unnamed drug class',
     summary: 'A source discussed a target class without naming a drug.',
     caution: 'A target class is not a named treatment.',
+    sourceIds: ['pmid-1001'],
+  }, {
+    title: 'Virtual Reality Rehabilitation',
+    category: 'Rehabilitation paper title',
+    summary: 'A source compared rehabilitation programs.',
+    caution: 'Rehabilitation belongs in the lifestyle and support section.',
+    sourceIds: ['pmid-1001'],
+  }, {
+    title: 'Versus Conventional Physical therapy',
+    category: 'Comparator fragment',
+    summary: 'A title parser returned a comparator phrase.',
+    caution: 'A comparator fragment is not a treatment name.',
+    sourceIds: ['pmid-1001'],
+  }, {
+    title: 'initial MAO-B inhibitor therapy',
+    category: 'Unnamed treatment class',
+    summary: 'A source discussed a broad inhibitor class.',
+    caution: 'A broad class is not a concrete named treatment.',
     sourceIds: ['pmid-1001'],
   }],
   lifestyle: [{
@@ -411,6 +441,7 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           }],
         })
       }
+      if (url.includes('wsearch.nlm.nih.gov/ws/query')) return textResponse(medlinePlusParkinsonXml)
       if (url.includes('api.perplexity.ai/search')) {
         return jsonResponse({
           results: [{
@@ -555,7 +586,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.centers[0].siteKind, 'academic-or-clinical-center')
   assert.equal(response.body.trials[0].siteName, 'Test Retina Institute')
   assert.equal(response.body.review.treatmentIdeas.length, 1)
-  assert.ok(!response.body.review.treatmentIdeas.some((idea) => /blood dopamine|adjuvant therapy|Orai-1 inhibitor/i.test(idea.title)))
+  assert.ok(!response.body.review.treatmentIdeas.some((idea) => /blood dopamine|adjuvant therapy|Orai-1 inhibitor|rehabilitation|physical therapy|initial MAO-B inhibitor/i.test(idea.title)))
   assert.equal(response.body.review.lifestyle.length, 1)
   assert.equal(response.body.review.safety.length, 1)
   assert.equal(response.body.review.hypotheses.length, 1)
@@ -569,6 +600,24 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.exploration, null)
   assert.equal(response.body.review.mode, 'dual-agent')
   assert.equal(response.body.review.independent, false)
+})
+
+test('an any-condition report uses MedlinePlus for the disease overview', { concurrency: false }, async () => {
+  const mock = createMockFetch()
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes({ ...env, PERPLEXITY_API_KEY: '' }).get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: "Parkinson's disease", reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.equal(response.body.status, 'ready')
+  const overview = response.body.sources.find((source) => source.origin === 'MedlinePlus')
+  assert.ok(overview)
+  assert.equal(overview.title, "Parkinson's Disease")
+  assert.match(overview.conditionOverview.whatItIs, /movement disorder/i)
+  assert.match(overview.conditionOverview.whatToWatch, /tremor|stiffness/i)
+  assert.ok(response.body.sourceCoverage.some((lane) => lane.id === 'medlineplus' && lane.status === 'ready'))
 })
 
 test('a direct condition-matched CAR-T or cell study stays in the live trial list', { concurrency: false }, async () => {
