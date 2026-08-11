@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { findDirectIdentifier, findProfilePrivacyIssue, privacyIssueMessage } from '../src/lib/privacy.js'
+import { recentResearchSignalsFor } from './recentResearchSignals.mjs'
 
 const CLINICAL_TRIALS_URL = 'https://clinicaltrials.gov/api/v2/studies'
 const PUBMED_SEARCH_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi'
@@ -8,6 +9,10 @@ const PUBMED_FETCH_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.f
 const EUROPE_PMC_SEARCH_URL = 'https://www.ebi.ac.uk/europepmc/webservices/rest/search'
 const OPEN_ALEX_WORKS_URL = 'https://api.openalex.org/works'
 const OPEN_FDA_LABEL_URL = 'https://api.fda.gov/drug/label.json'
+const CROSSREF_WORKS_URL = 'https://api.crossref.org/works'
+const SEMANTIC_SCHOLAR_SEARCH_URL = 'https://api.semanticscholar.org/graph/v1/paper/search'
+const NIH_REPORTER_PROJECTS_URL = 'https://api.reporter.nih.gov/v2/projects/search'
+const PERPLEXITY_SEARCH_URL = 'https://api.perplexity.ai/search'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
 const MAX_BODY_BYTES = 60_000
@@ -364,6 +369,26 @@ const toCuratedTheoryIdea = (item) => {
   }
 }
 
+// Keep known negative or harmful condition-specific findings out of the
+// treatment and repurposing lanes. They are returned separately so the client
+// can explain why an item was deliberately not presented as an option.
+const toExcludedTreatment = (item) => {
+  if (!isRecord(item)) return null
+  const title = cleanText(item.name, 180)
+  const sourceId = cleanText(item.evidenceRef, 100)
+  if (!title || !sourceId) return null
+
+  return {
+    title,
+    aliases: (Array.isArray(item.aliases) ? item.aliases : [])
+      .map((alias) => cleanText(alias, 120))
+      .filter(Boolean)
+      .slice(0, 6),
+    reason: cleanText(item.reason, 620),
+    sourceIds: [sourceId],
+  }
+}
+
 // Some conditions are commonly documented under a gene-specific or subtype-
 // specific name. Add a small authoritative foundation record so a broad search
 // does not hide a real, narrow approval behind an empty label result.
@@ -397,6 +422,104 @@ const conditionFoundationSources = (condition) => {
       caution: 'This approval is limited to confirmed biallelic RPE65 mutation-associated retinal dystrophy. A retinal specialist must confirm whether the gene result and retinal findings fit the labeled use.',
       approvalScope: 'subtype',
       aiEligible: true,
+    },
+    {
+      id: 'rp-nac-phase-1-2020',
+      title: 'Oral N-acetylcysteine improves cone function in retinitis pigmentosa patients in phase I trial',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/31805012/',
+      type: 'Phase 1 clinical study',
+      year: '2020',
+      origin: 'PubMed',
+      journal: 'Journal of Clinical Investigation',
+      pmid: '31805012',
+      doi: '10.1172/JCI132990',
+      summary: 'A small phase 1 study in people with moderately advanced retinitis pigmentosa looked at short-term safety and visual-function measures for N-acetylcysteine. It was not designed to prove long-term benefit.',
+      candidateLeads: [{ name: 'N-acetylcysteine (NAC)', category: 'Supplement research', roleVerified: true, sourceTitleDerived: true }],
+      aiEligible: true,
+    },
+    {
+      id: 'rp-nac-attack-phase-3-protocol-2025',
+      title: 'Protocol for NAC Attack, a phase-3, multicenter randomized trial evaluating N-acetylcysteine in retinitis pigmentosa',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/41282901/',
+      type: 'Phase 3 trial protocol',
+      year: '2025',
+      origin: 'PubMed',
+      journal: 'medRxiv',
+      pmid: '41282901',
+      doi: '10.1101/2025.11.05.25339486',
+      summary: 'This 2025 protocol describes a randomized phase 3 study testing whether N-acetylcysteine can delay retinitis pigmentosa progression. A protocol describes the plan; it does not report treatment results.',
+      candidateLeads: [{ name: 'N-acetylcysteine (NAC)', category: 'Supplement research', roleVerified: true, sourceTitleDerived: true }],
+      aiEligible: true,
+    },
+    {
+      id: 'rp-lycium-barbarum-rct-2019',
+      title: 'Delay of cone degeneration in retinitis pigmentosa using a 12-month treatment with Lycium barbarum supplement',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/30877066/',
+      type: 'Randomized controlled trial',
+      year: '2019',
+      origin: 'PubMed',
+      journal: 'Journal of Ethnopharmacology',
+      pmid: '30877066',
+      doi: '10.1016/j.jep.2019.03.023',
+      summary: 'A 12-month double-masked, placebo-controlled study of 42 people with retinitis pigmentosa tested Lycium barbarum, also called goji berry. Some visual and retinal outcomes favored the supplement, while visual-field sensitivity and full-field electroretinogram results did not differ.',
+      candidateLeads: [{ name: 'Lycium barbarum (goji berry)', category: 'Supplement research', roleVerified: true, sourceTitleDerived: true }],
+      aiEligible: true,
+    },
+    {
+      id: 'rp-valproic-acid-phase-2-negative-2018',
+      title: 'Effect of Oral Valproic Acid vs Placebo for Vision Loss in Patients With Autosomal Dominant Retinitis Pigmentosa',
+      url: 'https://pubmed.ncbi.nlm.nih.gov/29879277/',
+      type: 'Randomized controlled trial',
+      year: '2018',
+      origin: 'PubMed',
+      journal: 'JAMA Ophthalmology',
+      pmid: '29879277',
+      doi: '10.1001/jamaophthalmol.2018.1171',
+      summary: 'In a randomized placebo-controlled study in autosomal dominant retinitis pigmentosa, valproic acid had a worse visual-field result than placebo. The study did not support valproic acid for this form of retinitis pigmentosa.',
+      candidateLeads: [{ name: 'Valproic acid', category: 'Medicine research', roleVerified: true, sourceTitleDerived: true }],
+      aiEligible: true,
+    },
+  ]
+}
+
+const conditionFoundationDiscussionLeads = (condition) => {
+  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
+
+  return [
+    {
+      title: 'N-acetylcysteine (NAC)',
+      category: 'Over-the-counter supplement research',
+      summary: 'A small phase 1 human study found short-term visual-function signals. A larger randomized trial is testing whether NAC can slow retinitis pigmentosa progression; that study has not supplied final results here.',
+      takeaway: 'NAC is easy to buy, but it is not a proven retinitis pigmentosa treatment. The larger trial matters because the first study was small and short.',
+      accessClass: 'specialist-review',
+      accessExplanation: 'It is sold without a prescription, but a clinician or pharmacist should check the full medicine list and the study limits before it is considered.',
+      providerQuestion: 'What do the NAC studies show so far?',
+      caution: 'Do not start, stop, or change a supplement based on these studies. The phase 3 protocol is not a result.',
+      sourceIds: ['rp-nac-phase-1-2020', 'rp-nac-attack-phase-3-protocol-2025'],
+    },
+    {
+      title: 'Lycium barbarum (goji berry)',
+      category: 'Over-the-counter supplement research',
+      summary: 'One 12-month placebo-controlled study in 42 people with retinitis pigmentosa reported mixed results across vision and retinal tests for Lycium barbarum, also called goji berry.',
+      takeaway: 'This is one small study, not proof that goji berry is standard care for retinitis pigmentosa.',
+      accessClass: 'specialist-review',
+      accessExplanation: 'A clinician or pharmacist can review product quality, other medicines, and the limits of the single study.',
+      providerQuestion: 'How should we read the goji berry study?',
+      caution: 'A supplement study does not establish product quality, dose, safety, or personal fit.',
+      sourceIds: ['rp-lycium-barbarum-rct-2019'],
+    },
+  ]
+}
+
+const conditionFoundationExcludedTreatments = (condition) => {
+  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
+
+  return [
+    {
+      name: 'Valproic acid for autosomal dominant retinitis pigmentosa',
+      aliases: ['Valproic acid', 'VPA'],
+      reason: 'A randomized placebo-controlled phase 2 study in autosomal dominant retinitis pigmentosa found a worse visual-field result with valproic acid than placebo and did not support its use for that form of the condition.',
+      evidenceRef: 'rp-valproic-acid-phase-2-negative-2018',
     },
   ]
 }
@@ -803,7 +926,13 @@ const dedupeEvidenceSources = (groups, maximum = 14) => {
     const alternate = preferred === source ? current : source
     const candidateLeads = [...(preferred?.candidateLeads || []), ...(alternate?.candidateLeads || [])]
       .filter((candidate, index, list) => candidate?.name && list.findIndex((entry) => candidateKey(entry.name) === candidateKey(candidate.name)) === index)
-    byKey.set(key, candidateLeads.length ? { ...preferred, candidateLeads } : preferred)
+    const supportingSourceIds = [...(preferred?.supportingSourceIds || []), ...(alternate?.supportingSourceIds || [])]
+      .filter((sourceId, index, list) => sourceId && list.indexOf(sourceId) === index)
+    byKey.set(key, {
+      ...preferred,
+      ...(candidateLeads.length ? { candidateLeads } : {}),
+      ...(supportingSourceIds.length ? { supportingSourceIds } : {}),
+    })
   })
 
   const sorted = Array.from(byKey.values())
@@ -1059,6 +1188,208 @@ const fetchOpenAlexEvidence = async (condition, env) => {
   return { status: 'ready', sources, detail: '' }
 }
 
+const crossrefYear = (record) => {
+  const dateParts = record?.published?.['date-parts']
+    || record?.['published-print']?.['date-parts']
+    || record?.['published-online']?.['date-parts']
+  return cleanText(dateParts?.[0]?.[0], 12)
+}
+
+// Crossref covers a wide publisher network. A result without an abstract is
+// useful for discovery but is never included in AI-written clinical claims.
+const fetchCrossrefEvidence = async (condition) => {
+  const phrase = conditionPhrase(condition)
+  if (!phrase) return []
+
+  const url = new URL(CROSSREF_WORKS_URL)
+  url.searchParams.set('query.bibliographic', phrase)
+  url.searchParams.set('rows', '20')
+  const response = await fetchWithTimeout(url, {
+    headers: { 'User-Agent': 'researchingmycondition.com research demo (contact: research@example.invalid)' },
+  }, 18_000)
+  if (!response.ok) throw new Error(`Crossref search returned ${response.status}.`)
+  const data = await response.json()
+  const records = Array.isArray(data?.message?.items) ? data.message.items : []
+
+  return records
+    .map((record, index) => {
+      const doi = normalizedDoi(record?.DOI)
+      const title = cleanText(Array.isArray(record?.title) ? record.title[0] : record?.title, 320)
+      const abstract = cleanText(decodeXml(record?.abstract), 620)
+      const journal = cleanText(Array.isArray(record?.['container-title']) ? record['container-title'][0] : record?.['container-title'], 180) || 'Crossref'
+      return {
+        id: `crossref-${doi || cleanText(record?.URL, 160).replace(/[^a-z0-9]+/gi, '-').slice(0, 120) || index}`,
+        title,
+        url: doi ? `https://doi.org/${doi}` : cleanText(record?.URL, 900),
+        type: 'Crossref scholarly record',
+        year: crossrefYear(record),
+        summary: abstract || `Metadata-only scholarly record indexed by Crossref from ${journal}. It is not sent to the AI reviewers.`,
+        journal,
+        doi,
+        origin: 'Crossref',
+        aiEligible: Boolean(abstract),
+      }
+    })
+    .filter((source) => source.title && source.url && isConditionScopedSource(source, condition))
+    .slice(0, 8)
+}
+
+const semanticScholarSourceFromRecord = (record) => {
+  const paperId = cleanText(record?.paperId, 120)
+  const doi = normalizedDoi(record?.externalIds?.DOI)
+  const title = cleanText(record?.title, 320)
+  const abstract = cleanText(record?.abstract, 620)
+  const landingPage = cleanText(record?.url, 900)
+  if (!paperId || !title) return null
+  return {
+    id: `semantic-scholar-${paperId}`,
+    title,
+    url: doi ? `https://doi.org/${doi}` : landingPage || `https://www.semanticscholar.org/paper/${paperId}`,
+    type: 'Semantic Scholar scholarly record',
+    year: cleanText(record?.year, 12),
+    summary: abstract || 'Metadata-only scholarly record indexed by Semantic Scholar. It is not sent to the AI reviewers.',
+    journal: cleanText(record?.venue, 180) || 'Semantic Scholar',
+    doi,
+    origin: 'Semantic Scholar',
+    aiEligible: Boolean(abstract),
+  }
+}
+
+const fetchSemanticScholarEvidence = async (condition, env) => {
+  const phrase = conditionPhrase(condition)
+  if (!phrase) return []
+
+  const url = new URL(SEMANTIC_SCHOLAR_SEARCH_URL)
+  url.searchParams.set('query', phrase)
+  url.searchParams.set('limit', '20')
+  url.searchParams.set('fields', 'paperId,title,abstract,year,venue,externalIds,url')
+  const apiKey = cleanText(environmentValue(env, 'SEMANTIC_SCHOLAR_API_KEY'), 300)
+  const response = await fetchWithTimeout(url, {
+    headers: apiKey ? { 'x-api-key': apiKey } : {},
+  }, 18_000)
+  if (!response.ok) throw new Error(`Semantic Scholar search returned ${response.status}.`)
+  const data = await response.json()
+  const records = Array.isArray(data?.data) ? data.data : []
+  return records
+    .map(semanticScholarSourceFromRecord)
+    .filter(Boolean)
+    .filter((source) => isConditionScopedSource(source, condition))
+    .slice(0, 8)
+}
+
+const reporterValue = (record, keys) => {
+  for (const key of keys) {
+    const value = record?.[key]
+    if (Array.isArray(value)) {
+      const first = value.find(Boolean)
+      if (first) return cleanText(first, 620)
+    } else if (value) {
+      return cleanText(value, 620)
+    }
+  }
+  return ''
+}
+
+const fetchNihReporterEvidence = async (condition) => {
+  const phrase = conditionPhrase(condition)
+  if (!phrase) return []
+
+  const response = await fetchWithTimeout(NIH_REPORTER_PROJECTS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      criteria: {
+        include_active_projects: true,
+        advanced_text_search: {
+          operator: 'and',
+          search_field: 'projecttitle,abstracttext,terms',
+          search_text: phrase,
+        },
+      },
+      include_fields: ['ApplId', 'ProjectNum', 'ProjectTitle', 'AbstractText', 'ProjectStartDate', 'ProjectEndDate', 'OrgName', 'OrgCity', 'OrgState', 'OrgCountry', 'ProjectDetailUrl'],
+      limit: 8,
+      offset: 0,
+      sort_field: 'project_start_date',
+      sort_order: 'desc',
+    }),
+  }, 18_000)
+  if (!response.ok) throw new Error(`NIH RePORTER search returned ${response.status}.`)
+  const data = await response.json()
+  const records = Array.isArray(data?.results) ? data.results : []
+
+  return records
+    .map((record, index) => {
+      const applicationId = reporterValue(record, ['appl_id', 'ApplId', 'application_id'])
+      const projectNumber = reporterValue(record, ['project_num', 'ProjectNum'])
+      const title = reporterValue(record, ['project_title', 'ProjectTitle'])
+      const abstract = reporterValue(record, ['abstract_text', 'AbstractText'])
+      const directUrl = reporterValue(record, ['project_detail_url', 'ProjectDetailUrl'])
+      return {
+        id: `nih-reporter-${applicationId || projectNumber || index}`,
+        title,
+        url: directUrl || sourceSearchPage('nih-reporter', condition),
+        type: 'NIH-funded research project',
+        year: reporterValue(record, ['fiscal_year', 'FiscalYear', 'project_start_date', 'ProjectStartDate']).slice(0, 4),
+        summary: abstract || `NIH-funded project about ${phrase}. This is a funding record, not a treatment study.`,
+        journal: reporterValue(record, ['organization', 'OrgName']) || 'NIH RePORTER',
+        origin: 'NIH RePORTER',
+        discoveryOnly: true,
+        aiEligible: false,
+      }
+    })
+    .filter((source) => source.title && source.url && isConditionScopedSource(source, condition))
+    .slice(0, 6)
+}
+
+// A broad web search expands beyond databases and journals, but it is kept in
+// a discovery-only lane. A page title or snippet can never become a medical
+// claim until a supported source record independently verifies it.
+const fetchPerplexityWebDiscovery = async (condition, env) => {
+  const apiKey = cleanText(environmentValue(env, 'PERPLEXITY_API_KEY'), 300)
+  if (!apiKey) {
+    return {
+      status: 'not-configured',
+      sources: [],
+      detail: 'Optional broad web discovery is off until a server-side Perplexity API key is configured.',
+    }
+  }
+
+  const phrase = conditionPhrase(condition)
+  if (!phrase) return { status: 'ready', sources: [], detail: 'No condition phrase was supplied for broad web discovery.' }
+  const response = await fetchWithTimeout(PERPLEXITY_SEARCH_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: `${phrase} current clinical research approved treatment clinical trial disease foundation academic center`,
+    }),
+  }, 24_000)
+  if (!response.ok) throw new Error(`Perplexity web search returned ${response.status}.`)
+  const data = await response.json()
+  const records = Array.isArray(data?.results) ? data.results : []
+  return {
+    status: 'ready',
+    sources: records
+      .map((record, index) => ({
+        id: `web-discovery-${index}-${cleanText(record?.url, 180).replace(/[^a-z0-9]+/gi, '-').slice(0, 120)}`,
+        title: cleanText(record?.title, 320),
+        url: cleanText(record?.url, 900),
+        type: 'Web discovery result',
+        year: cleanText(record?.date || record?.last_updated, 12).slice(0, 4),
+        summary: cleanText(record?.snippet, 620),
+        journal: '',
+        origin: 'Broad web discovery',
+        discoveryOnly: true,
+        aiEligible: false,
+      }))
+      .filter((source) => source.title && source.url && isConditionScopedSource(source, condition))
+      .slice(0, 8),
+    detail: 'Broad web results are links for discovery only. They cannot become treatment or safety claims without independent source verification.',
+  }
+}
+
 const fetchOpenFdaLabelRecords = async (phrase) => {
   const url = new URL(OPEN_FDA_LABEL_URL)
   url.searchParams.set('search', `indications_and_usage:"${phrase}"`)
@@ -1120,6 +1451,10 @@ const sourceSearchPage = (provider, condition) => {
   if (provider === 'pubmed') return `https://pubmed.ncbi.nlm.nih.gov/?term=${phrase}`
   if (provider === 'europe-pmc') return `https://europepmc.org/search?query=${phrase}`
   if (provider === 'openalex') return `https://openalex.org/works?search=${phrase}`
+  if (provider === 'crossref') return `https://search.crossref.org/?q=${phrase}`
+  if (provider === 'semantic-scholar') return `https://www.semanticscholar.org/search?q=${phrase}`
+  if (provider === 'nih-reporter') return `https://reporter.nih.gov/search/?query=${phrase}`
+  if (provider === 'perplexity') return 'https://www.perplexity.ai/'
   if (provider === 'cochrane') return `https://www.cochranelibrary.com/search?text=${phrase}`
   if (provider === 'who-ictrp') return 'https://trialsearch.who.int/'
   if (provider === 'eu-ctis') return 'https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en'
@@ -1147,10 +1482,34 @@ const retrieveEvidenceSources = async (condition, env) => {
       fetch: () => fetchOpenAlexEvidence(condition, env),
     },
     {
+      id: 'crossref',
+      label: 'Crossref publisher index',
+      url: sourceSearchPage('crossref', condition),
+      fetch: async () => ({ status: 'ready', sources: await fetchCrossrefEvidence(condition), detail: 'Publisher-index records are searched across Crossref. Metadata-only records stay out of AI-written claims.' }),
+    },
+    {
+      id: 'semantic-scholar',
+      label: 'Semantic Scholar research index',
+      url: sourceSearchPage('semantic-scholar', condition),
+      fetch: async () => ({ status: 'ready', sources: await fetchSemanticScholarEvidence(condition, env), detail: 'Condition terms are checked in Semantic Scholar titles and abstracts.' }),
+    },
+    {
+      id: 'nih-reporter',
+      label: 'NIH RePORTER active research',
+      url: sourceSearchPage('nih-reporter', condition),
+      fetch: async () => ({ status: 'ready', sources: await fetchNihReporterEvidence(condition), detail: 'Active NIH-funded projects are shown as research-discovery records, not treatment evidence.' }),
+    },
+    {
       id: 'openfda',
       label: 'openFDA prescribing labels',
       url: sourceSearchPage('openfda', condition),
       fetch: async () => ({ status: 'ready', sources: await fetchOpenFdaLabels(condition), detail: 'Official US label search for an exact condition phrase.' }),
+    },
+    {
+      id: 'perplexity-web',
+      label: 'Broad web discovery',
+      url: sourceSearchPage('perplexity', condition),
+      fetch: () => fetchPerplexityWebDiscovery(condition, env),
     },
   ]
 
@@ -1598,11 +1957,11 @@ const extractJson = (text) => {
   }
 }
 
-const sourcePacketForPrompt = ({ patient, sources, centers, trials, evidenceMode }) => JSON.stringify({
+const sourcePacketForPrompt = ({ patient, sources, centers, trials, evidenceMode, excludedTreatments = [] }) => JSON.stringify({
   packetCreatedAt: new Date().toISOString(),
   patient,
   evidenceMode,
-  sourceLinkedEvidence: sources.map(({ id, title, type, origin, journal, year, summary, url, candidateLeads, conditionScope, conditionScopeLabel, relatedConditionContext }) => ({
+  sourceLinkedEvidence: sources.filter((source) => source?.aiEligible !== false).map(({ id, title, type, origin, journal, year, summary, url, candidateLeads, conditionScope, conditionScopeLabel, relatedConditionContext }) => ({
     id,
     title,
     type,
@@ -1616,7 +1975,8 @@ const sourcePacketForPrompt = ({ patient, sources, centers, trials, evidenceMode
     conditionScopeLabel: conditionScopeLabel || '',
     relatedConditionContext: relatedConditionContext || '',
   })),
-  researchSites: centers.map(({ name, city, why, source }) => ({ name, city, why, source })),
+  researchSites: centers.map(({ name, city, why, source, url, sourceTitle }) => ({ name, city, why, source, url, sourceTitle })),
+  negativeTreatmentEvidence: excludedTreatments,
   liveTrials: trials.map(({ id, title, status, phase, interventions, interventionDetails, conditionMatch, treatmentFocus, caution, url }) => ({
     id,
     title,
@@ -1640,11 +2000,12 @@ Hard boundaries:
 - The briefing is a real disease overview, not a dashboard summary. Explain what the condition is, what it often affects, and which subtype, gene, stage, or test details could change the research path. Never mention record counts, this app, a source packet, or a search process in the briefing.
 - Never write a statement of benefit, safety, approval, stage, or trial status without one or more sourceIds from the packet.
 - Give every source-specific research question one or more sourceIds from the packet so the app can show the reader exactly where the question came from.
+- The packet can include "negativeTreatmentEvidence." Those treatments were studied for this condition and had no benefit, worse outcomes, or another clear reason not to present them as options. Do not place them in treatmentIdeas, theoryIdeas, or a positive repurposing discussion. They may appear only in a short, source-linked explanation of why they are not shown as an option.
 - Every research question must be a short, everyday question a person can read aloud to a doctor. Use 12 words or fewer, one idea only, and common words. Prefer "Could this study fit me?", "Which symptoms should I mention?", or "What safety risks should I ask about?" over formal or technical wording. Do not use phrases such as "whether this is relevant," "eligibility criteria," "condition-specific," or "research direction."
 - Do not characterize a guideline's recommendation strength. Use neutral, source-limited language such as "the label indicates" or "a cited trial evaluated" instead.
 - Return up to 10 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, food or supplement, procedure, device, cell or gene therapy, RNA treatment, or other intervention already listed in a source's candidateLeads field or a live trial's treatmentInterventions field. Do not pull a treatment name out of general source prose by yourself. Use the intervention name, not the paper title. For example, write "RPGR gene therapy" or "N-acetylcysteine," never "Systematic review of RPGR gene therapy." Do not rank a gene, cell, or trial-only program above a source-backed medicine, food, supplement, or symptom-care treatment just because it is more technically advanced. Include a supplement or food only when the packet names that exact item in a condition-specific source or live trial. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea. Give each accepted idea a short, plain "takeaway" that tells the reader what the evidence means in practice without telling them what to take.
 - Classify each treatment idea carefully: "patient-discussible" for a source-backed medicine, supplement, food, or procedure a clinician could discuss; "prescription-or-label-check" when the official label or prescription status matters; "trial-only" for a formal study program; "expanded-access-check" only when it is a research program and the report does not confirm access; and "evidence-points-away" when the cited source reports no benefit or a worse outcome. Never claim a program has compassionate or expanded access unless the packet contains direct proof.
-- The "theoryIdeas" lane is intentionally different from treatmentIdeas. It is for 10 new hypotheses that were NOT found as a named, condition-specific treatment lead in this packet. A theory idea may use cautious biomedical reasoning, but it is not evidence that the idea works for this condition.
+- The "theoryIdeas" lane is intentionally different from treatmentIdeas. It is for carefully limited new repurposing questions, not a list that must reach ten items. Do not create one unless it names a concrete candidate and has an exact source that supports the condition-side reasoning. A theory idea may use cautious biomedical reasoning, but it is not evidence that the idea works for this condition.
 - For every theory idea, state a concrete target, pathway, gene/RNA approach, treatment platform, or named compound to verify. Favor gene, RNA, pathway, cell, device, or drug-target ideas. Do not pad with generic wellness, food, or supplement ideas. A supplement is allowed only when the idea is specific, gives no dose, and is clearly framed as a mechanism to verify, not an action.
 - Never write a dose, "high dose," a start/stop instruction, or a claim that the condition is autoimmune unless the supplied packet proves that exact claim. Do not include private-pay stem-cell or exosome clinics. A cell, exosome, or stem-cell concept may appear only as a research platform that needs legitimate study verification.
 - Every theory idea must name one to three concrete things to investigate: a drug class, named compound, supplement topic, peptide, gene/RNA approach, cell platform, device, or other research platform. Name a specific intervention only when it is a cautious research example, never as a treatment suggestion. Say whether the realistic route is a specialist discussion, an academic trial search, or unknown. Never imply that a compounded product, over-the-counter product, exosome, or cell product can be safely obtained for the condition. Every theory idea must plainly say why it is not established for this condition, give a short PubMed-style verification query, and include one simple question for a healthcare provider. Attach sourceIds only for the condition background; do not pretend those sources prove the theory idea itself.
@@ -1676,7 +2037,7 @@ Return strict JSON only:
 
 const reviewerSystemPrompt = `You are Reviewer Agent, a skeptical clinical-evidence reviewer. You receive an untrusted writer draft plus the exact source packet that writer was allowed to use.
 
-Your job is to prevent hallucination, overclaiming, and clinical irrelevance. Reject anything that is not traceable to an exact sourceId, names an entity outside the packet, implies a personalized treatment recommendation, gives dosing, promotes investigational/cell/exosome therapies as established care, or calls a research site a recommended, leading, or top center. Reject a treatment idea if it is not a named intervention in the supplied source material, or if it is a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step. Keep source-backed medicines, food, supplements, and symptom-care treatments separate from trial-only, gene, cell, and device programs. Do not approve a claim that an experimental program has compassionate or expanded access without direct proof in the packet. Reject a safety item unless it is a source-specific caution or red flag and it does not give a direct instruction. Reject a lifestyle item unless it names a real modifiable non-drug factor. A theory idea is the one exception to the source-entity rule: it may name a new target or mechanism for verification, but it must be absent from the condition-specific treatment records, state that it is not established for this condition, include a usable verification query and a simple healthcare-provider question, and never include a dose or action. Do not approve a theory idea that says the condition is autoimmune unless the packet proves it, or that markets a supplement, exosome, stem cell, or private clinic. When the source packet says patient.readingLevel is "eighth-grade", rewrite every patient-facing item in short, plain sentences at about an eighth-grade level. Use "anti-scarring medicine" instead of "antifibrotic" unless quoting a source, while keeping required medical names and source IDs exact. Every approved or rewritten question must be a simple doctor question: 12 words or fewer, one idea, no jargon, and easy to read aloud. Do not state or paraphrase a guideline recommendation's strength unless an exact quote in the packet supports it.
+Your job is to prevent hallucination, overclaiming, and clinical irrelevance. Reject anything that is not traceable to an exact sourceId, names an entity outside the packet, implies a personalized treatment recommendation, gives dosing, promotes investigational/cell/exosome therapies as established care, or calls a research site a recommended, leading, or top center. Reject a treatment idea if it is not a named intervention in the supplied source material, or if it is a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step. Keep source-backed medicines, food, supplements, and symptom-care treatments separate from trial-only, gene, cell, and device programs. The packet's "negativeTreatmentEvidence" is a hard block: reject any item that presents one of those treatments as a positive option, a repurposing idea, or a possible combination. Do not approve a claim that an experimental program has compassionate or expanded access without direct proof in the packet. Reject a safety item unless it is a source-specific caution or red flag and it does not give a direct instruction. Reject a lifestyle item unless it names a real modifiable non-drug factor. A theory idea is the one exception to the source-entity rule: it may name a new target or mechanism for verification, but it must be absent from the condition-specific treatment records, state that it is not established for this condition, include a usable verification query and a simple healthcare-provider question, and never include a dose or action. Do not approve a theory idea that says the condition is autoimmune unless the packet proves it, or that markets a supplement, exosome, stem cell, or private clinic. When the source packet says patient.readingLevel is "eighth-grade", rewrite every patient-facing item in short, plain sentences at about an eighth-grade level. Use "anti-scarring medicine" instead of "antifibrotic" unless quoting a source, while keeping required medical names and source IDs exact. Every approved or rewritten question must be a simple doctor question: 12 words or fewer, one idea, no jargon, and easy to read aloud. Do not state or paraphrase a guideline recommendation's strength unless an exact quote in the packet supports it.
 
 The app creates the record cards itself. Focus this pass on the briefing and doctor questions. Do not add items to a currently empty treatment, lifestyle, safety, or hypothesis array just to make the response longer.
 
@@ -3621,11 +3982,14 @@ const ipfEvidenceBundle = async (condition, env) => {
     sources: dedupeEvidenceSources([curatedSources, liveEvidence.sources], 18),
     curatedDiscussionLeads: (reference.discussionLeads || []).map(toCuratedDiscussionLead).filter(Boolean),
     curatedTheoryIdeas: (reference.theoryLeads || []).map(toCuratedTheoryIdea).filter(Boolean),
+    excludedTreatments: (reference.excludedAgents || []).map(toExcludedTreatment).filter(Boolean),
     centers: (reference.topCenters || []).slice(0, 6).map((center) => ({
       name: cleanText(center.name, 200),
       city: cleanText(center.city, 120),
       why: cleanText(center.why, 380),
-      source: 'Curated IPF referral reference',
+      url: cleanText(center.url, 900),
+      sourceTitle: cleanText(center.sourceTitle, 220) || `${cleanText(center.name, 200)} official program page`,
+      source: 'Official institution program page',
     })),
     researchers: (reference.keyInvestigators || []).slice(0, 8).map((researcher) => ({
       name: cleanText(researcher.name, 160),
@@ -3651,27 +4015,42 @@ const ipfEvidenceBundle = async (condition, env) => {
 const retrievedEvidenceBundle = async (condition, env) => {
   const liveEvidence = await retrieveEvidenceSources(condition, env)
   const foundationSources = conditionFoundationSources(condition)
+  const foundationDiscussionLeads = conditionFoundationDiscussionLeads(condition)
+  const foundationExcludedTreatments = conditionFoundationExcludedTreatments(condition)
+  const recentResearchSources = recentResearchSignalsFor(condition)
+  const sourceCoverage = [
+    ...(foundationSources.length
+      ? [{
+        id: 'condition-foundation',
+        label: 'Authoritative condition foundation',
+        url: foundationSources[0].url,
+        status: 'ready',
+        records: foundationSources.length,
+        detail: 'Condition overview and subtype-specific regulatory record added before the live literature search.',
+      }]
+      : []),
+    ...(recentResearchSources.length
+      ? [{
+        id: 'verified-recent-research',
+        label: 'Verified recent research',
+        url: recentResearchSources[0].url,
+        status: 'ready',
+        records: recentResearchSources.length,
+        detail: 'Recent source-linked animal or lab research is shown separately from human treatment evidence.',
+      }]
+      : []),
+    ...liveEvidence.coverage,
+  ]
   return {
     mode: 'live-retrieved',
     sourceLabel: 'Current research sources',
-    sources: dedupeEvidenceSources([foundationSources, liveEvidence.sources], 18),
-    curatedDiscussionLeads: [],
+    sources: dedupeEvidenceSources([foundationSources, recentResearchSources, liveEvidence.sources], 18),
+    curatedDiscussionLeads: foundationDiscussionLeads.map(toCuratedDiscussionLead).filter(Boolean),
     curatedTheoryIdeas: [],
+    excludedTreatments: foundationExcludedTreatments.map(toExcludedTreatment).filter(Boolean),
     centers: [],
     researchers: [],
-    sourceCoverage: foundationSources.length
-      ? [
-        {
-          id: 'condition-foundation',
-          label: 'Authoritative condition foundation',
-          url: foundationSources[0].url,
-          status: 'ready',
-          records: foundationSources.length,
-          detail: 'Condition overview and subtype-specific regulatory record added before the live literature search.',
-        },
-        ...liveEvidence.coverage,
-      ]
-      : liveEvidence.coverage,
+    sourceCoverage,
   }
 }
 
@@ -3686,6 +4065,7 @@ const createPacket = ({ patient, bundle, trials, sites, researchers }) => ({
   trials,
   curatedDiscussionLeads: Array.isArray(bundle.curatedDiscussionLeads) ? bundle.curatedDiscussionLeads : [],
   curatedTheoryIdeas: Array.isArray(bundle.curatedTheoryIdeas) ? bundle.curatedTheoryIdeas : [],
+  excludedTreatments: Array.isArray(bundle.excludedTreatments) ? bundle.excludedTreatments : [],
 })
 
 const explorationContextFor = (packet, review) => {
@@ -3724,6 +4104,7 @@ const runResearch = async (body, env) => {
       sources: [],
       centers: [],
       researchers: [],
+      excludedTreatments: [],
       sourceCoverage: [{ id: 'evidence', label: 'Evidence retrieval', status: 'unavailable', records: 0, detail: 'The live evidence sources could not be reached for this run.' }],
   }
   const trialServiceAvailable = trialResult.status === 'fulfilled'
@@ -3859,6 +4240,7 @@ const runResearch = async (body, env) => {
     researchers: packet.researchers,
     curatedDiscussionLeads: packet.curatedDiscussionLeads,
     curatedTheoryIdeas: packet.curatedTheoryIdeas,
+    excludedTreatments: packet.excludedTreatments,
     centerMode: enrichedBundle.centers.length ? 'curated-centers' : 'active-research-sites',
     writer: agents.writer,
     review,

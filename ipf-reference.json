@@ -25,49 +25,49 @@
       "name": "UCSF Interstitial Lung Disease Program",
       "city": "San Francisco, CA",
       "country": "USA",
-      "why": "One of the largest ILD referral programs in North America; home of the Collard group and the pirfenidone CAPACITY/ASCEND investigators."
+      "why": "Its official ILD program page lists idiopathic pulmonary fibrosis, a team from several specialties, and current research studies.",
+      "url": "https://www.ucsfhealth.org/care/services/interstitial-lung-disease",
+      "sourceTitle": "UCSF Health: Interstitial Lung Disease Program"
     },
     {
       "name": "UPMC Simmons Center for Interstitial Lung Disease (Pittsburgh)",
       "city": "Pittsburgh, PA",
       "country": "USA",
-      "why": "Dedicated ILD center founded by Kevin Gibson; deep IPF trial portfolio and transplant program."
+      "why": "Its official program page describes IPF care, a multidisciplinary team, patient support, and research on lung scarring.",
+      "url": "https://www.upmc.com/services/pulmonology/our-services/interstitial-lung-disease/about",
+      "sourceTitle": "UPMC: Simmons Center for Interstitial Lung Disease"
     },
     {
       "name": "Mayo Clinic Interstitial Lung Disease Clinic",
       "city": "Rochester, MN",
       "country": "USA",
-      "why": "Multidisciplinary ILD diagnosis with integrated pathology and radiology, plus transplant."
+      "why": "Its official clinic page lists idiopathic pulmonary fibrosis and gives current clinic locations and contact details.",
+      "url": "https://www.mayoclinic.org/departments-centers/interstitial-lung-disease-clinic/overview/ovc-20398498",
+      "sourceTitle": "Mayo Clinic: Interstitial Lung Disease Clinic"
     },
     {
       "name": "National Jewish Health",
       "city": "Denver, CO",
       "country": "USA",
-      "why": "Largest respiratory-focused hospital in the US; ILD program runs phase 2/3 trials."
+      "why": "Its official IPF page identifies its dedicated interstitial lung disease treatment center and patient resources.",
+      "url": "https://www.nationaljewish.org/conditions/interstitial-lung-disease-ild-center/what-is-ild/what-is-ipf",
+      "sourceTitle": "National Jewish Health: Idiopathic Pulmonary Fibrosis"
     },
     {
-      "name": "Cleveland Clinic Respiratory Institute — ILD",
+      "name": "Cleveland Clinic Interstitial Lung Disease Program",
       "city": "Cleveland, OH",
       "country": "USA",
-      "why": "Joseph Lasky / Daniel Culver — active IPF research and pragmatic antifibrotic clinic."
+      "why": "Its official program page lists idiopathic pulmonary fibrosis, multidisciplinary case review, and clinical research.",
+      "url": "https://my.clevelandclinic.org/departments/respiratory/depts/interstitial-lung-disease",
+      "sourceTitle": "Cleveland Clinic: Interstitial Lung Disease Program"
     },
     {
       "name": "Duke Interstitial Lung Disease Program",
       "city": "Durham, NC",
       "country": "USA",
-      "why": "Scott Palmer, Lake Morrison; deep transplant program for end-stage IPF."
-    },
-    {
-      "name": "Royal Brompton Hospital ILD Unit",
-      "city": "London",
-      "country": "UK",
-      "why": "Toby Maher and Athol Wells; FIBRONEER-IPF co-PI site."
-    },
-    {
-      "name": "Medizinische Hochschule Hannover (MHH) ILD Center",
-      "city": "Hannover",
-      "country": "Germany",
-      "why": "Kreuter / Welte; key European IPF trial site."
+      "why": "Its official care page lists pulmonary fibrosis and interstitial lung disease, pulmonary rehabilitation, and transplant evaluation.",
+      "url": "https://www.dukehealth.org/treatments/lung-disease/pulmonary-fibrosis-and-interstitial-lung-disease",
+      "sourceTitle": "Duke Health: Pulmonary Fibrosis and Interstitial Lung Disease"
     }
   ],
   "keyInvestigators": [
@@ -1283,6 +1283,11 @@
     },
     {
       "name": "N-acetylcysteine monotherapy (general IPF population)",
+      "aliases": [
+        "N-acetylcysteine",
+        "NAC",
+        "acetylcysteine"
+      ],
       "reason": "PANTHER-NAC (2014) — no effect on FVC decline vs placebo in the overall IPF population. May be evaluated in TOLLIP TT-genotype subgroup (see pipelineDrugs).",
       "evidenceRef": "ipf-panther-nac-2014"
     },

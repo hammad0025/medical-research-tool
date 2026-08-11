@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const appPath = fileURLToPath(new URL('../src/App.jsx', import.meta.url))
 const appSource = readFileSync(appPath, 'utf8')
 
-test('the patient-first dossier flow keeps practical decisions ahead of the full trial directory', () => {
+test('the patient-first report flow keeps practical decisions ahead of the full trial directory', () => {
   const universalReport = appSource.slice(
     appSource.indexOf('function UniversalReport'),
     appSource.indexOf('function WorkspaceHeader'),
@@ -17,6 +17,7 @@ test('the patient-first dossier flow keeps practical decisions ahead of the full
     '<CareLocations',
     '<LifestyleResearch',
     '<ResearchIdeas',
+    '<TreatmentResultsThatPointAway',
     '<TreatmentDevelopment',
     '<TrialDirectory',
     '<ResearchAccessPlan',
@@ -37,24 +38,32 @@ test('the patient-first dossier flow keeps practical decisions ahead of the full
   assert.match(appSource, /function ResearchAccessPlan/)
   assert.match(appSource, /id="condition-overview"/)
   assert.match(appSource, /id="clinical-trials"/)
-  assert.match(appSource, /Specific options to discuss, plus research ideas to investigate/)
-  assert.match(appSource, /Researched options to discuss/)
+  assert.match(appSource, /What you can discuss now, plus research questions to check/)
+  assert.match(appSource, /Researched options that are not approved for this condition/)
   assert.match(appSource, /Early research worth watching/)
   assert.match(appSource, /Not in people yet/)
-  assert.match(appSource, /Possible research ideas to investigate/)
+  assert.match(appSource, /supportingSourceIds/)
+  assert.match(appSource, /Do not buy, compound, or use/)
+  assert.match(appSource, /New repurposing questions/)
   assert.match(appSource, /Plain takeaway/)
-  assert.match(appSource, /Possible things to investigate/)
+  assert.match(appSource, /Named item to discuss/)
+  assert.match(appSource, /isExplicitlyExcludedTreatment/)
+  assert.match(appSource, /sourceMentionsRepurposingCandidate/)
+  assert.match(appSource, /Treatments studied but not listed as options/)
+  assert.match(appSource, /centerSourceCitation/)
+  assert.match(appSource, /Open official center page/)
+  assert.match(appSource, /\{label\}: \{sourceLabel\(citation\)\}/)
   assert.doesNotMatch(appSource, /source pack/i)
-  assert.match(appSource, /Research programs that need a formal access route/)
+  assert.match(appSource, /Treatments in current clinical studies/)
   assert.match(appSource, /FDA_EXPANDED_ACCESS_SOURCE/)
   assert.match(appSource, /Full current trial directory/)
-  assert.match(appSource, /buildLifestyleFallbackTopics/)
-  assert.match(appSource, /lifestyleVerificationLinks/)
-  assert.match(appSource, /Topic to verify/)
-  assert.doesNotMatch(appSource, /Build a more specific lifestyle search next\./)
+  assert.match(appSource, /No lifestyle claim was added without a direct source/)
+  assert.doesNotMatch(appSource, /lifestyleVerificationLinks/)
+  assert.doesNotMatch(appSource, /theoryVerificationLinks/)
+  assert.doesNotMatch(appSource, /More evidence/)
 })
 
-test('Word and PDF exports keep the same practical dossier sections', () => {
+test('Word and PDF exports keep the same practical report sections', () => {
   const exportReport = appSource.slice(
     appSource.indexOf('const reportExportText'),
     appSource.indexOf('function ExportActions'),
@@ -62,12 +71,13 @@ test('Word and PDF exports keep the same practical dossier sections', () => {
   const headingsInOrder = [
     '1. Condition overview',
     '2. Approved and established options',
-    '3. Centers and experts',
+    '3. Centers and study sites',
     '4. Lifestyle changes worth discussing',
-    '5. Researched leads to discuss now',
+    '5. Researched options that are not approved for this condition',
     'Early animal and lab research worth watching',
-    'Theory leads to verify',
-    'Research programs that need a formal access route',
+    'New repurposing questions',
+    'Treatments studied but not listed as options',
+    'Pipeline watch',
     'Current clinical trials',
     'Your research and access plan',
     'Simple questions to ask your doctor',
@@ -80,4 +90,6 @@ test('Word and PDF exports keep the same practical dossier sections', () => {
     assert.ok(position > lastPosition, `${heading} should follow the prior export section`)
     lastPosition = position
   }
+
+  assert.match(exportReport, /centerCitations\(result, center\)/)
 })
