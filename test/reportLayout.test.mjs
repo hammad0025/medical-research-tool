@@ -69,6 +69,7 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /No lifestyle claim was added without a direct source/)
   assert.match(appSource, /curatedLifestyleIdeas/)
   assert.match(appSource, /induction and maintenance/)
+  assert.match(appSource, /comparative effectiveness/)
   assert.match(appSource, /\(\?:and\|or\|plus\|with\)/)
   assert.match(appSource, /\[\.\.\.curatedIdeas, \.\.\.reviewedIdeas, \.\.\.sourceFallbackIdeas\]/)
   assert.match(appSource, /broadResearchConditionName/)
