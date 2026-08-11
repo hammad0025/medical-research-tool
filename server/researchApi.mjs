@@ -1036,7 +1036,13 @@ const retrieveEvidenceSources = async (condition, env) => {
   })
 
   return {
-    sources: dedupeEvidenceSources(coverage.map((lane) => lane.sources || []), 16),
+    // Tag direct condition-titled treatment records before trimming the source
+    // packet, so useful patient-facing evidence is not displaced by a generic
+    // background paper when an AI pass is slow or unavailable.
+    sources: dedupeEvidenceSources(
+      coverage.map((lane) => attachSourceTitleTreatmentCandidates(lane.sources || [], condition)),
+      16,
+    ),
     coverage: [
       ...coverage.map((lane) => ({
       id: lane.id,
@@ -2116,6 +2122,11 @@ const applyCandidateRelationshipReview = (records, relationReview) => {
         // A case report can mention an incidental medicine for a second
         // diagnosis. Only keep the narrow title-derived fallback there.
         if (ambiguousCaseRecord && candidate?.sourceTitleDerived !== true) return null
+        // A practical card's source needs to name the treatment in its title.
+        // This blocks a paper that only mentions an established treatment as
+        // background while studying a different intervention.
+        const titleNamesCandidate = sourceMentionsCandidate({ title: record?.title, summary: '' }, candidate)
+        if (candidate?.sourceTitleDerived !== true && !titleNamesCandidate) return null
         const decision = decisions.get(candidateRelationKey(record?.id, candidate?.name))
         if (decision) return { ...candidate, roleVerified: true, relationship: decision.relationship, relationEvidence: decision.evidence }
         // A title-derived lead uses a narrow deterministic grammar that ties
@@ -2603,6 +2614,19 @@ const shortQuestionForCandidate = (candidate) => {
     : 'What is this study testing?'
 }
 
+const summarySentences = (summary) => (cleanText(summary, 1_200).match(/[^.!?]+[.!?]?/g) || [])
+  .map((sentence) => cleanText(sentence, 360))
+  .filter(Boolean)
+
+const overviewSentenceFromSource = (source, condition) => {
+  const sentences = summarySentences(source?.summary)
+  return sentences.find((sentence) => sourceTextMentionsCondition(sentence, condition)
+    && /\b(?:is|are|caused by|characterized|inherited|rare|genetic)\b/i.test(sentence))
+    || sentences.find((sentence) => sourceTextMentionsCondition(sentence, condition))
+    || sentences[0]
+    || ''
+}
+
 // The source search can succeed even when a model response is withheld. In that
 // case, keep the reader in a real report rather than dropping into a generic
 // AI map. These sentences only describe the records already in the packet.
@@ -2610,7 +2634,10 @@ const sourceBackedReportFallback = (packet) => {
   const condition = cleanText(packet?.patient?.condition, 120) || 'this condition'
   const sources = Array.isArray(packet?.sources) ? packet.sources : []
   const overviewSource = sources.find((source) => isRecord(source?.conditionOverview) && source?.id)
-  const fallbackSource = overviewSource || sources.find((source) => source?.id && source?.summary)
+  const summaryOverviewSource = sources.find((source) => source?.id
+    && sourceTextMentionsCondition(source?.summary, condition)
+    && /\b(?:is|are|caused by|characterized|inherited|rare|genetic)\b/i.test(source?.summary || ''))
+  const fallbackSource = overviewSource || summaryOverviewSource || sources.find((source) => source?.id && source?.summary)
   const questionEntries = []
   const seenCandidates = new Set()
 
@@ -2646,7 +2673,7 @@ const sourceBackedReportFallback = (packet) => {
       }
       : fallbackSource
         ? {
-          text: `Here is a plain-language starting point for ${condition}: ${cleanText(fallbackSource.summary, 460)} The linked sections below separate established options from early research and current studies.`,
+          text: `${overviewSentenceFromSource(fallbackSource, condition)} The linked sections below separate established options from early research and current studies.`,
           sourceIds: [fallbackSource.id],
           reason: 'Built from the strongest available source record because the AI briefing was unavailable or withheld.',
         }
