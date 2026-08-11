@@ -1124,7 +1124,7 @@ test('the offline starting map stays condition-specific for common and arbitrary
   for (const [condition, geneticVariant, expectedTitle] of cases) {
     const response = await runFallback(condition, geneticVariant)
     assert.equal(response.status, 200)
-    const hasAuthoritativeFoundation = /ipf|idiopathic pulmonary fibrosis|retinitis pigmentosa/i.test(condition)
+    const hasAuthoritativeFoundation = /ipf|idiopathic pulmonary fibrosis|retinitis pigmentosa|huntington/i.test(condition)
     assert.equal(response.body.status, hasAuthoritativeFoundation ? 'ready' : 'exploration')
     if (hasAuthoritativeFoundation) {
       assert.equal(response.body.exploration, null)
@@ -1147,4 +1147,49 @@ test('the offline starting map stays condition-specific for common and arbitrary
     assert.ok(!response.body.exploration.treatmentPaths.some((item) => /\b(?:supplement|nutrition|goji berry)\b/i.test(`${item.title} ${item.summary}`)))
     assert.match(response.body.exploration.briefing, new RegExp(condition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
   }
+})
+
+test('common-condition foundations keep established care and lifestyle sections usable during source outages', { concurrency: false }, async () => {
+  const routes = apiRoutes({
+    ...env,
+    ANTHROPIC_RESEARCH_DISABLED: 'true',
+    OPENAI_API_KEY: '',
+  })
+  const unavailableFetch = async () => { throw new Error('Network unavailable for foundation test') }
+  const run = (condition) => withMockedFetch(unavailableFetch, () => callRoute(
+    routes.get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition } },
+  ))
+
+  const huntington = await run('Huntington Disease')
+  assert.equal(huntington.status, 200)
+  assert.equal(huntington.body.status, 'ready')
+  assert.ok(huntington.body.sources.some((source) => source.treatmentName === 'Deutetrabenazine (Austedo and Austedo XR)'))
+  assert.ok(huntington.body.sources.some((source) => source.treatmentName === 'Valbenazine (Ingrezza)'))
+  assert.equal(huntington.body.curatedLifestyleIdeas.length, 3)
+  assert.ok(huntington.body.review.briefing.sourceIds.includes('hd-ninds-condition-overview'))
+
+  const crohn = await run("Crohn's Disease")
+  assert.equal(crohn.status, 200)
+  assert.equal(crohn.body.status, 'ready')
+  const crohnLabels = crohn.body.sources.map((source) => source.treatmentName).filter(Boolean)
+  assert.ok(crohnLabels.includes('Ustekinumab (Stelara and biosimilars)'))
+  assert.ok(crohnLabels.includes('Upadacitinib (Rinvoq)'))
+  assert.ok(crohnLabels.length >= 6)
+  assert.equal(crohn.body.curatedLifestyleIdeas.length, 3)
+  assert.ok(crohn.body.review.briefing.sourceIds.includes('crohn-niddk-overview'))
+
+  const parkinson = await run("Parkinson's Disease")
+  assert.equal(parkinson.status, 200)
+  assert.equal(parkinson.body.status, 'ready')
+  assert.equal(parkinson.body.curatedLifestyleIdeas.length, 3)
+  assert.ok(parkinson.body.review.briefing.sourceIds.includes('parkinson-ninds-overview-support'))
+
+  const lada = await run('LADA')
+  assert.equal(lada.status, 200)
+  assert.equal(lada.body.status, 'ready')
+  assert.ok(lada.body.sources.some((source) => source.establishedCare === true && source.treatmentName === 'Insulin therapy'))
+  assert.equal(lada.body.curatedLifestyleIdeas.length, 3)
+  assert.ok(lada.body.review.briefing.sourceIds.includes('lada-expert-consensus-overview'))
 })
