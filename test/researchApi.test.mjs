@@ -3,6 +3,7 @@ import test from 'node:test'
 import { Readable } from 'node:stream'
 import { createResearchApiPlugin } from '../server/researchApi.mjs'
 import { createVercelApiHandler } from '../server/vercelApi.mjs'
+import { recentResearchSignalsFor } from '../server/recentResearchSignals.mjs'
 
 const env = {
   ANTHROPIC_RESEARCH_DISABLED: 'true',
@@ -104,6 +105,24 @@ const trial = {
     contactsLocationsModule: {
       locations: [{ facility: 'Test Retina Institute', city: 'Cleveland', state: 'Ohio', country: 'United States' }],
       overallOfficials: [{ name: 'Taylor Researcher', affiliation: 'Test Retina Institute', role: 'Principal Investigator' }],
+    },
+  },
+}
+
+const directCellTrial = {
+  protocolSection: {
+    identificationModule: {
+      nctId: 'NCT00000002',
+      briefTitle: 'CAR-T Cell Study for Retinitis Pigmentosa',
+    },
+    statusModule: { overallStatus: 'RECRUITING' },
+    designModule: { studyType: 'INTERVENTIONAL', phases: ['PHASE1'] },
+    sponsorCollaboratorsModule: { leadSponsor: { name: 'Test Cellular Therapy Institute' } },
+    conditionsModule: { conditions: ['Retinitis Pigmentosa'] },
+    descriptionModule: { briefSummary: 'A direct-condition study of CAR-T cells for retinitis pigmentosa.' },
+    armsInterventionsModule: { interventions: [{ name: 'CAR-T cells', type: 'BIOLOGICAL' }] },
+    contactsLocationsModule: {
+      locations: [{ facility: 'Test Cellular Therapy Institute', city: 'Boston', state: 'Massachusetts', country: 'United States' }],
     },
   },
 }
@@ -264,7 +283,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, directCellStudy = false } = {}) => {
   const pubMedTerms = []
 
   return {
@@ -323,7 +342,59 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       }
       if (url.includes('clinicaltrials.gov/api/v2/studies')) {
         if (failTrials) throw new Error('ClinicalTrials.gov is unavailable')
-        return jsonResponse({ studies: [trial, unrelatedStemCellTrial] })
+        return jsonResponse({ studies: [trial, unrelatedStemCellTrial, ...(directCellStudy ? [directCellTrial] : [])] })
+      }
+      if (url.includes('api.crossref.org/works')) {
+        if (failEvidence) throw new Error('Crossref is unavailable')
+        return jsonResponse({
+          message: {
+            items: [{
+              DOI: '10.1000/crossref-rp',
+              title: ['Retinitis pigmentosa treatment research'],
+              'container-title': ['Crossref Retina Journal'],
+              published: { 'date-parts': [[2025, 1, 1]] },
+              URL: 'https://doi.org/10.1000/crossref-rp',
+            }],
+          },
+        })
+      }
+      if (url.includes('api.semanticscholar.org/graph/v1/paper/search')) {
+        if (failEvidence) throw new Error('Semantic Scholar is unavailable')
+        return jsonResponse({
+          data: [{
+            paperId: 'semantic-rp-1',
+            title: 'Retinitis pigmentosa treatment research',
+            abstract: 'This Semantic Scholar record describes treatment research for retinitis pigmentosa.',
+            year: 2025,
+            venue: 'Semantic Retina Journal',
+            externalIds: { DOI: '10.1000/semantic-rp' },
+            url: 'https://www.semanticscholar.org/paper/semantic-rp-1',
+          }],
+        })
+      }
+      if (url.includes('api.reporter.nih.gov/v2/projects/search')) {
+        if (failEvidence) throw new Error('NIH RePORTER is unavailable')
+        return jsonResponse({
+          results: [{
+            appl_id: 12345678,
+            project_num: 'R01EY000001',
+            project_title: 'Retinitis pigmentosa research project',
+            abstract_text: 'An active NIH project studying retinitis pigmentosa.',
+            fiscal_year: 2026,
+            organization: 'Test Eye Institute',
+            project_detail_url: 'https://reporter.nih.gov/project-details/12345678',
+          }],
+        })
+      }
+      if (url.includes('api.perplexity.ai/search')) {
+        return jsonResponse({
+          results: [{
+            title: 'Retinitis pigmentosa research center',
+            url: 'https://example.org/retinitis-pigmentosa-research',
+            snippet: 'A research center page for retinitis pigmentosa studies and clinical research.',
+            date: '2026-08-11',
+          }],
+        })
       }
       if (url.includes('open.fda.gov/drug/label.json')) return jsonResponse({ error: { message: 'No matches found' } }, 404)
       if (url.includes('api.openai.com/v1/responses')) {
@@ -432,6 +503,10 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.status, 'ready')
   assert.equal(response.body.patient.condition, 'Retinitis Pigmentosa')
   assert.ok(mock.pubMedTerms.some((term) => term.includes('Retinitis Pigmentosa')))
+  for (const laneId of ['crossref', 'semantic-scholar', 'nih-reporter']) {
+    assert.equal(response.body.sourceCoverage.find((lane) => lane.id === laneId)?.status, 'ready')
+  }
+  assert.equal(response.body.sourceCoverage.find((lane) => lane.id === 'perplexity-web')?.status, 'not-configured')
   assert.ok(response.body.sources.length >= 3)
   assert.ok(response.body.sources.some((source) => source.id === 'rp-nei-condition-overview'))
   assert.ok(response.body.sources.some((source) => source.id === 'rp-fda-luxturna-rpe65'))
@@ -467,6 +542,21 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.review.independent, false)
 })
 
+test('a direct condition-matched CAR-T or cell study stays in the live trial list', { concurrency: false }, async () => {
+  const mock = createMockFetch({ directCellStudy: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const cellStudy = response.body.trials.find((item) => item.id === 'NCT00000002')
+  assert.ok(cellStudy, JSON.stringify(response.body.trials))
+  assert.equal(cellStudy.conditionMatch, 'direct')
+  assert.deepEqual(cellStudy.interventionDetails, [{ name: 'CAR-T cells', type: 'BIOLOGICAL' }])
+})
+
 test('a related retinal model finding stays in a clearly marked early-research lane', { concurrency: false }, async () => {
   const mock = createMockFetch({ relatedPreclinical: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
@@ -487,6 +577,41 @@ test('a related retinal model finding stays in a clearly marked early-research l
   assert.equal(erucamide.roleVerified, true)
   assert.equal(erucamide.sourceEarlyResearchDerived, true)
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /erucamide/i.test(idea.title)))
+})
+
+test('the audited recent-research intake keeps the erucamide paper separate from human RP care', () => {
+  const signals = recentResearchSignalsFor('Retinitis Pigmentosa - USH2A')
+  const study = signals.find((source) => source.id === 'rp-erucamide-retinal-protection-study-2026')
+  const nei = signals.find((source) => source.id === 'rp-nei-erucamide-retinal-protection-2026')
+
+  assert.ok(study)
+  assert.ok(nei)
+  assert.equal(study.url, 'https://pubmed.ncbi.nlm.nih.gov/42321469/')
+  assert.match(nei.url, /^https:\/\/www\.nei\.nih\.gov\//)
+  assert.equal(study.conditionScope, 'related-preclinical')
+  assert.deepEqual(study.supportingSourceIds, [nei.id])
+  assert.deepEqual(study.candidateLeads.map((candidate) => candidate.name), ['Erucamide'])
+  assert.equal(study.candidateLeads[0].relationship, 'condition-family-preclinical')
+  assert.equal(study.aiEligible, false)
+})
+
+test('broad web discovery stays link-only until another source verifies a claim', { concurrency: false }, async () => {
+  const mock = createMockFetch({ failEvidence: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes({ ...env, PERPLEXITY_API_KEY: 'test-web-key' }).get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const webLane = response.body.sourceCoverage.find((lane) => lane.id === 'perplexity-web')
+  assert.equal(webLane.status, 'ready')
+  assert.equal(webLane.records, 1)
+  const webSource = response.body.sources.find((source) => source.origin === 'Broad web discovery')
+  assert.ok(webSource)
+  assert.equal(webSource.aiEligible, false)
+  assert.equal(webSource.discoveryOnly, true)
+  assert.ok(!response.body.review.treatmentIdeas.some((idea) => /research center/i.test(idea.title)))
 })
 
 test('the curated IPF source pack exposes its overview and FDA-labeled medicines', { concurrency: false }, async () => {
@@ -512,6 +637,14 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   assert.equal(labels.every((source) => source.origin === 'U.S. Food and Drug Administration'), true)
   assert.ok(!response.body.sources.some((source) => source.candidateLeads?.some((candidate) => /monotherapy|dose reduction|study protocol/i.test(candidate.name))))
 
+  assert.equal(response.body.centers.length, 6)
+  assert.ok(response.body.centers.every((center) => center.url?.startsWith('https://')))
+  assert.ok(response.body.centers.every((center) => center.sourceTitle?.length))
+  const clevelandCenter = response.body.centers.find((center) => /Cleveland Clinic/i.test(center.name))
+  assert.ok(clevelandCenter)
+  assert.match(clevelandCenter.url, /clevelandclinic\.org/)
+  assert.match(clevelandCenter.sourceTitle, /Interstitial Lung Disease Program/)
+
   assert.equal(response.body.curatedDiscussionLeads.length, 10)
   const nac = response.body.curatedDiscussionLeads.find((idea) => idea.title === 'N-acetylcysteine (NAC)')
   assert.ok(nac)
@@ -519,6 +652,16 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   assert.match(nac.takeaway, /did not show broad benefit/i)
   assert.match(nac.providerQuestion, /\?$/)
   assert.ok(nac.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
+
+  const blockedMetformin = response.body.excludedTreatments.find((item) => /metformin/i.test(item.title))
+  assert.ok(blockedMetformin)
+  assert.ok(blockedMetformin.aliases.some((alias) => /^metformin$/i.test(alias)))
+  assert.deepEqual(blockedMetformin.sourceIds, ['ipf-metformin-spagnolo-2018'])
+  assert.ok(blockedMetformin.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
+
+  const blockedNac = response.body.excludedTreatments.find((item) => /N-acetylcysteine monotherapy/i.test(item.title))
+  assert.ok(blockedNac)
+  assert.ok(blockedNac.aliases.some((alias) => /^NAC$/i.test(alias)))
 
   assert.equal(response.body.curatedTheoryIdeas.length, 10)
   const cellResearch = response.body.curatedTheoryIdeas.find((idea) => idea.title === 'Academic cell and exosome research')
@@ -632,7 +775,23 @@ test('an authoritative condition foundation prevents a blank RP report when live
 
   assert.equal(response.status, 200)
   assert.equal(response.body.status, 'ready')
-  assert.equal(response.body.sources.length, 2)
+  assert.equal(response.body.sources.length, 8)
+  assert.ok(response.body.sources.some((source) => source.id === 'rp-nac-phase-1-2020'))
+  assert.ok(response.body.sources.some((source) => source.id === 'rp-lycium-barbarum-rct-2019'))
+  assert.ok(response.body.sources.some((source) => source.id === 'rp-valproic-acid-phase-2-negative-2018'))
+  assert.deepEqual(
+    response.body.curatedDiscussionLeads.map((idea) => idea.title).sort(),
+    ['Lycium barbarum (goji berry)', 'N-acetylcysteine (NAC)'].sort(),
+  )
+  const valproicAcid = response.body.excludedTreatments.find((item) => /valproic acid/i.test(item.title))
+  assert.ok(valproicAcid)
+  assert.deepEqual(valproicAcid.sourceIds, ['rp-valproic-acid-phase-2-negative-2018'])
+  assert.ok(!response.body.review.treatmentIdeas.some((idea) => /valproic acid/i.test(idea.title)))
+  const earlyResearchSource = response.body.sources.find((source) => source.id === 'rp-erucamide-retinal-protection-study-2026')
+  assert.ok(earlyResearchSource)
+  assert.equal(earlyResearchSource.conditionScope, 'related-preclinical')
+  assert.equal(earlyResearchSource.candidateLeads[0].name, 'Erucamide')
+  assert.ok(response.body.sourceCoverage.some((lane) => lane.id === 'verified-recent-research'))
   assert.equal(response.body.trials.length, 0)
   assert.equal(response.body.exploration, null)
   assert.match(response.body.review.briefing.text, /rare inherited eye diseases/i)
