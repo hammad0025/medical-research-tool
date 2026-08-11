@@ -134,7 +134,7 @@ const ush2aTrial = {
     statusModule: { overallStatus: 'RECRUITING' },
     designModule: { studyType: 'INTERVENTIONAL', phases: ['PHASE2'] },
     sponsorCollaboratorsModule: { leadSponsor: { name: 'Laboratoires Thea' } },
-    conditionsModule: { conditions: ['Retinitis Pigmentosa', 'Usher Syndrome Type 2A'], keywords: ['USH2A', 'Exon 13', 'LUNA'] },
+    conditionsModule: { conditions: ['Usher Syndrome Type 2A'], keywords: ['USH2A', 'Exon 13', 'LUNA'] },
     descriptionModule: { briefSummary: 'A study of ultevursen for retinitis pigmentosa due to mutations in exon 13 of the USH2A gene.' },
     armsInterventionsModule: { interventions: [{ name: 'Ultevursen', type: 'DRUG' }] },
     contactsLocationsModule: {

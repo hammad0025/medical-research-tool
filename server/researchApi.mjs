@@ -2145,9 +2145,16 @@ const trialMatchesRequestedCondition = (study, condition, geneticVariant) => {
   const listedConditionText = normalizeTrialText(listedConditions.join(' '))
 
   const registryTerms = trialRegistryConditionTerms(condition)
+  const variantTerms = [geneticVariant, conditionVariantToken(condition)]
+    .map(normalizeTrialText)
+    .filter((term) => term.length >= 3)
+  const directConditionMatch = registryTerms.some((term) => ` ${listedConditionText} `.includes(` ${term} `))
+  const variantConditionMatch = variantTerms.some((term) => ` ${listedConditionText} `.includes(` ${term} `))
+  const titleNamesRequestedCondition = trialTitleMatchesRequestedCondition(study, condition, '')
+  const titleNamesRequestedVariant = variantTerms.length > 0 && studyMatchesGeneticVariant(study, geneticVariant || conditionVariantToken(condition))
   if (!registryTerms.length || trialExplicitlyExcludesRequestedCondition(listedConditionText, registryTerms)) return false
+  if (!directConditionMatch && !(titleNamesRequestedCondition && (variantConditionMatch || titleNamesRequestedVariant))) return false
   return !studyIsBroadMultiConditionResearch(study)
-    && registryTerms.some((term) => ` ${listedConditionText} `.includes(` ${term} `))
     // A one-condition registry record can be a direct match even if the title
     // uses a study acronym. Multi-condition records must name the condition.
     && (listedConditions.length <= 1 || trialTitleMatchesRequestedCondition(study, condition, geneticVariant))
