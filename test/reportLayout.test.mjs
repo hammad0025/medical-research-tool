@@ -66,6 +66,8 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /FDA_EXPANDED_ACCESS_SOURCE/)
   assert.match(appSource, /Full current trial directory/)
   assert.match(appSource, /No lifestyle claim was added without a direct source/)
+  assert.match(appSource, /curatedLifestyleIdeas/)
+  assert.doesNotMatch(appSource, /quality of life\|low vision/)
   assert.doesNotMatch(appSource, /lifestyleVerificationLinks/)
   assert.doesNotMatch(appSource, /theoryVerificationLinks/)
   assert.doesNotMatch(appSource, /More evidence/)
