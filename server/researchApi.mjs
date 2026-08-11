@@ -1966,7 +1966,7 @@ const formatTrial = (study, locationHint, condition, geneticVariant) => {
   }
 }
 
-const collectResearchSites = (studies, locationHint) => {
+const collectResearchSites = (studies, locationHint, geneticVariant = '') => {
   const hint = cleanText(locationHint, 100).toLowerCase()
   const bySite = new Map()
 
@@ -1988,10 +1988,12 @@ const collectResearchSites = (studies, locationHint) => {
         locationMatch: false,
         researchRegionPriority: false,
         institutionScore: institutionNameScore(name),
+        variantMatch: false,
       }
       current.trials.push({ id: nctId, title })
       current.locationMatch ||= Boolean(hint && `${name} ${city}`.toLowerCase().includes(hint))
       current.researchRegionPriority ||= isPrioritizedResearchRegion(location.country)
+      current.variantMatch ||= studyMatchesGeneticVariant(study, geneticVariant)
       bySite.set(key, current)
     })
   })
@@ -2005,10 +2007,12 @@ const collectResearchSites = (studies, locationHint) => {
       source: 'ClinicalTrials.gov live registry',
       siteKind: site.institutionScore > 0 ? 'academic-or-clinical-center' : 'current-study-site',
       locationMatch: site.locationMatch,
+      variantMatch: site.variantMatch,
       researchRegionPriority: site.researchRegionPriority,
       institutionScore: site.institutionScore,
     }))
     .sort((a, b) => Number(b.locationMatch) - Number(a.locationMatch)
+      || Number(b.variantMatch) - Number(a.variantMatch)
       || Number(b.researchRegionPriority) - Number(a.researchRegionPriority)
       || b.institutionScore - a.institutionScore
       || b.trials.length - a.trials.length)
@@ -2057,6 +2061,7 @@ const trialSearchTerms = (condition, geneticVariant) => {
       parameter: 'query.term',
       term: variant ? `AREA[ConditionSearch]"${baseCondition.replaceAll('"', ' ')}" AND AREA[BasicSearch]${variant}` : '',
     },
+    { parameter: 'query.cond', term: variant },
     { parameter: 'query.cond', term: fullCondition },
     { parameter: 'query.cond', term: baseCondition },
     { parameter: 'query.term', term: submittedVariant },
@@ -2161,9 +2166,25 @@ const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
     throw failure?.reason || new Error('ClinicalTrials.gov did not return a usable response.')
   }
 
+  let retrievedStudies = successfulResponses.flatMap((result) => result.value)
+  const variant = cleanText(geneticVariant, 120).match(/\b[A-Za-z0-9-]{3,}\b/)?.[0] || conditionVariantToken(condition)
+  // A broad condition search can fill the result cap before a rare subtype
+  // appears. Retry the narrow variant routes when no matching record came
+  // back, rather than silently presenting only broad-condition studies.
+  if (variant && !retrievedStudies.some((study) => studyMatchesGeneticVariant(study, variant))) {
+    for (const parameter of ['query.cond', 'query.term']) {
+      try {
+        const variantStudies = await fetchTrialStudies({ parameter, term: variant })
+        retrievedStudies = [...retrievedStudies, ...variantStudies]
+        if (variantStudies.some((study) => studyMatchesGeneticVariant(study, variant))) break
+      } catch {
+        // Other registry searches may still provide a valid broad directory.
+      }
+    }
+  }
+
   const seenIds = new Set()
-  const studies = successfulResponses
-    .flatMap((result) => result.value)
+  const studies = retrievedStudies
     .filter((study) => study?.protocolSection?.designModule?.studyType === 'INTERVENTIONAL')
     .filter((study) => CURRENT_INTERVENTIONAL_STATUSES.has(cleanText(study?.protocolSection?.statusModule?.overallStatus, 80).toUpperCase()))
     .filter((study) => trialMatchesRequestedCondition(study, condition, geneticVariant))
@@ -2185,7 +2206,7 @@ const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
 
   return {
     trials: studies.slice(0, MAX_LIVE_TRIALS).map((study) => formatTrial(study, locationHint, condition, geneticVariant)),
-    sites: collectResearchSites(studies, locationHint),
+    sites: collectResearchSites(studies, locationHint, geneticVariant),
     researchers: collectResearchers(studies),
   }
 }
@@ -3211,7 +3232,6 @@ const simpleDoctorQuestion = (value) => {
   const question = text.endsWith('?') ? text : `${text}?`
   const words = question.match(/[A-Za-z0-9']+/g) || []
   const needsSimplifying = words.length > 12
-    || /\b(?:can|could|does|might|will|is|are)\b[^?]{0,160}\b(?:reduce|improve|slow|lower|prevent|clear|restore|maintain|effective|safer|better|help)\b/i.test(question)
     || /\b(?:whether|relevant|eligibility|condition-specific|research direction|specialist|discussion|academic(?:ally)?|independent review|contraindicat(?:ion|ions)?|biomarker|mechanism|pathway|phenotype|genotype|comorbidit(?:y|ies)|intervention|antifibrotic|investigational)\b/i.test(question)
   if (!needsSimplifying) return question
 

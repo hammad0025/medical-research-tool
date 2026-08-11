@@ -125,6 +125,24 @@ const trial = {
   },
 }
 
+const ush2aTrial = {
+  protocolSection: {
+    identificationModule: {
+      nctId: 'NCT06627179',
+      briefTitle: 'Study to Evaluate Ultevursen in Subjects With Retinitis Pigmentosa Due to Mutations in Exon 13 of the USH2A Gene',
+    },
+    statusModule: { overallStatus: 'RECRUITING' },
+    designModule: { studyType: 'INTERVENTIONAL', phases: ['PHASE2'] },
+    sponsorCollaboratorsModule: { leadSponsor: { name: 'Laboratoires Thea' } },
+    conditionsModule: { conditions: ['Retinitis Pigmentosa', 'Usher Syndrome Type 2A'], keywords: ['USH2A', 'Exon 13', 'LUNA'] },
+    descriptionModule: { briefSummary: 'A study of ultevursen for retinitis pigmentosa due to mutations in exon 13 of the USH2A gene.' },
+    armsInterventionsModule: { interventions: [{ name: 'Ultevursen', type: 'DRUG' }] },
+    contactsLocationsModule: {
+      locations: [{ facility: 'Test Retina Institute', city: 'Cleveland', state: 'Ohio', country: 'United States' }],
+    },
+  },
+}
+
 const directCellTrial = {
   protocolSection: {
     identificationModule: {
@@ -399,8 +417,12 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       }
       if (url.includes('clinicaltrials.gov/api/v2/studies')) {
         if (failTrials) throw new Error('ClinicalTrials.gov is unavailable')
-        clinicalTrialQueries.push(new URL(url))
-        return jsonResponse({ studies: [trial, unrelatedStemCellTrial, ...(directCellStudy ? [directCellTrial] : [])] })
+        const trialUrl = new URL(url)
+        clinicalTrialQueries.push(trialUrl)
+        const queryText = `${trialUrl.searchParams.get('query.cond') || ''} ${trialUrl.searchParams.get('query.term') || ''}`
+        return jsonResponse({ studies: /USH2A/i.test(queryText)
+          ? [ush2aTrial]
+          : [trial, unrelatedStemCellTrial, ...(directCellStudy ? [directCellTrial] : [])] })
       }
       if (url.includes('api.crossref.org/works')) {
         if (failEvidence) throw new Error('Crossref is unavailable')
@@ -566,6 +588,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
     const term = url.searchParams.get('query.term') || ''
     return /AREA\[ConditionSearch\]/.test(term) && /USH2A/i.test(term)
   }))
+  assert.ok(mock.clinicalTrialQueries.some((url) => url.searchParams.get('query.cond') === 'USH2A'))
   for (const laneId of ['crossref', 'semantic-scholar', 'nih-reporter']) {
     assert.equal(response.body.sourceCoverage.find((lane) => lane.id === laneId)?.status, 'ready')
   }
@@ -584,6 +607,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
     ['Vision rehabilitation and low-vision aids', 'Regular eye exams and treatable eye problems'],
   )
   assert.ok(response.body.curatedLifestyleIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
+  assert.equal(response.body.curatedLifestyleIdeas[0].providerQuestion, 'Could vision rehabilitation help with daily tasks?')
   const candidateSource = response.body.sources.find((source) => source.candidateLeads?.some((candidate) => candidate.name === 'AAV-RP therapy'))
   assert.ok(candidateSource)
   assert.ok(candidateSource.candidateLeads.some((candidate) => candidate.name === 'AAV-RP therapy'))
@@ -596,11 +620,13 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   const candidateGate = response.body.sourceCoverage.find((lane) => lane.id === 'candidate-verification')
   assert.equal(candidateGate.status, 'ready')
   assert.match(candidateGate.detail, /exact source text/i)
-  assert.equal(response.body.trials.length, 1)
-  assert.deepEqual(response.body.trials.map((item) => item.id), ['NCT00000001'])
+  assert.equal(response.body.trials.length, 2)
+  assert.deepEqual(response.body.trials.map((item) => item.id), ['NCT06627179', 'NCT00000001'])
+  assert.equal(response.body.trials[0].variantMatch, true)
   assert.ok(!response.body.trials.some((item) => /NAION|umbilical cord/i.test(item.title)))
   assert.equal(response.body.centers.length, 1)
   assert.equal(response.body.centers[0].name, 'Test Retina Institute')
+  assert.equal(response.body.centers[0].variantMatch, true)
   assert.equal(response.body.centers[0].siteKind, 'academic-or-clinical-center')
   assert.equal(response.body.trials[0].siteName, 'Test Retina Institute')
   assert.equal(response.body.review.treatmentIdeas.length, 1)
@@ -752,7 +778,6 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   )
   assert.ok(response.body.curatedLifestyleIdeas.every((idea) => idea.providerQuestion.endsWith('?')))
   assert.ok(response.body.curatedLifestyleIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
-
   assert.equal(response.body.curatedDiscussionLeads.length, 10)
   const nac = response.body.curatedDiscussionLeads.find((idea) => idea.title === 'N-acetylcysteine (NAC)')
   assert.ok(nac)
