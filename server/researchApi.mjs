@@ -595,14 +595,42 @@ const conditionFoundationLifestyleIdeas = (condition) => {
   ]
 }
 
-const conditionFoundationTrialIds = (condition, geneticVariant) => {
+const conditionFoundationTrialStudies = (condition, geneticVariant) => {
   const conditionText = cleanText(condition, 120)
   const variantText = `${conditionText} ${cleanText(geneticVariant, 120)}`
   if (/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(conditionText) && /\bUSH2A\b/i.test(variantText)) {
-    return ['NCT06627179']
+    return [{
+      maintainedFallback: true,
+      maintainedAsOf: '2026-06-18',
+      protocolSection: {
+        identificationModule: {
+          nctId: 'NCT06627179',
+          briefTitle: 'Study to Evaluate Ultevursen in Subjects With Retinitis Pigmentosa (RP) Due to Mutations in Exon 13 of the USH2A Gene (LUNA)',
+          officialTitle: 'A Two-Year Double-masked, Randomized, Sham-Controlled Study to Evaluate the Efficacy, Safety and Tolerability of Ultevursen in Subjects With Retinitis Pigmentosa (RP) Due to Mutations in Exon 13 of the USH2A Gene',
+        },
+        statusModule: { overallStatus: 'RECRUITING' },
+        designModule: { studyType: 'INTERVENTIONAL', phases: ['PHASE2'] },
+        sponsorCollaboratorsModule: { leadSponsor: { name: 'Laboratoires Thea' } },
+        conditionsModule: { conditions: ['Usher Syndrome Type 2A'], keywords: ['Retinitis Pigmentosa', 'USH2A', 'Exon 13', 'LUNA'] },
+        descriptionModule: { briefSummary: 'This phase 2b study is evaluating the safety, tolerability, and efficacy of intravitreal ultevursen in people with retinitis pigmentosa due to mutations in exon 13 of the USH2A gene.' },
+        armsInterventionsModule: { interventions: [{ name: 'Ultevursen', type: 'DRUG', otherNames: ['QR-421a'] }] },
+        contactsLocationsModule: {
+          locations: [
+            { facility: 'University of California, San Francisco', city: 'San Francisco', state: 'California', country: 'United States' },
+            { facility: 'Bascom Palmer Eye Institute, University of Miami', city: 'Miami', state: 'Florida', country: 'United States' },
+            { facility: 'Emory University', city: 'Atlanta', state: 'Georgia', country: 'United States' },
+            { facility: 'Massachusetts Eye and Ear', city: 'Boston', state: 'Massachusetts', country: 'United States' },
+          ],
+        },
+      },
+    }]
   }
   return []
 }
+
+const conditionFoundationTrialIds = (condition, geneticVariant) => conditionFoundationTrialStudies(condition, geneticVariant)
+  .map((study) => study?.protocolSection?.identificationModule?.nctId)
+  .filter(Boolean)
 
 const conditionFoundationExcludedTreatments = (condition) => {
   if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
@@ -1949,6 +1977,8 @@ const formatTrial = (study, locationHint, condition, geneticVariant) => {
   const regenerativeText = `${identification.briefTitle || ''} ${summary} ${interventionNames.join(' ')}`
   const caution = /stem cell|mesenchymal|exosome|extracellular vesicle|cell[- ]derived|cell therapy/i.test(regenerativeText)
     ? 'Cell or exosome technology is investigational. A registry entry alone does not establish benefit, safety, or regulatory standing; review the exact protocol with a qualified specialty team.'
+    : study?.maintainedFallback
+      ? `This official ClinicalTrials.gov record was last checked on ${study.maintainedAsOf || 'the listed update date'}. Open the linked record to confirm current status, locations, and eligibility.`
     : ''
   const locations = protocol.contactsLocationsModule?.locations || []
   const preferred = preferredTrialLocation(locations, locationHint)
@@ -2190,6 +2220,7 @@ const isUsableCurrentTrialStudy = (study, condition, geneticVariant) => study?.p
 
 const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
   const searchTerms = trialSearchTerms(condition, geneticVariant)
+  const foundationTrialStudies = conditionFoundationTrialStudies(condition, geneticVariant)
   const foundationTrialIds = conditionFoundationTrialIds(condition, geneticVariant)
   const [responses, foundationResponses] = await Promise.all([
     Promise.allSettled(searchTerms.map((term) => fetchTrialStudies(term))),
@@ -2205,6 +2236,7 @@ const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
 
   let retrievedStudies = [
     ...successfulFoundationResponses.map((result) => result.value),
+    ...foundationTrialStudies,
     ...successfulResponses.flatMap((result) => result.value),
   ]
   const variant = cleanText(geneticVariant, 120).match(/\b[A-Za-z0-9-]{3,}\b/)?.[0] || conditionVariantToken(condition)
