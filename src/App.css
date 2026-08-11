@@ -1313,7 +1313,7 @@
 .research-idea-card--exploratory .research-idea-boundary { color: #6a4279; background: rgba(215, 191, 229, 0.28); }
 .research-idea-card--early .research-idea-boundary { color: #24645d; background: rgba(181, 226, 211, 0.34); }
 .citation-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 14px; }
-.citation-action { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 7px 10px; border: 1px solid rgba(8, 127, 157, 0.28); border-radius: 8px; color: #08718b; background: rgba(239, 250, 252, 0.8); font-size: 0.75rem; font-weight: 800; text-decoration: none; }
+.citation-action { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-height: 32px; padding: 7px 10px; border: 1px solid rgba(8, 127, 157, 0.28); border-radius: 8px; color: #08718b; background: rgba(239, 250, 252, 0.8); font-size: 0.75rem; font-weight: 800; overflow-wrap: anywhere; text-decoration: none; }
 .citation-action:hover { border-color: rgba(8, 127, 157, 0.62); color: #075f76; background: #e4f6f8; }
 .research-idea-card--exploratory .citation-action { border-color: rgba(137, 90, 161, 0.3); color: #724585; background: rgba(247, 239, 250, 0.86); }
 .research-idea-card--exploratory .citation-action:hover { border-color: rgba(137, 90, 161, 0.65); color: #623878; background: #f0e2f5; }
