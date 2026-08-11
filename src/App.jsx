@@ -377,6 +377,8 @@ const officialLabelIdeasForReport = (result, condition) => {
         title,
         category: source.approvalScope === 'subtype' ? 'Official U.S. approval for a subtype' : 'Official U.S. label',
         summary: source.approvalScope ? source.summary : plainOfficialLabelSummary(source, title, conditionLabel),
+        accessClass: 'prescription-or-label-check',
+        providerQuestion: 'Does this label fit this condition and subtype?',
         caution: source.caution || 'A label applies to a specific diagnosis and situation. A clinician must decide whether it applies here.',
         sourceIds: [source.id],
         kind: 'fda',
@@ -396,6 +398,11 @@ const allTreatmentIdeasForReport = (result, condition) => {
     const key = treatmentIdeaKey(idea?.title)
     if (!key || isArticleTitleLike(idea?.title)) continue
     addDistinctTreatmentIdea(treatmentIdeas, { ...idea, title: cleanTreatmentDisplayName(idea.title), kind: 'source' })
+  }
+  for (const idea of officialLabelIdeasForReport(result, condition)) {
+    const key = treatmentIdeaKey(idea?.title)
+    if (!key) continue
+    addDistinctTreatmentIdea(treatmentIdeas, idea)
   }
   for (const idea of trialInterventionIdeas(result?.trials, condition).slice(0, 10)) {
     const key = treatmentIdeaKey(idea?.title)
