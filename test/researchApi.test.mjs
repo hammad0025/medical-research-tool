@@ -1226,4 +1226,18 @@ test('common-condition foundations keep established care and lifestyle sections 
   assert.ok(lada.body.review.theoryIdeas.some((idea) => /Anti-CD3/i.test(idea.title)))
   assert.ok(lada.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.every((item) =>
     !/\b(?:research|study|platform|pathway|target|treatment|therapy|drug class|question|trial)\b/i.test(item))))
+
+  const wilson = await run('Wilson disease')
+  assert.equal(wilson.status, 200)
+  assert.equal(wilson.body.status, 'ready')
+  const wilsonOptions = wilson.body.sources.map((source) => source.treatmentName).filter(Boolean)
+  assert.ok(wilsonOptions.includes('Penicillamine'))
+  assert.ok(wilsonOptions.includes('Trientine tetrahydrochloride (Cuvrior)'))
+  assert.ok(wilsonOptions.includes('Trientine hydrochloride (Syprine)'))
+  assert.ok(wilsonOptions.includes('Zinc acetate (Galzin)'))
+  assert.equal(wilson.body.curatedLifestyleIdeas.length, 4)
+  assert.ok(wilson.body.review.briefing.sourceIds.includes('wilson-medlineplus-overview'))
+  assert.equal(wilson.body.review.theoryIdeas.length, 10)
+  assert.ok(wilson.body.review.theoryIdeas.some((idea) => /ATP7B/i.test(idea.title)))
+  assert.ok(wilson.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
 })

@@ -368,7 +368,7 @@ const sourceTreatmentCandidates = (source) => {
   return candidates
 }
 
-const isArticleTitleLike = (title) => /\b(?:systematic review|meta-analysis|comparative effectiveness|safety and efficacy|phase\s*\d|a study comparing|clinical trial|review of)\b/i.test(String(title || ''))
+const isArticleTitleLike = (title) => /\b(?:systematic review|meta-analysis|comparative effectiveness|safety and efficacy|phase\s*\d|a study comparing|clinical trial|review of|treatment with)\b/i.test(String(title || ''))
 const isSupplementIdea = (idea) => /supplement|food|vitamin|fish oil|omega[- ]?3|dietary|over[- ]?the[- ]?counter|\botc\b/i.test(`${idea?.category || ''} ${idea?.title || ''}`)
 const looksLikeAdvancedResearch = (idea) => /gene|rna|cell|biologic|radiation|optogenetic|implant|prosthe|exosome|stem/i.test(`${idea?.category || ''} ${idea?.type || ''} ${idea?.title || ''}`)
 const isBroadTreatmentClass = (idea) => /\b(?:inhibitors|agonists|antagonists|modulators|blockers|agents|drugs|medicines|therapy|therapies|treatment|treatments|supplements|vitamins|carotenoids?|procedures|devices|research)\b$/i.test(treatmentIdeaKey(idea?.title))

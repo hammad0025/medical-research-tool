@@ -448,6 +448,87 @@ const toExcludedTreatment = (item) => {
 const conditionFoundationSources = (condition) => {
   const conditionText = cleanText(condition, 120)
 
+  if (/\bwilson(?:'s)? disease\b/i.test(conditionText)) {
+    const wilsonMedicineCaution = 'Wilson disease treatment is lifelong and can cause serious side effects or copper levels that are too low. A liver or movement-disorder specialist must choose and monitor treatment.'
+    return [
+      {
+        id: 'wilson-medlineplus-overview',
+        title: 'Wilson Disease',
+        url: 'https://medlineplus.gov/wilsondisease.html',
+        type: 'NIH condition overview',
+        year: '2024',
+        origin: 'National Library of Medicine',
+        summary: 'Wilson disease is a rare inherited disorder that prevents the body from removing extra copper. Copper can build up in the liver, brain, kidneys, and eyes.',
+        conditionOverview: {
+          whatItIs: 'Wilson disease is an inherited disorder that prevents the body from removing extra copper.',
+          whatToWatch: 'Copper can build up in the liver, brain, kidneys, and eyes. Symptoms can involve the liver, movement, thinking, mood, speech, swallowing, or vision.',
+          researchPath: 'Care centers on lifelong copper-lowering treatment, copper-aware daily habits, regular blood and urine monitoring, and specialist review of liver and neurologic health.',
+        },
+        aiEligible: true,
+      },
+      {
+        id: 'wilson-niddk-penicillamine-care',
+        title: 'Treatment of Wilson Disease',
+        url: 'https://www.niddk.nih.gov/health-information/liver-disease/wilson-disease/treatment',
+        type: 'NIH established treatment guidance',
+        year: '2018',
+        origin: 'National Institute of Diabetes and Digestive and Kidney Diseases',
+        treatmentName: 'Penicillamine',
+        establishedCare: true,
+        summary: 'NIDDK lists penicillamine as a copper-chelating medicine used to treat Wilson disease. It removes copper from the body.',
+        caution: wilsonMedicineCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'wilson-fda-cuvrior-label',
+        title: 'FDA prescribing information: CUVRIOR (trientine tetrahydrochloride)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2022/215760s000lbl.pdf',
+        type: 'FDA drug label',
+        year: '2022',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Trientine tetrahydrochloride (Cuvrior)',
+        summary: "The FDA label covers adults with stable Wilson's disease who were de-coppered and can take penicillamine. The exact label limits matter.",
+        caution: wilsonMedicineCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'wilson-fda-syprine-record',
+        title: 'FDA orphan approval record: trientine hydrochloride (Syprine)',
+        url: 'https://www.accessdata.fda.gov/scripts/opdlisting/oopd/detailedIndex.cfm?cfgridkey=4884',
+        type: 'FDA approval record',
+        year: '1985',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Trientine hydrochloride (Syprine)',
+        summary: "FDA records describe trientine hydrochloride for Wilson's disease when penicillamine is not tolerated or does not work well enough.",
+        caution: wilsonMedicineCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'wilson-fda-galzin-record',
+        title: 'FDA orphan approval record: zinc acetate (Galzin)',
+        url: 'https://www.accessdata.fda.gov/scripts/opdlisting/oopd/detailedIndex.cfm?cfgridkey=11185',
+        type: 'FDA approval record',
+        year: '1997',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Zinc acetate (Galzin)',
+        approvalScope: 'maintenance',
+        summary: "FDA records describe zinc acetate for maintenance treatment after a person with Wilson's disease has first been treated with a copper-chelating medicine.",
+        caution: wilsonMedicineCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'wilson-niddk-diet',
+        title: 'Eating, Diet, and Nutrition for Wilson Disease',
+        url: 'https://www.niddk.nih.gov/health-information/liver-disease/wilson-disease/eating-diet-nutrition',
+        type: 'NIH daily-life guidance',
+        year: '2018',
+        origin: 'National Institute of Diabetes and Digestive and Kidney Diseases',
+        summary: 'NIDDK discusses high-copper foods, copper in well water or plumbing, and copper in vitamins or supplements. The right plan can change after copper levels are controlled.',
+        aiEligible: true,
+      },
+    ]
+  }
+
   if (/\bhuntington(?:'s)?(?: disease)?\b/i.test(conditionText)) {
     return [
       {
@@ -1139,6 +1220,39 @@ const conditionFoundationDiscussionLeads = (condition) => {
 const conditionFoundationLifestyleIdeas = (condition) => {
   const conditionText = cleanText(condition, 120)
 
+  if (/\bwilson(?:'s)? disease\b/i.test(conditionText)) {
+    return [
+      {
+        title: 'A copper-aware food plan',
+        summary: 'NIDDK says a clinician may recommend avoiding high-copper foods when treatment starts. The plan can change after copper levels are controlled.',
+        providerQuestion: 'Which foods should be limited right now?',
+        caution: 'Do not remove many foods without a clinician or dietitian. The plan depends on treatment stage and nutrition needs.',
+        sourceIds: ['wilson-niddk-diet'],
+      },
+      {
+        title: 'Check drinking water for copper',
+        summary: 'NIDDK says well water and water that sits in copper pipes may contain extra copper. A care team can explain whether testing or a filter is needed.',
+        providerQuestion: 'Should our drinking water be tested?',
+        caution: 'Do not assume every home has a copper problem. Use a reliable water test and local guidance.',
+        sourceIds: ['wilson-niddk-diet'],
+      },
+      {
+        title: 'Check vitamins and supplements for copper',
+        summary: 'NIDDK advises checking vitamins, supplements, and complementary products because some contain copper or may conflict with treatment.',
+        providerQuestion: 'Do any supplements contain copper?',
+        caution: 'Bring every prescription, over-the-counter product, and supplement to a clinician or pharmacist before making a change.',
+        sourceIds: ['wilson-niddk-diet'],
+      },
+      {
+        title: 'Keep a lifelong monitoring routine',
+        summary: 'NIDDK explains that Wilson disease needs lifelong treatment and regular blood and urine tests to check copper control and treatment safety.',
+        providerQuestion: 'Which tests should be checked and when?',
+        caution: 'Do not stop a Wilson disease medicine because a person feels well. Sudden treatment interruption can be dangerous.',
+        sourceIds: ['wilson-niddk-penicillamine-care'],
+      },
+    ]
+  }
+
   if (/\bhuntington(?:'s)?(?: disease)?\b/i.test(conditionText)) {
     return [
       {
@@ -1396,6 +1510,7 @@ const CONDITION_SEARCH_GROUPS = [
   { canonical: 'Ulcerative Colitis', aliases: ['UC', 'Ulcerative Colitis'] },
   { canonical: 'Rheumatoid Arthritis', aliases: ['RA', 'Rheumatoid Arthritis'] },
   { canonical: "Parkinson's Disease", aliases: ["Parkinson's Disease", 'Parkinson Disease', "Parkinson's", 'Parkinsons'] },
+  { canonical: 'Wilson Disease', aliases: ['Wilson Disease', "Wilson's Disease", 'Hepatolenticular Degeneration'] },
 ]
 
 const conditionSearchGroup = (condition) => {
@@ -4706,6 +4821,23 @@ const genericTheoryTemplatesForCondition = (condition) => [
 ]
 
 const theoryTemplatesForCondition = (condition) => {
+  if (/\bwilson(?:'s)? disease\b/i.test(condition)) {
+    return [
+      ['ATP7B messenger-RNA delivery', 'Gene-message question', 'Wilson disease is caused by harmful ATP7B gene changes. A liver-targeted RNA message could be checked as a temporary way to restore copper transport without changing DNA.', 'This report did not find ATP7B messenger-RNA delivery established for Wilson disease.', 'Wilson disease ATP7B mRNA lipid nanoparticle research', ['ATP7B mRNA lipid nanoparticles']],
+      ['ATP7B protein-folding rescue', 'Protein-rescue question', 'Some ATP7B changes may leave a protein that is made but does not fold or move correctly. A small molecule that helps protein folding is a specific route to check.', 'This report did not find an ATP7B protein-folding medicine established for Wilson disease.', 'Wilson disease ATP7B pharmacologic chaperone research', ['ATP7B pharmacologic chaperones']],
+      ['ATP7B splice correction', 'RNA-splicing question', 'Some gene changes can disrupt how RNA is spliced. A splice-correcting approach could be checked only for a matching ATP7B variant.', 'This report did not find splice correction established for Wilson disease.', 'Wilson disease ATP7B splice switching oligonucleotide research', ['Splice-switching oligonucleotides']],
+      ['Metallothionein copper binding', 'Copper-storage question', 'Metallothionein proteins can bind copper inside cells. A selective way to increase this system could be checked separately from established zinc treatment.', 'This report did not find a selective metallothionein inducer established for Wilson disease.', 'Wilson disease metallothionein inducer research', ['Selective metallothionein inducers']],
+      ['Lysosomal copper export', 'Cell-transport question', 'Cell recycling compartments help move metals and damaged material. A lysosomal copper-export medicine could be checked as a possible bypass route.', 'This report did not find a lysosomal copper-export medicine established for Wilson disease.', 'Wilson disease lysosomal copper export modulator research', ['Lysosomal copper-export modulators']],
+      ['Mitochondrial copper stress', 'Cell-energy question', 'Copper buildup can be checked for links to mitochondrial stress in liver and nerve cells. A mitochondria-targeted copper binder is one specific research question.', 'This report did not find a mitochondria-targeted copper binder established for Wilson disease.', 'Wilson disease mitochondria targeted copper chelator research', ['Mitochondria-targeted copper chelators']],
+      ['Ferroptosis control', 'Cell-death question', 'Copper-related oxidative stress may connect with iron-linked cell death pathways. A ferroptosis blocker could be checked for direct Wilson disease evidence.', 'This report did not find a ferroptosis blocker established for Wilson disease.', 'Wilson disease ferroptosis inhibitor liver research', ['Ferroptosis inhibitors']],
+      ['NRF2 stress-response signaling', 'Cell-protection question', 'NRF2 helps cells respond to oxidative stress. A selective NRF2 medicine could be checked for liver and nervous-system research in Wilson disease.', 'This report did not find an NRF2 medicine established for Wilson disease.', 'Wilson disease NRF2 activator research', ['Selective NRF2 activators']],
+      ['Mitophagy and damaged-mitochondria cleanup', 'Cell-cleanup question', 'Removing damaged mitochondria may matter when copper harms cell-energy systems. A mitophagy medicine is a specific mechanism to verify.', 'This report did not find a mitophagy medicine established for Wilson disease.', 'Wilson disease mitophagy activator research', ['PINK1-Parkin mitophagy activators']],
+      ['ATP7B-corrected liver organoids', 'Cell-replacement question', 'Correcting a person\'s liver cells outside the body could be checked as a research platform for replacing copper-transport function.', 'This report did not find corrected liver organoids established or available for Wilson disease.', 'Wilson disease ATP7B corrected hepatocyte organoid research', ['ATP7B-corrected hepatocyte organoids']],
+      ['Ceruloplasmin replacement biology', 'Copper-carrier question', 'Ceruloplasmin carries copper in blood and is often low in Wilson disease. A replacement approach could be checked without assuming a blood level is itself a treatment target.', 'This report did not find ceruloplasmin replacement established for Wilson disease.', 'Wilson disease ceruloplasmin replacement research', ['Recombinant ceruloplasmin']],
+      ['Liver-targeted autophagy control', 'Protein-cleanup question', 'Autophagy helps liver cells recycle damaged proteins and cell parts. A liver-targeted autophagy medicine could be checked for direct copper-toxicity research.', 'This report did not find an autophagy medicine established for Wilson disease.', 'Wilson disease liver autophagy activator research', ['Liver-targeted autophagy activators']],
+    ]
+  }
+
   if (/\b(?:retinitis pigmentosa|\brp\b|rod-cone dystrophy|inherited retinal)\b/i.test(condition)) {
     return [
       ['Vitamin D signaling and retinal cell stress', 'Supplement mechanism to verify', 'Vitamin D signaling is a biological topic that could be checked for a link to retinal cell stress. This report does not show that it treats RP.', 'Vitamin D was not a source-backed RP treatment lead in this report.', 'retinitis pigmentosa vitamin D retinal cell stress', ['Vitamin D3']],
