@@ -32,6 +32,20 @@ const pubMedXml = `
   <PubmedData><ArticleIdList><ArticleId IdType="doi">10.1000/test-rp</ArticleId></ArticleIdList></PubmedData>
 </PubmedArticle>`
 
+const titleFallbackPubMedXml = `
+<PubmedArticle>
+  <MedlineCitation>
+    <PMID>1001</PMID>
+    <Article>
+      <Journal><Title>Test Retina Journal</Title></Journal>
+      <ArticleTitle>Migalastat compared with enzyme replacement therapy in retinitis pigmentosa</ArticleTitle>
+      <Abstract><AbstractText>This fixture tests source-title treatment fallback behavior.</AbstractText></Abstract>
+      <PublicationTypeList><PublicationType>Randomized Controlled Trial</PublicationType></PublicationTypeList>
+      <JournalIssue><PubDate><Year>2025</Year></PubDate></JournalIssue>
+    </Article>
+  </MedlineCitation>
+</PubmedArticle>`
+
 const trial = {
   protocolSection: {
     identificationModule: {
@@ -207,7 +221,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false } = {}) => {
   const pubMedTerms = []
 
   return {
@@ -222,7 +236,7 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       }
       if (url.includes('/efetch.fcgi')) {
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
-        return textResponse(pubMedXml)
+        return textResponse(titleFallback ? titleFallbackPubMedXml : pubMedXml)
       }
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
@@ -249,8 +263,8 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
               source: 'MED',
               id: '1001',
               pmid: '1001',
-              title: 'Vision rehabilitation in retinitis pigmentosa',
-              abstractText: 'Vision rehabilitation is discussed for people with retinitis pigmentosa.',
+              title: titleFallback ? 'Migalastat compared with enzyme replacement therapy in retinitis pigmentosa' : 'Vision rehabilitation in retinitis pigmentosa',
+              abstractText: titleFallback ? 'This fixture tests source-title treatment fallback behavior.' : 'Vision rehabilitation is discussed for people with retinitis pigmentosa.',
               pubYear: '2025',
               journalTitle: 'Test Retina Journal',
               pubType: 'Systematic Review',
@@ -265,6 +279,9 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       if (url.includes('open.fda.gov/drug/label.json')) return jsonResponse({ error: { message: 'No matches found' } }, 404)
       if (url.includes('api.openai.com/v1/responses')) {
         const request = JSON.parse(options.body)
+        if (relationReviewUnavailable && request.instructions.includes('Candidate Relation Reviewer')) {
+          return jsonResponse({ error: { message: 'Reviewer unavailable in this test.' } }, 503)
+        }
         if (malformedReview && !request.instructions.includes('Researcher Agent') && !request.instructions.includes('Research Connections Agent')) {
           return jsonResponse({ status: 'completed', output_text: 'This response is not valid JSON.' })
         }
@@ -431,6 +448,21 @@ test('Europe PMC keeps candidate evidence available when PubMed is unavailable',
   const candidateSource = response.body.sources.find((source) => source.id === 'epmc-med-2002')
   assert.ok(candidateSource)
   assert.ok(candidateSource.candidateLeads.some((candidate) => candidate.name === 'AAV-RP therapy'))
+})
+
+test('a condition-titled treatment source survives an unavailable AI relation check', { concurrency: false }, async () => {
+  const mock = createMockFetch({ titleFallback: true, relationReviewUnavailable: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  const titleFallbackSource = response.body.sources.find((source) => source.candidateLeads?.some((candidate) => candidate.name === 'Migalastat'))
+  assert.ok(titleFallbackSource, JSON.stringify(response.body.sources))
+  assert.ok(titleFallbackSource.candidateLeads.some((candidate) => candidate.name === 'Migalastat'))
+  assert.ok(titleFallbackSource.candidateLeads.some((candidate) => candidate.name === 'enzyme replacement therapy'))
+  assert.ok(titleFallbackSource.candidateLeads.every((candidate) => candidate.roleVerified && candidate.sourceTitleDerived))
 })
 
 test('a source-backed run keeps a source-linked overview when a report lane is empty', { concurrency: false }, async () => {
