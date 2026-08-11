@@ -750,6 +750,13 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   assert.equal(response.body.review.theoryIdeas.length, 10)
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
+  const vagueTheoryItem = /\b(?:research|study|studies|platform|pathway|target|treatment|therapy|drug class|cell program|gene program|rna program|formal|academic|question|screen|search|trial)\b/i
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.some((item) => !vagueTheoryItem.test(item))))
+  for (const name of ['Bosentan', 'Sildenafil', 'Interferon gamma-1b']) {
+    const excluded = response.body.excludedTreatments.find((item) => item.aliases.some((alias) => alias.toLowerCase() === name.toLowerCase()))
+    assert.ok(excluded, `${name} should stay in the negative-results lane`)
+    assert.ok(excluded.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
+  }
   const cellResearch = response.body.curatedTheoryIdeas.find((idea) => idea.title === 'Academic cell and exosome research')
   assert.ok(cellResearch)
   assert.ok(cellResearch.potentialInterventions.some((item) => /exosome/i.test(item)))

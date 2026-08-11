@@ -176,15 +176,22 @@ const treatmentCategoryForType = (type) => ({
   RADIATION: 'Procedure research',
 }[String(type || '').toUpperCase()] || 'Treatment research')
 
-const cleanTreatmentDisplayName = (title) => String(title || '')
-  .replace(/^(?:drug|biological|combination product|dietary supplement|genetic|device|procedure|radiation):\s*/i, '')
-  .replace(/\s*\((?:high|low|intermediate|selected|single)[-\s]+dose(?: and standard corticosteroid regimen)?\)/ig, '')
-  .replace(/\b(?:low|high|intermediate|selected|single)[-\s]+dose\b/ig, '')
-  .replace(/\b(?:standard|modified)\s+corticosteroid regimen\b/ig, '')
-  .replace(/-\s+/g, '-')
-  .replace(/\s{2,}/g, ' ')
-  .replace(/[;,\s]+$/, '')
-  .trim()
+const cleanTreatmentDisplayName = (title) => {
+  const cleaned = String(title || '')
+    .replace(/^(?:drug|biological|combination product|dietary supplement|genetic|device|procedure|radiation):\s*/i, '')
+    .replace(/\s*\((?:high|low|intermediate|selected|single)[-\s]+dose(?: and standard corticosteroid regimen)?\)/ig, '')
+    .replace(/\b(?:low|high|intermediate|selected|single)[-\s]+dose\b/ig, '')
+    .replace(/\b(?:standard|modified)\s+corticosteroid regimen\b/ig, '')
+    .replace(/\s+dose\s+[a-z]\b/ig, '')
+    .replace(/-\s+/g, '-')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/[;,\s]+$/, '')
+    .trim()
+
+  if (/^BI\s*1015550$/i.test(cleaned)) return 'Nerandomilast (Jascayd; BI 1015550)'
+  if (/^NAL\s*ER$/i.test(cleaned)) return 'Nalbuphine extended-release (NAL ER)'
+  return cleaned
+}
 
 const treatmentInterventionsForTrial = (trial) => {
   if (trial?.conditionMatch === 'broad') return []
@@ -481,6 +488,9 @@ const isExplicitlyExcludedTreatment = (result, idea) => {
 const isEstablishedTreatmentIdea = (idea) => idea?.kind === 'fda'
   || idea?.accessClass === 'prescription-or-label-check'
   || /official\s+(?:u\.s\.)?(?:label|approval)|fda-approved/i.test(`${idea?.category || ''} ${idea?.summary || ''}`)
+
+const isEstablishedForReport = (result, condition, idea) => isEstablishedTreatmentIdea(idea)
+  || officialLabelIdeasForReport(result, condition).some((label) => sameTreatmentFamily(label.title, idea?.title))
 
 const allTreatmentIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
@@ -1552,22 +1562,27 @@ const isResearchProgramIdea = (idea) => idea?.accessClass !== 'prescription-or-l
 const patientDiscussionIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
   const allIdeas = allTreatmentIdeasForReport(result, condition)
+  const hasTraceableSource = (idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId))
+    || (idea?.trials || []).some((trial) => trial?.id && trial?.url)
   const directDiscussionIdeas = allIdeas
-    .filter((idea) => !isEstablishedTreatmentIdea(idea))
+    .filter((idea) => !isEstablishedForReport(result, condition, idea))
     .filter((idea) => !isResearchProgramIdea(idea))
     .filter((idea) => !isBroadTreatmentClass(idea))
     .filter((idea) => isConcretePatientTreatmentTitle(idea?.title))
     .filter((idea) => !evidencePointsAway(result, idea))
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
-    .filter((idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId)))
+    .filter(hasTraceableSource)
   const seen = new Set(directDiscussionIdeas.map((idea) => treatmentIdeaKey(idea?.title)))
-  const studyAccessIdeas = allIdeas
+  const directTrialIdeas = trialInterventionIdeas(result?.trials, condition)
+    .map((idea) => ({ ...idea, kind: 'trial', sourceIds: idea.trials.map((trial) => trial.id) }))
+  const studyAccessIdeas = [...allIdeas, ...directTrialIdeas]
     .filter((idea) => isResearchProgramIdea(idea))
+    .filter((idea) => !isEstablishedForReport(result, condition, idea))
     .filter((idea) => !isBroadTreatmentClass(idea))
     .filter((idea) => isConcretePatientTreatmentTitle(idea?.title))
     .filter((idea) => !evidencePointsAway(result, idea))
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
-    .filter((idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId)))
+    .filter(hasTraceableSource)
     .filter((idea) => {
       const key = treatmentIdeaKey(idea?.title)
       if (!key || seen.has(key)) return false
@@ -1578,9 +1593,24 @@ const patientDiscussionIdeasForReport = (result, condition) => {
   return [...directDiscussionIdeas, ...studyAccessIdeas].slice(0, 10)
 }
 
-const researchProgramIdeasForReport = (result, condition) => allTreatmentIdeasForReport(result, condition)
-  .filter(isResearchProgramIdea)
-  .slice(0, 10)
+const researchProgramIdeasForReport = (result, condition) => {
+  const seen = new Set()
+  return [
+    ...allTreatmentIdeasForReport(result, condition),
+    ...trialInterventionIdeas(result?.trials, condition).map((idea) => ({ ...idea, kind: 'trial', sourceIds: idea.trials.map((trial) => trial.id) })),
+  ]
+    .filter(isResearchProgramIdea)
+    .filter((idea) => !isEstablishedForReport(result, condition, idea))
+    .filter((idea) => !evidencePointsAway(result, idea))
+    .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
+    .filter((idea) => {
+      const key = treatmentIdeaKey(idea?.title)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 10)
+}
 
 const developmentProgramsForReport = (result, condition) => {
   const seen = new Set()

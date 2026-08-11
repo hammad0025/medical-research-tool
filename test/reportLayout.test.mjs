@@ -48,6 +48,8 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /Plain takeaway/)
   assert.match(appSource, /Named item to investigate/)
   assert.match(appSource, /Study may be enrolling/)
+  assert.match(appSource, /Nerandomilast \(Jascayd; BI 1015550\)/)
+  assert.match(appSource, /Nalbuphine extended-release \(NAL ER\)/)
   assert.match(appSource, /isExplicitlyExcludedTreatment/)
   assert.match(appSource, /Source for disease biology/)
   assert.match(appSource, /Search to check next/)
