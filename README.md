@@ -1,6 +1,6 @@
-# Evidence Atlas - Any-Condition Monday Demo
+# researchingmycondition.com - Private Research Beta
 
-A source-first medical-research prototype for Dorothy's review. It accepts any entered diagnosis, subtype, gene, or phenotype; IPF is an enriched example with a curator-reviewed reference pack.
+A source-first, private-beta medical-research product for Dorothy's review. It accepts any entered diagnosis, subtype, gene, or phenotype; IPF is an enriched example with a curator-reviewed reference pack.
 
 ## What it demonstrates
 
@@ -13,7 +13,9 @@ A source-first medical-research prototype for Dorothy's review. It accepts any e
 - A source list that separates retrieved records, metadata-only records withheld from AI, unavailable databases, and authoritative manual search routes
 - A safety check that withholds ungrounded, prescriptive, dosing, and unsupported guideline-strength language
 - Direct source links next to the report's major claims and in exports
-- A server-checked passcode, privacy acknowledgement, and plain-language safety notices
+- A server-checked passcode, private-beta Terms, Privacy notice, and plain-language safety notices
+- A no-profile-database design: the app does not create patient accounts or save submitted profiles and reports in an application database
+- Browser security headers and a best-effort server-side rate limit for expensive research runs
 
 The suggestion chips are only shortcuts. A user can enter any condition, subtype, gene, or phenotype. The report always shows the main sections: treatment ideas, research questions, daily-life topics, study sites, and current-trial next steps. When live retrieval is thin or temporarily unavailable, a clearly labeled AI starting map fills the gap with cautious ideas to verify. It does not pretend those ideas are proven evidence or personal medical advice.
 
@@ -42,9 +44,10 @@ For a Vercel deployment, set these **server-side** Vercel environment variables 
 SITE_ACCESS_PASSCODE=choose-a-long-private-passcode
 SITE_ACCESS_SECURE_COOKIE=true
 SITE_ACCESS_SESSION_SECRET=at-least-32-random-characters
+RESEARCH_RUN_MAX_PER_WINDOW=6
 ```
 
-`SITE_ACCESS_SESSION_SECRET` is required on serverless hosting so the signed access cookie works across separate function instances. Generate a different random value for each environment and keep it in the host secret store. A Vercel deployment without a strong signing secret or secure cookies stays locked instead of exposing the research API. The included Vercel function is allowed up to five minutes so it matches the app's four-minute report timeout; make sure Fluid Compute remains enabled in the Vercel project.
+`SITE_ACCESS_SESSION_SECRET` is required on serverless hosting so the signed access cookie works across separate function instances. Generate a different random value for each environment and keep it in the host secret store. A Vercel deployment without a strong signing secret or secure cookies stays locked instead of exposing the research API. `RESEARCH_RUN_MAX_PER_WINDOW` controls an in-memory per-connection safeguard against repeated paid research calls; it is best effort on serverless hosting, not an account quota. The included Vercel function is allowed up to five minutes so it matches the app's four-minute report timeout; make sure Fluid Compute remains enabled in the Vercel project.
 
 The IPF evidence core works without any model key. Configure a local server-side Anthropic or OpenAI key to enable the writer and a separate source-check pass. When Anthropic writes and OpenAI reviews, the reviewer is a different provider; if the writer falls back to OpenAI, the app labels the result as a separate second pass rather than an independent-provider review. OpenAlex is optional and adds a separate scholarly-metadata lane when its key is configured:
 
@@ -60,7 +63,7 @@ npm run dev
 ## Architecture
 
 1. The browser first requests a server-issued passcode session, then collects a temporary research intake and calls `/api/research-run`.
-2. The browser requires a privacy and safety acknowledgement. The server rejects missing acknowledgement and blocks several obvious direct identifiers, such as email addresses, phone numbers, full dates of birth, medical-record numbers, and street addresses.
+2. The browser requires a private-beta safety acknowledgement and links to Terms and Privacy pages. The server rejects missing acknowledgement and blocks several obvious direct identifiers, such as email addresses, phone numbers, dates of birth, insurance/member numbers, medical-record numbers, and street addresses.
 3. If the optional plain-language intake is used, Anthropic extracts only explicitly stated facts into the form; the user reviews those fields before research can run.
 4. For IPF, the local server adds its curated reference packet; every run also retrieves independent exact-condition records from PubMed, Europe PMC, Crossref, Semantic Scholar, openFDA labels where relevant, NIH RePORTER active projects, and OpenAlex when configured. An optional Perplexity web-search lane discovers relevant sites beyond those databases but remains link-only until another supported source verifies a claim.
 5. The server deduplicates records by PMID, DOI, or title, rejects retracted or condition-mismatched sources, and withholds metadata-only records from the AI packet while retaining them in the source ledger.
@@ -103,6 +106,11 @@ Keep `DEPLOYMENT_TEST_PASSCODE` in your deployment or CI secret store, never in 
 
 - This is for learning and research. It is not medical advice, a diagnosis, a prescription, or a medical recommendation. It is not for emergencies.
 - Do not enter real patient details. The optional profile helper and a research run send supplied context to the configured AI providers and research services. The built-in identifier check is only a safety net; it cannot reliably catch every identifying detail.
-- The demo does not persist the form after a run, but it is not HIPAA-ready and must not be described as HIPAA compliant.
+- The app is designed not to create patient accounts or save submitted profiles and reports in an application database. It still processes submitted information during the request, and providers may process it under their own terms and data policies.
+- This private beta is not HIPAA-ready and must not be described as HIPAA compliant.
 - The passcode protects this local Vite server and its API routes. For a public deployment, put an equivalent server-side or host-level access control in front of the full site and API. A browser-only passcode screen is not sufficient security.
 - Real patient use requires legal, privacy, security, clinical-governance, and vendor-contract review before launch, including the controls required for the specific organization and data involved.
+
+## Private-beta launch gate
+
+See [PRIVATE_BETA_LAUNCH.md](PRIVATE_BETA_LAUNCH.md) before accepting money, allowing real patient data, or describing the product as clinical or HIPAA compliant.
