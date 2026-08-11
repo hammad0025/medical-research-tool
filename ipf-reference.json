@@ -1306,11 +1306,21 @@
   "excludedAgents": [
     {
       "name": "Triple therapy (prednisone + azathioprine + N-acetylcysteine)",
+      "aliases": [
+        "azathioprine",
+        "prednisone plus azathioprine plus N-acetylcysteine"
+      ],
       "reason": "PANTHER-IPF (2012) was stopped early by DSMB for increased mortality (11% vs 1%) and hospitalization (29% vs 8%) vs placebo. STRONG guideline-level recommendation against.",
       "evidenceRef": "ipf-panther-2012"
     },
     {
       "name": "Prednisone monotherapy for stable IPF",
+      "aliases": [
+        "prednisone",
+        "corticosteroids",
+        "corticosteroid therapy",
+        "systemic corticosteroids"
+      ],
       "reason": "No benefit shown in controlled studies. Chronic steroid harm (bone, glucose, infection). Different from acute exacerbation management where empirical steroids may be used despite weak evidence.",
       "evidenceRef": "ipf-ats-ers-2022"
     },
