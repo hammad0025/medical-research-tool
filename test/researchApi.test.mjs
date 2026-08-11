@@ -458,6 +458,21 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   )
   assert.equal(labels.every((source) => source.origin === 'U.S. Food and Drug Administration'), true)
   assert.ok(!response.body.sources.some((source) => source.candidateLeads?.some((candidate) => /monotherapy|dose reduction|study protocol/i.test(candidate.name))))
+
+  assert.equal(response.body.curatedDiscussionLeads.length, 10)
+  const nac = response.body.curatedDiscussionLeads.find((idea) => idea.title === 'N-acetylcysteine (NAC)')
+  assert.ok(nac)
+  assert.equal(nac.accessClass, 'evidence-points-away')
+  assert.match(nac.takeaway, /did not show broad benefit/i)
+  assert.match(nac.providerQuestion, /\?$/)
+  assert.ok(nac.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
+
+  assert.equal(response.body.curatedTheoryIdeas.length, 10)
+  const cellResearch = response.body.curatedTheoryIdeas.find((idea) => idea.title === 'Academic cell and exosome research')
+  assert.ok(cellResearch)
+  assert.ok(cellResearch.potentialInterventions.some((item) => /exosome/i.test(item)))
+  assert.match(cellResearch.accessRoute, /academic/i)
+  assert.ok(cellResearch.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
 })
 
 test('a registry outage is labeled unavailable instead of as an empty trial search', { concurrency: false }, async () => {

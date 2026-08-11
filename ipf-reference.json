@@ -11,7 +11,7 @@
   "version": "2026-07a",
   "curatedBy": "Syed Hammad Haque",
   "lastUpdated": "2026-07-19",
-  "editorialNote": "Landmark references for IPF decision-support. All items below are pinned into every IPF query's evidence pack. Editorial summaries are written by the curator; keyPassages are verbatim from the source where available. FIBRONEER-IPF phase 3 efficacy numbers are pinned so the model cannot invent alternate mL/year figures.",
+  "editorialNote": "Landmark references for IPF discussion. Every IPF report includes these sources alongside current research. Editorial summaries are written by the curator; keyPassages are verbatim from the source where available. FIBRONEER-IPF phase 3 efficacy numbers are fixed so the model cannot invent alternate mL/year figures.",
   "subspecialty": "Pulmonology / Interstitial Lung Disease",
   "icd10": "J84.112",
   "meshTerms": [
@@ -827,6 +827,311 @@
       "recommendation": "Discuss early lung-transplant referral at diagnosis of interstitial lung disease with a high risk of mortality or progression.",
       "evidenceRefs": [
         "ipf-transplant-ishlt-2021"
+      ]
+    }
+  ],
+  "discussionLeads": [
+    {
+      "title": "Nerandomilast (Jascayd)",
+      "category": "FDA-approved prescription medicine",
+      "summary": "Jascayd is an FDA-labeled medicine for IPF. The linked phase 3 study found less lung-function loss over one year than with placebo.",
+      "takeaway": "This is an approved IPF medicine to ask an ILD specialist about, not a supplement or trial-only product.",
+      "accessClass": "prescription-or-label-check",
+      "accessExplanation": "Prescription medicine. An ILD clinician and pharmacist can review the label, side effects, and other medicines.",
+      "providerQuestion": "Could Jascayd fit this person's IPF plan?",
+      "caution": "Only a clinician can decide whether an FDA-labeled medicine fits a specific person.",
+      "sourceIds": [
+        "ipf-fda-label-nerandomilast",
+        "ipf-fibroneer-ipf-2025"
+      ]
+    },
+    {
+      "title": "Nintedanib (Ofev)",
+      "category": "FDA-approved prescription medicine",
+      "summary": "Ofev is an FDA-labeled medicine for IPF. Its label describes important stomach, liver, bleeding, and medicine-interaction questions to review.",
+      "takeaway": "This is an established IPF medicine, but side effects and other medicines can change whether it is a good fit.",
+      "accessClass": "prescription-or-label-check",
+      "accessExplanation": "Prescription medicine. A clinician and pharmacist can review the label and monitoring needs.",
+      "providerQuestion": "Does Ofev still fit this person's treatment plan?",
+      "caution": "The label does not decide what is safe for one person with other conditions or medicines.",
+      "sourceIds": [
+        "ipf-fda-label-nintedanib"
+      ]
+    },
+    {
+      "title": "Pirfenidone (Esbriet)",
+      "category": "FDA-approved prescription medicine",
+      "summary": "Esbriet is an FDA-labeled medicine for IPF. Its label includes liver, skin, stomach, smoking, and medicine-interaction questions.",
+      "takeaway": "This is an established IPF medicine. The useful next step is checking its fit, tolerability, and monitoring with the care team.",
+      "accessClass": "prescription-or-label-check",
+      "accessExplanation": "Prescription medicine. A clinician and pharmacist can review the label and monitoring needs.",
+      "providerQuestion": "Does Esbriet fit this person's treatment plan?",
+      "caution": "The label does not replace a review of other medicines, symptoms, and test results.",
+      "sourceIds": [
+        "ipf-fda-label-pirfenidone"
+      ]
+    },
+    {
+      "title": "Pulmonary rehabilitation",
+      "category": "Rehabilitation and symptom support",
+      "summary": "A Cochrane review found that pulmonary rehabilitation improved walking ability, breathlessness, and quality of life in interstitial lung disease, including IPF.",
+      "takeaway": "This is a practical support option that may help daily function. It does not replace IPF medicine.",
+      "accessClass": "clinician-referral",
+      "accessExplanation": "Usually accessed through a clinician referral or a pulmonary rehabilitation program that can assess safety and oxygen needs.",
+      "providerQuestion": "Would pulmonary rehab be safe and useful now?",
+      "caution": "The right activity plan depends on symptoms, oxygen levels, and other health conditions.",
+      "sourceIds": [
+        "ipf-pulmrehab-dowman-2021"
+      ]
+    },
+    {
+      "title": "Ambulatory oxygen evaluation",
+      "category": "Symptom support and equipment",
+      "summary": "The ATS guideline discusses portable oxygen for people with chronic lung disease who have severe low oxygen during activity.",
+      "takeaway": "This is not a disease-modifying medicine, but it may be an important comfort and activity question when oxygen levels drop with exertion.",
+      "accessClass": "clinician-referral",
+      "accessExplanation": "Needs a qualified oxygen assessment and a prescription or equipment order when appropriate.",
+      "providerQuestion": "Should we check oxygen levels during activity?",
+      "caution": "Only a qualified assessment can show whether oxygen equipment is appropriate and how it should be used.",
+      "sourceIds": [
+        "ipf-o2-ambrosia-2020"
+      ]
+    },
+    {
+      "title": "Lung transplant evaluation",
+      "category": "Specialist referral and procedure",
+      "summary": "The transplant consensus source describes early referral as an important discussion for interstitial lung disease with a high risk of progression.",
+      "takeaway": "An evaluation is a planning step, not a promise of transplant. It can be worth discussing before disease progression narrows options.",
+      "accessClass": "specialist-review",
+      "accessExplanation": "A referral to a transplant center starts a full medical and practical evaluation. It is not a self-referral treatment product.",
+      "providerQuestion": "Is it time to discuss a transplant evaluation?",
+      "caution": "A transplant team decides whether evaluation or listing is appropriate after a detailed assessment.",
+      "sourceIds": [
+        "ipf-transplant-ishlt-2021"
+      ]
+    },
+    {
+      "title": "GERD treatment when reflux is present",
+      "category": "Prescription or symptom-care discussion",
+      "summary": "The linked review examined reflux treatment in IPF. It did not establish reflux treatment as a way to slow IPF, but reflux symptoms may still need their own care plan.",
+      "takeaway": "Treating reflux can be a symptom-care discussion when reflux is present. It is not proven to change IPF progression.",
+      "accessClass": "specialist-review",
+      "accessExplanation": "A clinician can decide whether reflux testing, medicine, or another approach is appropriate for the person's symptoms and risks.",
+      "providerQuestion": "Could reflux be affecting this person's symptoms?",
+      "caution": "Do not treat reflux medicines as IPF disease treatment without a clinician's review.",
+      "sourceIds": [
+        "ipf-antacid-cochrane-2023"
+      ]
+    },
+    {
+      "title": "Nintedanib with add-on pirfenidone",
+      "category": "Combination prescription treatment research",
+      "summary": "The INJOURNEY study examined adding pirfenidone to nintedanib. It mainly studied safety and tolerability over a short period, with more stomach side effects in the combination group.",
+      "takeaway": "This is a specialist-level discussion, not routine do-it-yourself combination treatment.",
+      "accessClass": "specialist-review",
+      "accessExplanation": "Both medicines require a clinician and pharmacist to review tolerability, monitoring, and medicine interactions together.",
+      "providerQuestion": "Is combination treatment worth discussing for this person?",
+      "caution": "This study did not prove that combining these medicines is right or better for every person.",
+      "sourceIds": [
+        "ipf-combination-trail-2023"
+      ]
+    },
+    {
+      "title": "N-acetylcysteine (NAC)",
+      "category": "Over-the-counter supplement",
+      "summary": "NAC was tested in IPF. In the broad study group, NAC alone did not slow lung-function loss compared with placebo.",
+      "takeaway": "NAC is easy to buy, but the linked IPF study did not show broad benefit. It should not be treated as routine IPF care.",
+      "accessClass": "evidence-points-away",
+      "accessExplanation": "It is sold over the counter, but availability is not evidence that it helps IPF or is safe with other medicines.",
+      "providerQuestion": "What does the NAC study mean for us?",
+      "caution": "Do not add or change a supplement based on this card. A clinician or pharmacist should review the full medicine list.",
+      "sourceIds": [
+        "ipf-panther-nac-2014"
+      ]
+    },
+    {
+      "title": "Metformin as an IPF treatment",
+      "category": "Prescription medicine repurposing question",
+      "summary": "Human IPF data in the linked source did not show better lung function, walking distance, hospitalization, or survival for metformin users.",
+      "takeaway": "Metformin may be important for diabetes, but the available IPF evidence does not support using it as an IPF treatment.",
+      "accessClass": "evidence-points-away",
+      "accessExplanation": "Prescription access does not make it an IPF treatment. Its role for diabetes or another condition is a separate clinician decision.",
+      "providerQuestion": "What does the metformin evidence mean here?",
+      "caution": "Do not stop a prescribed medicine because of an IPF research card. Ask the clinician who manages the medicine.",
+      "sourceIds": [
+        "ipf-metformin-spagnolo-2018"
+      ]
+    }
+  ],
+  "theoryLeads": [
+    {
+      "title": "TOLLIP-guided NAC research",
+      "category": "Gene-informed supplement research",
+      "whyItCouldConnect": "NAC has already been studied in IPF without broad benefit. A gene-defined subgroup question could be worth checking before anyone treats NAC as a personal option.",
+      "potentialInterventions": [
+        "N-acetylcysteine in a TOLLIP-focused research question",
+        "gene-informed treatment research"
+      ],
+      "accessRoute": "Specialist or academic-study discussion only. This is not a reason to buy NAC for IPF.",
+      "whyNotEstablished": "The linked broad IPF study did not show benefit from NAC alone, and this report does not prove a genetic subgroup benefit.",
+      "providerQuestion": "Would a gene result change the NAC question?",
+      "caution": "This is a theory to verify, not a supplement recommendation or a dosing plan.",
+      "verificationQuery": "idiopathic pulmonary fibrosis TOLLIP acetylcysteine research",
+      "sourceIds": [
+        "ipf-panther-nac-2014"
+      ]
+    },
+    {
+      "title": "TGF-beta and integrin alpha-v beta-6 signaling",
+      "category": "Scarring-pathway drug research",
+      "whyItCouldConnect": "These signals are often studied in lung-scarring biology and could point researchers toward ways to limit scar formation.",
+      "potentialInterventions": [
+        "TGF-beta pathway drug research",
+        "integrin alpha-v beta-6 inhibitors"
+      ],
+      "accessRoute": "Look for a legitimate academic trial or ask an ILD specialist about current research. It is not a compounding or self-treatment route.",
+      "whyNotEstablished": "A pathway connection does not show that blocking it helps a person with IPF.",
+      "providerQuestion": "Are any TGF-beta studies worth watching?",
+      "caution": "This is a research idea, not a treatment recommendation.",
+      "verificationQuery": "idiopathic pulmonary fibrosis TGF beta integrin alpha v beta 6 trial",
+      "sourceIds": [
+        "ipf-fda-condition-overview"
+      ]
+    },
+    {
+      "title": "LPA1 scarring-pathway research",
+      "category": "Drug-target research",
+      "whyItCouldConnect": "LPA1 is a signaling target that researchers are exploring in lung scarring. It may be a useful way to search for newer IPF programs.",
+      "potentialInterventions": [
+        "LPA1-blocking drug research",
+        "current IPF trial programs"
+      ],
+      "accessRoute": "Use trial records and an ILD specialist to check real programs. Do not treat a target name as an available medicine.",
+      "whyNotEstablished": "This report does not show a currently approved LPA1 treatment for IPF.",
+      "providerQuestion": "Are any LPA1 trials relevant to us?",
+      "caution": "This is a theory to verify, not a reason to seek an unapproved product.",
+      "verificationQuery": "idiopathic pulmonary fibrosis LPA1 inhibitor clinical trial",
+      "sourceIds": [
+        "ipf-fda-condition-overview"
+      ]
+    },
+    {
+      "title": "Cell-senescence research",
+      "category": "Cell-aging pathway",
+      "whyItCouldConnect": "Cell aging is studied as one possible part of lung injury and repair. It could be a useful way to search for early drug research.",
+      "potentialInterventions": [
+        "senolytic drug research",
+        "cell-aging pathway studies"
+      ],
+      "accessRoute": "Research or academic-trial search only. No over-the-counter or compounded product is established for this purpose.",
+      "whyNotEstablished": "This report does not show that a cell-aging treatment works for IPF.",
+      "providerQuestion": "Is cell-aging research relevant to IPF now?",
+      "caution": "This is a research lead, not a treatment plan.",
+      "verificationQuery": "idiopathic pulmonary fibrosis cellular senescence treatment research",
+      "sourceIds": [
+        "ipf-fda-condition-overview"
+      ]
+    },
+    {
+      "title": "Mitochondrial stress and drug repurposing",
+      "category": "Cell-energy pathway",
+      "whyItCouldConnect": "Cell-energy stress may be part of lung injury research. It can lead to questions about repurposed medicines, but those questions need human evidence.",
+      "potentialInterventions": [
+        "mitochondria-targeted drug research",
+        "formal repurposing studies"
+      ],
+      "accessRoute": "Use a specialist and published human studies. Do not use a compounded or existing prescription medicine just because a pathway sounds relevant.",
+      "whyNotEstablished": "The metformin example in this report shows why a lab idea does not automatically become a useful IPF treatment.",
+      "providerQuestion": "Which repurposing studies have human IPF data?",
+      "caution": "This is a theory to verify, not a reason to change a prescription medicine.",
+      "verificationQuery": "idiopathic pulmonary fibrosis mitochondrial dysfunction drug repurposing human study",
+      "sourceIds": [
+        "ipf-metformin-spagnolo-2018"
+      ]
+    },
+    {
+      "title": "Macrophage and immune-cell signaling",
+      "category": "Immune-cell pathway research",
+      "whyItCouldConnect": "Immune cells are studied in lung injury and scarring. That can be a research question without assuming that IPF is an autoimmune disease.",
+      "potentialInterventions": [
+        "macrophage-targeted research",
+        "cytokine-pathway research"
+      ],
+      "accessRoute": "Academic research or trial search only. This does not support using an immune medicine off label.",
+      "whyNotEstablished": "This report does not prove that changing immune signals helps IPF.",
+      "providerQuestion": "Are immune-pathway studies relevant to IPF?",
+      "caution": "This is a theory to verify, not a reason to use an immune treatment.",
+      "verificationQuery": "idiopathic pulmonary fibrosis macrophage signaling therapy research",
+      "sourceIds": [
+        "ipf-fda-condition-overview"
+      ]
+    },
+    {
+      "title": "RNA-based lung repair research",
+      "category": "RNA research platform",
+      "whyItCouldConnect": "RNA approaches may let researchers study how lung cells handle injury and repair. The platform can be searched without assuming it is ready care.",
+      "potentialInterventions": [
+        "RNA delivery research",
+        "gene-expression targeting research"
+      ],
+      "accessRoute": "Look for academic studies with a clear protocol. There is no routine prescription or compounding path from this card.",
+      "whyNotEstablished": "This report does not establish an RNA treatment for IPF.",
+      "providerQuestion": "Are any RNA studies relevant to IPF?",
+      "caution": "This is a research platform, not a treatment recommendation.",
+      "verificationQuery": "idiopathic pulmonary fibrosis RNA therapy clinical research",
+      "sourceIds": [
+        "ipf-fda-condition-overview"
+      ]
+    },
+    {
+      "title": "Collagen cross-linking and tissue stiffness",
+      "category": "Tissue-mechanics pathway",
+      "whyItCouldConnect": "Lung scar tissue becomes stiff. Research on collagen structure and tissue stiffness may point to new drug targets.",
+      "potentialInterventions": [
+        "collagen cross-linking target research",
+        "extracellular-matrix drug research"
+      ],
+      "accessRoute": "Search formal research programs with a specialist. A target name is not a medicine a person can obtain.",
+      "whyNotEstablished": "This report does not show that changing tissue stiffness improves IPF outcomes.",
+      "providerQuestion": "Are tissue-stiffness studies worth following?",
+      "caution": "This is a theory to verify, not a treatment claim.",
+      "verificationQuery": "idiopathic pulmonary fibrosis collagen cross linking drug target research",
+      "sourceIds": [
+        "ipf-fda-condition-overview"
+      ]
+    },
+    {
+      "title": "Academic cell and exosome research",
+      "category": "Regenerative research platform",
+      "whyItCouldConnect": "Cell and extracellular-vesicle research is sometimes discussed for lung repair. The key question is whether a controlled academic study exists.",
+      "potentialInterventions": [
+        "formal stem-cell studies",
+        "extracellular-vesicle or exosome research"
+      ],
+      "accessRoute": "Only investigate legitimate academic studies with clear oversight. Private-pay clinics are not an evidence-based access route.",
+      "whyNotEstablished": "The linked review did not show proven IPF benefit from cell products.",
+      "providerQuestion": "Are any legitimate cell studies open now?",
+      "caution": "Do not use a private clinic, purchased exosome product, or medical-tourism offer based on this card.",
+      "verificationQuery": "idiopathic pulmonary fibrosis stem cell exosome clinical trial",
+      "sourceIds": [
+        "ipf-stemcells-review-2020"
+      ]
+    },
+    {
+      "title": "Prescription-drug repurposing screen",
+      "category": "Repurposing research strategy",
+      "whyItCouldConnect": "Existing medicines are often tested for new uses. A careful screen can help separate promising human studies from lab-only ideas.",
+      "potentialInterventions": [
+        "formal prescription-drug repurposing studies",
+        "human IPF outcome studies"
+      ],
+      "accessRoute": "Discuss a named study with a clinician or use an academic trial. Do not self-medicate or seek a compounded version.",
+      "whyNotEstablished": "A medicine approved for another condition is not automatically useful or safe for IPF.",
+      "providerQuestion": "Which repurposing ideas have human evidence?",
+      "caution": "This is a research strategy, not a prescription recommendation.",
+      "verificationQuery": "idiopathic pulmonary fibrosis drug repurposing clinical trial human evidence",
+      "sourceIds": [
+        "ipf-metformin-spagnolo-2018"
       ]
     }
   ],

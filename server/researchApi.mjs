@@ -34,9 +34,13 @@ const IPF_SOURCE_IDS = [
   'ipf-ascend-king-2014',
   'ipf-inpulsis-richeldi-2014',
   'ipf-panther-2012',
+  'ipf-panther-nac-2014',
   'ipf-pulmrehab-dowman-2021',
   'ipf-transplant-ishlt-2021',
   'ipf-o2-ambrosia-2020',
+  'ipf-antacid-cochrane-2023',
+  'ipf-combination-trail-2023',
+  'ipf-metformin-spagnolo-2018',
   'ipf-stemcells-review-2020',
   'ipf-fibroneer-ipf-2025',
   'ipf-fda-label-pirfenidone',
@@ -301,6 +305,62 @@ const toSource = (item) => {
     treatmentName: cleanText(item.treatmentName, 120),
     conditionOverview: toConditionOverview(item.conditionOverview),
     aiEligible: item.aiEligible !== false,
+  }
+}
+
+const toCuratedDiscussionLead = (item) => {
+  if (!isRecord(item)) return null
+  const title = cleanText(item.title, 140)
+  const summary = cleanText(item.summary, 480)
+  const caution = cleanText(item.caution, 440)
+  const sourceIds = (Array.isArray(item.sourceIds) ? item.sourceIds : [])
+    .map((id) => cleanText(id, 100))
+    .filter(Boolean)
+    .slice(0, 4)
+  if (!title || !summary || !caution || !sourceIds.length) return null
+
+  return {
+    title,
+    category: cleanText(item.category, 100) || 'Source-linked discussion item',
+    summary,
+    takeaway: cleanText(item.takeaway, 360),
+    accessClass: cleanText(item.accessClass, 80),
+    accessExplanation: cleanText(item.accessExplanation, 420),
+    providerQuestion: simpleDoctorQuestion(item.providerQuestion || 'What should I ask about this?'),
+    caution,
+    sourceIds,
+    kind: 'curated',
+  }
+}
+
+const toCuratedTheoryIdea = (item) => {
+  if (!isRecord(item)) return null
+  const title = cleanText(item.title, 140)
+  const whyItCouldConnect = cleanText(item.whyItCouldConnect, 440)
+  const whyNotEstablished = cleanText(item.whyNotEstablished, 360)
+  const caution = cleanText(item.caution, 420)
+  const verificationQuery = cleanText(item.verificationQuery, 220)
+  const sourceIds = (Array.isArray(item.sourceIds) ? item.sourceIds : [])
+    .map((id) => cleanText(id, 100))
+    .filter(Boolean)
+    .slice(0, 4)
+  if (!title || !whyItCouldConnect || !whyNotEstablished || !caution || !verificationQuery || !sourceIds.length) return null
+
+  return {
+    title,
+    category: cleanText(item.category, 100) || 'Theory to verify',
+    whyItCouldConnect,
+    potentialInterventions: (Array.isArray(item.potentialInterventions) ? item.potentialInterventions : [])
+      .map((entry) => cleanText(entry, 140))
+      .filter(Boolean)
+      .slice(0, 3),
+    accessRoute: cleanText(item.accessRoute, 360),
+    whyNotEstablished,
+    providerQuestion: simpleDoctorQuestion(item.providerQuestion || 'What should I ask about this?'),
+    caution,
+    verificationQuery,
+    sourceIds,
+    kind: 'curated-theory',
   }
 }
 
@@ -1081,7 +1141,7 @@ const retrieveEvidenceSources = async (condition, env) => {
         url: sourceSearchPage('cochrane', condition),
         status: 'manual',
         records: 0,
-        detail: 'Authoritative search route only. It is not scraped or merged into the evidence packet without a result-level integration.',
+        detail: 'Authoritative search route only. It is not scraped or merged into this report without a result-level integration.',
       },
       {
         id: 'who-ictrp',
@@ -1514,12 +1574,12 @@ Hard boundaries:
 - Give every source-specific research question one or more sourceIds from the packet so the app can show the reader exactly where the question came from.
 - Every research question must be a short, everyday question a person can read aloud to a doctor. Use 12 words or fewer, one idea only, and common words. Prefer "Could this study fit me?", "Which symptoms should I mention?", or "What safety risks should I ask about?" over formal or technical wording. Do not use phrases such as "whether this is relevant," "eligibility criteria," "condition-specific," or "research direction."
 - Do not characterize a guideline's recommendation strength. Use neutral, source-limited language such as "the label indicates" or "a cited trial evaluated" instead.
-- Return up to 10 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, food or supplement, procedure, device, cell or gene therapy, RNA treatment, or other intervention already listed in a source's candidateLeads field or a live trial's treatmentInterventions field. Do not pull a treatment name out of general source prose by yourself. Use the intervention name, not the paper title. For example, write "RPGR gene therapy" or "N-acetylcysteine," never "Systematic review of RPGR gene therapy." Do not rank a gene, cell, or trial-only program above a source-backed medicine, food, supplement, or symptom-care treatment just because it is more technically advanced. Include a supplement or food only when the packet names that exact item in a condition-specific source or live trial. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
+- Return up to 10 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, food or supplement, procedure, device, cell or gene therapy, RNA treatment, or other intervention already listed in a source's candidateLeads field or a live trial's treatmentInterventions field. Do not pull a treatment name out of general source prose by yourself. Use the intervention name, not the paper title. For example, write "RPGR gene therapy" or "N-acetylcysteine," never "Systematic review of RPGR gene therapy." Do not rank a gene, cell, or trial-only program above a source-backed medicine, food, supplement, or symptom-care treatment just because it is more technically advanced. Include a supplement or food only when the packet names that exact item in a condition-specific source or live trial. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea. Give each accepted idea a short, plain "takeaway" that tells the reader what the evidence means in practice without telling them what to take.
 - Classify each treatment idea carefully: "patient-discussible" for a source-backed medicine, supplement, food, or procedure a clinician could discuss; "prescription-or-label-check" when the official label or prescription status matters; "trial-only" for a formal study program; "expanded-access-check" only when it is a research program and the report does not confirm access; and "evidence-points-away" when the cited source reports no benefit or a worse outcome. Never claim a program has compassionate or expanded access unless the packet contains direct proof.
 - The "theoryIdeas" lane is intentionally different from treatmentIdeas. It is for 10 new hypotheses that were NOT found as a named, condition-specific treatment lead in this packet. A theory idea may use cautious biomedical reasoning, but it is not evidence that the idea works for this condition.
 - For every theory idea, state a concrete target, pathway, gene/RNA approach, treatment platform, or named compound to verify. Favor gene, RNA, pathway, cell, device, or drug-target ideas. Do not pad with generic wellness, food, or supplement ideas. A supplement is allowed only when the idea is specific, gives no dose, and is clearly framed as a mechanism to verify, not an action.
 - Never write a dose, "high dose," a start/stop instruction, or a claim that the condition is autoimmune unless the supplied packet proves that exact claim. Do not include private-pay stem-cell or exosome clinics. A cell, exosome, or stem-cell concept may appear only as a research platform that needs legitimate study verification.
-- Every theory idea must plainly say why it is not established for this condition, give a short PubMed-style verification query, and include one simple question for a healthcare provider. Attach sourceIds only for the condition background; do not pretend those sources prove the theory idea itself.
+- Every theory idea must name one to three concrete things to investigate: a drug class, named compound, supplement topic, peptide, gene/RNA approach, cell platform, device, or other research platform. Name a specific intervention only when it is a cautious research example, never as a treatment suggestion. Say whether the realistic route is a specialist discussion, an academic trial search, or unknown. Never imply that a compounded product, over-the-counter product, exosome, or cell product can be safely obtained for the condition. Every theory idea must plainly say why it is not established for this condition, give a short PubMed-style verification query, and include one simple question for a healthcare provider. Attach sourceIds only for the condition background; do not pretend those sources prove the theory idea itself.
 - The “safety” lane may contain up to 4 condition-specific cautions from the packet, such as a source-reported contraindication, interaction, warning, urgent red flag, or reason to use a specialist team. Do not add a generic disclaimer, dosing, or an instruction to start, stop, or avoid a treatment.
 - The “lifestyle” lane may contain only condition-specific, non-drug findings supported by packet sources and tied to a modifiable factor such as activity, diet, sleep, tobacco, alcohol, environment, sun exposure, rehabilitation, or vision rehabilitation. Do not turn quality-of-life observations, awareness, monitoring, genetics, or generic wellness advice into a lifestyle item.
 - Do not promote stem cells, exosomes, or private-pay regenerative clinics. If relevant, make the question about legitimate academic trials and evidence quality.
@@ -1532,7 +1592,7 @@ Return strict JSON only:
   "briefing": {"text": "two or three sentences, <= 520 chars", "sourceIds": ["source id"]},
   "researchQuestions": [{"text": "question", "sourceIds": ["source id"]}],
   "treatmentIdeas": [
-    {"title": "exact intervention", "category": "drug, supplement, procedure, device, cell/gene treatment, or other", "summary": "what the supplied source says", "whyItMayMatter": "why it is relevant to research", "accessClass": "patient-discussible | prescription-or-label-check | trial-only | expanded-access-check | evidence-points-away", "accessExplanation": "plain access or evidence boundary", "providerQuestion": "simple question, <= 12 words", "caution": "why it is not a personal treatment recommendation", "sourceIds": ["source id"]}
+    {"title": "exact intervention", "category": "drug, supplement, procedure, device, cell/gene treatment, or other", "summary": "what the supplied source says", "takeaway": "plain statement of what this means", "whyItMayMatter": "why it is relevant to research", "accessClass": "patient-discussible | prescription-or-label-check | trial-only | expanded-access-check | evidence-points-away", "accessExplanation": "plain access or evidence boundary", "providerQuestion": "simple question, <= 12 words", "caution": "why it is not a personal treatment recommendation", "sourceIds": ["source id"]}
   ],
   "lifestyle": [
     {"title": "short label", "summary": "careful source-limited finding", "caution": "why it is not individualized advice", "sourceIds": ["source id"]}
@@ -1541,7 +1601,7 @@ Return strict JSON only:
     {"title": "short label", "summary": "careful source-limited caution", "caution": "why it needs clinician context", "sourceIds": ["source id"]}
   ],
   "theoryIdeas": [
-    {"title": "concrete theory to verify", "category": "gene, RNA, drug target, pathway, cell platform, device, or supplement mechanism", "whyItCouldConnect": "short cautious biological rationale", "whyNotEstablished": "why this is not a source-backed treatment lead for this condition", "providerQuestion": "simple question, <= 12 words", "caution": "not a personal treatment recommendation; no dose or action", "verificationQuery": "condition plus exact theory term", "sourceIds": ["condition-background source id"]}
+    {"title": "concrete theory to verify", "category": "gene, RNA, drug target, pathway, cell platform, device, or supplement mechanism", "whyItCouldConnect": "short cautious biological rationale", "potentialInterventions": ["one to three concrete research examples"], "accessRoute": "specialist discussion, academic trial search, or unknown", "whyNotEstablished": "why this is not a source-backed treatment lead for this condition", "providerQuestion": "simple question, <= 12 words", "caution": "not a personal treatment recommendation; no dose or action", "verificationQuery": "condition plus exact theory term", "sourceIds": ["condition-background source id"]}
   ],
   "claimsForReview": [{"claim": "atomic factual statement", "sourceIds": ["source id"]}]
 }`
@@ -1557,10 +1617,10 @@ Return strict JSON only:
   "overallVerdict": "approved" | "approved-with-edits" | "rejected",
   "briefing": {"decision": "approve" | "rewrite" | "reject", "text": "safe replacement text or empty", "reason": "short reason", "sourceIds": ["source id"]},
   "questions": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "text": "safe question or empty", "reason": "short reason", "sourceIds": ["source id"]}],
-  "treatmentIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "summary": "", "whyItMayMatter": "", "accessClass": "", "accessExplanation": "", "providerQuestion": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
+  "treatmentIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "summary": "", "takeaway": "", "whyItMayMatter": "", "accessClass": "", "accessExplanation": "", "providerQuestion": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
   "lifestyle": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "summary": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
   "safety": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "summary": "", "caution": "", "sourceIds": []}, "reason": "short reason"}],
-  "theoryIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "whyItCouldConnect": "", "whyNotEstablished": "", "providerQuestion": "", "caution": "", "verificationQuery": "", "sourceIds": []}, "reason": "short reason"}],
+  "theoryIdeas": [{"index": 0, "decision": "approve" | "rewrite" | "reject", "item": {"title": "", "category": "", "whyItCouldConnect": "", "potentialInterventions": [], "accessRoute": "", "whyNotEstablished": "", "providerQuestion": "", "caution": "", "verificationQuery": "", "sourceIds": []}, "reason": "short reason"}],
   "flags": ["short safety or evidence flag"]
 }`
 
@@ -2326,16 +2386,17 @@ const normalizeTreatmentIdea = (item, allowedSourceIds, allowedCandidates) => {
   const title = cleanText(item.title, 120)
   const category = cleanText(item.category, 80)
   const summary = cleanText(item.summary, 440)
+  const takeaway = cleanText(item.takeaway, 360)
   const whyItMayMatter = cleanText(item.whyItMayMatter, 440)
   const accessClass = normalizedTreatmentAccessClass(item.accessClass)
   const accessExplanation = cleanText(item.accessExplanation, 360)
   const providerQuestion = simpleDoctorQuestion(item.providerQuestion || `Is ${title} worth discussing`)
   const caution = cleanText(item.caution, 420)
   const sourceIds = sourceIdsFrom(item.sourceIds, allowedSourceIds)
-  const whole = `${title} ${category} ${summary} ${whyItMayMatter} ${accessExplanation} ${providerQuestion} ${caution}`
+  const whole = `${title} ${category} ${summary} ${takeaway} ${whyItMayMatter} ${accessExplanation} ${providerQuestion} ${caution}`
   const titleIsSupported = allowedCandidates.has(candidateKey(title))
   if (!title || !summary || !caution || !sourceIds.length || !titleIsSupported || !isSpecificTrialIntervention(title) || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
-  return { title, category: category || 'Treatment being researched', summary, whyItMayMatter, accessClass, accessExplanation, providerQuestion, caution, sourceIds }
+  return { title, category: category || 'Treatment being researched', summary, takeaway, whyItMayMatter, accessClass, accessExplanation, providerQuestion, caution, sourceIds }
 }
 
 const normalizeHypothesis = (item, allowedSourceIds, allowedCandidates, candidateEvidenceText) => {
@@ -2359,19 +2420,24 @@ const normalizeTheoryIdea = (item, allowedSourceIds, candidateEvidenceText) => {
   const title = cleanText(item.title, 140)
   const category = cleanText(item.category, 90) || 'Theory to verify'
   const whyItCouldConnect = cleanText(item.whyItCouldConnect, 440)
+  const potentialInterventions = (Array.isArray(item.potentialInterventions) ? item.potentialInterventions : [])
+    .map((entry) => cleanText(entry, 140))
+    .filter(Boolean)
+    .slice(0, 3)
+  const accessRoute = cleanText(item.accessRoute, 360)
   const whyNotEstablished = cleanText(item.whyNotEstablished, 360)
   const providerQuestion = simpleDoctorQuestion(item.providerQuestion || 'What evidence supports this idea')
   const caution = cleanText(item.caution, 420)
   const verificationQuery = cleanText(item.verificationQuery, 220)
   const sourceIds = sourceIdsFrom(item.sourceIds, allowedSourceIds)
-  const whole = `${title} ${category} ${whyItCouldConnect} ${whyNotEstablished} ${providerQuestion} ${caution} ${verificationQuery}`
+  const whole = `${title} ${category} ${whyItCouldConnect} ${potentialInterventions.join(' ')} ${accessRoute} ${whyNotEstablished} ${providerQuestion} ${caution} ${verificationQuery}`
   const alreadyInConditionEvidence = candidateAppearsInEvidence(title, candidateEvidenceText)
   const claimsAutoimmunityWithoutEvidence = /\bautoimmun(?:e|ity)\b/i.test(whole) && !/\bautoimmun(?:e|ity)\b/i.test(candidateEvidenceText)
   const promotesCommercialRegenerativeCare = /\b(?:private[-\s]?pay|clinic|medical tourism|buy|purchase)\b/i.test(whole)
   if (!title || !whyItCouldConnect || !whyNotEstablished || !caution || !verificationQuery || !sourceIds.length
     || alreadyInConditionEvidence || claimsAutoimmunityWithoutEvidence || promotesCommercialRegenerativeCare
     || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
-  return { title, category, whyItCouldConnect, whyNotEstablished, providerQuestion, caution, verificationQuery, sourceIds }
+  return { title, category, whyItCouldConnect, potentialInterventions, accessRoute, whyNotEstablished, providerQuestion, caution, verificationQuery, sourceIds }
 }
 
 const hasLifestyleActionSignal = (text) => /\b(activity|exercise|rehabilitation|diet|nutrition|sleep|smoking|tobacco|alcohol|sun|ultraviolet|environment|occupational|weight|physical therapy|vision rehabilitation)\b/i.test(text)
@@ -2505,9 +2571,9 @@ const defaultReview = (reason = 'The live model review was not run.') => ({
   hypotheses: [],
   theoryIdeas: [],
   decisions: [
-    { label: 'Source-linked evidence', outcome: 'Passed', detail: 'The retrieval packet remains visible and is never rewritten by the model.' },
-    { label: 'Live AI layer', outcome: 'Held', detail: reason },
-    { label: 'Source policy', outcome: 'Active', detail: 'Anything without a source ID stays out of the trusted lane.' },
+    { label: 'Sources checked', outcome: 'Passed', detail: 'The original research links remain available in the report.' },
+    { label: 'AI writing', outcome: 'Held', detail: reason },
+    { label: 'Link policy', outcome: 'Active', detail: 'A report card needs a research link before it is shown.' },
   ],
   flags: [],
 })
@@ -2526,7 +2592,7 @@ const sourceGateReview = (writer, reason, reviewer = {}) => ({
   hypotheses: writer.hypotheses,
   theoryIdeas: writer.theoryIdeas,
   decisions: [
-    { label: 'Source check', outcome: 'Passed', detail: 'Every displayed item has a source ID from this research packet.' },
+    { label: 'Sources checked', outcome: 'Passed', detail: 'Every displayed item links to the research used for it.' },
     { label: 'Second AI pass', outcome: 'Unavailable', detail: reason },
   ],
   flags: [],
@@ -3198,7 +3264,7 @@ const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
     ideas.push(idea)
   }
 
-  ;(Array.isArray(reviewedIdeas) ? reviewedIdeas : []).forEach(add)
+  ;[...(Array.isArray(packet?.curatedTheoryIdeas) ? packet.curatedTheoryIdeas : []), ...(Array.isArray(reviewedIdeas) ? reviewedIdeas : [])].forEach(add)
   for (const [title, category, whyItCouldConnect, whyNotEstablished, verificationQuery] of theoryTemplatesForCondition(condition)) {
     if (ideas.length >= 10 || candidateAppearsInEvidence(title, candidateEvidenceText)) continue
     add({
@@ -3436,8 +3502,10 @@ const ipfEvidenceBundle = async (condition, env) => {
   const curatedSources = selectedSources(reference)
   return {
     mode: 'curated-plus-live',
-    sourceLabel: 'Curated IPF + multi-source evidence packet',
+    sourceLabel: 'Curated IPF and current research sources',
     sources: dedupeEvidenceSources([curatedSources, liveEvidence.sources], 18),
+    curatedDiscussionLeads: (reference.discussionLeads || []).map(toCuratedDiscussionLead).filter(Boolean),
+    curatedTheoryIdeas: (reference.theoryLeads || []).map(toCuratedTheoryIdea).filter(Boolean),
     centers: (reference.topCenters || []).slice(0, 6).map((center) => ({
       name: cleanText(center.name, 200),
       city: cleanText(center.city, 120),
@@ -3470,8 +3538,10 @@ const retrievedEvidenceBundle = async (condition, env) => {
   const foundationSources = conditionFoundationSources(condition)
   return {
     mode: 'live-retrieved',
-    sourceLabel: 'Multi-source live evidence packet',
+    sourceLabel: 'Current research sources',
     sources: dedupeEvidenceSources([foundationSources, liveEvidence.sources], 18),
+    curatedDiscussionLeads: [],
+    curatedTheoryIdeas: [],
     centers: [],
     researchers: [],
     sourceCoverage: foundationSources.length
@@ -3499,6 +3569,8 @@ const createPacket = ({ patient, bundle, trials, sites, researchers }) => ({
   centers: bundle.centers.length ? bundle.centers : sites,
   researchers: bundle.researchers?.length ? bundle.researchers : researchers,
   trials,
+  curatedDiscussionLeads: Array.isArray(bundle.curatedDiscussionLeads) ? bundle.curatedDiscussionLeads : [],
+  curatedTheoryIdeas: Array.isArray(bundle.curatedTheoryIdeas) ? bundle.curatedTheoryIdeas : [],
 })
 
 const explorationContextFor = (packet, review) => {
@@ -3533,7 +3605,7 @@ const runResearch = async (body, env) => {
     ? evidenceResult.value
     : {
       mode: 'retrieval-empty',
-      sourceLabel: 'Multi-source evidence packet',
+      sourceLabel: 'Current research sources',
       sources: [],
       centers: [],
       researchers: [],
@@ -3666,6 +3738,8 @@ const runResearch = async (body, env) => {
     sources: packet.sources,
     centers: packet.centers,
     researchers: packet.researchers,
+    curatedDiscussionLeads: packet.curatedDiscussionLeads,
+    curatedTheoryIdeas: packet.curatedTheoryIdeas,
     centerMode: enrichedBundle.centers.length ? 'curated-centers' : 'active-research-sites',
     writer: agents.writer,
     review,
@@ -3705,7 +3779,7 @@ const runResearch = async (body, env) => {
         label: 'Second-pass source check',
         status: review.mode === 'dual-agent' || review.mode === 'source-gate' ? 'passed' : 'held',
         detail: review.mode === 'dual-agent'
-          ? 'A separate AI pass checked the draft against the same source packet.'
+          ? 'A separate AI pass checked the draft against the same source set.'
           : review.mode === 'source-gate'
             ? 'Every displayed AI item passed the source-ID and safety checks.'
             : 'Only source-linked records are shown.',
