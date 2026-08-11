@@ -1462,7 +1462,7 @@ function ResearchIdeas({ condition, result }) {
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">1. Researched options that are not approved for this condition</p><p>Source-linked medicines, supplements, procedures, equipment, and support options that a clinician or pharmacist can discuss. Treatments with negative results do not appear here.</p></div>
+            <div><p className="card-kicker">1. Researched medicines, supplements, and procedures</p><p>These items appear in condition-specific research. A card does not prove approval or benefit. Some items may already be used for this condition, a symptom, or another purpose, so read the source and ask a clinician.</p></div>
             <StatusPill tone={patientIdeas.length ? 'safe' : 'neutral'}>{patientIdeas.length ? 'Source-linked' : 'Carefully limited'}</StatusPill>
           </div>
           {patientIdeas.length ? <PatientLeadCards condition={condition} result={result} ideas={patientIdeas} /> : <div className="research-idea-empty"><Icon name="shield" size={18} /><p>This lane includes only patient-discussible, condition-specific leads. Trial products, animal findings, and treatments with negative results stay in their own sections instead of being padded into this list.</p></div>}
@@ -2183,7 +2183,7 @@ const reportExportText = ({ form, report, result }) => {
     '4. Lifestyle changes worth discussing',
     lifestyleLines || 'Use the condition-specific lifestyle evidence searches to prepare questions for a clinician.',
     '',
-    '5. Researched options that are not approved for this condition',
+    '5. Researched medicines, supplements, and procedures',
     patientLeadLines || 'This lane stays separate from trial-only research. Use the approved-options and research-program sections to prepare the next discussion.',
     '',
     ...(earlyResearchLines ? ['', '6. Early animal and lab research worth watching', earlyResearchLines] : []),
