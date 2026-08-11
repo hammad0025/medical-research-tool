@@ -9,6 +9,8 @@ const parseResponse = async (response) => {
   return data
 }
 
+export const RESEARCH_REPORT_TIMEOUT_MS = 360_000
+
 export const isTransientNetworkError = (error) => {
   const message = String(error?.message || '').toLowerCase()
   return error?.name !== 'AbortError'
@@ -33,7 +35,7 @@ const requestJson = async (path, options = {}, timeoutMs) => {
     return await parseResponse(response)
   } catch (error) {
     if (timedOut) {
-      throw new Error('This report took longer than 4 minutes. The search was stopped so you can try again.')
+      throw new Error('This report took longer than 6 minutes. The search was stopped so you can try again.')
     }
     if (options.signal?.aborted) {
       const abortError = new Error('Research was canceled.')
@@ -85,7 +87,7 @@ export const runResearchReview = async (patient, { signal, privacyAcknowledged =
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ patient, privacyAcknowledged }),
     signal,
-  }, 240_000)
+  }, RESEARCH_REPORT_TIMEOUT_MS)
 
   try {
     return await request()
