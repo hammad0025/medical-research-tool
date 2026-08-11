@@ -1241,4 +1241,3 @@ test('common-condition foundations keep established care and lifestyle sections 
   assert.ok(wilson.body.review.theoryIdeas.some((idea) => /ATP7B/i.test(idea.title)))
   assert.ok(wilson.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
 })
-})
