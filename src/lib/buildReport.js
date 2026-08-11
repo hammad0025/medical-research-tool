@@ -274,9 +274,9 @@ const buildReview = (patient) => {
     requiredInputs,
     findings: [
       {
-        title: 'Verified lane passed',
+        title: 'Source links checked',
         body:
-          'Every item in the evidence-backed section is pinned to the reviewed IPF source set instead of a free-form LLM narrative.',
+          'Every item in the source-linked section includes the research used to support it.',
       },
       {
         title: 'Speculation quarantined',
@@ -290,9 +290,9 @@ const buildReview = (patient) => {
       },
     ],
     facts: [
-      { label: 'Verified treatment floor', value: 'Pirfenidone, nintedanib, supportive care, newer PDE4B option' },
+      { label: 'Established starting points', value: 'Pirfenidone, nintedanib, supportive care, newer PDE4B option' },
       { label: 'Explicitly blocked', value: 'Invented stage claims, casual stem-cell/exosome promotion, unsupported immunosuppression' },
-      { label: 'Evidence audit anchor', value: '2022 ATS/ERS guideline + landmark RCTs + 2026 Jascayd label' },
+      { label: 'Core sources', value: '2022 ATS/ERS guideline + landmark RCTs + 2026 Jascayd label' },
     ],
   }
 }

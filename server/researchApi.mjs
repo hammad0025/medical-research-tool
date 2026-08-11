@@ -3523,10 +3523,10 @@ const ipfEvidenceBundle = async (condition, env) => {
     sourceCoverage: [
       {
         id: 'curated-ipf',
-        label: 'Curated IPF evidence floor',
+        label: 'Curated IPF sources',
         status: 'ready',
         records: curatedSources.length,
-        detail: 'Pinned IPF references reviewed for the condition-specific baseline.',
+        detail: 'Core IPF references included with every IPF report.',
       },
       ...liveEvidence.coverage,
     ],
