@@ -775,7 +775,9 @@ test('an authoritative condition foundation prevents a blank RP report when live
 
   assert.equal(response.status, 200)
   assert.equal(response.body.status, 'ready')
-  assert.equal(response.body.sources.length, 8)
+  // The curated source IDs below are required. Additional safely retrieved
+  // records must not make this fallback test fail in a richer environment.
+  assert.ok(response.body.sources.length >= 8)
   assert.ok(response.body.sources.some((source) => source.id === 'rp-nac-phase-1-2020'))
   assert.ok(response.body.sources.some((source) => source.id === 'rp-lycium-barbarum-rct-2019'))
   assert.ok(response.body.sources.some((source) => source.id === 'rp-valproic-acid-phase-2-negative-2018'))
