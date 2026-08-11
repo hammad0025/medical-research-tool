@@ -72,7 +72,7 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /comparative effectiveness/)
   assert.match(appSource, /KleanLyte\|Bi-PegLyte/)
   assert.match(appSource, /tai chi\|yoga\|dance therapy/)
-  assert.match(appSource, /l dopa\|levodopa/)
+  assert.match(appSource, /l dopa\|levodopa\|carbidopa/)
   assert.match(appSource, /vitamin d3\|cholecalciferol\|vitamin d/)
   assert.match(appSource, /\(\?:and\|or\|plus\|with\)/)
   assert.match(appSource, /\[\.\.\.curatedIdeas, \.\.\.reviewedIdeas, \.\.\.sourceFallbackIdeas\]/)
