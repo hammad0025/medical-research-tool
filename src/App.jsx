@@ -157,6 +157,7 @@ const isConcretePatientTreatmentTitle = (title) => isDisplayableTrialInterventio
   && !/^(?:versus|vs\.?|compared\s+with|comparison\s+with)\b/i.test(String(title || ''))
   && !/^(?:and|or|plus|with)\b/i.test(String(title || ''))
   && !/\b(?:induction and maintenance|maintenance and induction)\s+therap(?:y|ies)\b/i.test(String(title || ''))
+  && !/\b(?:bowel|colonoscopy)\s+prep(?:aration)?\b|\b(?:KleanLyte|Bi-PegLyte)\b/i.test(String(title || ''))
   && !/\b(?:physical therapy|physiotherapy|rehabilitation|telerehabilitation|exercise training|occupational therapy)\b/i.test(String(title || ''))
   && !/^(?:initial|first[- ]line|second[- ]line|adjunctive|combined|conventional|standard|usual)\b/i.test(String(title || ''))
   && !/^(?:[a-z0-9]+(?:[-\s][a-z0-9]+){0,4})\s+(?:inhibitor|agonist|antagonist|modulator|activator|blocker)(?:\s+(?:therapy|treatment))?$/i.test(String(title || ''))
@@ -207,6 +208,7 @@ const cleanTreatmentDisplayName = (title) => {
 
 const treatmentInterventionsForTrial = (trial) => {
   if (trial?.conditionMatch === 'broad') return []
+  if (/\b(?:bowel|colonoscopy)\s+prep(?:aration)?\b/i.test(`${trial?.title || ''} ${trial?.summary || ''}`)) return []
   const details = Array.isArray(trial?.interventionDetails) ? trial.interventionDetails : []
   if (details.length) {
     return details
