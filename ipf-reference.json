@@ -179,6 +179,35 @@
     "Avoidance of environmental triggers (avian antigens, mold, silica)",
     "Early transplant referral when FVC falls below ~80% or with progressive disease"
   ],
+  "lifestyleCards": [
+    {
+      "title": "Pulmonary rehabilitation",
+      "summary": "A Cochrane review found that pulmonary rehabilitation can improve walking ability, breathlessness, and quality of life in people with interstitial lung disease, including IPF.",
+      "providerQuestion": "Would pulmonary rehab help me now?",
+      "caution": "The safest activity plan depends on symptoms, oxygen levels, and other health conditions.",
+      "sourceIds": [
+        "ipf-pulmrehab-dowman-2021"
+      ]
+    },
+    {
+      "title": "Oxygen during activity",
+      "summary": "An American Thoracic Society guideline discusses portable oxygen for people with interstitial lung disease whose oxygen level becomes very low during activity.",
+      "providerQuestion": "Should we test my oxygen during activity?",
+      "caution": "Oxygen needs must be measured. A clinician should decide whether equipment is appropriate and how it should be used.",
+      "sourceIds": [
+        "ipf-o2-ambrosia-2020"
+      ]
+    },
+    {
+      "title": "Smoking and pirfenidone",
+      "summary": "The FDA label says smoking can lower the amount of pirfenidone in the body and may reduce how well the medicine works.",
+      "providerQuestion": "Could smoke exposure affect my medicine?",
+      "caution": "Do not change medicine on your own. Ask a clinician or pharmacist about smoking, secondhand smoke, and medicine interactions.",
+      "sourceIds": [
+        "ipf-fda-label-pirfenidone"
+      ]
+    }
+  ],
   "items": [
     {
       "id": "ipf-fda-condition-overview",
