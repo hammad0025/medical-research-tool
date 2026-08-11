@@ -28,6 +28,7 @@ const CURRENT_INTERVENTIONAL_STATUSES = new Set([
 ])
 
 const IPF_SOURCE_IDS = [
+  'ipf-fda-condition-overview',
   'ipf-ats-ers-2022',
   'ipf-ats-ers-2018',
   'ipf-ascend-king-2014',
@@ -272,19 +273,36 @@ const loadIpfReference = async () => {
   return referencePromise
 }
 
-const toSource = (item) => ({
-  id: cleanText(item.id, 100),
-  title: cleanText(item.title, 300),
-  url: cleanText(item.url, 900),
-  type: cleanText(item.category, 80) || 'reference',
-  origin: cleanText(item.origin, 100) || 'Curated IPF reference',
-  year: cleanText(item.year, 12),
-  summary: cleanText(item.summary, 560),
-  journal: cleanText(item.journal, 180),
-  doi: cleanText(item.doi, 220),
-  pmid: cleanText(item.pmid, 40),
-  aiEligible: item.aiEligible !== false,
-})
+const toConditionOverview = (value) => {
+  if (!isRecord(value)) return undefined
+  const overview = {
+    whatItIs: cleanText(value.whatItIs, 360),
+    whatToWatch: cleanText(value.whatToWatch, 360),
+    researchPath: cleanText(value.researchPath, 360),
+  }
+  return Object.values(overview).some(Boolean) ? overview : undefined
+}
+
+const toSource = (item) => {
+  const fdaLabel = cleanText(item.category, 80).toLowerCase() === 'fda-label'
+  return {
+    id: cleanText(item.id, 100),
+    title: cleanText(item.title, 300),
+    url: cleanText(item.url, 900),
+    // Curated IPF label entries need the same semantics as live openFDA
+    // records so they cannot vanish from the established-options section.
+    type: fdaLabel ? 'FDA drug label' : cleanText(item.category, 80) || 'reference',
+    origin: fdaLabel ? 'U.S. Food and Drug Administration' : cleanText(item.origin, 100) || 'Curated IPF reference',
+    year: cleanText(item.year, 12),
+    summary: cleanText(item.summary, 560),
+    journal: cleanText(item.journal, 180),
+    doi: cleanText(item.doi, 220),
+    pmid: cleanText(item.pmid, 40),
+    treatmentName: cleanText(item.treatmentName, 120),
+    conditionOverview: toConditionOverview(item.conditionOverview),
+    aiEligible: item.aiEligible !== false,
+  }
+}
 
 // Some conditions are commonly documented under a gene-specific or subtype-
 // specific name. Add a small authoritative foundation record so a broad search
@@ -494,6 +512,11 @@ const candidateSearchNamesFor = (candidate) => {
 }
 
 const candidateSearchText = (value) => normalizedEvidenceText(cleanCandidateSearchName(value))
+
+// Models and title parsers can turn a paper heading into a fake treatment
+// name. These terms describe study design, not something a person can obtain
+// or responsibly discuss as a standalone treatment card.
+const candidateLooksLikePaperOrProtocolLabel = (value) => /\b(?:efficacy|safety|outcomes?|monotherapy|placebo|dose(?:\s|-)?(?:reduction|finding)|study protocol|protocol|optimizing|optimization|rapid)\b/i.test(candidateSearchText(value))
 
 const sourceMentionsCandidate = (source, candidate) => {
   const sourceText = normalizedEvidenceText(`${source?.title || ''} ${source?.summary || ''}`)
@@ -1780,6 +1803,7 @@ const isSpecificCandidateName = (name) => {
   const normalized = candidateSearchText(name)
   return normalized.length >= 3
     && !/^(?:treatment|therapy|drug|medicine|supplement|vitamin|food|gene therapy|cell therapy|stem cells?|exosomes?|research|clinical trial|drug repurposing)$/i.test(normalized)
+    && !candidateLooksLikePaperOrProtocolLabel(normalized)
     && isSpecificTrialIntervention(normalized)
 }
 
@@ -2128,8 +2152,14 @@ const applyCandidateRelationshipReview = (records, relationReview) => {
   const decisions = new Map((relationReview?.decisions || []).map((decision) => [candidateRelationKey(decision.recordId, decision.candidate), decision]))
   return (records || []).map((record) => {
     const ambiguousCaseRecord = /\b(?:case report|case series|comorbid|coexisting|trilogy)\b/i.test(cleanText(record?.title, 360))
+    const trialProtocolRecord = /\b(?:study protocol|dose[-\s]?finding|phase\s*(?:[1-4]|i{1,3}|iv)\b|clinical trial)\b/i.test(cleanText(record?.title, 360))
+    const officialLabelRecord = /\bfda (?:drug )?label\b/i.test(`${record?.type || ''} ${record?.origin || ''}`)
     const candidateLeads = (Array.isArray(record?.candidateLeads) ? record.candidateLeads : [])
       .map((candidate) => {
+        if (candidateLooksLikePaperOrProtocolLabel(candidate?.name)) return null
+        // Trial protocols belong in the research-program and trial sections.
+        // Their study products must not be presented as regular patient-accessible cards.
+        if (trialProtocolRecord && !officialLabelRecord) return null
         // A case report can mention an incidental medicine for a second
         // diagnosis. Only keep the narrow title-derived fallback there.
         if (ambiguousCaseRecord && candidate?.sourceTitleDerived !== true) return null

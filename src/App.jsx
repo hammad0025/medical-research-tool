@@ -347,7 +347,7 @@ const sourceTreatmentIdeas = (sources, condition) => {
 
 const isOfficialLabelSource = (source) => source?.origin === 'openFDA'
   || source?.origin === 'U.S. Food and Drug Administration'
-  || /FDA (?:drug label|approval record)/i.test(source?.type || '')
+  || /FDA[-\s]?(?:drug\s+)?(?:label|approval record)/i.test(source?.type || '')
 
 const plainOfficialLabelSummary = (source, title, conditionLabel) => {
   const normalizeForMatch = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -369,7 +369,7 @@ const officialLabelIdeasForReport = (result, condition) => {
   return (result?.sources || [])
     .filter(isOfficialLabelSource)
     .map((source) => {
-      const title = cleanTreatmentDisplayName(sourceLabel(source).replace(/^FDA (?:label|approval):\s*/i, ''))
+      const title = cleanTreatmentDisplayName(source?.treatmentName || sourceLabel(source).replace(/^FDA (?:label|approval):\s*/i, ''))
       const key = treatmentIdeaKey(title)
       if (!key || seen.has(key) || /^drug product$/i.test(title)) return null
       seen.add(key)
@@ -434,7 +434,9 @@ const allTreatmentIdeasForReport = (result, condition) => {
     addDistinctTreatmentIdea(treatmentIdeas, idea)
   }
   const practicalityScore = (idea) => {
-    let score = idea.kind === 'source' ? 80 : 0
+    // Show labeled, patient-obtainable options before research papers. A drug
+    // does not stop being established care just because a newer trial mentions it.
+    let score = idea?.accessClass === 'prescription-or-label-check' ? 240 : idea.kind === 'source' ? 80 : 0
     if (!looksLikeAdvancedResearch(idea)) score += 40
     if (isSupplementIdea(idea)) score += 8
     if (idea.kind === 'trial') score -= 18

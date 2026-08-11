@@ -436,6 +436,30 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.review.independent, false)
 })
 
+test('the curated IPF source pack exposes its overview and FDA-labeled medicines', { concurrency: false }, async () => {
+  const mock = createMockFetch()
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Idiopathic Pulmonary Fibrosis', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.equal(response.body.status, 'ready')
+  const overviewSource = response.body.sources.find((source) => source.id === 'ipf-fda-condition-overview')
+  assert.ok(overviewSource)
+  assert.match(overviewSource.conditionOverview.whatItIs, /scarring in the lungs/i)
+  assert.match(response.body.review.briefing.text, /serious lung disease/i)
+
+  const labels = response.body.sources.filter((source) => source.type === 'FDA drug label')
+  assert.deepEqual(
+    labels.map((source) => source.treatmentName).sort(),
+    ['Nerandomilast (Jascayd)', 'Nintedanib (Ofev)', 'Pirfenidone (Esbriet)'].sort(),
+  )
+  assert.equal(labels.every((source) => source.origin === 'U.S. Food and Drug Administration'), true)
+  assert.ok(!response.body.sources.some((source) => source.candidateLeads?.some((candidate) => /monotherapy|dose reduction|study protocol/i.test(candidate.name))))
+})
+
 test('a registry outage is labeled unavailable instead of as an empty trial search', { concurrency: false }, async () => {
   const mock = createMockFetch({ failTrials: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
