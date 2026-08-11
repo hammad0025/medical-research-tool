@@ -104,6 +104,11 @@ const displayConditionName = (condition) => {
   return value
 }
 
+const broadResearchConditionName = (condition) => {
+  const display = displayConditionName(condition)
+  return display.split(/\s[-:]\s/)[0].trim() || 'this condition'
+}
+
 const claimCitations = (result, item, condition, { verifyWhenEmpty = false } = {}) => {
   return citationsForItem({
     result,
@@ -229,7 +234,7 @@ const treatmentTypePriority = (type) => {
 
 const trialInterventionIdeas = (trials, condition) => {
   const byIntervention = new Map()
-  const conditionLabel = String(condition || 'this condition').trim() || 'this condition'
+  const conditionLabel = broadResearchConditionName(condition)
   let appearanceOrder = 0
 
   for (const trial of trials || []) {
@@ -364,6 +369,7 @@ const isBroadTreatmentClass = (idea) => /\b(?:inhibitors|agonists|antagonists|mo
 const sourceTreatmentIdeas = (sources, condition) => {
   const ideas = []
   const used = new Set()
+  const conditionLabel = broadResearchConditionName(condition)
   for (const source of sources || []) {
     if (!source?.id || isOfficialLabelSource(source) || source.conditionScope === 'related-preclinical') continue
     for (const candidate of sourceTreatmentCandidates(source)) {
@@ -373,7 +379,7 @@ const sourceTreatmentIdeas = (sources, condition) => {
       ideas.push({
         title: candidate.title,
         category: candidate.category,
-        summary: `This source discusses ${candidate.title} in research on ${condition || 'this condition'}.`,
+        summary: `This source discusses ${candidate.title} in research on ${conditionLabel}. It may not apply to the entered gene or subtype.`,
         whyItMayMatter: 'Open the source to check the study group, subtype, and results.',
         caution: 'A research article is not proof that a treatment works or is right for one person. Review the full source with a clinician.',
         sourceIds: [source.id],
@@ -395,7 +401,7 @@ const readableResearchName = (value) => {
 
 const earlyResearchIdeasForReport = (result, condition) => {
   const ideas = []
-  const conditionLabel = displayConditionName(condition) || 'this condition'
+  const conditionLabel = broadResearchConditionName(condition)
 
   for (const source of result?.sources || []) {
     if (source?.conditionScope !== 'related-preclinical' || !source?.id) continue
@@ -1062,6 +1068,7 @@ function TrialTable({ trials }) {
             <tr key={trial.id}>
               <td className="trial-table__study">
                 <a href={trial.url} target="_blank" rel="noreferrer">{trial.title} <Icon name="external" size={12} /></a>
+                {trial.variantMatch ? <small className="trial-table__match">Matches entered gene or subtype</small> : null}
                 <span>{trial.id} {trial.phase && trial.phase !== 'Phase not listed' ? `· ${trial.phase}` : ''}</span>
                 <details className="trial-table__details">
                   <summary>Study details</summary>
@@ -1340,6 +1347,20 @@ const sourceTextForIdea = (result, idea) => (idea?.sourceIds || [])
 const evidencePointsAway = (result, idea) => idea?.accessClass === 'evidence-points-away'
   || /\b(?:worse|harm(?:ful|ed)?|failed|futility|stopped early|recommend(?:s|ed|ation)? against|no (?:benefit|evidence|effect|improvement|significant difference)|did not (?:support|improve|show|meet)|does not (?:support|improve|show|establish)|not (?:shown|proven|supported)|negative (?:outcome|result|trial)|missed (?:its |the )?primary endpoint)\b/i.test(`${idea?.summary || ''} ${idea?.caution || ''} ${sourceTextForIdea(result, idea)}`)
 
+const isMismatchedNamedGeneProgram = (result, idea) => {
+  const enteredGene = String(result?.patient?.geneticVariant || '').trim().toUpperCase().match(/\b[A-Z0-9-]{3,}\b/)?.[0]
+  if (!enteredGene) return false
+  const linkedSourceTitles = (idea?.sourceIds || [])
+    .map((sourceId) => (result?.sources || []).find((source) => source.id === sourceId)?.title)
+  const trialTitles = (idea?.trials || []).map((trial) => trial?.title)
+  const text = [idea?.title, ...linkedSourceTitles, ...trialTitles].filter(Boolean).join(' ')
+  const platformTokens = new Set(['AAV', 'DNA', 'RNA', 'CRISPR'])
+  const namedGenes = [...text.matchAll(/\b([A-Z][A-Z0-9-]{2,})\s+(?:gene|mutation)/g)]
+    .map((match) => match[1].toUpperCase())
+    .filter((gene) => !platformTokens.has(gene))
+  return namedGenes.length > 0 && !namedGenes.includes(enteredGene)
+}
+
 const patientAccessForIdea = (result, idea) => {
   if (evidencePointsAway(result, idea)) {
     return {
@@ -1573,12 +1594,16 @@ const isResearchProgramIdea = (idea) => idea?.accessClass !== 'prescription-or-l
 
 const patientDiscussionIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
-  const sourceNeedsStudyAccess = (idea) => idea?.kind === 'source' && (idea?.sourceIds || []).some((sourceId) => {
+  const sourceNeedsSpecialistReview = (idea) => idea?.kind === 'source' && (idea?.sourceIds || []).some((sourceId) => {
     const source = sourceById.get(sourceId)
     return /(?:clinical|randomized|controlled|experimental medicine|phase\s*[1-4])\s+(?:study|trial)|randomized|randomised/i.test(`${source?.type || ''} ${source?.title || ''} ${source?.summary || ''}`)
   })
   const allIdeas = allTreatmentIdeasForReport(result, condition)
-    .map((idea) => sourceNeedsStudyAccess(idea) ? { ...idea, accessClass: 'study-access-only' } : idea)
+    .map((idea) => sourceNeedsSpecialistReview(idea) ? {
+      ...idea,
+      accessClass: 'specialist-review',
+      accessExplanation: 'This source reports a completed or earlier study. A retinal specialist can explain the result, limits, and whether it matters now.',
+    } : idea)
   const hasTraceableSource = (idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId))
     || (idea?.trials || []).some((trial) => trial?.id && trial?.url)
   const directDiscussionIdeas = allIdeas
@@ -1588,6 +1613,7 @@ const patientDiscussionIdeasForReport = (result, condition) => {
     .filter((idea) => isConcretePatientTreatmentTitle(idea?.title))
     .filter((idea) => !evidencePointsAway(result, idea))
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
+    .filter((idea) => !isMismatchedNamedGeneProgram(result, idea))
     .filter(hasTraceableSource)
   const seen = new Set(directDiscussionIdeas.map((idea) => treatmentIdeaKey(idea?.title)))
   const directTrialIdeas = trialInterventionIdeas(result?.trials, condition)
@@ -1599,6 +1625,7 @@ const patientDiscussionIdeasForReport = (result, condition) => {
     .filter((idea) => isConcretePatientTreatmentTitle(idea?.title))
     .filter((idea) => !evidencePointsAway(result, idea))
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
+    .filter((idea) => !isMismatchedNamedGeneProgram(result, idea))
     .filter(hasTraceableSource)
     .filter((idea) => {
       const key = treatmentIdeaKey(idea?.title)

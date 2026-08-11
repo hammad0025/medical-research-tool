@@ -465,6 +465,16 @@ const conditionFoundationSources = (condition) => {
       aiEligible: true,
     },
     {
+      id: 'rp-nei-vision-rehabilitation',
+      title: 'Vision Rehabilitation',
+      url: 'https://www.nei.nih.gov/eye-health-information/vision-rehabilitation',
+      type: 'NIH daily-life support guidance',
+      year: '2026',
+      origin: 'National Eye Institute',
+      summary: 'The National Eye Institute says vision rehabilitation can help people use their remaining vision for daily activities. Services may include assistive products, screen readers, daily-living skills, orientation and mobility support, and emotional support.',
+      aiEligible: true,
+    },
+    {
       id: 'rp-fda-luxturna-rpe65',
       title: 'FDA approval: LUXTURNA (voretigene neparvovec-rzyl)',
       url: 'https://www.fda.gov/vaccines-blood-biologics/cellular-gene-therapy-products/luxturna',
@@ -560,6 +570,27 @@ const conditionFoundationDiscussionLeads = (condition) => {
       providerQuestion: 'How should we read the goji berry study?',
       caution: 'A supplement study does not establish product quality, dose, safety, or personal fit.',
       sourceIds: ['rp-lycium-barbarum-rct-2019'],
+    },
+  ]
+}
+
+const conditionFoundationLifestyleIdeas = (condition) => {
+  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
+
+  return [
+    {
+      title: 'Vision rehabilitation and low-vision aids',
+      summary: 'The National Eye Institute says vision rehabilitation can help with reading, technology, travel, household tasks, work, and staying independent.',
+      providerQuestion: 'Could vision rehabilitation help with daily tasks?',
+      caution: 'The useful services depend on the person’s remaining vision, goals, and local resources.',
+      sourceIds: ['rp-nei-vision-rehabilitation'],
+    },
+    {
+      title: 'Regular eye exams and treatable eye problems',
+      summary: 'The National Eye Institute says regular eye exams can track RP and find other eye problems, including cataracts and cystoid macular edema, that may need separate care.',
+      providerQuestion: 'How often should retinal follow-up happen?',
+      caution: 'This source does not set one visit schedule for every person. A retinal specialist should decide the timing.',
+      sourceIds: ['rp-nei-condition-overview'],
     },
   ]
 }
@@ -1879,6 +1910,21 @@ const studyTreatmentRank = (study) => {
   return 0
 }
 
+const studyMatchesGeneticVariant = (study, geneticVariant) => {
+  const variant = normalizeTrialText(geneticVariant)
+  if (variant.length < 3) return false
+  const protocol = study?.protocolSection || {}
+  const text = normalizeTrialText([
+    protocol.identificationModule?.briefTitle,
+    protocol.identificationModule?.officialTitle,
+    protocol.descriptionModule?.briefSummary,
+    ...(protocol.conditionsModule?.conditions || []),
+    ...(protocol.conditionsModule?.keywords || []),
+    ...(protocol.armsInterventionsModule?.interventions || []).flatMap((item) => [item?.name, ...(item?.otherNames || [])]),
+  ].filter(Boolean).join(' '))
+  return ` ${text} `.includes(` ${variant} `)
+}
+
 const formatTrial = (study, locationHint, condition, geneticVariant) => {
   const protocol = study?.protocolSection || {}
   const identification = protocol.identificationModule || {}
@@ -1907,6 +1953,7 @@ const formatTrial = (study, locationHint, condition, geneticVariant) => {
     interventions: interventionNames,
     interventionDetails,
     conditionMatch: trialMatchesRequestedCondition(study, condition, geneticVariant) ? 'direct' : 'broad',
+    variantMatch: studyMatchesGeneticVariant(study, geneticVariant),
     treatmentFocus: studyIsTreatmentFocused(study),
     location: preferred
       ? [preferred.city, preferred.state, preferred.country].filter(Boolean).join(', ')
@@ -2004,14 +2051,19 @@ const trialSearchTerms = (condition, geneticVariant) => {
   const baseCondition = conditionSearchPhrases(fullCondition)[0] || fullCondition.split(/\s[-:]\s/)[0].trim()
   const submittedVariant = cleanText(geneticVariant, 120).match(/\b[A-Za-z0-9-]{3,}\b/)?.[0] || ''
   const embeddedVariant = fullCondition.match(/\s[-:]\s*([A-Za-z0-9_-]{3,})\s*$/)?.[1] || ''
+  const variant = submittedVariant || embeddedVariant
   const terms = [
+    {
+      parameter: 'query.term',
+      term: variant ? `AREA[ConditionSearch]"${baseCondition.replaceAll('"', ' ')}" AND AREA[BasicSearch]${variant}` : '',
+    },
     { parameter: 'query.cond', term: fullCondition },
     { parameter: 'query.cond', term: baseCondition },
     { parameter: 'query.term', term: submittedVariant },
     { parameter: 'query.term', term: embeddedVariant },
   ].filter(({ term }) => term)
 
-  return [...new Map(terms.map((entry) => [`${entry.parameter}:${entry.term.toLowerCase()}`, entry])).values()].slice(0, 4)
+  return [...new Map(terms.map((entry) => [`${entry.parameter}:${entry.term.toLowerCase()}`, entry])).values()].slice(0, 5)
 }
 
 const normalizeTrialText = (value) => cleanText(value, 2_400).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
@@ -2125,6 +2177,7 @@ const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
       const leftLocations = left?.protocolSection?.contactsLocationsModule?.locations || []
       const rightLocations = right?.protocolSection?.contactsLocationsModule?.locations || []
       return currentStudyStatusRank(right) - currentStudyStatusRank(left)
+        || Number(studyMatchesGeneticVariant(right, geneticVariant)) - Number(studyMatchesGeneticVariant(left, geneticVariant))
         || Number(rightLocations.some((location) => isPrioritizedResearchRegion(location.country)))
         - Number(leftLocations.some((location) => isPrioritizedResearchRegion(location.country)))
         || studyTreatmentRank(right) - studyTreatmentRank(left)
@@ -4264,8 +4317,9 @@ const ipfEvidenceBundle = async (condition, env) => {
 
 const retrievedEvidenceBundle = async (condition, env) => {
   const liveEvidence = await retrieveEvidenceSources(condition, env)
-  const foundationSources = conditionFoundationSources(condition)
+  const foundationSources = conditionFoundationSources(condition).map((source) => ({ ...source, curated: true }))
   const foundationDiscussionLeads = conditionFoundationDiscussionLeads(condition)
+  const foundationLifestyleIdeas = conditionFoundationLifestyleIdeas(condition)
   const foundationExcludedTreatments = conditionFoundationExcludedTreatments(condition)
   const recentResearchSources = recentResearchSignalsFor(condition)
   const sourceCoverage = [
@@ -4296,7 +4350,7 @@ const retrievedEvidenceBundle = async (condition, env) => {
     sourceLabel: 'Current research sources',
     sources: dedupeEvidenceSources([foundationSources, recentResearchSources, liveEvidence.sources], 18),
     curatedDiscussionLeads: foundationDiscussionLeads.map(toCuratedDiscussionLead).filter(Boolean),
-    curatedLifestyleIdeas: [],
+    curatedLifestyleIdeas: foundationLifestyleIdeas.map(toCuratedLifestyleIdea).filter(Boolean),
     curatedTheoryIdeas: [],
     excludedTreatments: foundationExcludedTreatments.map(toExcludedTreatment).filter(Boolean),
     centers: [],

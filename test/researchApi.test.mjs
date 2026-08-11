@@ -340,9 +340,11 @@ const textResponse = (body, status = 200) => ({
 
 const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, directCellStudy = false } = {}) => {
   const pubMedTerms = []
+  const clinicalTrialQueries = []
 
   return {
     pubMedTerms,
+    clinicalTrialQueries,
     fetch: async (input, options = {}) => {
       const url = String(input)
 
@@ -397,6 +399,7 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       }
       if (url.includes('clinicaltrials.gov/api/v2/studies')) {
         if (failTrials) throw new Error('ClinicalTrials.gov is unavailable')
+        clinicalTrialQueries.push(new URL(url))
         return jsonResponse({ studies: [trial, unrelatedStemCellTrial, ...(directCellStudy ? [directCellTrial] : [])] })
       }
       if (url.includes('api.crossref.org/works')) {
@@ -559,13 +562,28 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.status, 'ready')
   assert.equal(response.body.patient.condition, 'Retinitis Pigmentosa')
   assert.ok(mock.pubMedTerms.some((term) => term.includes('Retinitis Pigmentosa')))
+  assert.ok(mock.clinicalTrialQueries.some((url) => {
+    const term = url.searchParams.get('query.term') || ''
+    return /AREA\[ConditionSearch\]/.test(term) && /USH2A/i.test(term)
+  }))
   for (const laneId of ['crossref', 'semantic-scholar', 'nih-reporter']) {
     assert.equal(response.body.sourceCoverage.find((lane) => lane.id === laneId)?.status, 'ready')
   }
   assert.equal(response.body.sourceCoverage.find((lane) => lane.id === 'perplexity-web')?.status, 'not-configured')
   assert.ok(response.body.sources.length >= 3)
   assert.ok(response.body.sources.some((source) => source.id === 'rp-nei-condition-overview'))
+  assert.ok(response.body.sources.some((source) => source.id === 'rp-nei-vision-rehabilitation'))
   assert.ok(response.body.sources.some((source) => source.id === 'rp-fda-luxturna-rpe65'))
+  assert.ok(response.body.sources.some((source) => source.id === 'rp-lycium-barbarum-rct-2019'))
+  assert.deepEqual(
+    response.body.curatedDiscussionLeads.map((idea) => idea.title).sort(),
+    ['Lycium barbarum (goji berry)', 'N-acetylcysteine (NAC)'].sort(),
+  )
+  assert.deepEqual(
+    response.body.curatedLifestyleIdeas.map((idea) => idea.title),
+    ['Vision rehabilitation and low-vision aids', 'Regular eye exams and treatable eye problems'],
+  )
+  assert.ok(response.body.curatedLifestyleIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
   const candidateSource = response.body.sources.find((source) => source.candidateLeads?.some((candidate) => candidate.name === 'AAV-RP therapy'))
   assert.ok(candidateSource)
   assert.ok(candidateSource.candidateLeads.some((candidate) => candidate.name === 'AAV-RP therapy'))

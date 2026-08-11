@@ -2056,6 +2056,7 @@
 
 .mrc-report-stage .trial-directory__recruiting { display: grid; gap: 12px; margin: 20px 0 24px; }
 .mrc-report-stage .trial-directory__other { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(8, 127, 157, 0.18); }
+.trial-table__match { display: inline-flex; width: fit-content; margin-top: 7px; padding: 3px 6px; border: 1px solid rgba(33, 117, 91, 0.2); border-radius: 999px; color: #166d53; background: rgba(207, 238, 221, 0.68); font-size: 0.64rem; font-weight: 800; letter-spacing: 0.02em; }
 
 .research-access-plan__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .research-access-plan__card { display: flex; flex-direction: column; min-height: 160px; padding: 16px; border: 1px solid rgba(8, 127, 157, 0.2); border-radius: 11px; background: linear-gradient(145deg, #fbfeff, #f0f9fa); }
