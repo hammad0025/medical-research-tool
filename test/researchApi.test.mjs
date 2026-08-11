@@ -44,6 +44,18 @@ const titleFallbackPubMedXml = `
       <JournalIssue><PubDate><Year>2025</Year></PubDate></JournalIssue>
     </Article>
   </MedlineCitation>
+</PubmedArticle>
+<PubmedArticle>
+  <MedlineCitation>
+    <PMID>1002</PMID>
+    <Article>
+      <Journal><Title>Test Retina Journal</Title></Journal>
+      <ArticleTitle>Use of nonsteroidal mineralocorticoid receptor antagonist in chronic kidney disease: a case report of a patient with retinitis pigmentosa</ArticleTitle>
+      <Abstract><AbstractText>The medicine was used for chronic kidney disease in a person who also had retinitis pigmentosa.</AbstractText></Abstract>
+      <PublicationTypeList><PublicationType>Case Reports</PublicationType></PublicationTypeList>
+      <JournalIssue><PubDate><Year>2025</Year></PubDate></JournalIssue>
+    </Article>
+  </MedlineCitation>
 </PubmedArticle>`
 
 const trial = {
@@ -463,6 +475,7 @@ test('a condition-titled treatment source survives an unavailable AI relation ch
   assert.ok(titleFallbackSource.candidateLeads.some((candidate) => candidate.name === 'Migalastat'))
   assert.ok(titleFallbackSource.candidateLeads.some((candidate) => candidate.name === 'enzyme replacement therapy'))
   assert.ok(titleFallbackSource.candidateLeads.every((candidate) => candidate.roleVerified && candidate.sourceTitleDerived))
+  assert.ok(!response.body.sources.some((source) => source.candidateLeads?.some((candidate) => /mineralocorticoid/i.test(candidate.name))))
 })
 
 test('a source-backed run keeps a source-linked overview when a report lane is empty', { concurrency: false }, async () => {

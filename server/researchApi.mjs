@@ -1780,6 +1780,7 @@ const isSpecificCandidateName = (name) => {
 const cleanTitleTreatmentCandidate = (value) => cleanCandidateName(value)
   .replace(/^(?:head[- ]to[- ]head\s+)?(?:trial|study|comparison|evaluation|assessment|use|impact|efficacy|safety|outcomes?)\s+of\s+/i, '')
   .replace(/^(?:(?:an?|the)\s+)?(?:(?:oral|intravenous|long[- ]acting|pharmacological)\s+)*(?:chaperone|inhibitor)\s+/i, '')
+  .replace(/^(?:with|despite|late|early|first|long[- ]term)\s+/i, '')
   .replace(/\s+(?:or|and)\s+placebo$/i, '')
   .replace(/\bagalsidase-beta\b/i, 'agalsidase beta')
   .replace(/\s+/g, ' ')
@@ -1791,8 +1792,16 @@ const titleCandidateIsUseful = (candidate, condition) => {
   return isSpecificCandidateName(candidate)
     && candidate.length <= 90
     && !conditionTerms.some((term) => normalized === term || normalized.includes(`${term} `))
-    && !/\b(?:diagnos(?:is|tic)|screening|monitoring|biomarker|imaging|mri|scan|manifestation|symptom|patients?|disease|syndrome|review|meta.analysis|clinical trial|study|trial|placebo|outcome|function|guideline|options?)\b/i.test(candidate)
+    && !/\b(?:diagnos(?:is|tic)|screening|monitoring|biomarker|imaging|mri|scan|manifestation|symptom|patients?|disease|syndrome|review|meta.analysis|clinical trial|study|trial|placebo|outcome|function|guideline|options?|first|experience|stability|late|early|long[- ]term)\b/i.test(candidate)
     && !/^(?:the|a|an|oral|intravenous|historical control|head to head|treatment options?)\b/i.test(candidate)
+}
+
+const titleHasCloseConditionReference = (text, condition) => {
+  const normalized = normalizedEvidenceText(text)
+  return conditionEvidenceTerms(condition).some((term) => {
+    const index = normalized.indexOf(term)
+    return index >= 0 && index <= 35
+  })
 }
 
 const sourceTitleTreatmentCandidates = (source, condition) => {
@@ -1813,7 +1822,7 @@ const sourceTitleTreatmentCandidates = (source, condition) => {
       relationEvidence: title,
     })
   }
-  const titleHasCondition = (tail) => sourceTextMentionsCondition(tail, condition)
+  const titleHasCondition = (tail) => titleHasCloseConditionReference(tail, condition)
 
   // These patterns only release a name when the title itself puts the
   // intervention in a treatment/study relationship with the requested
@@ -1831,7 +1840,13 @@ const sourceTitleTreatmentCandidates = (source, condition) => {
     if (titleHasCondition(match[2])) add(match[1])
   }
   for (const match of title.matchAll(/\b([A-Za-z][A-Za-z0-9-]{2,72}(?:\s+[A-Za-z][A-Za-z0-9-]{2,72}){0,4})\s+(?:therapy|treatment)\s+(?:in|for|among)\s+(.+)/gi)) {
-    if (titleHasCondition(match[2])) add(match[1])
+    if (!titleHasCondition(match[2])) continue
+    const stem = cleanTitleTreatmentCandidate(match[1])
+      .split(/\s+/)
+      .slice(-3)
+      .filter((word) => !/^(?:with|despite|late|early|first|experience|stability)$/i.test(word))
+      .join(' ')
+    add(`${stem} therapy`)
   }
   for (const match of title.matchAll(/^([A-Za-z][A-Za-z0-9-]{2,72}(?:\s+[A-Za-z][A-Za-z0-9-]{2,72}){0,3}),?\s+(?:an?|the)\s+(?:(?:oral|intravenous|long[- ]acting|pharmacological)\s+)*(?:therapy|treatment|chaperone|inhibitor)\s+(?:in|for|among)\s+(.+)/gi)) {
     if (titleHasCondition(match[2])) add(match[1])
@@ -2095,8 +2110,12 @@ const reviewCandidateRelationships = async ({ patient, records }, env) => {
 const applyCandidateRelationshipReview = (records, relationReview) => {
   const decisions = new Map((relationReview?.decisions || []).map((decision) => [candidateRelationKey(decision.recordId, decision.candidate), decision]))
   return (records || []).map((record) => {
+    const ambiguousCaseRecord = /\b(?:case report|case series|comorbid|coexisting|trilogy)\b/i.test(cleanText(record?.title, 360))
     const candidateLeads = (Array.isArray(record?.candidateLeads) ? record.candidateLeads : [])
       .map((candidate) => {
+        // A case report can mention an incidental medicine for a second
+        // diagnosis. Only keep the narrow title-derived fallback there.
+        if (ambiguousCaseRecord && candidate?.sourceTitleDerived !== true) return null
         const decision = decisions.get(candidateRelationKey(record?.id, candidate?.name))
         if (decision) return { ...candidate, roleVerified: true, relationship: decision.relationship, relationEvidence: decision.evidence }
         // A title-derived lead uses a narrow deterministic grammar that ties
