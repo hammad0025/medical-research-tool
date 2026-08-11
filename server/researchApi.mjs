@@ -54,6 +54,9 @@ const IPF_SOURCE_IDS = [
   'ipf-metformin-spagnolo-2018',
   'ipf-stemcells-review-2020',
   'ipf-fibroneer-ipf-2025',
+  'ipf-bosentan-build3-2011',
+  'ipf-sildenafil-phase2b-negative-2021',
+  'ipf-interferon-gamma-negative-2004',
   'ipf-fda-label-pirfenidone',
   'ipf-fda-label-nintedanib',
   'ipf-fda-label-nerandomilast',
@@ -4204,7 +4207,7 @@ const ipfEvidenceBundle = async (condition, env) => {
   return {
     mode: 'curated-plus-live',
     sourceLabel: 'Curated IPF and current research sources',
-    sources: dedupeEvidenceSources([curatedSources, liveEvidence.sources], 18),
+    sources: dedupeEvidenceSources([curatedSources, liveEvidence.sources], 24),
     curatedDiscussionLeads: (reference.discussionLeads || []).map(toCuratedDiscussionLead).filter(Boolean),
     curatedTheoryIdeas: (reference.theoryLeads || []).map(toCuratedTheoryIdea).filter(Boolean),
     excludedTreatments: (reference.excludedAgents || []).map(toExcludedTreatment).filter(Boolean),
@@ -4385,7 +4388,7 @@ const runResearch = async (body, env) => {
     && ['ready', 'not-run'].includes(candidateRelationReview.status)
   const enrichedBundle = {
     ...bundle,
-    sources: dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources], 24),
+    sources: dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources], conditionIsIpf ? 36 : 24),
     sourceCoverage: [
       ...(bundle.sourceCoverage || []),
       ...(candidateEvidence.coverage || []),
