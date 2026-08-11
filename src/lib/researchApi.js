@@ -9,6 +9,14 @@ const parseResponse = async (response) => {
   return data
 }
 
+export const isTransientNetworkError = (error) => {
+  const message = String(error?.message || '').toLowerCase()
+  return error?.name !== 'AbortError'
+    && !error?.status
+    && !error?.code
+    && /failed to fetch|network(?:error| request failed)?|load failed/.test(message)
+}
+
 const requestJson = async (path, options = {}, timeoutMs) => {
   const controller = new AbortController()
   let timedOut = false
@@ -72,10 +80,19 @@ export const extractResearchIntake = async (description, { signal, privacyAcknow
 }
 
 export const runResearchReview = async (patient, { signal, privacyAcknowledged = false } = {}) => {
-  return requestJson('/api/research-run', {
+  const request = () => requestJson('/api/research-run', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ patient, privacyAcknowledged }),
     signal,
   }, 240_000)
+
+  try {
+    return await request()
+  } catch (error) {
+    // A deploy handoff or a dropped connection can fail before Vercel sees a request.
+    if (!isTransientNetworkError(error) || signal?.aborted) throw error
+    await new Promise((resolve) => setTimeout(resolve, 1_200))
+    return request()
+  }
 }

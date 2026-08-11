@@ -3646,7 +3646,11 @@ const runResearch = async (body, env) => {
   const candidateRelationReview = await reviewCandidateRelationships({
     patient,
     records: [...sourceRecordsWithCandidates, ...candidateSourcesWithTitleCandidates, ...trialRecordsWithCandidates],
-  }, env)
+  }, env).catch(() => ({
+    status: 'unavailable',
+    decisions: [],
+    detail: 'The extra candidate check was unavailable, so only direct source titles were used.',
+  }))
   const verifiedSourceRecords = applyCandidateRelationshipReview(sourceRecordsWithCandidates, candidateRelationReview)
   const verifiedCandidateSources = applyCandidateRelationshipReview(candidateSourcesWithTitleCandidates, candidateRelationReview)
   const verifiedTrialRecords = applyCandidateRelationshipReview(trialRecordsWithCandidates, candidateRelationReview)

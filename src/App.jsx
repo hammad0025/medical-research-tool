@@ -2597,11 +2597,14 @@ function App() {
         setSiteAccess({ status: 'locked', message: 'Your access session ended. Enter the passcode again.' })
         return
       }
-      const message = error?.name === 'AbortError'
+      const rawMessage = error?.name === 'AbortError'
         ? 'Research was canceled. You can change the profile and run it again.'
         : error instanceof Error
           ? error.message
           : 'Could not reach the local research service.'
+      const message = rawMessage === 'Failed to fetch'
+        ? 'The research connection dropped before the report finished. Please try again.'
+        : rawMessage
       setRunState({ status: 'error', result: null, error: message })
     } finally {
       if (runSequence === activeRunSequence.current) activeRunController.current = null
