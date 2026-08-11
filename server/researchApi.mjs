@@ -1485,7 +1485,7 @@ Hard boundaries:
 - Give every source-specific research question one or more sourceIds from the packet so the app can show the reader exactly where the question came from.
 - Every research question must be a short, everyday question a person can read aloud to a doctor. Use 12 words or fewer, one idea only, and common words. Prefer "Could this study fit me?", "Which symptoms should I mention?", or "What safety risks should I ask about?" over formal or technical wording. Do not use phrases such as "whether this is relevant," "eligibility criteria," "condition-specific," or "research direction."
 - Do not characterize a guideline's recommendation strength. Use neutral, source-limited language such as "the label indicates" or "a cited trial evaluated" instead.
-- Return up to 10 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, food or supplement, procedure, device, cell or gene therapy, RNA treatment, or other intervention named in a source or live trial. Use the intervention name, not the paper title. For example, write "RPGR gene therapy" or "N-acetylcysteine," never "Systematic review of RPGR gene therapy." Do not rank a gene, cell, or trial-only program above a source-backed medicine, food, supplement, or symptom-care treatment just because it is more technically advanced. Include a supplement or food only when the packet names that exact item in a condition-specific source or live trial. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
+- Return up to 10 "treatmentIdeas" when the supplied sources support them. Each must be a named drug, food or supplement, procedure, device, cell or gene therapy, RNA treatment, or other intervention already listed in a source's candidateLeads field or a live trial's treatmentInterventions field. Do not pull a treatment name out of general source prose by yourself. Use the intervention name, not the paper title. For example, write "RPGR gene therapy" or "N-acetylcysteine," never "Systematic review of RPGR gene therapy." Do not rank a gene, cell, or trial-only program above a source-backed medicine, food, supplement, or symptom-care treatment just because it is more technically advanced. Include a supplement or food only when the packet names that exact item in a condition-specific source or live trial. Never list a blood test, scan, biomarker, diagnostic, questionnaire, or monitoring step as a treatment idea.
 - Classify each treatment idea carefully: "patient-discussible" for a source-backed medicine, supplement, food, or procedure a clinician could discuss; "prescription-or-label-check" when the official label or prescription status matters; "trial-only" for a formal study program; "expanded-access-check" only when it is a research program and the report does not confirm access; and "evidence-points-away" when the cited source reports no benefit or a worse outcome. Never claim a program has compassionate or expanded access unless the packet contains direct proof.
 - The "theoryIdeas" lane is intentionally different from treatmentIdeas. It is for 10 new hypotheses that were NOT found as a named, condition-specific treatment lead in this packet. A theory idea may use cautious biomedical reasoning, but it is not evidence that the idea works for this condition.
 - For every theory idea, state a concrete target, pathway, gene/RNA approach, treatment platform, or named compound to verify. Favor gene, RNA, pathway, cell, device, or drug-target ideas. Do not pad with generic wellness, food, or supplement ideas. A supplement is allowed only when the idea is specific, gives no dose, and is clearly framed as a mechanism to verify, not an action.
@@ -1777,6 +1777,77 @@ const isSpecificCandidateName = (name) => {
     && isSpecificTrialIntervention(normalized)
 }
 
+const cleanTitleTreatmentCandidate = (value) => cleanCandidateName(value)
+  .replace(/^(?:head[- ]to[- ]head\s+)?(?:trial|study|comparison|evaluation|assessment|use|impact|efficacy|safety|outcomes?)\s+of\s+/i, '')
+  .replace(/^(?:(?:an?|the)\s+)?(?:(?:oral|intravenous|long[- ]acting|pharmacological)\s+)*(?:chaperone|inhibitor)\s+/i, '')
+  .replace(/\s+(?:or|and)\s+placebo$/i, '')
+  .replace(/\bagalsidase-beta\b/i, 'agalsidase beta')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const titleCandidateIsUseful = (candidate, condition) => {
+  const normalized = normalizedEvidenceText(candidate)
+  const conditionTerms = conditionEvidenceTerms(condition)
+  return isSpecificCandidateName(candidate)
+    && candidate.length <= 90
+    && !conditionTerms.some((term) => normalized === term || normalized.includes(`${term} `))
+    && !/\b(?:diagnos(?:is|tic)|screening|monitoring|biomarker|imaging|mri|scan|manifestation|symptom|patients?|disease|syndrome|review|meta.analysis|clinical trial|study|trial|placebo|outcome|function|guideline|options?)\b/i.test(candidate)
+    && !/^(?:the|a|an|oral|intravenous|historical control|head to head|treatment options?)\b/i.test(candidate)
+}
+
+const sourceTitleTreatmentCandidates = (source, condition) => {
+  const title = cleanText(source?.title, 320)
+  if (!title || !sourceTextMentionsCondition(title, condition)) return []
+
+  const candidates = []
+  const add = (value, category = 'Treatment research') => {
+    const name = cleanTitleTreatmentCandidate(value)
+    if (!titleCandidateIsUseful(name, condition)) return
+    if (candidates.some((candidate) => candidateKey(candidate.name) === candidateKey(name))) return
+    candidates.push({
+      name,
+      category,
+      roleVerified: true,
+      sourceTitleDerived: true,
+      relationship: /rehabilitation|adaptive|surgery|procedure/i.test(name) ? 'condition-support' : 'direct-condition-treatment',
+      relationEvidence: title,
+    })
+  }
+  const titleHasCondition = (tail) => sourceTextMentionsCondition(tail, condition)
+
+  // These patterns only release a name when the title itself puts the
+  // intervention in a treatment/study relationship with the requested
+  // condition. This is a deterministic fallback when an AI packet extractor
+  // is delayed, unavailable, or withholds a valid candidate.
+  for (const match of title.matchAll(/\b(?:efficacy|safety|impact|outcomes?|use|evaluation|assessment|comparison|trial|study)\s+of\s+(.+?)\s+(?:in|for|among|on|versus|vs|compared\s+with)\s+(.+)/gi)) {
+    if (titleHasCondition(match[2])) add(match[1])
+  }
+  for (const match of title.matchAll(/\b(.+?)\s+(?:versus|vs|compared\s+with)\s+(.+?)\s+(?:in|for|among|on)\s+(.+)/gi)) {
+    if (!titleHasCondition(match[3])) continue
+    add(match[1])
+    for (const comparator of match[2].split(/\s+(?:or|and)\s+/i)) add(comparator)
+  }
+  for (const match of title.matchAll(/\b([A-Z][A-Za-z0-9-]{2,50})\s+(?:versus|vs|compared\s+with)\s+.+?\s+(?:in|for|among|on)\s+(.+)/g)) {
+    if (titleHasCondition(match[2])) add(match[1])
+  }
+  for (const match of title.matchAll(/\b([A-Za-z][A-Za-z0-9-]{2,72}(?:\s+[A-Za-z][A-Za-z0-9-]{2,72}){0,4})\s+(?:therapy|treatment)\s+(?:in|for|among)\s+(.+)/gi)) {
+    if (titleHasCondition(match[2])) add(match[1])
+  }
+  for (const match of title.matchAll(/^([A-Za-z][A-Za-z0-9-]{2,72}(?:\s+[A-Za-z][A-Za-z0-9-]{2,72}){0,3}),?\s+(?:an?|the)\s+(?:(?:oral|intravenous|long[- ]acting|pharmacological)\s+)*(?:therapy|treatment|chaperone|inhibitor)\s+(?:in|for|among)\s+(.+)/gi)) {
+    if (titleHasCondition(match[2])) add(match[1])
+  }
+
+  return candidates.slice(0, 4)
+}
+
+const attachSourceTitleTreatmentCandidates = (sources, condition) => (sources || []).map((source) => {
+  const titleCandidates = sourceTitleTreatmentCandidates(source, condition)
+  if (!titleCandidates.length) return source
+  const candidateLeads = [...(source?.candidateLeads || []), ...titleCandidates]
+    .filter((candidate, index, list) => candidate?.name && list.findIndex((entry) => candidateKey(entry.name) === candidateKey(candidate.name)) === index)
+  return { ...source, candidateLeads }
+})
+
 const normalizeScoutCandidates = (draft) => {
   const seen = new Set()
   return (Array.isArray(draft?.candidates) ? draft.candidates : [])
@@ -2027,9 +2098,11 @@ const applyCandidateRelationshipReview = (records, relationReview) => {
     const candidateLeads = (Array.isArray(record?.candidateLeads) ? record.candidateLeads : [])
       .map((candidate) => {
         const decision = decisions.get(candidateRelationKey(record?.id, candidate?.name))
-        return decision
-          ? { ...candidate, roleVerified: true, relationship: decision.relationship, relationEvidence: decision.evidence }
-          : null
+        if (decision) return { ...candidate, roleVerified: true, relationship: decision.relationship, relationEvidence: decision.evidence }
+        // A title-derived lead uses a narrow deterministic grammar that ties
+        // the candidate directly to the condition in the paper title. Keep it
+        // as a safe fallback when an AI source-role response is unavailable.
+        return candidate?.sourceTitleDerived === true && candidate?.roleVerified === true ? candidate : null
       })
       .filter(Boolean)
     if (candidateLeads.length) return { ...record, candidateLeads }
@@ -2177,7 +2250,7 @@ const normalizedTreatmentAccessClass = (value) => {
   return treatmentAccessClasses.has(accessClass) ? accessClass : ''
 }
 
-const normalizeTreatmentIdea = (item, allowedSourceIds, candidateEvidenceText) => {
+const normalizeTreatmentIdea = (item, allowedSourceIds, allowedCandidates) => {
   if (!isRecord(item)) return null
   const title = cleanText(item.title, 120)
   const category = cleanText(item.category, 80)
@@ -2189,7 +2262,7 @@ const normalizeTreatmentIdea = (item, allowedSourceIds, candidateEvidenceText) =
   const caution = cleanText(item.caution, 420)
   const sourceIds = sourceIdsFrom(item.sourceIds, allowedSourceIds)
   const whole = `${title} ${category} ${summary} ${whyItMayMatter} ${accessExplanation} ${providerQuestion} ${caution}`
-  const titleIsSupported = candidateAppearsInEvidence(title, candidateEvidenceText)
+  const titleIsSupported = allowedCandidates.has(candidateKey(title))
   if (!title || !summary || !caution || !sourceIds.length || !titleIsSupported || !isSpecificTrialIntervention(title) || hasUnsafeRecommendationLanguage(whole) || hasUnsupportedGuidelineStrength(whole)) return null
   return { title, category: category || 'Treatment being researched', summary, whyItMayMatter, accessClass, accessExplanation, providerQuestion, caution, sourceIds }
 }
@@ -2296,7 +2369,7 @@ const normalizeWriterDraft = (draft, allowedSourceIds, allowedCandidates, candid
     .filter(Boolean)
     .slice(0, 3)
   const treatmentIdeas = (Array.isArray(draft?.treatmentIdeas) ? draft.treatmentIdeas : [])
-    .map((item) => normalizeTreatmentIdea(item, allowedSourceIds, candidateEvidenceText))
+    .map((item) => normalizeTreatmentIdea(item, allowedSourceIds, allowedCandidates))
     .filter(Boolean)
     .slice(0, 10)
   const lifestyle = (Array.isArray(draft?.lifestyle) ? draft.lifestyle : [])
@@ -2429,7 +2502,7 @@ const applyReview = (review, writer, allowedSourceIds, allowedCandidates, candid
       const index = Number(entry?.index)
       if (!Number.isInteger(index) || index < 0 || index >= writer.treatmentIdeas.length) return null
       if (!['approve', 'rewrite'].includes(entry?.decision)) return null
-      const item = normalizeTreatmentIdea(entry.item, allowedSourceIds, candidateEvidenceText)
+      const item = normalizeTreatmentIdea(entry.item, allowedSourceIds, allowedCandidates)
       return item ? { ...item, reason: cleanText(entry.reason, 240) } : null
     })
     .filter(Boolean)
@@ -3143,10 +3216,16 @@ const runDualAgentReview = async ({ packet, env }) => {
     .sort((left, right) => Number(Boolean(right?.candidateLeads?.length)) - Number(Boolean(left?.candidateLeads?.length)))
     .slice(0, 16)
   const allowedSourceIds = new Set(sourcesEligibleForAi.map((source) => source.id).concat(packet.trials.map((trial) => trial.id)))
-  const allowedCandidates = new Set(packet.trials
-    .filter((trial) => trial.conditionMatch !== 'broad')
-    .flatMap(therapeuticTrialCandidateNames)
-    .map(candidateKey))
+  const allowedCandidates = new Set([
+    ...sourcesEligibleForAi
+      .flatMap((source) => Array.isArray(source?.candidateLeads) ? source.candidateLeads : [])
+      .filter((candidate) => candidate?.roleVerified === true)
+      .map((candidate) => candidateKey(candidate.name)),
+    ...packet.trials
+      .filter((trial) => trial.conditionMatch !== 'broad')
+      .flatMap(therapeuticTrialCandidateNames)
+      .map(candidateKey),
+  ])
   const candidateEvidenceText = [
     ...sourcesEligibleForAi.map((source) => `${source.title} ${source.summary}`),
     ...packet.trials.map((trial) => `${trial.title} ${(trial.interventions || []).join(' ')} ${trial.summary}`),
@@ -3381,14 +3460,18 @@ const runResearch = async (body, env) => {
     packetCandidateExtraction.candidates || [],
     practicalPacketCandidateExtraction.candidates || [],
   )
-  const sourceRecordsWithCandidates = attachPacketCandidates(bundle.sources, packetCandidates)
+  const sourceRecordsWithCandidates = attachSourceTitleTreatmentCandidates(
+    attachPacketCandidates(bundle.sources, packetCandidates),
+    patient.condition,
+  )
+  const candidateSourcesWithTitleCandidates = attachSourceTitleTreatmentCandidates(candidateSources, patient.condition)
   const trialRecordsWithCandidates = attachPacketCandidates(trialData.trials, packetCandidates)
   const candidateRelationReview = await reviewCandidateRelationships({
     patient,
-    records: [...sourceRecordsWithCandidates, ...candidateSources, ...trialRecordsWithCandidates],
+    records: [...sourceRecordsWithCandidates, ...candidateSourcesWithTitleCandidates, ...trialRecordsWithCandidates],
   }, env)
   const verifiedSourceRecords = applyCandidateRelationshipReview(sourceRecordsWithCandidates, candidateRelationReview)
-  const verifiedCandidateSources = applyCandidateRelationshipReview(candidateSources, candidateRelationReview)
+  const verifiedCandidateSources = applyCandidateRelationshipReview(candidateSourcesWithTitleCandidates, candidateRelationReview)
   const verifiedTrialRecords = applyCandidateRelationshipReview(trialRecordsWithCandidates, candidateRelationReview)
   const sourceCandidateLeadCount = verifiedSourceRecords
     .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
