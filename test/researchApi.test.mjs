@@ -728,6 +728,13 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   assert.match(clevelandCenter.url, /clevelandclinic\.org/)
   assert.match(clevelandCenter.sourceTitle, /Interstitial Lung Disease Program/)
 
+  assert.deepEqual(
+    response.body.curatedLifestyleIdeas.map((idea) => idea.title),
+    ['Pulmonary rehabilitation', 'Oxygen during activity', 'Smoking and pirfenidone'],
+  )
+  assert.ok(response.body.curatedLifestyleIdeas.every((idea) => idea.providerQuestion.endsWith('?')))
+  assert.ok(response.body.curatedLifestyleIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
+
   assert.equal(response.body.curatedDiscussionLeads.length, 10)
   const nac = response.body.curatedDiscussionLeads.find((idea) => idea.title === 'N-acetylcysteine (NAC)')
   assert.ok(nac)
