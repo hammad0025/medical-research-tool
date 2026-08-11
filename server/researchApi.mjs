@@ -337,6 +337,7 @@ const toSource = (item) => {
     pmid: cleanText(item.pmid, 40),
     treatmentName: cleanText(item.treatmentName, 120),
     conditionOverview: toConditionOverview(item.conditionOverview),
+    curated: true,
     aiEligible: item.aiEligible !== false,
   }
 }
@@ -934,6 +935,8 @@ const sourceEvidenceKey = (source) => {
 const sourceQualityScore = (source) => {
   const type = cleanText(source?.type, 120).toLowerCase()
   let score = source?.aiEligible === false ? 0 : 10
+  // Maintained condition records must survive a large live-search response.
+  if (source?.curated === true) score += 180
   if (source?.conditionOverview) score += 120
   if (source?.origin === 'Curated IPF reference') score += 100
   if (source?.origin === 'National Eye Institute') score += 105
@@ -3453,7 +3456,7 @@ const sourceBackedReportFallback = (packet) => {
           cleanText(overviewSource.conditionOverview.researchPath, 280),
         ].filter(Boolean).join(' '),
         sourceIds: [overviewSource.id],
-        reason: 'Built from an authoritative condition overview because the AI briefing was unavailable or withheld.',
+        reason: 'Built from an authoritative condition overview to keep the disease summary stable and source-linked.',
       }
       : fallbackSource
         ? {
@@ -3471,9 +3474,11 @@ const completeSourceBackedReview = (review, packet) => {
   const fallback = sourceBackedReportFallback(packet)
   const hasBriefing = Boolean(review?.briefing?.text && Array.isArray(review?.briefing?.sourceIds) && review.briefing.sourceIds.length)
   const hasQuestions = Array.isArray(review?.questions) && review.questions.length
+  const hasAuthoritativeOverview = (packet?.sources || []).some((source) => source?.conditionOverview && source?.id)
   return {
     ...(review || defaultReview()),
-    briefing: hasBriefing ? review.briefing : fallback.briefing,
+    // The core disease definition should not drift between AI runs.
+    briefing: hasAuthoritativeOverview ? fallback.briefing : hasBriefing ? review.briefing : fallback.briefing,
     questions: hasQuestions ? review.questions : fallback.questions,
     theoryIdeas: completeTheoryIdeasForPacket(review?.theoryIdeas, packet),
   }
