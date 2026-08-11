@@ -363,7 +363,7 @@ const sourceTreatmentCandidates = (source) => {
   return candidates
 }
 
-const isArticleTitleLike = (title) => /\b(?:systematic review|meta-analysis|safety and efficacy|phase\s*\d|a study comparing|clinical trial|review of)\b/i.test(String(title || ''))
+const isArticleTitleLike = (title) => /\b(?:systematic review|meta-analysis|comparative effectiveness|safety and efficacy|phase\s*\d|a study comparing|clinical trial|review of)\b/i.test(String(title || ''))
 const isSupplementIdea = (idea) => /supplement|food|vitamin|fish oil|omega[- ]?3|dietary|over[- ]?the[- ]?counter|\botc\b/i.test(`${idea?.category || ''} ${idea?.title || ''}`)
 const looksLikeAdvancedResearch = (idea) => /gene|rna|cell|biologic|radiation|optogenetic|implant|prosthe|exosome|stem/i.test(`${idea?.category || ''} ${idea?.type || ''} ${idea?.title || ''}`)
 const isBroadTreatmentClass = (idea) => /\b(?:inhibitors|agonists|antagonists|modulators|blockers|agents|drugs|medicines|therapy|therapies|treatment|treatments|supplements|vitamins|carotenoids?|procedures|devices|research)\b$/i.test(treatmentIdeaKey(idea?.title))
@@ -510,8 +510,16 @@ const isEstablishedTreatmentIdea = (idea) => idea?.kind === 'fda'
   || idea?.accessClass === 'prescription-or-label-check'
   || /official\s+(?:u\.s\.)?(?:label|approval)|fda-approved/i.test(`${idea?.category || ''} ${idea?.summary || ''}`)
 
-const isEstablishedForReport = (result, condition, idea) => isEstablishedTreatmentIdea(idea)
-  || officialLabelIdeasForReport(result, condition).some((label) => sameTreatmentFamily(label.title, idea?.title))
+const isEstablishedForReport = (result, condition, idea) => {
+  if (isEstablishedTreatmentIdea(idea)) return true
+  const ideaName = treatmentIdeaKey(idea?.title)
+  return officialLabelIdeasForReport(result, condition).some((label) => {
+    if (sameTreatmentFamily(label.title, idea?.title)) return true
+    const labelName = treatmentIdeaKey(label.title)
+    return labelName.length >= 5 && ideaName.length >= 5
+      && (` ${ideaName} `.includes(` ${labelName} `) || ` ${labelName} `.includes(` ${ideaName} `))
+  })
+}
 
 const allTreatmentIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))

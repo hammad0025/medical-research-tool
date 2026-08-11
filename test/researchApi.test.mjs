@@ -1179,6 +1179,9 @@ test('common-condition foundations keep established care and lifestyle sections 
   assert.ok(crohnLabels.length >= 6)
   assert.equal(crohn.body.curatedLifestyleIdeas.length, 3)
   assert.ok(crohn.body.review.briefing.sourceIds.includes('crohn-niddk-overview'))
+  assert.equal(crohn.body.review.theoryIdeas.length, 10)
+  assert.ok(crohn.body.review.theoryIdeas.some((idea) => /NOD2-RIPK2/i.test(idea.title)))
+  assert.ok(crohn.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
 
   const parkinson = await run("Parkinson's Disease")
   assert.equal(parkinson.status, 200)

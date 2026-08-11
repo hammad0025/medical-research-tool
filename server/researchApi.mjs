@@ -4418,6 +4418,21 @@ const theoryTemplatesForCondition = (condition) => {
     ]
   }
 
+  if (/\bcrohn(?:'s)?(?: disease)?\b/i.test(condition)) {
+    return [
+      ['NOD2-RIPK2 signaling', 'Gut immune-signaling question', 'NOD2 helps intestinal cells sense bacteria. RIPK2 is one signal below it, so a RIPK2 blocker is a specific repurposing question to check.', 'This report did not find a source-backed RIPK2 treatment for Crohn disease.', 'Crohn disease RIPK2 inhibitor treatment research', ['RIPK2 inhibitors']],
+      ['Tight-junction MLCK control', 'Gut-barrier question', 'MLCK can affect the seals between intestinal cells. A selective MLCK blocker is a specific way to ask whether barrier leak could be targeted.', 'This report did not find an MLCK blocker established or tested as a Crohn treatment.', 'Crohn disease MLCK inhibitor intestinal barrier research', ['Selective MLCK inhibitors']],
+      ['Ferroptosis control', 'Cell-stress question', 'Ferroptosis is an iron-linked form of cell stress. A ferroptosis blocker could be checked for a direct link to intestinal lining injury.', 'This report did not find a ferroptosis blocker as a Crohn treatment.', 'Crohn disease ferroptosis inhibitor intestinal epithelium', ['Ferroptosis inhibitors']],
+      ['NLRP3 signaling control', 'Immune-signaling question', 'NLRP3 can help drive inflammatory signals. A selective blocker is a named mechanism question, not proof that Crohn disease will respond.', 'This report did not find a source-backed NLRP3 treatment for Crohn disease.', 'Crohn disease NLRP3 inhibitor treatment research', ['NLRP3 inhibitors']],
+      ['TYK2 signaling control', 'Immune-signaling question', 'TYK2 carries signals from several immune messengers. A selective TYK2 blocker could be checked separately from medicines already approved for Crohn disease.', 'This report did not find a selective TYK2 treatment established for Crohn disease.', 'Crohn disease selective TYK2 inhibitor research', ['Selective TYK2 inhibitors']],
+      ['PDE4B signaling control', 'Repurposed medicine-class question', 'PDE4B affects inflammatory cell messages. A PDE4B-selective medicine could be checked for gut-specific evidence and side-effect limits.', 'This report did not find a PDE4B-selective medicine established for Crohn disease.', 'Crohn disease PDE4B inhibitor repurposing', ['PDE4B-selective inhibitors']],
+      ['GLP-2 repair signaling', 'Intestinal-repair question', 'GLP-2 supports intestinal growth and repair. A GLP-2 medicine used in another gut condition could be checked as a repair question, not an anti-inflammatory claim.', 'This report did not find a GLP-2 medicine established to control Crohn inflammation.', 'Crohn disease GLP-2 analog intestinal repair', ['Teduglutide-class GLP-2 analogs']],
+      ['HIF barrier-response signaling', 'Low-oxygen response question', 'HIF signaling helps cells respond to low oxygen and may affect the gut barrier. A HIF stabilizer is a specific repurposing question with important safety limits.', 'This report did not find a HIF stabilizer established for Crohn disease.', 'Crohn disease HIF prolyl hydroxylase inhibitor barrier research', ['HIF prolyl-hydroxylase inhibitors']],
+      ['YAP-TAZ wound-repair signaling', 'Tissue-repair question', 'YAP and TAZ help control cell growth and wound repair. A selective repair-pathway medicine could be checked for direct gut evidence.', 'This report did not find a YAP-TAZ medicine established for Crohn disease.', 'Crohn disease YAP TAZ intestinal repair therapy', ['YAP-TAZ pathway modulators']],
+      ['Mitochondrial ROS control', 'Cell-energy question', 'Mitochondrial stress can affect intestinal cells. A mitochondria-targeted antioxidant drug is a specific item to verify instead of recommending a general supplement.', 'This report did not find a mitochondria-targeted drug established for Crohn disease.', 'Crohn disease mitochondrial ROS targeted drug research', ['Mitochondria-targeted ROS modulators']],
+    ]
+  }
+
   return genericTheoryTemplatesForCondition(condition)
 }
 
