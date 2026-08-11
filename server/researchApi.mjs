@@ -564,12 +564,16 @@ const isIpfCondition = (condition) => /\b(ipf|idiopathic pulmonary fibrosis)\b/i
 
 const decodeXml = (value) => String(value || '')
   .replace(/<!\[CDATA\[|\]\]>/g, '')
-  .replace(/<[^>]+>/g, ' ')
   .replace(/&amp;/g, '&')
   .replace(/&lt;/g, '<')
   .replace(/&gt;/g, '>')
   .replace(/&quot;/g, '"')
   .replace(/&#39;/g, "'")
+  .replace(/&#x([0-9a-f]+);/gi, (_match, code) => String.fromCodePoint(Number.parseInt(code, 16)))
+  .replace(/&#([0-9]+);/g, (_match, code) => String.fromCodePoint(Number.parseInt(code, 10)))
+  // MedlinePlus wraps matched search terms in escaped HTML. Decode entities
+  // first, then remove markup so tags never leak into the patient report.
+  .replace(/<[^>]+>/g, ' ')
   .replace(/\s+/g, ' ')
   .trim()
 
@@ -3836,64 +3840,81 @@ const fallbackExplorationMap = (patient, context = {}) => {
   }
 }
 
+const genericTheoryTemplatesForCondition = (condition) => [
+  ['Gene or RNA target identification', 'Gene and RNA research pathway', 'A known gene, subtype, or cell message could change which research routes are worth checking.', 'The report did not find a direct treatment lead for this exact theory.', `${condition} gene RNA therapy research`, ['Splice-switching oligonucleotides']],
+  ['Cell-stress response pathway', 'Cell-protection pathway', 'Cell-stress pathways could be checked for direct disease research and drug targets.', 'This is a mechanism question, not an established treatment.', `${condition} cellular stress pathway therapy`, ['Nrf2 activators']],
+  ['Mitochondrial energy pathway', 'Cell-energy pathway', 'Cell-energy research could be checked for a direct link to the condition.', 'The report does not show this is a treatment option.', `${condition} mitochondrial dysfunction treatment`, ['Mitochondrial protectants']],
+  ['Inflammation signaling', 'Immune-signaling pathway', 'Inflammation signaling could be checked only if the exact condition research supports it.', 'This row does not assume inflammation is the cause of the condition.', `${condition} inflammation pathway treatment`, ['NLRP3 inhibitors']],
+  ['Protein quality-control pathway', 'Protein-handling pathway', 'Protein folding, recycling, or clearance could be checked for condition-specific research.', 'The report did not find a treatment lead based on this idea.', `${condition} protein homeostasis therapy`, ['Autophagy activators']],
+  ['Tissue repair pathway', 'Repair and regeneration pathway', 'Repair signals could be checked for how researchers study damaged tissue in this condition.', 'This is not a claim that regenerative care works.', `${condition} tissue repair research`, ['Regenerative signaling agonists']],
+  ['Drug-repurposing screen', 'Drug-discovery pathway', 'Existing medicines could be checked for disease-specific repurposing studies.', 'No medicine should be used from this theory alone.', `${condition} drug repurposing research`, ['Approved medicine candidates']],
+  ['Gene or cell research platform', 'Advanced research platform', 'Gene or cell platforms could be checked for legitimate condition-specific studies.', 'A platform is not proof of benefit or access.', `${condition} gene cell therapy clinical research`, ['CRISPR base editors']],
+  ['Device or procedure research platform', 'Device and procedure pathway', 'A device or procedure could be checked when a disease affects function or daily living.', 'This is not a recommendation to pursue a device or procedure.', `${condition} device procedure clinical research`, ['Closed-loop stimulation']],
+  ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'Disease stage and current care could change how researchers test combinations.', 'The report does not recommend a combination from this theory.', `${condition} combination treatment research`, ['Mechanism-matched combinations']],
+]
+
 const theoryTemplatesForCondition = (condition) => {
   if (/\b(?:retinitis pigmentosa|\brp\b|rod-cone dystrophy|inherited retinal)\b/i.test(condition)) {
     return [
-      ['Vitamin D signaling and retinal cell stress', 'Supplement mechanism to verify', 'Vitamin D signaling is a biological topic that could be checked for a link to retinal cell stress. This report does not show that it treats RP.', 'Vitamin D was not a source-backed RP treatment lead in this report.', 'retinitis pigmentosa vitamin D retinal cell stress'],
-      ['Nrf2 oxidative-stress response', 'Cell-protection pathway', 'The Nrf2 pathway is a possible way to ask whether cell-stress research has any direct RP evidence.', 'This report did not find a named RP treatment lead based on Nrf2.', 'retinitis pigmentosa Nrf2 oxidative stress'],
-      ['Mitochondrial energy pathway', 'Cell-energy pathway', 'Retinal cells need energy, so mitochondrial research could be worth checking against the exact RP subtype.', 'This is a mechanism question, not an RP treatment result.', 'retinitis pigmentosa mitochondrial dysfunction treatment'],
-      ['cGMP signaling control', 'Cell-signaling pathway', 'cGMP is a signaling pathway that could be checked for a role in the exact retinal subtype.', 'The current report does not establish cGMP control as an RP treatment.', 'retinitis pigmentosa cGMP pathway therapy'],
-      ['Retinoid-cycle support', 'Visual-cycle pathway', 'The visual cycle is a distinct retina pathway that may be relevant to some inherited retinal conditions.', 'The report did not find a source-backed RP treatment lead for this exact idea.', 'retinitis pigmentosa retinoid cycle treatment'],
-      ['Protein quality control and autophagy', 'Protein-handling pathway', 'Protein cleanup and recycling pathways could be checked when a gene change affects retinal-cell health.', 'This is not a proven treatment path for RP in this report.', 'retinitis pigmentosa autophagy protein homeostasis therapy'],
-      ['Microglia and complement signaling', 'Retinal immune-signaling pathway', 'Retinal immune signaling could be investigated as a mechanism question without assuming RP is an autoimmune disease.', 'The report does not establish this pathway as an RP treatment.', 'retinitis pigmentosa microglia complement pathway'],
-      ['RNA splice-correction platform', 'RNA research platform', 'An RNA approach could be relevant when a confirmed gene result changes how the cell reads a gene message.', 'It is not a treatment option unless exact-gene RP evidence is found.', 'retinitis pigmentosa RNA splicing therapy'],
-      ['Gene-editing platform', 'Gene research platform', 'Gene editing could be a research question for some inherited retinal genes, but it must match the exact gene and study design.', 'The report does not show a gene-editing treatment that fits every form of RP.', 'retinitis pigmentosa gene editing clinical research'],
-      ['Neuroprotective growth-factor pathway', 'Cell-survival pathway', 'Cell-survival signaling could be checked for research on protecting remaining retinal cells.', 'This is a hypothesis to verify, not a proven RP treatment lead.', 'retinitis pigmentosa neuroprotection growth factor research'],
+      ['Vitamin D signaling and retinal cell stress', 'Supplement mechanism to verify', 'Vitamin D signaling is a biological topic that could be checked for a link to retinal cell stress. This report does not show that it treats RP.', 'Vitamin D was not a source-backed RP treatment lead in this report.', 'retinitis pigmentosa vitamin D retinal cell stress', ['Vitamin D3']],
+      ['Nrf2 oxidative-stress response', 'Cell-protection pathway', 'The Nrf2 pathway is a possible way to ask whether cell-stress research has any direct RP evidence.', 'This report did not find a named RP treatment lead based on Nrf2.', 'retinitis pigmentosa Nrf2 oxidative stress', ['Nrf2 activators']],
+      ['Mitochondrial energy pathway', 'Cell-energy pathway', 'Retinal cells need energy, so mitochondrial research could be worth checking against the exact RP subtype.', 'This is a mechanism question, not an RP treatment result.', 'retinitis pigmentosa mitochondrial dysfunction treatment', ['Mitochondrial protectants']],
+      ['cGMP signaling control', 'Cell-signaling pathway', 'cGMP is a signaling pathway that could be checked for a role in the exact retinal subtype.', 'The current report does not establish cGMP control as an RP treatment.', 'retinitis pigmentosa cGMP pathway therapy', ['cGMP modulators']],
+      ['Retinoid-cycle support', 'Visual-cycle pathway', 'The visual cycle is a distinct retina pathway that may be relevant to some inherited retinal conditions.', 'The report did not find a source-backed RP treatment lead for this exact idea.', 'retinitis pigmentosa retinoid cycle treatment', ['Retinoid-cycle modulators']],
+      ['Protein quality control and autophagy', 'Protein-handling pathway', 'Protein cleanup and recycling pathways could be checked when a gene change affects retinal-cell health.', 'This is not a proven treatment path for RP in this report.', 'retinitis pigmentosa autophagy protein homeostasis therapy', ['Autophagy modulators']],
+      ['Microglia and complement signaling', 'Retinal immune-signaling pathway', 'Retinal immune signaling could be investigated as a mechanism question without assuming RP is an autoimmune disease.', 'The report does not establish this pathway as an RP treatment.', 'retinitis pigmentosa microglia complement pathway', ['Complement inhibitors']],
+      ['RNA splice-correction platform', 'RNA research platform', 'An RNA approach could be relevant when a confirmed gene result changes how the cell reads a gene message.', 'It is not a treatment option unless exact-gene RP evidence is found.', 'retinitis pigmentosa RNA splicing therapy', ['Splice-correcting oligonucleotides']],
+      ['Gene-editing platform', 'Gene research platform', 'Gene editing could be a research question for some inherited retinal genes, but it must match the exact gene and study design.', 'The report does not show a gene-editing treatment that fits every form of RP.', 'retinitis pigmentosa gene editing clinical research', ['CRISPR base editors']],
+      ['Neuroprotective growth-factor pathway', 'Cell-survival pathway', 'Cell-survival signaling could be checked for research on protecting remaining retinal cells.', 'This is a hypothesis to verify, not a proven RP treatment lead.', 'retinitis pigmentosa neuroprotection growth factor research', ['Neurotrophic factors']],
     ]
   }
 
   if (/\b(?:ipf|idiopathic pulmonary fibrosis)\b/i.test(condition)) {
     return [
-      ['TGF-beta scarring signal', 'Scarring pathway', 'TGF-beta is a biological pathway that could be checked for direct evidence in lung-scarring research.', 'This report does not make it a personal treatment option.', 'idiopathic pulmonary fibrosis TGF beta pathway therapy'],
-      ['Integrin alpha-v beta-6 target', 'Drug-target pathway', 'This target could be checked for its connection to scar-forming signals in the lung.', 'It is a theory to verify, not an established option in this row.', 'idiopathic pulmonary fibrosis integrin alpha v beta 6 therapy'],
-      ['Cell-senescence pathway', 'Cell-aging pathway', 'Cell aging is a possible research angle for lung repair and scarring questions.', 'The report does not establish it as an IPF treatment.', 'idiopathic pulmonary fibrosis senescence pathway treatment'],
-      ['Epithelial repair pathway', 'Tissue-repair pathway', 'Lung lining-cell repair could be checked as a way to frame research questions.', 'This remains a research hypothesis for this report.', 'idiopathic pulmonary fibrosis epithelial repair therapy'],
-      ['Mitochondrial stress pathway', 'Cell-energy pathway', 'Cell-energy stress could be checked for a link to tissue injury and repair research.', 'This row is not proof of benefit or safety.', 'idiopathic pulmonary fibrosis mitochondrial dysfunction therapy'],
-      ['Macrophage signaling', 'Immune-cell pathway', 'Macrophage signaling could be checked as a lung-inflammation research question.', 'It is not a reason to self-treat or change medicine.', 'idiopathic pulmonary fibrosis macrophage signaling therapy'],
-      ['Extracellular-matrix stiffness', 'Tissue-mechanics pathway', 'Tissue stiffness could be checked for a link to scarring research and drug targets.', 'The report does not establish a treatment from this mechanism.', 'idiopathic pulmonary fibrosis extracellular matrix stiffness therapy'],
-      ['RNA-based lung repair platform', 'RNA research platform', 'RNA platforms could be checked for research that targets a defined lung pathway.', 'Exact study evidence is needed before this becomes a treatment lead.', 'idiopathic pulmonary fibrosis RNA therapy research'],
-      ['Genetic risk pathway', 'Genetic research pathway', 'A genetic risk signal could change what a research team investigates, but not prove a treatment fit.', 'This report does not use a gene result as a treatment recommendation.', 'idiopathic pulmonary fibrosis genetic risk therapy research'],
-      ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'A combination strategy could be checked against disease stage and existing care in real studies.', 'No combination should be inferred from this theory row.', 'idiopathic pulmonary fibrosis combination treatment research'],
+      ['TGF-beta scarring signal', 'Scarring pathway', 'TGF-beta is a biological pathway that could be checked for direct evidence in lung-scarring research.', 'This report does not make it a personal treatment option.', 'idiopathic pulmonary fibrosis TGF beta pathway therapy', ['TGF-beta inhibitors']],
+      ['Integrin alpha-v beta-6 target', 'Drug-target pathway', 'This target could be checked for its connection to scar-forming signals in the lung.', 'It is a theory to verify, not an established option in this row.', 'idiopathic pulmonary fibrosis integrin alpha v beta 6 therapy', ['Alpha-v beta-6 integrin inhibitors']],
+      ['Cell-senescence pathway', 'Cell-aging pathway', 'Cell aging is a possible research angle for lung repair and scarring questions.', 'The report does not establish it as an IPF treatment.', 'idiopathic pulmonary fibrosis senescence pathway treatment', ['Senolytics']],
+      ['Epithelial repair pathway', 'Tissue-repair pathway', 'Lung lining-cell repair could be checked as a way to frame research questions.', 'This remains a research hypothesis for this report.', 'idiopathic pulmonary fibrosis epithelial repair therapy', ['Epithelial repair agonists']],
+      ['Mitochondrial stress pathway', 'Cell-energy pathway', 'Cell-energy stress could be checked for a link to tissue injury and repair research.', 'This row is not proof of benefit or safety.', 'idiopathic pulmonary fibrosis mitochondrial dysfunction therapy', ['Mitochondrial protectants']],
+      ['Macrophage signaling', 'Immune-cell pathway', 'Macrophage signaling could be checked as a lung-inflammation research question.', 'It is not a reason to self-treat or change medicine.', 'idiopathic pulmonary fibrosis macrophage signaling therapy', ['Macrophage phenotype modulators']],
+      ['Extracellular-matrix stiffness', 'Tissue-mechanics pathway', 'Tissue stiffness could be checked for a link to scarring research and drug targets.', 'The report does not establish a treatment from this mechanism.', 'idiopathic pulmonary fibrosis extracellular matrix stiffness therapy', ['Matrix-stiffness modulators']],
+      ['RNA-based lung repair platform', 'RNA research platform', 'RNA platforms could be checked for research that targets a defined lung pathway.', 'Exact study evidence is needed before this becomes a treatment lead.', 'idiopathic pulmonary fibrosis RNA therapy research', ['Inhaled RNA medicines']],
+      ['Genetic risk pathway', 'Genetic research pathway', 'A genetic risk signal could change what a research team investigates, but not prove a treatment fit.', 'This report does not use a gene result as a treatment recommendation.', 'idiopathic pulmonary fibrosis genetic risk therapy research', ['Telomere stabilizers']],
+      ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'A combination strategy could be checked against disease stage and existing care in real studies.', 'No combination should be inferred from this theory row.', 'idiopathic pulmonary fibrosis combination treatment research', ['Mechanism-matched combinations']],
+    ]
+  }
+
+  if (/\b(?:parkinson(?:'s)? disease|parkinson disease|pd)\b/i.test(condition)) {
+    return [
+      ['LRRK2 signaling control', 'Kinase-signaling question', 'LRRK2 signaling can be checked as a disease-mechanism question, especially when gene results or family history matter.', 'This report does not establish an LRRK2-directed option for this person.', 'Parkinson disease LRRK2 inhibitor research', ['LRRK2 inhibitors']],
+      ['GCase and lysosomal function', 'Cell-cleanup question', 'GCase and lysosomal pathways can be checked for links to protein handling in Parkinson disease.', 'This is a mechanism question, not a proven treatment path.', 'Parkinson disease GCase chaperone research', ['GCase chaperones']],
+      ['NLRP3 inflammasome signaling', 'Immune-signaling question', 'NLRP3 signaling can be checked for direct Parkinson disease evidence without assuming the disease is autoimmune.', 'This report does not establish an immune medicine for Parkinson disease.', 'Parkinson disease NLRP3 inhibitor research', ['NLRP3 inhibitors']],
+      ['c-Abl stress signaling', 'Kinase-signaling question', 'c-Abl signaling can be checked as a possible link between cell stress and protein handling.', 'This report does not show that blocking c-Abl helps a person with Parkinson disease.', 'Parkinson disease c-Abl inhibitor research', ['c-Abl inhibitors']],
+      ['Alpha-synuclein aggregation control', 'Protein-handling question', 'Alpha-synuclein handling can be checked as a way researchers frame disease-modifying questions.', 'This is not proof that an aggregation blocker works or is available.', 'Parkinson disease alpha synuclein aggregation blocker', ['Alpha-synuclein aggregation blockers']],
+      ['PINK1-Parkin mitophagy', 'Mitochondrial quality-control question', 'PINK1-Parkin signaling can be checked for research on removal of damaged mitochondria.', 'The report does not establish a mitophagy medicine as treatment.', 'Parkinson disease PINK1 Parkin mitophagy activator', ['PINK1-Parkin mitophagy activators']],
+      ['Ferroptosis and iron-linked cell stress', 'Cell-death pathway question', 'Iron-linked cell stress can be checked as a research mechanism without treating an iron marker as a treatment.', 'This is a pathway question, not a reason to take or avoid a product.', 'Parkinson disease ferroptosis inhibitor research', ['Ferroptosis inhibitors']],
+      ['TFEB lysosomal signaling', 'Cell-cleanup question', 'TFEB signaling can be checked for its role in lysosomal cleanup and protein handling.', 'This report does not establish TFEB activation as a treatment.', 'Parkinson disease TFEB activator research', ['TFEB activators']],
+      ['Cell-senescence signaling', 'Cell-aging question', 'Cell-senescence pathways can be checked for direct Parkinson disease research.', 'This report does not establish a senolytic option for Parkinson disease.', 'Parkinson disease senolytic research', ['Senolytics']],
+      ['Gut-derived metabolite signaling', 'Gut-brain research question', 'Gut-derived metabolites can be checked for links to inflammation, movement symptoms, or medicine response.', 'This is not a diet, probiotic, or supplement recommendation.', 'Parkinson disease gut metabolite modulator research', ['Gut-derived metabolite modulators']],
     ]
   }
 
   if (/\b(?:huntington(?:'s)? disease|huntington disease|hd)\b/i.test(condition)) {
     return [
-      ['Somatic CAG-repeat expansion', 'Gene-stability pathway', 'Changes in repeat length over time could be checked as a research target in Huntington disease.', 'This is a research hypothesis, not a treatment result.', 'Huntington disease somatic CAG expansion therapy'],
-      ['RNA-based HTT lowering', 'RNA research platform', 'RNA approaches could be checked for how they aim to change huntingtin-related signals.', 'Exact study evidence is needed before this is treated as an option.', 'Huntington disease RNA HTT lowering research'],
-      ['Mutant huntingtin protein clearance', 'Protein-clearance pathway', 'Protein-clearance pathways could be checked for direct Huntington disease research.', 'The report does not show that this approach works for a person.', 'Huntington disease mutant huntingtin protein clearance therapy'],
-      ['Mitochondrial energy support', 'Cell-energy pathway', 'Cell-energy research could be checked for a connection to brain-cell stress.', 'This is not a supplement or medicine recommendation.', 'Huntington disease mitochondrial dysfunction treatment'],
-      ['Synapse-protection pathway', 'Nerve-cell pathway', 'Protecting nerve connections could be checked as a way to frame research questions.', 'No direct treatment claim is made in this row.', 'Huntington disease synapse protection therapy'],
-      ['Neuroinflammation signaling', 'Brain immune-signaling pathway', 'Brain immune signaling could be checked as a possible disease-mechanism question.', 'This report does not establish an anti-inflammatory treatment.', 'Huntington disease neuroinflammation treatment research'],
-      ['Autophagy and protein recycling', 'Protein-handling pathway', 'Cell recycling pathways could be checked for their link to huntingtin protein handling.', 'It remains a theory until condition-specific evidence is reviewed.', 'Huntington disease autophagy therapy'],
-      ['Gene-editing research platform', 'Gene research platform', 'Gene-editing approaches could be checked as research platforms, not as ready care.', 'A platform idea is not a patient-specific treatment option.', 'Huntington disease gene editing clinical research'],
-      ['Brain-network stimulation research', 'Device research platform', 'Stimulation approaches could be checked for condition-specific studies and outcomes.', 'This does not show that a device is right for any person.', 'Huntington disease brain stimulation clinical research'],
-      ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'Combinations of symptom care and disease-targeted research could be checked in real studies.', 'This row does not recommend combining treatments.', 'Huntington disease combination treatment research'],
+      ['Somatic CAG-repeat expansion', 'Gene-stability pathway', 'Changes in repeat length over time could be checked as a research target in Huntington disease.', 'This is a research hypothesis, not a treatment result.', 'Huntington disease somatic CAG expansion therapy', ['MSH3 inhibitors']],
+      ['RNA-based HTT lowering', 'RNA research platform', 'RNA approaches could be checked for how they aim to change huntingtin-related signals.', 'Exact study evidence is needed before this is treated as an option.', 'Huntington disease RNA HTT lowering research', ['HTT-lowering oligonucleotides']],
+      ['Mutant huntingtin protein clearance', 'Protein-clearance pathway', 'Protein-clearance pathways could be checked for direct Huntington disease research.', 'The report does not show that this approach works for a person.', 'Huntington disease mutant huntingtin protein clearance therapy', ['Huntingtin-clearance activators']],
+      ['Mitochondrial energy support', 'Cell-energy pathway', 'Cell-energy research could be checked for a connection to brain-cell stress.', 'This is not a supplement or medicine recommendation.', 'Huntington disease mitochondrial dysfunction treatment', ['Mitochondrial protectants']],
+      ['Synapse-protection pathway', 'Nerve-cell pathway', 'Protecting nerve connections could be checked as a way to frame research questions.', 'No direct treatment claim is made in this row.', 'Huntington disease synapse protection therapy', ['BDNF mimetics']],
+      ['Neuroinflammation signaling', 'Brain immune-signaling pathway', 'Brain immune signaling could be checked as a possible disease-mechanism question.', 'This report does not establish an anti-inflammatory treatment.', 'Huntington disease neuroinflammation treatment research', ['NLRP3 inhibitors']],
+      ['Autophagy and protein recycling', 'Protein-handling pathway', 'Cell recycling pathways could be checked for their link to huntingtin protein handling.', 'It remains a theory until condition-specific evidence is reviewed.', 'Huntington disease autophagy therapy', ['Autophagy activators']],
+      ['Gene-editing research platform', 'Gene research platform', 'Gene-editing approaches could be checked as research platforms, not as ready care.', 'A platform idea is not a patient-specific treatment option.', 'Huntington disease gene editing clinical research', ['CRISPR base editors']],
+      ['Brain-network stimulation research', 'Device research platform', 'Stimulation approaches could be checked for condition-specific studies and outcomes.', 'This does not show that a device is right for any person.', 'Huntington disease brain stimulation clinical research', ['Closed-loop brain stimulation']],
+      ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'Combinations of symptom care and disease-targeted research could be checked in real studies.', 'This row does not recommend combining treatments.', 'Huntington disease combination treatment research', ['Mechanism-matched combinations']],
     ]
   }
 
-  return [
-    ['Gene or RNA target identification', 'Gene and RNA research pathway', 'A known gene, subtype, or cell message could change which research routes are worth checking.', 'The report did not find a direct treatment lead for this exact theory.', `${condition} gene RNA therapy research`],
-    ['Cell-stress response pathway', 'Cell-protection pathway', 'Cell-stress pathways could be checked for direct disease research and drug targets.', 'This is a mechanism question, not an established treatment.', `${condition} cellular stress pathway therapy`],
-    ['Mitochondrial energy pathway', 'Cell-energy pathway', 'Cell-energy research could be checked for a direct link to the condition.', 'The report does not show this is a treatment option.', `${condition} mitochondrial dysfunction treatment`],
-    ['Inflammation signaling', 'Immune-signaling pathway', 'Inflammation signaling could be checked only if the exact condition research supports it.', 'This row does not assume inflammation is the cause of the condition.', `${condition} inflammation pathway treatment`],
-    ['Protein quality-control pathway', 'Protein-handling pathway', 'Protein folding, recycling, or clearance could be checked for condition-specific research.', 'The report did not find a treatment lead based on this idea.', `${condition} protein homeostasis therapy`],
-    ['Tissue repair pathway', 'Repair and regeneration pathway', 'Repair signals could be checked for how researchers study damaged tissue in this condition.', 'This is not a claim that regenerative care works.', `${condition} tissue repair research`],
-    ['Drug-repurposing screen', 'Drug-discovery pathway', 'Existing medicines could be checked for disease-specific repurposing studies.', 'No medicine should be used from this theory alone.', `${condition} drug repurposing research`],
-    ['Gene or cell research platform', 'Advanced research platform', 'Gene or cell platforms could be checked for legitimate condition-specific studies.', 'A platform is not proof of benefit or access.', `${condition} gene cell therapy clinical research`],
-    ['Device or procedure research platform', 'Device and procedure pathway', 'A device or procedure could be checked when a disease affects function or daily living.', 'This is not a recommendation to pursue a device or procedure.', `${condition} device procedure clinical research`],
-    ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'Disease stage and current care could change how researchers test combinations.', 'The report does not recommend a combination from this theory.', `${condition} combination treatment research`],
-  ]
+  return genericTheoryTemplatesForCondition(condition)
 }
 
 const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
@@ -3914,18 +3935,38 @@ const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
   const add = (idea) => {
     const title = cleanText(idea?.title, 140)
     const key = title.toLowerCase()
-    if (!title || seen.has(key)) return
+    if (!title) return
+    if (seen.has(key)) {
+      const existing = ideas.find((item) => cleanText(item?.title, 140).toLowerCase() === key)
+      if (existing && !(existing.potentialInterventions || []).length && (idea?.potentialInterventions || []).length) {
+        existing.potentialInterventions = idea.potentialInterventions
+      }
+      return
+    }
     seen.add(key)
     ideas.push(idea)
   }
 
   ;[...(Array.isArray(packet?.curatedTheoryIdeas) ? packet.curatedTheoryIdeas : []), ...(Array.isArray(reviewedIdeas) ? reviewedIdeas : [])].forEach(add)
-  for (const [title, category, whyItCouldConnect, whyNotEstablished, verificationQuery] of theoryTemplatesForCondition(condition)) {
-    if (ideas.length >= 10 || candidateAppearsInEvidence(title, candidateEvidenceText)) continue
+  const fallbackTemplates = [
+    ...theoryTemplatesForCondition(condition),
+    ...genericTheoryTemplatesForCondition(condition),
+  ]
+  for (const [title, category, whyItCouldConnect, whyNotEstablished, verificationQuery, potentialInterventions = []] of fallbackTemplates) {
+    const namedItems = potentialInterventions.map((item) => cleanText(item, 140)).filter(Boolean).slice(0, 3)
+    const existingNeedsItems = ideas.some((idea) => cleanText(idea?.title, 140).toLowerCase() === cleanText(title, 140).toLowerCase()
+      && !(idea?.potentialInterventions || []).length)
+    if (existingNeedsItems && namedItems.length) {
+      add({ title, potentialInterventions: namedItems })
+      continue
+    }
+    if (ideas.length >= 10 || !namedItems.length || candidateAppearsInEvidence(title, candidateEvidenceText)
+      || namedItems.some((item) => candidateAppearsInEvidence(item, candidateEvidenceText))) continue
     add({
       title,
       category,
       whyItCouldConnect,
+      potentialInterventions: namedItems,
       whyNotEstablished,
       providerQuestion: 'What evidence supports this idea?',
       caution: 'This is a theory to verify, not a personal treatment recommendation. Do not make a treatment change from this row.',
