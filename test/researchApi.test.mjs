@@ -23,7 +23,7 @@ const pubMedXml = `
       <Journal><Title>Test Retina Journal</Title></Journal>
       <ArticleTitle>AAV-RP therapy and vision rehabilitation</ArticleTitle>
       <Abstract>
-        <AbstractText>AAV-RP therapy is being researched for retinitis pigmentosa. Vision rehabilitation is also described for people living with retinitis pigmentosa.</AbstractText>
+        <AbstractText>AAV-RP therapy is being researched for retinitis pigmentosa. Vision rehabilitation is also described for people living with retinitis pigmentosa. A person with a separate aHUS diagnosis was given cyclophosphamide.</AbstractText>
       </Abstract>
       <PublicationTypeList><PublicationType>Randomized Controlled Trial</PublicationType></PublicationTypeList>
       <JournalIssue><PubDate><Year>2025</Year></PubDate></JournalIssue>
@@ -188,6 +188,7 @@ const packetCandidateDraft = {
   candidates: [
     { name: 'Vision rehabilitation', category: 'procedure or rehabilitation', sourceIds: ['pmid-1001', 'epmc-med-1001'] },
     { name: 'AAV-RP therapy', category: 'gene or cell program', sourceIds: ['NCT00000001'] },
+    { name: 'Cyclophosphamide', category: 'medicine', sourceIds: ['pmid-1001'] },
     { name: 'Made-up treatment', category: 'medicine', sourceIds: ['pmid-1001'] },
   ],
 }
@@ -267,6 +268,26 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         if (malformedReview && !request.instructions.includes('Researcher Agent') && !request.instructions.includes('Research Connections Agent')) {
           return jsonResponse({ status: 'completed', output_text: 'This response is not valid JSON.' })
         }
+        if (request.instructions.includes('Candidate Relation Reviewer')) {
+          const input = String(request.input || '')
+          const packet = JSON.parse(input.slice(input.indexOf('{'), input.lastIndexOf('}') + 1))
+          const decisions = (packet.records || []).map((record) => {
+            const unrelatedComorbidityMedicine = /cyclophosphamide|fresh frozen plasma|mycophenolate|methylprednisolone|bronchodilator/i.test(record.candidate)
+            const sourceText = `${record.title || ''}. ${record.summary || ''}`
+            const evidence = sourceText
+              .split(/(?<=[.!?])\s+/)
+              .find((sentence) => sentence.toLowerCase().includes(String(record.candidate || '').toLowerCase()))
+              || sourceText
+            return {
+              recordId: record.recordId,
+              candidate: record.candidate,
+              decision: unrelatedComorbidityMedicine ? 'reject' : 'approve',
+              relationship: /rehabilitation/i.test(record.candidate) ? 'condition-support' : 'direct-condition-treatment',
+              evidence: evidence.slice(0, 170),
+            }
+          })
+          return jsonResponse({ status: 'completed', output_text: JSON.stringify({ decisions }) })
+        }
         const output = request.instructions.includes('Packet Candidate Extractor')
           ? packetCandidateDraft
           : request.instructions.includes('Candidate Scout')
@@ -344,6 +365,8 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.ok(candidateSource)
   assert.ok(candidateSource.candidateLeads.some((candidate) => candidate.name === 'AAV-RP therapy'))
   assert.ok(response.body.sources.some((source) => source.candidateLeads?.some((candidate) => candidate.name === 'Vision rehabilitation')))
+  assert.ok(response.body.sources.every((source) => (source.candidateLeads || []).every((candidate) => candidate.roleVerified === true)))
+  assert.ok(!response.body.sources.some((source) => source.candidateLeads?.some((candidate) => /cyclophosphamide/i.test(candidate.name))))
   assert.ok(!candidateSource.candidateLeads.some((candidate) => /unrelated/i.test(candidate.name)))
   assert.ok(!candidateSource.candidateLeads.some((candidate) => /made-up/i.test(candidate.name)))
   assert.ok(mock.pubMedTerms.some((term) => term.includes('AAV-RP therapy')))
