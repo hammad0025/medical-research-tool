@@ -546,6 +546,48 @@ const conditionFoundationSources = (condition) => {
         aiEligible: true,
       },
       {
+        id: 'crohn-ldn-rct-2011',
+        title: "Therapy with the opioid antagonist naltrexone promotes mucosal healing in active Crohn's disease: a randomized placebo-controlled trial",
+        url: 'https://pubmed.ncbi.nlm.nih.gov/21380937/',
+        type: 'Randomized controlled trial',
+        year: '2011',
+        origin: 'PubMed',
+        journal: 'Digestive Diseases and Sciences',
+        pmid: '21380937',
+        doi: '10.1007/s10620-011-1653-7',
+        summary: 'A small 12-week placebo-controlled study in 40 adults with active Crohn disease reported better disease-activity and endoscopy measures with low-dose naltrexone. This older study was too small to establish it as standard care.',
+        candidateLeads: [{ name: 'Low-dose naltrexone', category: 'Repurposed medicine research', roleVerified: true, sourceTitleDerived: true }],
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-tacrolimus-fistula-rct-2003',
+        title: "Tacrolimus for the treatment of fistulas in patients with Crohn's disease: a randomized, placebo-controlled trial",
+        url: 'https://pubmed.ncbi.nlm.nih.gov/12891539/',
+        type: 'Randomized controlled trial',
+        year: '2003',
+        origin: 'PubMed',
+        journal: 'Gastroenterology',
+        pmid: '12891539',
+        doi: '10.1016/S0016-5085(03)00877-1',
+        summary: 'A 10-week placebo-controlled study in 48 people with draining Crohn fistulas found more partial fistula improvement with oral tacrolimus, but not more complete fistula remission. Side effects and kidney monitoring limit this idea.',
+        candidateLeads: [{ name: 'Tacrolimus for Crohn fistulas', category: 'Repurposed medicine research', roleVerified: true, sourceTitleDerived: true }],
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-hbot-fistula-pilot-2022',
+        title: "Hyperbaric oxygen therapy for the treatment of perianal fistulas in 20 patients with Crohn's disease: Results of the HOT-TOPIC trial after 1-year follow-up",
+        url: 'https://pubmed.ncbi.nlm.nih.gov/35146959/',
+        type: 'Prospective pilot study',
+        year: '2022',
+        origin: 'PubMed',
+        journal: 'United European Gastroenterology Journal',
+        pmid: '35146959',
+        doi: '10.1002/ueg2.12189',
+        summary: 'A small study followed 20 people with treatment-resistant perianal Crohn fistulas after 40 hyperbaric oxygen sessions. Improvements were still present at one year, but there was no control group, so larger controlled studies are needed.',
+        candidateLeads: [{ name: 'Hyperbaric oxygen for treatment-resistant perianal fistulas', category: 'Procedure research', roleVerified: true, sourceTitleDerived: true }],
+        aiEligible: true,
+      },
+      {
         id: 'crohn-fda-infliximab-label',
         title: 'FDA prescribing information: infliximab',
         url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2021/103772s5401lbl.pdf',
@@ -771,7 +813,47 @@ const conditionFoundationSources = (condition) => {
 }
 
 const conditionFoundationDiscussionLeads = (condition) => {
-  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
+  const conditionText = cleanText(condition, 120)
+
+  if (/\bcrohn(?:'s)?(?: disease)?\b/i.test(conditionText)) {
+    return [
+      {
+        title: 'Low-dose naltrexone',
+        category: 'Repurposed prescription medicine research',
+        summary: 'One small placebo-controlled study in 40 adults reported better disease-activity and endoscopy measures after 12 weeks. It has not become an approved or established Crohn treatment.',
+        takeaway: 'This is an older, small study that needs larger confirmation. It should not replace proven Crohn treatment.',
+        accessClass: 'specialist-review',
+        accessExplanation: 'Naltrexone requires a prescription. An IBD clinician and pharmacist must review whether the study applies and check the full medicine list.',
+        providerQuestion: 'Is low-dose naltrexone worth discussing for this case?',
+        caution: 'Do not start naltrexone from this report. It can conflict with opioid pain medicines, and the small study does not establish long-term benefit or safety for Crohn disease.',
+        sourceIds: ['crohn-ldn-rct-2011'],
+      },
+      {
+        title: 'Tacrolimus for Crohn fistulas',
+        category: 'Repurposed prescription medicine research',
+        summary: 'A placebo-controlled trial found more partial improvement in draining Crohn fistulas, but it did not find more complete fistula remission.',
+        takeaway: 'This was a narrow fistula study, not proof that tacrolimus treats Crohn disease in general.',
+        accessClass: 'specialist-review',
+        accessExplanation: 'Tacrolimus is prescription-only and needs close safety and kidney monitoring. It would require an experienced IBD team.',
+        providerQuestion: 'Does the tacrolimus fistula study apply here?',
+        caution: 'Tacrolimus can cause serious side effects and interactions. Do not use it for Crohn disease without specialist review and monitoring.',
+        sourceIds: ['crohn-tacrolimus-fistula-rct-2003'],
+      },
+      {
+        title: 'Hyperbaric oxygen for treatment-resistant perianal fistulas',
+        category: 'Specialty procedure research',
+        summary: 'A 20-person pilot study reported lasting improvement after 40 sessions for treatment-resistant perianal Crohn fistulas.',
+        takeaway: 'The study had no control group and only applies to a specific fistula problem. It does not show that hyperbaric oxygen treats Crohn disease broadly.',
+        accessClass: 'specialist-review',
+        accessExplanation: 'This requires a medical hyperbaric center and coordinated review by an IBD or colorectal team.',
+        providerQuestion: 'Could a fistula specialist explain this study?',
+        caution: 'Hyperbaric oxygen has risks and is not established general Crohn care. A specialist must first confirm the fistula type, earlier treatment, and safety.',
+        sourceIds: ['crohn-hbot-fistula-pilot-2022'],
+      },
+    ]
+  }
+
+  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(conditionText)) return []
 
   return [
     {
@@ -4434,6 +4516,14 @@ const theoryTemplatesForCondition = (condition) => {
       ['SUCNR1 succinate signaling', 'Metabolism and immune-signaling question', 'SUCNR1 senses succinate, a molecule that can connect cell metabolism to immune signals. A selective blocker could be checked as a repurposing question.', 'This report did not find a SUCNR1 blocker established for Crohn disease.', 'Crohn disease SUCNR1 antagonist succinate research', ['SUCNR1 antagonists']],
       ['TRPV4 barrier signaling', 'Gut-barrier question', 'TRPV4 can affect cell stress and barrier signals. A selective TRPV4 blocker could be checked for direct intestinal evidence and safety limits.', 'This report did not find a TRPV4 blocker established for Crohn disease.', 'Crohn disease TRPV4 inhibitor intestinal barrier research', ['TRPV4 inhibitors']],
       ['EP4 repair signaling', 'Tissue-repair question', 'EP4 signaling may affect inflammation and tissue repair. A selective EP4 medicine is a specific question to verify instead of assuming a general anti-inflammatory effect.', 'This report did not find an EP4 medicine established for Crohn disease.', 'Crohn disease EP4 receptor agonist repair research', ['Selective EP4 receptor agonists']],
+      ['Aryl hydrocarbon receptor signaling', 'Gut-barrier and immune question', 'The aryl hydrocarbon receptor helps connect food and microbial signals to intestinal immune and barrier responses. A selective medicine acting on this receptor is a specific research question.', 'This report did not find an aryl hydrocarbon receptor medicine established for Crohn disease.', 'Crohn disease aryl hydrocarbon receptor agonist treatment research', ['Selective aryl hydrocarbon receptor agonists']],
+      ['HDAC6 signaling control', 'Cell-stress and immune question', 'HDAC6 affects protein handling and inflammatory signals. A selective HDAC6 blocker could be checked for direct intestinal evidence and safety limits.', 'This report did not find an HDAC6 blocker established for Crohn disease.', 'Crohn disease selective HDAC6 inhibitor research', ['Selective HDAC6 inhibitors']],
+      ['TGR5 bile-acid signaling', 'Bile-acid and immune question', 'TGR5 links bile-acid signals to metabolism and immune activity. A selective TGR5 medicine could be checked for a direct Crohn link.', 'This report did not find a TGR5 medicine established for Crohn disease.', 'Crohn disease TGR5 agonist bile acid research', ['Selective TGR5 agonists']],
+      ['STING immune signaling control', 'Innate-immune question', 'STING helps cells respond to misplaced DNA and can change inflammatory signals. A selective STING blocker could be checked for direct Crohn evidence.', 'This report did not find a STING blocker established for Crohn disease.', 'Crohn disease STING inhibitor intestinal inflammation research', ['Selective STING inhibitors']],
+      ['CCR9 gut-homing control', 'Immune-cell traffic question', 'CCR9 helps guide some immune cells toward the gut. A selective CCR9 blocker could be checked as a way to limit harmful immune-cell traffic.', 'This report did not find a CCR9 blocker established for Crohn disease.', 'Crohn disease CCR9 antagonist treatment research', ['Selective CCR9 antagonists']],
+      ['S1PR4 immune-cell signaling', 'Immune-cell traffic question', 'S1PR4 affects immune-cell movement and signaling. A selective S1PR4 medicine could be checked separately from broader medicines in the same receptor family.', 'This report did not find a selective S1PR4 medicine established for Crohn disease.', 'Crohn disease S1PR4 modulator research', ['Selective S1PR4 modulators']],
+      ['Keap1-NRF2 stress response', 'Cell-protection question', 'NRF2 helps cells respond to oxidative stress. A medicine that changes Keap1-NRF2 signaling could be checked for a direct link to intestinal lining protection.', 'This report did not find a Keap1-NRF2 medicine established for Crohn disease.', 'Crohn disease Keap1 NRF2 activator intestinal research', ['Selective Keap1-NRF2 activators']],
+      ['GPR35 signaling control', 'Gut immune-signaling question', 'GPR35 is active in gut and immune cells and has genetic links to inflammatory bowel disease. A selective GPR35 medicine is a specific question to verify.', 'This report did not find a GPR35 medicine established for Crohn disease.', 'Crohn disease GPR35 agonist antagonist treatment research', ['Selective GPR35 modulators']],
     ]
   }
 
