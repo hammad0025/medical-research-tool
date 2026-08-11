@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { isTransientNetworkError } from '../src/lib/researchApi.js'
+import { isTransientNetworkError, RESEARCH_REPORT_TIMEOUT_MS } from '../src/lib/researchApi.js'
+
+test('live reports allow six minutes for the multi-source research pipeline', () => {
+  assert.equal(RESEARCH_REPORT_TIMEOUT_MS, 360_000)
+})
 
 test('only connection failures qualify for one automatic research retry', () => {
   assert.equal(isTransientNetworkError(new TypeError('Failed to fetch')), true)
