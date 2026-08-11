@@ -364,14 +364,16 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, directCellStudy = false, delayedVariantTrial = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
+  const clinicalTrialRecordIds = []
   let variantQueryCount = 0
 
   return {
     pubMedTerms,
     clinicalTrialQueries,
+    clinicalTrialRecordIds,
     fetch: async (input, options = {}) => {
       const url = String(input)
 
@@ -427,6 +429,12 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       if (url.includes('clinicaltrials.gov/api/v2/studies')) {
         if (failTrials) throw new Error('ClinicalTrials.gov is unavailable')
         const trialUrl = new URL(url)
+        const directRecordId = trialUrl.pathname.match(/\/studies\/(NCT\d{8})$/)?.[1]
+        if (directRecordId) {
+          clinicalTrialRecordIds.push(directRecordId)
+          if (failExactVariantTrial) throw new Error('Exact trial lookup is unavailable')
+          return jsonResponse(ush2aTrial)
+        }
         clinicalTrialQueries.push(trialUrl)
         const queryText = `${trialUrl.searchParams.get('query.cond') || ''} ${trialUrl.searchParams.get('query.term') || ''}`
         if (/USH2A/i.test(queryText)) {
@@ -584,7 +592,7 @@ const withMockedFetch = async (mockFetch, run) => {
 }
 
 test('RP expands to retinitis pigmentosa and returns a source-gated report', { concurrency: false }, async () => {
-  const mock = createMockFetch({ delayedVariantTrial: true })
+  const mock = createMockFetch({ delayedVariantTrial: true, failExactVariantTrial: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes({ ...env, PERPLEXITY_API_KEY: '' }).get('/api/research-run'),
     'POST',
@@ -601,6 +609,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   }))
   assert.ok(mock.clinicalTrialQueries.some((url) => url.searchParams.get('query.cond') === 'USH2A'))
   assert.ok(mock.clinicalTrialQueries.filter((url) => /USH2A/i.test(`${url.searchParams.get('query.cond') || ''} ${url.searchParams.get('query.term') || ''}`)).length > 2)
+  assert.deepEqual(mock.clinicalTrialRecordIds, ['NCT06627179'])
   for (const laneId of ['crossref', 'semantic-scholar', 'nih-reporter']) {
     assert.equal(response.body.sourceCoverage.find((lane) => lane.id === laneId)?.status, 'ready')
   }
