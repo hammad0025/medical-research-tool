@@ -150,8 +150,8 @@ const treatmentCategoryForType = (type) => ({
 
 const cleanTreatmentDisplayName = (title) => String(title || '')
   .replace(/^(?:drug|biological|combination product|dietary supplement|genetic|device|procedure|radiation):\s*/i, '')
-  .replace(/\s*\((?:high|low|intermediate|selected) dose(?: and standard corticosteroid regimen)?\)/ig, '')
-  .replace(/\b(?:low|high|intermediate|selected)\s+dose\b/ig, '')
+  .replace(/\s*\((?:high|low|intermediate|selected|single)[-\s]+dose(?: and standard corticosteroid regimen)?\)/ig, '')
+  .replace(/\b(?:low|high|intermediate|selected|single)[-\s]+dose\b/ig, '')
   .replace(/\b(?:standard|modified)\s+corticosteroid regimen\b/ig, '')
   .replace(/-\s+/g, '-')
   .replace(/\s{2,}/g, ' ')
@@ -237,7 +237,7 @@ const treatmentIdeaKey = (title) => String(title || '')
   .replace(/^(?:drug|biological|combination product|dietary supplement|genetic|device|procedure|radiation):\s*/g, '')
   .replace(/\([^)]{1,80}\)/g, '')
   .replace(/\b(?:dietary\s+)?supplement(?:ation)?\b/g, '')
-  .replace(/\b(?:low|high|intermediate|selected|single)\s+dose\b/g, '')
+  .replace(/\b(?:low|high|intermediate|selected|single)[-\s]+dose\b/g, '')
   .replace(/\b(?:standard|modified)\s+corticosteroid regimen\b/g, '')
   .replace(/\bgene therapy\b/g, '')
   .replace(/\b(?:hydrochloride|dihydrochloride|tartrate|mesylate|sodium|tablets?|capsules?|extended[- ]release)\b/g, '')
@@ -1289,9 +1289,10 @@ function ResearchIdeas({ condition, result }) {
 
 const isAdvancedResearchProgram = (idea) => looksLikeAdvancedResearch(idea)
 
-const isResearchProgramIdea = (idea) => isAdvancedResearchProgram(idea)
+const isResearchProgramIdea = (idea) => idea?.accessClass !== 'prescription-or-label-check'
+  && (isAdvancedResearchProgram(idea)
   || idea?.kind === 'trial'
-  || Boolean(Array.isArray(idea?.trials) && idea.trials.length)
+  || Boolean(Array.isArray(idea?.trials) && idea.trials.length))
 
 const patientDiscussionIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
