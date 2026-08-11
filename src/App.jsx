@@ -159,6 +159,7 @@ const isConcretePatientTreatmentTitle = (title) => isDisplayableTrialInterventio
   && !/\b(?:induction and maintenance|maintenance and induction)\s+therap(?:y|ies)\b/i.test(String(title || ''))
   && !/\b(?:bowel|colonoscopy)\s+prep(?:aration)?\b|\b(?:KleanLyte|Bi-PegLyte)\b/i.test(String(title || ''))
   && !/\b(?:physical therapy|physiotherapy|rehabilitation|telerehabilitation|exercise training|occupational therapy)\b/i.test(String(title || ''))
+  && !/\b(?:tai chi|yoga|dance therapy|walking program|exercise program|physical activity program)\b/i.test(String(title || ''))
   && !/^(?:initial|first[- ]line|second[- ]line|adjunctive|combined|conventional|standard|usual)\b/i.test(String(title || ''))
   && !/^(?:[a-z0-9]+(?:[-\s][a-z0-9]+){0,4})\s+(?:inhibitor|agonist|antagonist|modulator|activator|blocker)(?:\s+(?:therapy|treatment))?$/i.test(String(title || ''))
 
@@ -298,6 +299,8 @@ const treatmentFamilyKey = (title) => {
   // These are alternate names for the same consumer-facing omega-3 family,
   // so one card should carry the combined source links instead of three cards.
   if (/\b(?:fish oil|omega ?3|docosahexaenoic acid|dha|eicosapentaenoic acid|epa)\b/.test(key)) return 'omega 3'
+  if (/^(?:l dopa|levodopa)$/.test(key)) return 'levodopa'
+  if (/^(?:vitamin d3|cholecalciferol|vitamin d)$/.test(key)) return 'vitamin d'
   // Registries and papers use several labels for the same oxygen-support
   // discussion. Keep their sources together instead of padding the list.
   if (/\b(?:ambulatory|supplemental) oxygen\b/.test(key)) return 'oxygen support'
