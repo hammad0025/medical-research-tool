@@ -155,6 +155,8 @@ const isDisplayableTrialIntervention = (title) => !/^(?:arm|group|cohort)\s*(?:\
 
 const isConcretePatientTreatmentTitle = (title) => isDisplayableTrialIntervention(title)
   && !/^(?:versus|vs\.?|compared\s+with|comparison\s+with)\b/i.test(String(title || ''))
+  && !/^(?:and|or|plus|with)\b/i.test(String(title || ''))
+  && !/\b(?:induction and maintenance|maintenance and induction)\s+therap(?:y|ies)\b/i.test(String(title || ''))
   && !/\b(?:physical therapy|physiotherapy|rehabilitation|telerehabilitation|exercise training|occupational therapy)\b/i.test(String(title || ''))
   && !/^(?:initial|first[- ]line|second[- ]line|adjunctive|combined|conventional|standard|usual)\b/i.test(String(title || ''))
   && !/^(?:[a-z0-9]+(?:[-\s][a-z0-9]+){0,4})\s+(?:inhibitor|agonist|antagonist|modulator|activator|blocker)(?:\s+(?:therapy|treatment))?$/i.test(String(title || ''))
@@ -364,7 +366,7 @@ const sourceTreatmentCandidates = (source) => {
 const isArticleTitleLike = (title) => /\b(?:systematic review|meta-analysis|safety and efficacy|phase\s*\d|a study comparing|clinical trial|review of)\b/i.test(String(title || ''))
 const isSupplementIdea = (idea) => /supplement|food|vitamin|fish oil|omega[- ]?3|dietary|over[- ]?the[- ]?counter|\botc\b/i.test(`${idea?.category || ''} ${idea?.title || ''}`)
 const looksLikeAdvancedResearch = (idea) => /gene|rna|cell|biologic|radiation|optogenetic|implant|prosthe|exosome|stem/i.test(`${idea?.category || ''} ${idea?.type || ''} ${idea?.title || ''}`)
-const isBroadTreatmentClass = (idea) => /\b(?:inhibitors|agonists|antagonists|modulators|blockers|agents|drugs|medicines|therapies|supplements|vitamins|carotenoids?|procedures|devices|research)\b$/i.test(treatmentIdeaKey(idea?.title))
+const isBroadTreatmentClass = (idea) => /\b(?:inhibitors|agonists|antagonists|modulators|blockers|agents|drugs|medicines|therapy|therapies|treatment|treatments|supplements|vitamins|carotenoids?|procedures|devices|research)\b$/i.test(treatmentIdeaKey(idea?.title))
 
 const sourceTreatmentIdeas = (sources, condition) => {
   const ideas = []
@@ -429,6 +431,7 @@ const earlyResearchIdeasForReport = (result, condition) => {
 const isOfficialLabelSource = (source) => source?.origin === 'openFDA'
   || source?.origin === 'U.S. Food and Drug Administration'
   || /FDA[-\s]?(?:drug\s+)?(?:label|approval record)/i.test(source?.type || '')
+  || source?.establishedCare === true
 
 const plainOfficialLabelSummary = (source, title, conditionLabel) => {
   const normalizeForMatch = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -456,8 +459,12 @@ const officialLabelIdeasForReport = (result, condition) => {
       seen.add(key)
       return {
         title,
-        category: source.approvalScope === 'subtype' ? 'Official U.S. approval for a subtype' : 'Official U.S. label',
-        summary: source.approvalScope ? source.summary : plainOfficialLabelSummary(source, title, conditionLabel),
+        category: source.establishedCare === true
+          ? 'Established care source'
+          : source.approvalScope === 'subtype'
+            ? 'Official U.S. approval for a subtype'
+            : 'Official U.S. label',
+        summary: source.establishedCare === true || source.approvalScope ? source.summary : plainOfficialLabelSummary(source, title, conditionLabel),
         accessClass: 'prescription-or-label-check',
         providerQuestion: 'Does this label fit this condition and subtype?',
         caution: source.caution || 'A label applies to a specific diagnosis and situation. A clinician must decide whether it applies here.',
@@ -663,7 +670,14 @@ const lifestyleIdeasForReport = (result, _condition) => {
     if (sourceFallbackIdeas.length === 5) break
   }
 
-  const primaryIdeas = curatedIdeas.length ? curatedIdeas : reviewedIdeas.length ? reviewedIdeas : sourceFallbackIdeas
+  const primaryIdeas = []
+  const seenTitles = new Set()
+  for (const idea of [...curatedIdeas, ...reviewedIdeas, ...sourceFallbackIdeas]) {
+    const key = String(idea?.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    if (!key || seenTitles.has(key)) continue
+    seenTitles.add(key)
+    primaryIdeas.push(idea)
+  }
   return primaryIdeas.slice(0, 5)
 }
 
@@ -1025,9 +1039,9 @@ function EstablishedTreatments({ condition, result }) {
       <SectionHeader
         eyebrow="1. Approved and established options"
         title="What is already approved or clearly established"
-        action={<StatusPill tone={labels.length ? 'safe' : 'neutral'}>{labels.length ? `${labels.length} official label${labels.length === 1 ? '' : 's'}` : 'Check labels'}</StatusPill>}
+        action={<StatusPill tone={labels.length ? 'safe' : 'neutral'}>{labels.length ? `${labels.length} established option${labels.length === 1 ? '' : 's'}` : 'Check options'}</StatusPill>}
       />
-      <p className="section-intro">Start here to separate treatments with an official U.S. label from early research. A label can apply to a specific subtype, symptom, or situation, so open the source before deciding whether it matters for this person.</p>
+      <p className="section-intro">Start here to separate established care and official U.S. labels from early research. An option may apply only to a specific subtype, symptom, or situation, so open the source before deciding whether it matters for this person.</p>
       {labels.length ? (
         <div className="approved-treatment-table-wrap">
           <table className="approved-treatment-table">
@@ -1037,10 +1051,10 @@ function EstablishedTreatments({ condition, result }) {
                 const citations = claimCitations(result, idea, condition)
                 return (
                   <tr key={idea.title}>
-                    <td><p className="card-kicker">Official U.S. label</p><strong>{idea.title}</strong></td>
+                    <td><p className="card-kicker">{idea.category}</p><strong>{idea.title}</strong></td>
                     <td><CitedParagraph citations={citations}>{idea.summary}</CitedParagraph></td>
                     <td><div className="approved-treatment-table__boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div></td>
-                    <td><CitationActions citations={citations} label="Open official label" /></td>
+                    <td><CitationActions citations={citations} label="Open source" /></td>
                   </tr>
                 )
               })}
@@ -1048,7 +1062,7 @@ function EstablishedTreatments({ condition, result }) {
           </table>
         </div>
       ) : (
-        <RequiredSectionEmptyState title="Check approved options by subtype or symptom." icon="database">The official-label search did not find a broad match for this condition. A treatment may still be labeled for a subtype, gene result, symptom, or related diagnosis. <a href={labelSearchUrl} target="_blank" rel="noreferrer">Open the FDA label search</a> and discuss the condition, subtype, and treatment choices with a clinician.</RequiredSectionEmptyState>
+        <RequiredSectionEmptyState title="Check established options by subtype or symptom." icon="database">This search did not find a clear established-care or official-label match for the condition. An option may still apply to a subtype, gene result, symptom, or related diagnosis. <a href={labelSearchUrl} target="_blank" rel="noreferrer">Open the FDA label search</a> and discuss the condition, subtype, and treatment choices with a clinician.</RequiredSectionEmptyState>
       )}
     </section>
   )

@@ -446,7 +446,232 @@ const toExcludedTreatment = (item) => {
 // specific name. Add a small authoritative foundation record so a broad search
 // does not hide a real, narrow approval behind an empty label result.
 const conditionFoundationSources = (condition) => {
-  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
+  const conditionText = cleanText(condition, 120)
+
+  if (/\bhuntington(?:'s)?(?: disease)?\b/i.test(conditionText)) {
+    return [
+      {
+        id: 'hd-ninds-condition-overview',
+        title: "Huntington's Disease: Hope Through Research",
+        url: 'https://www.ninds.nih.gov/sites/default/files/2025-05/huntingtons-disease-hope-through-research.pdf',
+        type: 'NIH condition overview',
+        year: '2025',
+        origin: 'National Institute of Neurological Disorders and Stroke',
+        summary: "Huntington's disease is an inherited brain disorder caused by a change in the HTT gene. It can affect movement, thinking, mood, speech, swallowing, and daily function. Current treatment can help symptoms, but it does not stop or reverse the disease.",
+        conditionOverview: {
+          whatItIs: "Huntington's disease is an inherited brain disorder caused by a change in the HTT gene.",
+          whatToWatch: 'It can cause unwanted movements, slower thinking, mood or behavior changes, and trouble with speech, swallowing, balance, and daily tasks.',
+          researchPath: 'Care usually combines symptom medicines, rehabilitation, mental-health support, nutrition and swallowing support, and clinical-trial review. No current treatment stops or reverses the disease.',
+        },
+        aiEligible: true,
+      },
+      {
+        id: 'hd-fda-tetrabenazine-label',
+        title: 'FDA prescribing information: tetrabenazine tablets',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2015/206129Orig1s000lbl.pdf',
+        type: 'FDA drug label',
+        year: '2015',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Tetrabenazine',
+        approvalScope: 'symptom',
+        summary: "The FDA label approves tetrabenazine to treat chorea linked to Huntington's disease. It treats a movement symptom; it does not slow the disease.",
+        caution: 'The label has a boxed warning about depression and suicidal thoughts or behavior. A specialist must review mood, other medicines, and the full label.',
+        aiEligible: true,
+      },
+      {
+        id: 'hd-fda-deutetrabenazine-label',
+        title: 'FDA prescribing information: AUSTEDO and AUSTEDO XR (deutetrabenazine)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/216354s007lbl.pdf',
+        type: 'FDA drug label',
+        year: '2024',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Deutetrabenazine (Austedo and Austedo XR)',
+        approvalScope: 'symptom',
+        summary: "The FDA label approves deutetrabenazine for chorea linked to Huntington's disease in adults. It treats a movement symptom; it does not slow the disease.",
+        caution: 'The label has a boxed warning about depression and suicidal thoughts or behavior. A specialist must review mood, other medicines, and the full label.',
+        aiEligible: true,
+      },
+      {
+        id: 'hd-fda-valbenazine-label',
+        title: 'FDA prescribing information: INGREZZA (valbenazine)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/209241s029lbl.pdf',
+        type: 'FDA drug label',
+        year: '2025',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Valbenazine (Ingrezza)',
+        approvalScope: 'symptom',
+        summary: "The FDA label approves valbenazine to treat chorea linked to Huntington's disease in adults. It treats a movement symptom; it does not slow the disease.",
+        caution: 'The full label includes important warnings, side effects, and interaction checks. A movement-disorder specialist should decide whether it fits the person.',
+        aiEligible: true,
+      },
+    ]
+  }
+
+  if (/\bcrohn(?:'s)?(?: disease)?\b/i.test(conditionText)) {
+    const crohnLabelCaution = 'The exact labeled use depends on age, disease severity, earlier treatment, infection risk, and other health details. An IBD specialist must review the full label.'
+    return [
+      {
+        id: 'crohn-niddk-overview',
+        title: "Crohn's Disease",
+        url: 'https://www.niddk.nih.gov/health-information/digestive-diseases/crohns-disease',
+        type: 'NIH condition overview',
+        year: '2024',
+        origin: 'National Institute of Diabetes and Digestive and Kidney Diseases',
+        summary: "Crohn's disease is a long-term inflammatory bowel disease. It can affect any part of the digestive tract and may cause diarrhea, belly pain, weight loss, tiredness, and problems outside the gut.",
+        conditionOverview: {
+          whatItIs: "Crohn's disease is a long-term inflammatory bowel disease that can affect any part of the digestive tract.",
+          whatToWatch: 'Symptoms and risks depend on where the inflammation is, how deep it goes, and whether there are strictures, fistulas, abscesses, bleeding, or poor nutrition.',
+          researchPath: 'Treatment aims to lower inflammation, control flares, and keep remission. The right option depends on disease location, severity, complications, past treatment, and safety checks.',
+        },
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-niddk-treatment',
+        title: "Treatment for Crohn's Disease",
+        url: 'https://www.niddk.nih.gov/health-information/digestive-diseases/crohns-disease/treatment',
+        type: 'NIH treatment and daily-life guidance',
+        year: '2024',
+        origin: 'National Institute of Diabetes and Digestive and Kidney Diseases',
+        summary: 'NIDDK explains that Crohn disease treatment may include medicines, nutrition support, treatment of symptoms or complications, and surgery. It also warns that some over-the-counter medicines can make symptoms worse.',
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-niddk-nutrition',
+        title: "Eating, Diet, and Nutrition for Crohn's Disease",
+        url: 'https://www.niddk.nih.gov/health-information/digestive-diseases/crohns-disease/eating-diet-nutrition',
+        type: 'NIH daily-life guidance',
+        year: '2024',
+        origin: 'National Institute of Diabetes and Digestive and Kidney Diseases',
+        summary: 'Crohn disease can affect appetite and nutrient absorption. NIDDK advises discussing food patterns, possible deficiencies, and supplements with the care team instead of assuming one diet fits everyone.',
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-fda-infliximab-label',
+        title: 'FDA prescribing information: infliximab',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2021/103772s5401lbl.pdf',
+        type: 'FDA drug label',
+        year: '2021',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Infliximab (Remicade and biosimilars)',
+        summary: "The FDA label includes infliximab for adults and children age 6 or older with moderately to severely active Crohn's disease in specific situations.",
+        caution: crohnLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-fda-adalimumab-label',
+        title: 'FDA prescribing information: adalimumab (HADLIMA)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/761059s036lbl.pdf',
+        type: 'FDA drug label',
+        year: '2026',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Adalimumab (Humira and biosimilars)',
+        summary: "The FDA label includes adalimumab products for moderately to severely active Crohn's disease in adults and certain children.",
+        caution: crohnLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-fda-vedolizumab-label',
+        title: 'FDA prescribing information: ENTYVIO (vedolizumab)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2024/125476s060s061lbl.pdf',
+        type: 'FDA drug label',
+        year: '2024',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Vedolizumab (Entyvio)',
+        summary: "The FDA label approves vedolizumab for adults with moderately to severely active Crohn's disease.",
+        caution: crohnLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-fda-ustekinumab-label',
+        title: 'FDA prescribing information: ustekinumab (IMULDOSA, biosimilar to STELARA)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/761364s005lbl.pdf',
+        type: 'FDA drug label',
+        year: '2026',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Ustekinumab (Stelara and biosimilars)',
+        summary: "The FDA label includes ustekinumab products for adults with moderately to severely active Crohn's disease.",
+        caution: crohnLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-fda-risankizumab-label',
+        title: 'FDA prescribing information: SKYRIZI (risankizumab-rzaa)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2026/761105s042lbl.pdf',
+        type: 'FDA drug label',
+        year: '2026',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Risankizumab (Skyrizi)',
+        summary: "The FDA label approves risankizumab for adults with moderately to severely active Crohn's disease.",
+        caution: crohnLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'crohn-fda-upadacitinib-approval',
+        title: "FDA approves first oral treatment for moderately to severely active Crohn's disease",
+        url: 'https://www.fda.gov/drugs/news-events-human-drugs/fda-approves-first-oral-treatment-moderately-severely-active-crohns-disease',
+        type: 'FDA approval record',
+        year: '2023',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Upadacitinib (Rinvoq)',
+        summary: "FDA approved upadacitinib for adults with moderately to severely active Crohn's disease who did not respond well to, or could not tolerate, one or more TNF blockers.",
+        caution: crohnLabelCaution,
+        aiEligible: true,
+      },
+    ]
+  }
+
+  if (/\bparkinson(?:'s)?(?: disease)?\b/i.test(conditionText)) {
+    return [{
+      id: 'parkinson-ninds-overview-support',
+      title: "Parkinson's Disease: Challenges, Progress, and Promise",
+      url: 'https://www.ninds.nih.gov/current-research/focus-disorders/parkinsons-disease-research/parkinsons-disease-challenges-progress-and-promise',
+      type: 'NIH condition overview and daily-life guidance',
+      year: '2026',
+      origin: 'National Institute of Neurological Disorders and Stroke',
+      summary: "Parkinson's disease is a nervous-system disorder that affects movement and gets worse over time. NINDS describes medicines, exercise, diet, and physical, occupational, and speech therapy as parts of care.",
+      conditionOverview: {
+        whatItIs: "Parkinson's disease is a nervous-system disorder that affects movement and gets worse over time.",
+        whatToWatch: 'It can cause tremor, stiffness, slow movement, balance trouble, sleep changes, constipation, mood changes, and thinking changes.',
+        researchPath: 'Care can include levodopa and other medicines, exercise, rehabilitation, symptom support, devices or procedures, and clinical trials.',
+      },
+      aiEligible: true,
+    }]
+  }
+
+  if (/\b(?:lada|latent autoimmune diabetes)\b/i.test(conditionText)) {
+    return [
+      {
+        id: 'lada-expert-consensus-overview',
+        title: 'Management of Latent Autoimmune Diabetes in Adults: An International Expert Consensus Statement',
+        url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC7809717/',
+        type: 'Expert consensus statement',
+        year: '2020',
+        origin: 'Diabetes, American Diabetes Association',
+        summary: 'LADA is an adult-onset autoimmune form of diabetes. People can make some insulin at first, but insulin production often falls over time. The expert panel says treatment decisions should consider C-peptide, glucose control, antibodies, and the person\'s full health picture.',
+        conditionOverview: {
+          whatItIs: 'LADA is an adult-onset autoimmune form of diabetes. The immune system damages the cells that make insulin, but this often happens more slowly than in classic type 1 diabetes.',
+          whatToWatch: 'Glucose can rise as insulin production falls. Low blood sugar, very high blood sugar, ketones, weight loss, and changes in C-peptide can affect treatment and safety discussions.',
+          researchPath: 'Care is individualized. The expert panel uses C-peptide and glucose control to guide insulin and other treatment discussions, while noting that large long-term LADA trials are limited.',
+        },
+        aiEligible: true,
+      },
+      {
+        id: 'lada-niddk-insulin-care',
+        title: 'Type 1 Diabetes: Insulin and Daily Management',
+        url: 'https://www.niddk.nih.gov/health-information/diabetes/overview/what-is-diabetes/type-1-diabetes',
+        type: 'NIH established treatment guidance',
+        year: '2026',
+        origin: 'National Institute of Diabetes and Digestive and Kidney Diseases',
+        treatmentName: 'Insulin therapy',
+        establishedCare: true,
+        summary: 'Insulin is established treatment for autoimmune diabetes when the body does not make enough insulin. In LADA, the need and timing depend on glucose levels, C-peptide, symptoms, and clinical review.',
+        caution: 'Insulin type, amount, timing, glucose targets, and low-blood-sugar planning must be set with a diabetes clinician. Do not change insulin from this report.',
+        aiEligible: true,
+      },
+    ]
+  }
+
+  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(conditionText)) return []
 
   return [
     {
@@ -575,7 +800,113 @@ const conditionFoundationDiscussionLeads = (condition) => {
 }
 
 const conditionFoundationLifestyleIdeas = (condition) => {
-  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
+  const conditionText = cleanText(condition, 120)
+
+  if (/\bhuntington(?:'s)?(?: disease)?\b/i.test(conditionText)) {
+    return [
+      {
+        title: 'Physical, occupational, and speech therapy',
+        summary: 'NINDS describes physical, occupational, and speech therapy as ways to support movement, daily tasks, communication, and swallowing.',
+        providerQuestion: 'Which therapy should we ask for now?',
+        caution: 'The right therapy depends on current movement, thinking, speech, swallowing, and safety needs.',
+        sourceIds: ['hd-ninds-condition-overview'],
+      },
+      {
+        title: 'Swallowing and nutrition support',
+        summary: 'Huntington disease can make chewing and swallowing harder. A speech-language pathologist and dietitian can help the care team check safety and nutrition needs.',
+        providerQuestion: 'Should swallowing or nutrition be checked now?',
+        caution: 'Coughing with food, choking, weight loss, or dehydration needs prompt clinical review.',
+        sourceIds: ['hd-ninds-condition-overview'],
+      },
+      {
+        title: 'Mental health and caregiver support',
+        summary: 'Mood, behavior, thinking, and caregiver strain are part of Huntington disease care and should be discussed directly with the care team.',
+        providerQuestion: 'What support is available for mood and caregiving?',
+        caution: 'New suicidal thoughts, dangerous behavior, or a sudden mental-health change needs urgent professional help.',
+        sourceIds: ['hd-ninds-condition-overview'],
+      },
+    ]
+  }
+
+  if (/\bcrohn(?:'s)?(?: disease)?\b/i.test(conditionText)) {
+    return [
+      {
+        title: 'Food, nutrition, and symptom tracking',
+        summary: 'NIDDK explains that Crohn disease can lower appetite and nutrient absorption. A food and symptom record can help the care team look for patterns without assuming one diet fits everyone.',
+        providerQuestion: 'Should we check nutrition or track food symptoms?',
+        caution: 'Do not remove major food groups or start supplements without checking nutrition needs and medicine interactions.',
+        sourceIds: ['crohn-niddk-nutrition'],
+      },
+      {
+        title: 'Check over-the-counter pain and diarrhea medicines',
+        summary: 'NIDDK says some NSAID pain medicines can make symptoms worse. It also says diarrhea medicines may be unsafe in some situations.',
+        providerQuestion: 'Which over-the-counter medicines should be avoided?',
+        caution: 'Bleeding, fever, severe pain, dehydration, or possible blockage needs clinical advice instead of self-treatment.',
+        sourceIds: ['crohn-niddk-treatment'],
+      },
+      {
+        title: 'Hydration and complication planning',
+        summary: 'Crohn disease can cause diarrhea, poor intake, and nutrition problems. Ask the care team what signs of dehydration, blockage, abscess, or severe flare need urgent help.',
+        providerQuestion: 'Which symptoms mean we should call right away?',
+        caution: 'This does not replace an emergency plan from the person\'s IBD team.',
+        sourceIds: ['crohn-niddk-treatment', 'crohn-niddk-overview'],
+      },
+    ]
+  }
+
+  if (/\bparkinson(?:'s)?(?: disease)?\b/i.test(conditionText)) {
+    return [
+      {
+        title: 'Regular exercise and balance work',
+        summary: 'NINDS says exercise can support flexibility, balance, strength, and movement in Parkinson disease.',
+        providerQuestion: 'What exercise is safe for balance and movement?',
+        caution: 'A clinician or therapist should help adjust exercise for falls, heart or lung limits, pain, and other health conditions.',
+        sourceIds: ['parkinson-ninds-overview-support'],
+      },
+      {
+        title: 'Physical, occupational, and speech therapy',
+        summary: 'NINDS describes these therapies as support for walking, daily tasks, speech, swallowing, tremor, stiffness, and thinking changes.',
+        providerQuestion: 'Which therapy should we start with?',
+        caution: 'The useful therapy depends on the person\'s current symptoms, goals, and safety risks.',
+        sourceIds: ['parkinson-ninds-overview-support'],
+      },
+      {
+        title: 'Food, fluids, and medicine timing',
+        summary: 'NINDS says fiber and fluids may help constipation, and high-protein meals can affect how some people absorb carbidopa-levodopa.',
+        providerQuestion: 'Could food timing affect this medicine?',
+        caution: 'Do not change protein intake or medicine timing without the prescriber or a dietitian.',
+        sourceIds: ['parkinson-ninds-overview-support'],
+      },
+    ]
+  }
+
+  if (/\b(?:lada|latent autoimmune diabetes)\b/i.test(conditionText)) {
+    return [
+      {
+        title: 'Glucose checks and low-blood-sugar planning',
+        summary: 'NIDDK explains that glucose checks and insulin-delivery tools can help manage autoimmune diabetes. A plan should also explain how to recognize and treat low blood sugar.',
+        providerQuestion: 'What is our low-blood-sugar plan?',
+        caution: 'Severe low blood sugar, confusion, fainting, or a seizure needs emergency help.',
+        sourceIds: ['lada-niddk-insulin-care'],
+      },
+      {
+        title: 'Food, activity, and insulin need one plan',
+        summary: 'Food and physical activity can change glucose levels and insulin needs. The care team can help match meals, activity, glucose checks, and insulin safely.',
+        providerQuestion: 'How should food and activity change the plan?',
+        caution: 'Do not skip insulin or make large food or activity changes without a safe glucose plan.',
+        sourceIds: ['lada-niddk-insulin-care'],
+      },
+      {
+        title: 'Track C-peptide and treatment needs over time',
+        summary: 'The LADA expert panel says C-peptide can help show how much insulin the body still makes and can help guide treatment discussions over time.',
+        providerQuestion: 'Should C-peptide be checked again?',
+        caution: 'One test does not set a treatment plan by itself. It must be read with glucose results, symptoms, and other health details.',
+        sourceIds: ['lada-expert-consensus-overview'],
+      },
+    ]
+  }
+
+  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(conditionText)) return []
 
   return [
     {
