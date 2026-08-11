@@ -663,21 +663,122 @@ const conditionFoundationSources = (condition) => {
   }
 
   if (/\bparkinson(?:'s)?(?: disease)?\b/i.test(conditionText)) {
-    return [{
-      id: 'parkinson-ninds-overview-support',
-      title: "Parkinson's Disease: Challenges, Progress, and Promise",
-      url: 'https://www.ninds.nih.gov/current-research/focus-disorders/parkinsons-disease-research/parkinsons-disease-challenges-progress-and-promise',
-      type: 'NIH condition overview and daily-life guidance',
-      year: '2026',
-      origin: 'National Institute of Neurological Disorders and Stroke',
-      summary: "Parkinson's disease is a nervous-system disorder that affects movement and gets worse over time. NINDS describes medicines, exercise, diet, and physical, occupational, and speech therapy as parts of care.",
-      conditionOverview: {
-        whatItIs: "Parkinson's disease is a nervous-system disorder that affects movement and gets worse over time.",
-        whatToWatch: 'It can cause tremor, stiffness, slow movement, balance trouble, sleep changes, constipation, mood changes, and thinking changes.',
-        researchPath: 'Care can include levodopa and other medicines, exercise, rehabilitation, symptom support, devices or procedures, and clinical trials.',
+    const parkinsonLabelCaution = 'Parkinson medicines can affect blood pressure, sleep, thinking, movement, impulse control, and other medicines. A movement-disorder clinician must review the full label and the person\'s symptoms.'
+    return [
+      {
+        id: 'parkinson-ninds-overview-support',
+        title: "Parkinson's Disease: Challenges, Progress, and Promise",
+        url: 'https://www.ninds.nih.gov/current-research/focus-disorders/parkinsons-disease-research/parkinsons-disease-challenges-progress-and-promise',
+        type: 'NIH condition overview and daily-life guidance',
+        year: '2026',
+        origin: 'National Institute of Neurological Disorders and Stroke',
+        summary: "Parkinson's disease is a nervous-system disorder that affects movement and gets worse over time. NINDS describes medicines, exercise, diet, and physical, occupational, and speech therapy as parts of care.",
+        conditionOverview: {
+          whatItIs: "Parkinson's disease is a nervous-system disorder that affects movement and gets worse over time.",
+          whatToWatch: 'It can cause tremor, stiffness, slow movement, balance trouble, sleep changes, constipation, mood changes, and thinking changes.',
+          researchPath: 'Care can include levodopa and other medicines, exercise, rehabilitation, symptom support, devices or procedures, and clinical trials.',
+        },
+        aiEligible: true,
       },
-      aiEligible: true,
-    }]
+      {
+        id: 'parkinson-fda-carbidopa-levodopa-label',
+        title: 'FDA prescribing information: SINEMET (carbidopa and levodopa)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2014/017555s056s068s071lbl.pdf',
+        type: 'FDA drug label',
+        year: '2014',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Carbidopa and levodopa (Sinemet and other products)',
+        summary: "The FDA label includes carbidopa and levodopa for Parkinson's disease and related parkinsonian syndromes.",
+        caution: parkinsonLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'parkinson-fda-ropinirole-label',
+        title: 'FDA label search: ropinirole',
+        url: 'https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22ropinirole%22&limit=1',
+        type: 'FDA drug label',
+        year: '2026',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Ropinirole',
+        summary: "FDA labeling includes ropinirole for the signs and symptoms of Parkinson's disease.",
+        caution: parkinsonLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'parkinson-fda-pramipexole-label',
+        title: 'FDA label search: pramipexole',
+        url: 'https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22pramipexole%22&limit=1',
+        type: 'FDA drug label',
+        year: '2026',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Pramipexole',
+        summary: "FDA labeling includes pramipexole for the signs and symptoms of Parkinson's disease.",
+        caution: parkinsonLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'parkinson-fda-rotigotine-label',
+        title: 'FDA prescribing information: NEUPRO (rotigotine patch)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2012/021829s002lbl.pdf',
+        type: 'FDA drug label',
+        year: '2012',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Rotigotine patch (Neupro)',
+        summary: "The FDA label includes the rotigotine patch for the signs and symptoms of Parkinson's disease.",
+        caution: parkinsonLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'parkinson-fda-rasagiline-label',
+        title: 'FDA label search: rasagiline',
+        url: 'https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22rasagiline%22&limit=1',
+        type: 'FDA drug label',
+        year: '2026',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Rasagiline',
+        summary: "FDA labeling includes rasagiline for treatment of Parkinson's disease.",
+        caution: parkinsonLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'parkinson-fda-selegiline-label',
+        title: 'FDA label search: selegiline',
+        url: 'https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22selegiline%22&limit=1',
+        type: 'FDA drug label',
+        year: '2026',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Selegiline',
+        summary: "FDA labeling includes selegiline as an added treatment for some people with Parkinson's disease taking levodopa and carbidopa.",
+        caution: parkinsonLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'parkinson-fda-amantadine-er-label',
+        title: 'FDA prescribing information: GOCOVRI (amantadine extended release)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2025/208944s009lbl.pdf',
+        type: 'FDA drug label',
+        year: '2025',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Amantadine extended release (Gocovri)',
+        approvalScope: 'symptom',
+        summary: "The FDA label includes Gocovri for levodopa-related dyskinesia and as an added treatment for 'off' episodes in Parkinson's disease.",
+        caution: parkinsonLabelCaution,
+        aiEligible: true,
+      },
+      {
+        id: 'parkinson-fda-safinamide-label',
+        title: 'FDA prescribing information: XADAGO (safinamide)',
+        url: 'https://www.accessdata.fda.gov/drugsatfda_docs/label/2021/207145s006lbl.pdf',
+        type: 'FDA drug label',
+        year: '2021',
+        origin: 'U.S. Food and Drug Administration',
+        treatmentName: 'Safinamide (Xadago)',
+        approvalScope: 'symptom',
+        summary: "The FDA label includes safinamide as an added treatment to levodopa and carbidopa for Parkinson's disease 'off' episodes.",
+        caution: parkinsonLabelCaution,
+        aiEligible: true,
+      },
+    ]
   }
 
   if (/\b(?:lada|latent autoimmune diabetes)\b/i.test(conditionText)) {
@@ -695,6 +796,88 @@ const conditionFoundationSources = (condition) => {
           whatToWatch: 'Glucose can rise as insulin production falls. Low blood sugar, very high blood sugar, ketones, weight loss, and changes in C-peptide can affect treatment and safety discussions.',
           researchPath: 'Care is individualized. The expert panel uses C-peptide and glucose control to guide insulin and other treatment discussions, while noting that large long-term LADA trials are limited.',
         },
+        aiEligible: true,
+      },
+      {
+        id: 'lada-sitagliptin-rct-2018',
+        title: 'Altered T-cell subsets and transcription factors in latent autoimmune diabetes in adults taking sitagliptin: a 1-year randomized controlled trial',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/29883070/',
+        type: 'Open-label randomized controlled trial',
+        year: '2018',
+        origin: 'PubMed',
+        journal: 'Journal of Diabetes Investigation',
+        pmid: '29883070',
+        summary: 'A small one-year study randomized 40 people with LADA to sitagliptin with insulin or insulin alone and examined immune markers and beta-cell function. It was too small to establish routine LADA care.',
+        candidateLeads: [{ name: 'Sitagliptin with insulin', category: 'Medicine combination research', roleVerified: true, sourceTitleDerived: true }],
+        aiEligible: true,
+      },
+      {
+        id: 'lada-saxagliptin-posthoc-2016',
+        title: 'Saxagliptin improves glycaemic control and C-peptide secretion in latent autoimmune diabetes in adults',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/26385269/',
+        type: 'Post-hoc clinical-trial analysis',
+        year: '2016',
+        origin: 'PubMed',
+        journal: 'Diabetes/Metabolism Research and Reviews',
+        pmid: '26385269',
+        doi: '10.1002/dmrr.2717',
+        summary: 'A post-hoc analysis of randomized type 2 diabetes trials examined the smaller group who tested positive for GAD antibodies. Saxagliptin lowered glucose measures, but this was not a purpose-built LADA trial.',
+        candidateLeads: [{ name: 'Saxagliptin', category: 'Medicine research', roleVerified: true, sourceTitleDerived: true }],
+        aiEligible: true,
+      },
+      {
+        id: 'lada-saxagliptin-dapagliflozin-pilot-2024',
+        title: 'Saxagliptin/dapagliflozin is non-inferior to insulin glargine in beta-cell function in LADA: a 12-month randomized pilot study',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/38297915/',
+        type: 'Randomized pilot study',
+        year: '2024',
+        origin: 'PubMed',
+        journal: 'Diabetes, Obesity and Metabolism',
+        pmid: '38297915',
+        doi: '10.1111/dom.15469',
+        summary: 'A 12-month pilot study compared saxagliptin plus dapagliflozin with insulin glargine in people with LADA. A small pilot cannot establish long-term benefit or replace individualized insulin and ketone-safety planning.',
+        candidateLeads: [{ name: 'Saxagliptin plus dapagliflozin', category: 'Medicine combination research', roleVerified: true, sourceTitleDerived: true }],
+        aiEligible: true,
+      },
+      {
+        id: 'lada-vitamin-d3-saxagliptin-pilot-2020',
+        title: 'Adding vitamin D3 to saxagliptin has the potential to protect beta-cell function in LADA: a 1-year pilot study',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/32043288/',
+        type: 'Randomized pilot study',
+        year: '2020',
+        origin: 'PubMed',
+        journal: 'Diabetes/Metabolism Research and Reviews',
+        pmid: '32043288',
+        summary: 'A one-year pilot randomized 60 people with LADA across conventional care, saxagliptin, and vitamin D3 plus saxagliptin groups. This small study is a research signal, not proof that high-dose vitamin D or the combination is safe or effective.',
+        candidateLeads: [{ name: 'Vitamin D3 plus saxagliptin', category: 'Medicine and supplement combination research', roleVerified: true, sourceTitleDerived: true }],
+        aiEligible: true,
+      },
+      {
+        id: 'lada-dulaglutide-posthoc-2018',
+        title: 'Dulaglutide treatment results in effective glycaemic control in LADA: a post-hoc analysis of the AWARD trials',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/29377522/',
+        type: 'Post-hoc clinical-trial analysis',
+        year: '2018',
+        origin: 'PubMed',
+        journal: 'Diabetes, Obesity and Metabolism',
+        pmid: '29377522',
+        doi: '10.1111/dom.13237',
+        summary: 'A post-hoc analysis found glucose lowering with dulaglutide in the GAD-antibody-positive subgroup of three type 2 diabetes trials. It was not a purpose-built LADA trial and did not prove preservation of insulin production.',
+        candidateLeads: [{ name: 'Dulaglutide', category: 'Medicine research', roleVerified: true, sourceTitleDerived: true }],
+        aiEligible: true,
+      },
+      {
+        id: 'lada-gad-alum-pilot-2023',
+        title: 'A 1-year pilot study of intralymphatic GAD-alum in people with LADA',
+        url: 'https://pubmed.ncbi.nlm.nih.gov/37580967/',
+        type: 'Phase 1/2 open-label pilot study',
+        year: '2023',
+        origin: 'PubMed',
+        journal: 'Diabetes, Obesity and Metabolism',
+        pmid: '37580967',
+        doi: '10.1111/dom.15239',
+        summary: 'Fourteen people with recently diagnosed LADA received three GAD-alum injections into a lymph node. The open-label pilot mainly checked safety and immune response; it did not prove clinical benefit.',
+        candidateLeads: [{ name: 'GAD-alum immune therapy', category: 'Immune therapy research', roleVerified: true, sourceTitleDerived: true }],
         aiEligible: true,
       },
       {
@@ -814,6 +997,78 @@ const conditionFoundationSources = (condition) => {
 
 const conditionFoundationDiscussionLeads = (condition) => {
   const conditionText = cleanText(condition, 120)
+
+  if (/\b(?:lada|latent autoimmune diabetes)\b/i.test(conditionText)) {
+    const ladaResearchCaution = 'This is limited LADA research, not an approved LADA treatment plan. A diabetes specialist must review glucose, C-peptide, ketone risk, current insulin, and the full study before any change.'
+    return [
+      {
+        title: 'Sitagliptin with insulin',
+        category: 'Prescription combination research',
+        summary: 'A small one-year randomized study compared sitagliptin with insulin against insulin alone in 40 people with LADA.',
+        takeaway: 'The study was small and looked at immune markers and beta-cell function. It does not establish this combination as standard LADA care.',
+        accessClass: 'specialist-review',
+        accessExplanation: 'Both glucose treatment and insulin safety need an endocrinologist who understands LADA.',
+        providerQuestion: 'Does the sitagliptin study apply here?',
+        caution: ladaResearchCaution,
+        sourceIds: ['lada-sitagliptin-rct-2018'],
+      },
+      {
+        title: 'Saxagliptin',
+        category: 'Repurposed prescription medicine research',
+        summary: 'A post-hoc analysis found glucose and C-peptide signals in the GAD-antibody-positive subgroup of larger diabetes trials.',
+        takeaway: 'This subgroup analysis was not a purpose-built LADA trial and needs stronger confirmation.',
+        accessClass: 'specialist-review',
+        accessExplanation: 'A diabetes specialist must decide whether this medicine class is appropriate and how it would interact with insulin and other medicines.',
+        providerQuestion: 'How strong is the saxagliptin evidence?',
+        caution: ladaResearchCaution,
+        sourceIds: ['lada-saxagliptin-posthoc-2016'],
+      },
+      {
+        title: 'Saxagliptin plus dapagliflozin',
+        category: 'Prescription combination research',
+        summary: 'A small 12-month randomized pilot compared this combination with insulin glargine in people with LADA.',
+        takeaway: 'This is a pilot result, not permission to replace insulin. Dapagliflozin-class medicines need special ketone and ketoacidosis safety review in autoimmune diabetes.',
+        accessClass: 'specialist-review',
+        accessExplanation: 'Only a diabetes specialist should interpret this study for an individual person.',
+        providerQuestion: 'What are the ketone risks in this study?',
+        caution: ladaResearchCaution,
+        sourceIds: ['lada-saxagliptin-dapagliflozin-pilot-2024'],
+      },
+      {
+        title: 'Vitamin D3 plus saxagliptin',
+        category: 'Prescription and supplement combination research',
+        summary: 'A one-year pilot compared conventional care, saxagliptin, and vitamin D3 plus saxagliptin in 60 people with LADA.',
+        takeaway: 'A small pilot does not support self-treatment or high-dose vitamin D. The exact form, dose, blood level, and safety checks matter.',
+        accessClass: 'specialist-review',
+        accessExplanation: 'A diabetes clinician and pharmacist should review the full study, vitamin D level, kidney health, calcium, and current medicines.',
+        providerQuestion: 'What did the vitamin D3 pilot actually show?',
+        caution: ladaResearchCaution,
+        sourceIds: ['lada-vitamin-d3-saxagliptin-pilot-2020'],
+      },
+      {
+        title: 'Dulaglutide',
+        category: 'Repurposed prescription medicine research',
+        summary: 'A post-hoc analysis found glucose lowering in the GAD-antibody-positive subgroup of three dulaglutide trials.',
+        takeaway: 'The trials were designed for type 2 diabetes, not LADA, and the analysis did not prove that dulaglutide preserves insulin production.',
+        accessClass: 'specialist-review',
+        accessExplanation: 'A diabetes specialist must decide whether the glucose, weight, stomach, and insulin-safety issues fit the person.',
+        providerQuestion: 'Does the dulaglutide subgroup apply here?',
+        caution: ladaResearchCaution,
+        sourceIds: ['lada-dulaglutide-posthoc-2018'],
+      },
+      {
+        title: 'GAD-alum immune therapy',
+        category: 'Experimental immune therapy',
+        summary: 'A 14-person open-label pilot gave three GAD-alum injections into a lymph node and mainly checked safety and immune response.',
+        takeaway: 'This is early experimental research. It did not prove that the treatment preserves insulin production or improves daily glucose control.',
+        accessClass: 'study-access-only',
+        accessExplanation: 'This is not a pharmacy or compounding option. Access would require a formal clinical study and a specialist research team.',
+        providerQuestion: 'Are any GAD-alum studies enrolling?',
+        caution: ladaResearchCaution,
+        sourceIds: ['lada-gad-alum-pilot-2023'],
+      },
+    ]
+  }
 
   if (/\bcrohn(?:'s)?(?: disease)?\b/i.test(conditionText)) {
     return [
@@ -1046,7 +1301,18 @@ const conditionFoundationTrialIds = (condition, geneticVariant) => conditionFoun
   .filter(Boolean)
 
 const conditionFoundationExcludedTreatments = (condition) => {
-  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
+  const conditionText = cleanText(condition, 120)
+
+  if (/\b(?:lada|latent autoimmune diabetes)\b/i.test(conditionText)) {
+    return [{
+      name: 'Sulfonylureas for LADA',
+      aliases: ['Sulfonylureas', 'Glimepiride', 'Glibenclamide', 'Glyburide'],
+      reason: 'The international LADA expert panel does not recommend sulfonylureas for LADA because available studies raise concern about faster loss of beta-cell function.',
+      evidenceRef: 'lada-expert-consensus-overview',
+    }]
+  }
+
+  if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(conditionText)) return []
 
   return [
     {
@@ -4497,6 +4763,23 @@ const theoryTemplatesForCondition = (condition) => {
       ['Gene-editing research platform', 'Gene research platform', 'Gene-editing approaches could be checked as research platforms, not as ready care.', 'A platform idea is not a patient-specific treatment option.', 'Huntington disease gene editing clinical research', ['CRISPR base editors']],
       ['Brain-network stimulation research', 'Device research platform', 'Stimulation approaches could be checked for condition-specific studies and outcomes.', 'This does not show that a device is right for any person.', 'Huntington disease brain stimulation clinical research', ['Closed-loop brain stimulation']],
       ['Stage-matched combination research', 'Treatment-strategy hypothesis', 'Combinations of symptom care and disease-targeted research could be checked in real studies.', 'This row does not recommend combining treatments.', 'Huntington disease combination treatment research', ['Mechanism-matched combinations']],
+    ]
+  }
+
+  if (/\b(?:lada|latent autoimmune diabetes)\b/i.test(condition)) {
+    return [
+      ['Anti-CD3 immune reset', 'Repurposed immune-medicine question', 'LADA slowly damages insulin-making cells through autoimmunity. An anti-CD3 medicine used in other autoimmune-diabetes research is a specific idea to check for direct LADA evidence.', 'This report did not find teplizumab established or directly tested as LADA treatment.', 'LADA teplizumab anti-CD3 clinical research', ['Teplizumab']],
+      ['Low-dose IL-2 T-reg support', 'Immune-balance question', 'Regulatory T cells help limit harmful immune attacks. Low-dose IL-2 could be checked as a way to support those cells without assuming it preserves insulin production.', 'This report did not find low-dose IL-2 established for LADA.', 'LADA low-dose IL-2 regulatory T cells research', ['Low-dose aldesleukin']],
+      ['Co-stimulation control', 'T-cell signaling question', 'T cells need more than one signal to stay active. A medicine that changes the CD80-CD86 co-stimulation signal could be checked for a direct LADA study.', 'This report did not find abatacept established or directly tested for LADA.', 'LADA abatacept T-cell costimulation research', ['Abatacept']],
+      ['B-cell antigen signaling', 'B-cell immune question', 'B cells help make diabetes antibodies and present targets to T cells. A B-cell medicine could be checked for direct LADA evidence and infection risk.', 'This report did not find rituximab established or directly tested for LADA.', 'LADA rituximab B-cell research', ['Rituximab']],
+      ['Beta-cell TXNIP stress control', 'Beta-cell stress question', 'TXNIP is linked to stress in insulin-making cells. A medicine used for another condition could be checked for direct evidence that it changes this pathway in LADA.', 'This report did not find verapamil established or directly tested for LADA.', 'LADA verapamil TXNIP beta-cell research', ['Verapamil']],
+      ['Tyrosine-kinase immune signaling', 'Repurposed medicine question', 'Some tyrosine-kinase signals affect immune cells and beta-cell stress. A medicine from this class could be checked for direct LADA evidence and major safety limits.', 'This report did not find imatinib established or directly tested for LADA.', 'LADA imatinib beta-cell clinical research', ['Imatinib']],
+      ['JAK-STAT immune signaling', 'Repurposed immune-medicine question', 'JAK-STAT signaling carries several immune messages involved in autoimmune diabetes. A selective JAK medicine could be checked for a direct LADA study.', 'This report did not find baricitinib established or directly tested for LADA.', 'LADA baricitinib JAK inhibitor research', ['Baricitinib']],
+      ['Alpha-1 antitrypsin immune control', 'Repurposed protein-medicine question', 'Alpha-1 antitrypsin can change inflammatory and tissue-protection signals. It could be checked for direct LADA evidence rather than assumed to preserve beta cells.', 'This report did not find alpha-1 antitrypsin established or directly tested for LADA.', 'LADA alpha-1 antitrypsin beta-cell research', ['Alpha-1 antitrypsin']],
+      ['TNF-alpha signaling control', 'Repurposed immune-medicine question', 'TNF-alpha can affect immune activity and beta-cell stress. A TNF blocker studied in other autoimmune settings could be checked for a direct LADA study.', 'This report did not find golimumab established or directly tested for LADA.', 'LADA golimumab TNF beta-cell research', ['Golimumab']],
+      ['IL-12 and IL-23 signaling control', 'Repurposed immune-medicine question', 'IL-12 and IL-23 help shape T-cell responses. A medicine blocking these signals could be checked for direct LADA evidence and infection risk.', 'This report did not find ustekinumab established or directly tested for LADA.', 'LADA ustekinumab IL-12 IL-23 research', ['Ustekinumab']],
+      ['T-cell depletion and reset', 'Intensive immune-medicine question', 'Short immune-depletion approaches have been studied in other forms of autoimmune diabetes. Their risks make a direct LADA study essential.', 'This report did not find anti-thymocyte globulin established or directly tested for LADA.', 'LADA anti-thymocyte globulin clinical research', ['Low-dose anti-thymocyte globulin']],
+      ['Beta-cell replacement and immune shielding', 'Cell and device question', 'Replacing insulin-making cells would also require protection from the immune attack that caused LADA. Encapsulation is one specific research route to check.', 'This report did not find an encapsulated islet product established or directly tested for LADA.', 'LADA encapsulated stem cell derived islets research', ['Encapsulated stem-cell-derived islets']],
     ]
   }
 

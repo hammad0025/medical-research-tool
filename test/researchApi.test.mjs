@@ -1203,6 +1203,11 @@ test('common-condition foundations keep established care and lifestyle sections 
   const parkinson = await run("Parkinson's Disease")
   assert.equal(parkinson.status, 200)
   assert.equal(parkinson.body.status, 'ready')
+  const parkinsonLabels = parkinson.body.sources.map((source) => source.treatmentName).filter(Boolean)
+  assert.ok(parkinsonLabels.includes('Carbidopa and levodopa (Sinemet and other products)'))
+  assert.ok(parkinsonLabels.includes('Rotigotine patch (Neupro)'))
+  assert.ok(parkinsonLabels.includes('Rasagiline'))
+  assert.ok(parkinsonLabels.length >= 8)
   assert.equal(parkinson.body.curatedLifestyleIdeas.length, 3)
   assert.ok(parkinson.body.review.briefing.sourceIds.includes('parkinson-ninds-overview-support'))
 
@@ -1210,6 +1215,15 @@ test('common-condition foundations keep established care and lifestyle sections 
   assert.equal(lada.status, 200)
   assert.equal(lada.body.status, 'ready')
   assert.ok(lada.body.sources.some((source) => source.establishedCare === true && source.treatmentName === 'Insulin therapy'))
+  assert.equal(lada.body.curatedDiscussionLeads.length, 6)
+  assert.ok(lada.body.curatedDiscussionLeads.some((idea) => idea.title === 'GAD-alum immune therapy'))
+  assert.ok(lada.body.sources.some((source) => source.id === 'lada-dulaglutide-posthoc-2018'
+    && source.url === 'https://pubmed.ncbi.nlm.nih.gov/29377522/'))
+  assert.ok(lada.body.excludedTreatments.some((item) => item.title === 'Sulfonylureas for LADA'))
   assert.equal(lada.body.curatedLifestyleIdeas.length, 3)
   assert.ok(lada.body.review.briefing.sourceIds.includes('lada-expert-consensus-overview'))
+  assert.equal(lada.body.review.theoryIdeas.length, 10)
+  assert.ok(lada.body.review.theoryIdeas.some((idea) => /Anti-CD3/i.test(idea.title)))
+  assert.ok(lada.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.every((item) =>
+    !/\b(?:research|study|platform|pathway|target|treatment|therapy|drug class|question|trial)\b/i.test(item))))
 })
