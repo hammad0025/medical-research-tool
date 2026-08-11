@@ -2157,6 +2157,10 @@ const fetchTrialStudies = async ({ parameter, term }) => {
   return Array.isArray(data.studies) ? data.studies : []
 }
 
+const isUsableCurrentTrialStudy = (study, condition, geneticVariant) => study?.protocolSection?.designModule?.studyType === 'INTERVENTIONAL'
+  && CURRENT_INTERVENTIONAL_STATUSES.has(cleanText(study?.protocolSection?.statusModule?.overallStatus, 80).toUpperCase())
+  && trialMatchesRequestedCondition(study, condition, geneticVariant)
+
 const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
   const searchTerms = trialSearchTerms(condition, geneticVariant)
   const responses = await Promise.allSettled(searchTerms.map((term) => fetchTrialStudies(term)))
@@ -2171,7 +2175,8 @@ const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
   // A broad condition search can fill the result cap before a rare subtype
   // appears. Retry the narrow variant routes when no matching record came
   // back, rather than silently presenting only broad-condition studies.
-  if (variant && !retrievedStudies.some((study) => studyMatchesGeneticVariant(study, variant))) {
+  if (variant && !retrievedStudies.some((study) => isUsableCurrentTrialStudy(study, condition, geneticVariant)
+    && studyMatchesGeneticVariant(study, variant))) {
     for (const parameter of ['query.cond', 'query.term']) {
       try {
         const variantStudies = await fetchTrialStudies({ parameter, term: variant })
@@ -2185,9 +2190,7 @@ const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
 
   const seenIds = new Set()
   const studies = retrievedStudies
-    .filter((study) => study?.protocolSection?.designModule?.studyType === 'INTERVENTIONAL')
-    .filter((study) => CURRENT_INTERVENTIONAL_STATUSES.has(cleanText(study?.protocolSection?.statusModule?.overallStatus, 80).toUpperCase()))
-    .filter((study) => trialMatchesRequestedCondition(study, condition, geneticVariant))
+    .filter((study) => isUsableCurrentTrialStudy(study, condition, geneticVariant))
     .filter((study) => {
       const nctId = cleanText(study?.protocolSection?.identificationModule?.nctId, 30)
       if (!nctId || seenIds.has(nctId)) return false
