@@ -72,6 +72,7 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /isMismatchedNamedGeneProgram/)
   assert.match(appSource, /Matches entered gene or subtype/)
   assert.match(appSource, /sourceNeedsSpecialistReview/)
+  assert.doesNotMatch(appSource, /idea\?\.summary \|\| ''\} \$\{idea\?\.caution/)
   assert.doesNotMatch(appSource, /quality of life\|low vision/)
   assert.doesNotMatch(appSource, /lifestyleVerificationLinks/)
   assert.doesNotMatch(appSource, /theoryVerificationLinks/)
