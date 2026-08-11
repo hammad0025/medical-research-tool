@@ -4444,9 +4444,16 @@ const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
   const condition = cleanText(packet?.patient?.condition, 120) || 'this condition'
   const sources = Array.isArray(packet?.sources) ? packet.sources : []
   const trials = Array.isArray(packet?.trials) ? packet.trials : []
+  // A word in an abstract is not enough to prove that a mechanism was tested
+  // as a treatment. Reserve theory cards only against named, role-checked
+  // treatment candidates and actual trial interventions.
   const candidateEvidenceText = [
-    ...sources.map((source) => `${source?.title || ''} ${source?.summary || ''}`),
-    ...trials.map((trial) => `${trial?.title || ''} ${(trial?.interventions || []).join(' ')} ${trial?.summary || ''}`),
+    ...sources.flatMap((source) => [
+      source?.treatmentName,
+      ...(source?.candidateLeads || []).filter((candidate) => candidate?.roleVerified === true).map((candidate) => candidate?.name),
+    ]),
+    ...trials.flatMap(therapeuticTrialCandidateNames),
+    ...(Array.isArray(reviewedIdeas) ? reviewedIdeas.flatMap((idea) => [idea?.title, ...(idea?.potentialInterventions || [])]) : []),
   ].join(' ')
   const backgroundSourceIds = [
     ...sources.filter((source) => source?.conditionOverview || /guideline|systematic review|meta-analysis/i.test(source?.type || '')).map((source) => source.id),
