@@ -1177,6 +1177,21 @@ test('common-condition foundations keep established care and lifestyle sections 
   assert.ok(crohnLabels.includes('Ustekinumab (Stelara and biosimilars)'))
   assert.ok(crohnLabels.includes('Upadacitinib (Rinvoq)'))
   assert.ok(crohnLabels.length >= 6)
+  assert.equal(crohn.body.curatedDiscussionLeads.length, 3)
+  assert.deepEqual(
+    crohn.body.curatedDiscussionLeads.map((idea) => idea.title),
+    [
+      'Low-dose naltrexone',
+      'Tacrolimus for Crohn fistulas',
+      'Hyperbaric oxygen for treatment-resistant perianal fistulas',
+    ],
+  )
+  assert.ok(crohn.body.sources.some((source) => source.id === 'crohn-ldn-rct-2011'
+    && source.url === 'https://pubmed.ncbi.nlm.nih.gov/21380937/'))
+  assert.ok(crohn.body.sources.some((source) => source.id === 'crohn-tacrolimus-fistula-rct-2003'
+    && source.candidateLeads?.[0]?.roleVerified === true))
+  assert.ok(crohn.body.sources.some((source) => source.id === 'crohn-hbot-fistula-pilot-2022'
+    && source.candidateLeads?.[0]?.roleVerified === true))
   assert.equal(crohn.body.curatedLifestyleIdeas.length, 3)
   assert.ok(crohn.body.review.briefing.sourceIds.includes('crohn-niddk-overview'))
   assert.equal(crohn.body.review.theoryIdeas.length, 10)
