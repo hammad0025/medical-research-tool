@@ -595,6 +595,15 @@ const conditionFoundationLifestyleIdeas = (condition) => {
   ]
 }
 
+const conditionFoundationTrialIds = (condition, geneticVariant) => {
+  const conditionText = cleanText(condition, 120)
+  const variantText = `${conditionText} ${cleanText(geneticVariant, 120)}`
+  if (/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(conditionText) && /\bUSH2A\b/i.test(variantText)) {
+    return ['NCT06627179']
+  }
+  return []
+}
+
 const conditionFoundationExcludedTreatments = (condition) => {
   if (!/\b(?:retinitis pigmentosa|\brp\b)\b/i.test(cleanText(condition, 120))) return []
 
@@ -2157,20 +2166,40 @@ const fetchTrialStudies = async ({ parameter, term }) => {
   return Array.isArray(data.studies) ? data.studies : []
 }
 
+const fetchTrialStudyById = async (nctId) => {
+  const url = new URL(`${CLINICAL_TRIALS_URL}/${encodeURIComponent(nctId)}`)
+  url.searchParams.set('format', 'json')
+  const response = await fetchWithTimeout(url, {}, 15_000)
+  if (!response.ok) throw new Error(`ClinicalTrials.gov returned ${response.status} for ${nctId}.`)
+  const data = await response.json()
+  if (data?.protocolSection) return data
+  if (data?.study?.protocolSection) return data.study
+  throw new Error(`ClinicalTrials.gov did not return a study record for ${nctId}.`)
+}
+
 const isUsableCurrentTrialStudy = (study, condition, geneticVariant) => study?.protocolSection?.designModule?.studyType === 'INTERVENTIONAL'
   && CURRENT_INTERVENTIONAL_STATUSES.has(cleanText(study?.protocolSection?.statusModule?.overallStatus, 80).toUpperCase())
   && trialMatchesRequestedCondition(study, condition, geneticVariant)
 
 const fetchTrials = async (condition, locationHint, geneticVariant = '') => {
   const searchTerms = trialSearchTerms(condition, geneticVariant)
-  const responses = await Promise.allSettled(searchTerms.map((term) => fetchTrialStudies(term)))
+  const foundationTrialIds = conditionFoundationTrialIds(condition, geneticVariant)
+  const [responses, foundationResponses] = await Promise.all([
+    Promise.allSettled(searchTerms.map((term) => fetchTrialStudies(term))),
+    Promise.allSettled(foundationTrialIds.map((nctId) => fetchTrialStudyById(nctId))),
+  ])
   const successfulResponses = responses.filter((result) => result.status === 'fulfilled')
-  if (!successfulResponses.length) {
+  const successfulFoundationResponses = foundationResponses.filter((result) => result.status === 'fulfilled')
+  if (!successfulResponses.length && !successfulFoundationResponses.length) {
     const failure = responses.find((result) => result.status === 'rejected')
+      || foundationResponses.find((result) => result.status === 'rejected')
     throw failure?.reason || new Error('ClinicalTrials.gov did not return a usable response.')
   }
 
-  let retrievedStudies = successfulResponses.flatMap((result) => result.value)
+  let retrievedStudies = [
+    ...successfulFoundationResponses.map((result) => result.value),
+    ...successfulResponses.flatMap((result) => result.value),
+  ]
   const variant = cleanText(geneticVariant, 120).match(/\b[A-Za-z0-9-]{3,}\b/)?.[0] || conditionVariantToken(condition)
   // A broad condition search can fill the result cap before a rare subtype
   // appears. Retry the narrow variant routes when no matching record came
