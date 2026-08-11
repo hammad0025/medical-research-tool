@@ -143,6 +143,14 @@ const ush2aTrial = {
   },
 }
 
+const oldUsh2aTrial = {
+  protocolSection: {
+    ...ush2aTrial.protocolSection,
+    identificationModule: { nctId: 'NCT05158296', briefTitle: 'Earlier Ultevursen Study for RP Due to USH2A Exon 13 Mutations' },
+    statusModule: { overallStatus: 'COMPLETED' },
+  },
+}
+
 const directCellTrial = {
   protocolSection: {
     identificationModule: {
@@ -356,9 +364,10 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, directCellStudy = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, directCellStudy = false, delayedVariantTrial = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
+  let variantQueryCount = 0
 
   return {
     pubMedTerms,
@@ -420,9 +429,11 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         const trialUrl = new URL(url)
         clinicalTrialQueries.push(trialUrl)
         const queryText = `${trialUrl.searchParams.get('query.cond') || ''} ${trialUrl.searchParams.get('query.term') || ''}`
-        return jsonResponse({ studies: /USH2A/i.test(queryText)
-          ? [ush2aTrial]
-          : [trial, unrelatedStemCellTrial, ...(directCellStudy ? [directCellTrial] : [])] })
+        if (/USH2A/i.test(queryText)) {
+          variantQueryCount += 1
+          return jsonResponse({ studies: delayedVariantTrial && variantQueryCount <= 2 ? [oldUsh2aTrial] : [ush2aTrial] })
+        }
+        return jsonResponse({ studies: [trial, unrelatedStemCellTrial, ...(directCellStudy ? [directCellTrial] : [])] })
       }
       if (url.includes('api.crossref.org/works')) {
         if (failEvidence) throw new Error('Crossref is unavailable')
@@ -573,7 +584,7 @@ const withMockedFetch = async (mockFetch, run) => {
 }
 
 test('RP expands to retinitis pigmentosa and returns a source-gated report', { concurrency: false }, async () => {
-  const mock = createMockFetch()
+  const mock = createMockFetch({ delayedVariantTrial: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes({ ...env, PERPLEXITY_API_KEY: '' }).get('/api/research-run'),
     'POST',
@@ -589,6 +600,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
     return /AREA\[ConditionSearch\]/.test(term) && /USH2A/i.test(term)
   }))
   assert.ok(mock.clinicalTrialQueries.some((url) => url.searchParams.get('query.cond') === 'USH2A'))
+  assert.ok(mock.clinicalTrialQueries.filter((url) => /USH2A/i.test(`${url.searchParams.get('query.cond') || ''} ${url.searchParams.get('query.term') || ''}`)).length > 2)
   for (const laneId of ['crossref', 'semantic-scholar', 'nih-reporter']) {
     assert.equal(response.body.sourceCoverage.find((lane) => lane.id === laneId)?.status, 'ready')
   }
