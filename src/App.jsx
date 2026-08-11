@@ -283,17 +283,7 @@ const addDistinctTreatmentIdea = (ideas, nextIdea) => {
   return false
 }
 
-const researchGeneFromText = (text) => {
-  const matches = [
-    text.match(/\b([A-Z][A-Z0-9-]{2,12})[- ]associated\b/),
-    text.match(/\b(?:mutation|variant|variants?)\s+(?:in|of)\s+([A-Z][A-Z0-9-]{2,12})\b/i),
-    text.match(/\b(?:caused by|due to)\s+(?:a\s+)?(?:mutation|variant)\s+(?:in\s+)?([A-Z][A-Z0-9-]{2,12})\b/i),
-  ]
-  return matches.map((match) => match?.[1]).find(Boolean) || ''
-}
-
 const sourceTreatmentCandidates = (source) => {
-  const text = `${source?.title || ''} ${source?.summary || ''}`
   const candidates = []
   const add = (title, category) => {
     const cleanTitle = cleanTreatmentDisplayName(title)
@@ -302,10 +292,11 @@ const sourceTreatmentCandidates = (source) => {
       candidates.push({ title: cleanTitle, category })
     }
   }
-  const gene = researchGeneFromText(text)
-  const aav = text.match(/\b(?:r?AAV[\w.-]+)(?:\s*\([^)]{2,90}\))?/i)?.[0]
 
   for (const candidate of source?.candidateLeads || []) {
+    // A candidate name is not enough. The server only marks this after a
+    // separate source-role review confirms it is for the requested condition.
+    if (candidate?.roleVerified !== true) continue
     const category = String(candidate?.category || '').toLowerCase()
     const displayCategory = /supplement|food|nutrition/i.test(category)
       ? 'Supplement or food research'
@@ -318,17 +309,6 @@ const sourceTreatmentCandidates = (source) => {
             : 'Treatment research'
     add(candidate?.name, displayCategory)
   }
-
-  if (aav) add(aav, 'Gene therapy research')
-  if (/\bantisense oligonucleotide\b/i.test(text)) add(gene ? `${gene} antisense oligonucleotide` : 'Antisense oligonucleotide', 'RNA treatment research')
-  if (/\b(?:gene therapy|gene editing)\b/i.test(text)) add(gene ? `${gene} gene therapy` : 'Gene therapy', 'Gene therapy research')
-  if (/\boptogenetic/i.test(text)) add('Optogenetic therapy', 'Gene or device research')
-  if (/\b(?:stem cell|cell therapy|extracellular vesicle|exosome)\b/i.test(text)) add('Cell or extracellular-vesicle research', 'Cell or exosome research')
-  if (/\bN-?acetylcysteine\b|\bNAC\b/i.test(text)) add('N-acetylcysteine', 'Drug research')
-  if (/\bcataract surgery\b/i.test(text)) add('Cataract surgery', 'Procedure research')
-  if (/\b(?:retinal implant|retinal prosthe)\b/i.test(text)) add('Retinal implant research', 'Device research')
-  if (/\bvitamin\s+A\b/i.test(text)) add('Vitamin A', 'Supplement research')
-  if (/\b(?:fish oil|omega[- ]?3)\b/i.test(text)) add('Fish oil or omega-3', 'Supplement research')
 
   return candidates
 }

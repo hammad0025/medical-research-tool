@@ -1860,7 +1860,7 @@ Return strict JSON only:
 
 const practicalPacketCandidateExtractorSystemPrompt = `You are Practical Packet Candidate Extractor in a medical-research product. Extract names only from the supplied source packet. You are not allowed to use outside knowledge or invent a treatment.
 
-Find up to 20 specific, patient-discussible interventions that are explicitly named in a source title or abstract. Focus on exact medicines, supplements or foods, named procedures, rehabilitation, adaptive support, and symptom-care treatments. Do not return gene therapy, RNA, cell therapy, exosomes, implants, study products, trial IDs, or other trial-only programs. Do not return broad classes such as "antioxidants," "vitamins," "inhibitors," "supplements," "carotenoids," or "supportive care." Use the exact intervention name or a faithful shorter name that still appears in the cited record. Do not return tests, scans, biomarkers, questionnaires, monitoring steps, a person, a center, a disease name, or a paper title. Do not add doses, benefit claims, safety claims, access claims, or advice.
+Find up to 20 specific, patient-discussible interventions that are explicitly named in a source title or abstract. Focus on exact medicines, supplements or foods, named procedures, rehabilitation, adaptive support, and symptom-care treatments. A name belongs in the list only when the record uses or studies it for the requested condition itself, or for a clearly stated complication or symptom caused by that condition. Do not return a medicine used for a separate diagnosis or comorbidity, a procedure step, a premedication, background medicine, adverse-event medicine, transplant regimen, or unrelated study arm. If the relationship is unclear, leave it out. Do not return gene therapy, RNA, cell therapy, exosomes, implants, study products, trial IDs, or other trial-only programs. Do not return broad classes such as "antioxidants," "vitamins," "inhibitors," "supplements," "carotenoids," or "supportive care." Use the exact intervention name or a faithful shorter name that still appears in the cited record. Do not return tests, scans, biomarkers, questionnaires, monitoring steps, a person, a center, a disease name, or a paper title. Do not add doses, benefit claims, safety claims, access claims, or advice.
 
 Every candidate must cite one or more exact sourceIds where its name appears. A candidate is discarded if its name is not present in that cited record.
 
@@ -1868,6 +1868,26 @@ Return strict JSON only:
 {
   "candidates": [
     {"name": "exact named patient-discussible intervention", "searchNames": ["exact name or alias from the record"], "category": "medicine, supplement or food, procedure or rehabilitation, or other", "sourceIds": ["exact source id"]}
+  ]
+}`
+
+const candidateRelationReviewerSystemPrompt = `You are Candidate Relation Reviewer, the independent safety check for named treatment cards in a medical-research product. You receive a condition and small source records that mention both the condition and a candidate.
+
+For every record and candidate pair, decide whether the record clearly connects that exact candidate to treatment, study, rehabilitation, adaptive support, or symptom care for the requested condition. A word match is not enough. A paper can mention a disease and a medicine because the person also had another diagnosis.
+
+Approve only when the supplied title or abstract directly supports one of these relationships:
+- "direct-condition-treatment": the candidate is used or studied for the requested condition.
+- "condition-complication-care": the candidate is used for a clearly stated complication or symptom of the requested condition.
+- "condition-support": the candidate is a rehabilitation, adaptive support, or named procedure for people with the requested condition.
+
+Reject when the candidate is for a different illness or comorbidity, a background medicine, a premedication, a procedure detail, a transplant regimen, an adverse-event treatment, a test, a scan, a biomarker, or when the relationship is not clear from the supplied text. Do not use outside knowledge. Do not guess from a shared disease mention. If a record is a case report with multiple diagnoses, be especially strict: approve only if the text explicitly ties the candidate to the requested condition or its stated complication.
+
+For each approved decision, copy a short exact phrase from the supplied title or abstract that shows the relationship. Keep it under 180 characters. Do not add medical advice, benefit claims, or new facts.
+
+Return strict JSON only:
+{
+  "decisions": [
+    {"recordId": "exact record id", "candidate": "exact candidate name", "decision": "approve" | "reject", "relationship": "direct-condition-treatment" | "condition-complication-care" | "condition-support", "evidence": "exact short phrase from the supplied record"}
   ]
 }`
 
@@ -1904,6 +1924,119 @@ const attachPacketCandidates = (records, candidates) => (records || []).map((rec
     .filter((candidate, index, list) => candidate?.name && list.findIndex((entry) => candidateKey(entry.name) === candidateKey(candidate.name)) === index)
   return { ...record, candidateLeads }
 })
+
+const candidateRelationKey = (recordId, candidate) => `${cleanText(recordId, 120).toLowerCase()}::${candidateKey(candidate)}`
+
+const candidateRelationshipTypes = new Set([
+  'direct-condition-treatment',
+  'condition-complication-care',
+  'condition-support',
+])
+
+const candidateClaimsForRelationReview = (records) => {
+  const seen = new Set()
+  const claims = []
+
+  for (const record of records || []) {
+    if (!record?.id) continue
+    for (const candidate of Array.isArray(record?.candidateLeads) ? record.candidateLeads : []) {
+      const name = cleanCandidateName(candidate?.name)
+      const key = candidateRelationKey(record.id, name)
+      if (!name || seen.has(key) || !recordMentionsCandidate(record, candidate)) continue
+      seen.add(key)
+      claims.push({
+        recordId: record.id,
+        candidate: name,
+        category: cleanText(candidate?.category, 80) || 'Treatment research',
+        title: cleanText(record.title, 320),
+        summary: cleanText(record.summary, 720),
+        interventions: Array.isArray(record.interventions) ? record.interventions.slice(0, 8) : [],
+      })
+    }
+  }
+
+  return claims.slice(0, 48)
+}
+
+const relationEvidenceAppearsInClaim = (evidence, claim) => {
+  const phrase = normalizedEvidenceText(evidence)
+  const sourceText = normalizedEvidenceText(`${claim?.title || ''} ${claim?.summary || ''} ${(claim?.interventions || []).join(' ')}`)
+  const candidateText = candidateSearchText(claim?.candidate)
+  return phrase.length >= 8
+    && candidateText.length >= 3
+    && ` ${sourceText} `.includes(` ${phrase} `)
+    && ` ${phrase} `.includes(` ${candidateText} `)
+}
+
+const normalizeCandidateRelationReview = (draft, claims) => {
+  const claimByKey = new Map((claims || []).map((claim) => [candidateRelationKey(claim.recordId, claim.candidate), claim]))
+  const decisions = []
+  const seen = new Set()
+
+  for (const rawDecision of Array.isArray(draft?.decisions) ? draft.decisions : []) {
+    const recordId = cleanText(rawDecision?.recordId, 120)
+    const candidate = cleanCandidateName(rawDecision?.candidate)
+    const key = candidateRelationKey(recordId, candidate)
+    const claim = claimByKey.get(key)
+    const relationship = cleanText(rawDecision?.relationship, 80).toLowerCase()
+    const evidence = cleanText(rawDecision?.evidence, 180)
+    if (!claim || seen.has(key) || cleanText(rawDecision?.decision, 30).toLowerCase() !== 'approve') continue
+    if (!candidateRelationshipTypes.has(relationship) || !evidence || !relationEvidenceAppearsInClaim(evidence, claim)) continue
+    seen.add(key)
+    decisions.push({ recordId, candidate, relationship, evidence })
+  }
+
+  return decisions
+}
+
+const reviewCandidateRelationships = async ({ patient, records }, env) => {
+  const claims = candidateClaimsForRelationReview(records)
+  if (!claims.length) return { status: 'not-run', decisions: [], detail: 'No named candidate-source pairs needed a relation review.' }
+
+  const request = {
+    system: candidateRelationReviewerSystemPrompt,
+    user: JSON.stringify({
+      condition: cleanText(patient?.condition, 120),
+      records: claims,
+    }),
+    env,
+    maxTokens: 2_400,
+  }
+
+  // This is intentionally a fresh reviewer pass. The primary packet extractor
+  // prefers Anthropic; OpenAI is used first here so one model checks the other.
+  let response = await callOpenAi({ ...request, models: openAiReviewerModels(env) })
+  if (!response.ok) response = await callAnthropic(request)
+  if (!response.ok) return { status: response.code || 'unavailable', decisions: [], detail: response.message, provider: '', model: '' }
+
+  const decisions = normalizeCandidateRelationReview(extractJson(response.text), claims)
+  return {
+    status: 'ready',
+    decisions,
+    provider: response.provider || '',
+    model: response.model || '',
+    detail: decisions.length
+      ? `${decisions.length} named candidate-source link${decisions.length === 1 ? '' : 's'} passed an independent condition-role check.`
+      : 'No named candidate was released unless a second AI pass found a direct condition relationship in the linked source text.',
+  }
+}
+
+const applyCandidateRelationshipReview = (records, relationReview) => {
+  const decisions = new Map((relationReview?.decisions || []).map((decision) => [candidateRelationKey(decision.recordId, decision.candidate), decision]))
+  return (records || []).map((record) => {
+    const candidateLeads = (Array.isArray(record?.candidateLeads) ? record.candidateLeads : [])
+      .map((candidate) => {
+        const decision = decisions.get(candidateRelationKey(record?.id, candidate?.name))
+        return decision
+          ? { ...candidate, roleVerified: true, relationship: decision.relationship, relationEvidence: decision.evidence }
+          : null
+      })
+      .filter(Boolean)
+    if (candidateLeads.length) return { ...record, candidateLeads }
+    const { candidateLeads: _discardedCandidateLeads, ...withoutCandidates } = record || {}
+    return withoutCandidates
+  })
+}
 
 const extractPacketCandidates = async ({ patient, sources, trials }, env, {
   system = packetCandidateExtractorSystemPrompt,
@@ -3250,15 +3383,24 @@ const runResearch = async (body, env) => {
   )
   const sourceRecordsWithCandidates = attachPacketCandidates(bundle.sources, packetCandidates)
   const trialRecordsWithCandidates = attachPacketCandidates(trialData.trials, packetCandidates)
-  const sourceCandidateLeadCount = sourceRecordsWithCandidates
+  const candidateRelationReview = await reviewCandidateRelationships({
+    patient,
+    records: [...sourceRecordsWithCandidates, ...candidateSources, ...trialRecordsWithCandidates],
+  }, env)
+  const verifiedSourceRecords = applyCandidateRelationshipReview(sourceRecordsWithCandidates, candidateRelationReview)
+  const verifiedCandidateSources = applyCandidateRelationshipReview(candidateSources, candidateRelationReview)
+  const verifiedTrialRecords = applyCandidateRelationshipReview(trialRecordsWithCandidates, candidateRelationReview)
+  const sourceCandidateLeadCount = verifiedSourceRecords
     .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
-  const candidateSourceLeadCount = candidateSources
+  const candidateSourceLeadCount = verifiedCandidateSources
     .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
-  const candidateVerificationAvailable = candidateEvidenceResult.status === 'fulfilled'
-    && (packetCandidateResult.status === 'fulfilled' || practicalPacketCandidateResult.status === 'fulfilled')
+  const candidateExtractionAvailable = packetCandidateResult.status === 'fulfilled'
+    || practicalPacketCandidateResult.status === 'fulfilled'
+  const candidateVerificationAvailable = candidateExtractionAvailable
+    && ['ready', 'not-run'].includes(candidateRelationReview.status)
   const enrichedBundle = {
     ...bundle,
-    sources: dedupeEvidenceSources([sourceRecordsWithCandidates, candidateSources], 24),
+    sources: dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources], 24),
     sourceCoverage: [
       ...(bundle.sourceCoverage || []),
       ...(candidateEvidence.coverage || []),
@@ -3269,16 +3411,16 @@ const runResearch = async (body, env) => {
         status: candidateVerificationAvailable ? 'ready' : 'unavailable',
         records: sourceCandidateLeadCount + candidateSourceLeadCount,
         detail: sourceCandidateLeadCount
-          ? `${sourceCandidateLeadCount} named treatment lead${sourceCandidateLeadCount === 1 ? '' : 's'} was read from retrieved records and matched back to exact source text.${candidateSourceLeadCount ? ` ${candidateSourceLeadCount} additional candidate lead${candidateSourceLeadCount === 1 ? '' : 's'} also passed an exact condition-plus-candidate check.` : ''}`
+          ? `${sourceCandidateLeadCount} named treatment lead${sourceCandidateLeadCount === 1 ? '' : 's'} was matched to exact source text and passed a direct condition-role check.${candidateSourceLeadCount ? ` ${candidateSourceLeadCount} additional candidate lead${candidateSourceLeadCount === 1 ? '' : 's'} also passed an exact condition-and-candidate search.` : ''}`
           : candidateSourceLeadCount
-            ? `${candidateSourceLeadCount} candidate-linked lead${candidateSourceLeadCount === 1 ? '' : 's'} passed an exact condition and candidate gate.`
+            ? `${candidateSourceLeadCount} candidate-linked lead${candidateSourceLeadCount === 1 ? '' : 's'} passed an exact condition, candidate, and role check.`
             : scout.candidates?.length
-              ? 'Candidate names were checked across the available literature sources, but no matching record passed both the condition and candidate gate.'
-              : practicalPacketCandidateExtraction.detail || packetCandidateExtraction.detail || scout.detail || 'No unverified candidate was added to the report.',
+              ? 'Candidate names were checked across the available literature sources, but none had a clear treatment relationship to this condition in the retrieved text.'
+              : candidateRelationReview.detail || practicalPacketCandidateExtraction.detail || packetCandidateExtraction.detail || scout.detail || 'No unverified candidate was added to the report.',
       },
     ],
   }
-  const packet = createPacket({ patient, bundle: enrichedBundle, trials: trialRecordsWithCandidates, sites: trialData.sites, researchers: trialData.researchers })
+  const packet = createPacket({ patient, bundle: enrichedBundle, trials: verifiedTrialRecords, sites: trialData.sites, researchers: trialData.researchers })
   const agentsPromise = packet.sources.length || packet.trials.length
     ? runDualAgentReview({ packet, env })
     : Promise.resolve({
