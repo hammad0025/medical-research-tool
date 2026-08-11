@@ -46,6 +46,17 @@ export const citationsForClaim = ({ result, sourceIds, condition, searchTerms, v
   return citations.length || !verifyWhenEmpty ? citations : verificationLinks({ condition, searchTerms })
 }
 
+// Direct source IDs support a claim more precisely than a related trial record.
+export const citationsForItem = ({ result, sourceIds, trials, condition, searchTerms, verifyWhenEmpty = false } = {}) => {
+  const directCitations = citationsFor(result, sourceIds)
+  if (directCitations.length) return directCitations
+
+  const trialCitations = uniqueByUrl((Array.isArray(trials) ? trials : []).filter((trial) => trial?.url))
+  if (trialCitations.length) return trialCitations
+
+  return citationsForClaim({ result, sourceIds, condition, searchTerms, verifyWhenEmpty })
+}
+
 export const citationText = (citations, label = 'Sources') => {
   const entries = uniqueByUrl(Array.isArray(citations) ? citations : [])
   if (!entries.length) return ''
