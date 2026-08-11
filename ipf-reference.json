@@ -708,6 +708,48 @@
           "quote": "In a bleomycin model of lung fibrosis in mice, metformin therapeutically accelerates the resolution of well-established fibrosis in an AMPK-dependent manner."
         }
       ]
+    },
+    {
+      "id": "ipf-bosentan-build3-2011",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "BUILD-3: a randomized, controlled trial of bosentan in idiopathic pulmonary fibrosis",
+      "authors": "King TE Jr, Brown KK, Raghu G, et al.",
+      "journal": "American Journal of Respiratory and Critical Care Medicine",
+      "year": 2011,
+      "doi": "10.1164/rccm.201011-1874OC",
+      "pmid": "21474646",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/21474646/",
+      "accessLevel": "abstract",
+      "summary": "In the randomized BUILD-3 trial, bosentan did not significantly delay IPF worsening or death and did not improve breathlessness or quality of life. The trial did not meet its primary objective."
+    },
+    {
+      "id": "ipf-sildenafil-phase2b-negative-2021",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "Sildenafil added to pirfenidone in advanced idiopathic pulmonary fibrosis and risk of pulmonary hypertension",
+      "authors": "Behr J, Nathan SD, Wuyts WA, et al.",
+      "journal": "The Lancet Respiratory Medicine",
+      "year": 2021,
+      "doi": "10.1016/S2213-2600(20)30356-8",
+      "pmid": "32822614",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/32822614/",
+      "accessLevel": "abstract",
+      "summary": "In this randomized phase 2b study, adding sildenafil to pirfenidone did not improve disease progression over 52 weeks in the overall study population. The authors did not support it as an IPF treatment for that broad group."
+    },
+    {
+      "id": "ipf-interferon-gamma-negative-2004",
+      "category": "negative-trial",
+      "tier": "A",
+      "title": "A placebo-controlled trial of interferon gamma-1b in patients with idiopathic pulmonary fibrosis",
+      "authors": "Raghu G, Brown KK, Bradford WZ, et al.",
+      "journal": "The New England Journal of Medicine",
+      "year": 2004,
+      "doi": "10.1056/NEJMoa030511",
+      "pmid": "14711911",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/14711911/",
+      "accessLevel": "abstract",
+      "summary": "In a randomized placebo-controlled trial, interferon gamma-1b did not improve progression-free survival, lung function, gas exchange, or quality of life in people with IPF."
     }
   ],
   "canonicalFacts": [
@@ -1097,8 +1139,8 @@
       "category": "Regenerative research platform",
       "whyItCouldConnect": "Cell and extracellular-vesicle research is sometimes discussed for lung repair. The key question is whether a controlled academic study exists.",
       "potentialInterventions": [
-        "academic mesenchymal stromal cells",
-        "academic exosome products"
+        "mesenchymal stromal cells",
+        "exosome products"
       ],
       "accessRoute": "Only investigate legitimate academic studies with clear oversight. Private-pay clinics are not an evidence-based access route.",
       "whyNotEstablished": "The linked review did not show proven IPF benefit from cell products.",
@@ -1284,8 +1326,38 @@
     },
     {
       "name": "Offshore stem-cell therapy (clinics in China / Vietnam / Mexico / India)",
+      "aliases": [
+        "stem cell-based therapy",
+        "stem cell therapy",
+        "commercial exosome therapy"
+      ],
       "reason": "No peer-reviewed efficacy data for IPF. Multiple FDA warning letters. Patient-safety concern, not scientific integrity of the literature.",
       "evidenceRef": "ipf-stemcells-review-2020"
+    },
+    {
+      "name": "Bosentan for IPF",
+      "aliases": [
+        "bosentan"
+      ],
+      "reason": "The randomized BUILD-3 trial did not significantly delay IPF worsening or death and did not meet its primary objective.",
+      "evidenceRef": "ipf-bosentan-build3-2011"
+    },
+    {
+      "name": "Sildenafil added to antifibrotic treatment for IPF",
+      "aliases": [
+        "sildenafil"
+      ],
+      "reason": "A randomized phase 2b study did not find a treatment benefit from adding sildenafil to pirfenidone in the overall advanced-IPF study population.",
+      "evidenceRef": "ipf-sildenafil-phase2b-negative-2021"
+    },
+    {
+      "name": "Interferon gamma-1b for IPF",
+      "aliases": [
+        "interferon gamma-1b",
+        "IFN-gamma-1b"
+      ],
+      "reason": "A randomized placebo-controlled trial did not improve progression-free survival, lung function, gas exchange, or quality of life.",
+      "evidenceRef": "ipf-interferon-gamma-negative-2004"
     },
     {
       "name": "Metformin as an IPF antifibrotic",
