@@ -472,7 +472,9 @@ const isExplicitlyExcludedTreatment = (result, idea) => {
     const names = [excluded?.title, ...(excluded?.aliases || [])]
       .map(treatmentNameMatch)
       .filter((name) => name.length >= 3)
-    return names.some((name) => ideaName === name || ` ${ideaName} `.includes(` ${name} `))
+    return names.some((name) => ideaName === name
+      || ` ${ideaName} `.includes(` ${name} `)
+      || (ideaName.length >= 5 && ` ${name} `.includes(` ${ideaName} `)))
   })
 }
 
@@ -1315,7 +1317,7 @@ const sourceTextForIdea = (result, idea) => (idea?.sourceIds || [])
   .join(' ')
 
 const evidencePointsAway = (result, idea) => idea?.accessClass === 'evidence-points-away'
-  || /\b(?:worse|no (?:benefit|evidence)|did not (?:support|improve|show)|does not support|negative outcome|harmful)\b/i.test(`${idea?.summary || ''} ${idea?.caution || ''} ${sourceTextForIdea(result, idea)}`)
+  || /\b(?:worse|harm(?:ful|ed)?|failed|futility|stopped early|recommend(?:s|ed|ation)? against|no (?:benefit|evidence|effect|improvement|significant difference)|did not (?:support|improve|show|meet)|does not (?:support|improve|show|establish)|not (?:shown|proven|supported)|negative (?:outcome|result|trial)|missed (?:its |the )?primary endpoint)\b/i.test(`${idea?.summary || ''} ${idea?.caution || ''} ${sourceTextForIdea(result, idea)}`)
 
 const patientAccessForIdea = (result, idea) => {
   if (evidencePointsAway(result, idea)) {
@@ -1344,6 +1346,18 @@ const patientAccessForIdea = (result, idea) => {
       tone: 'neutral',
       label: 'Specialist review',
       detail: idea?.accessExplanation || 'This needs a specialist or pharmacist to review the evidence, safety, and fit.',
+    }
+  }
+  if (isResearchProgramIdea(idea)) {
+    const trial = idea?.trials?.[0]
+      || (result?.trials || []).find((entry) => (idea?.sourceIds || []).includes(entry.id))
+    const status = String(trial?.status || '').toUpperCase()
+    return {
+      tone: status === 'RECRUITING' ? 'safe' : 'neutral',
+      label: status === 'RECRUITING' ? 'Study may be enrolling' : 'Study access only',
+      detail: status === 'RECRUITING'
+        ? 'Open the linked study and ask its site whether it is still enrolling and whether the person may qualify.'
+        : 'This is not routine care. Ask a specialist whether a current study, future study, or formal expanded-access path exists.',
     }
   }
   if (isSupplementIdea(idea)) {
@@ -1462,8 +1476,8 @@ function ResearchIdeas({ condition, result }) {
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">1. Researched medicines, supplements, and procedures</p><p>These items appear in condition-specific research. A card does not prove approval or benefit. Some items may already be used for this condition, a symptom, or another purpose, so read the source and ask a clinician.</p></div>
-            <StatusPill tone={patientIdeas.length ? 'safe' : 'neutral'}>{patientIdeas.length ? 'Source-linked' : 'Carefully limited'}</StatusPill>
+            <div><p className="card-kicker">1. Researched medicines, supplements, procedures, and study programs</p><p>These items appear in condition-specific research. A card does not prove approval or benefit. Each card says whether the next step is regular care, specialist review, or study access.</p></div>
+            <StatusPill tone={patientIdeas.length ? 'safe' : 'neutral'}>{patientIdeas.length ? `${patientIdeas.length} source-linked` : 'Carefully limited'}</StatusPill>
           </div>
           {patientIdeas.length ? <PatientLeadCards condition={condition} result={result} ideas={patientIdeas} /> : <div className="research-idea-empty"><Icon name="shield" size={18} /><p>This lane includes only patient-discussible, condition-specific leads. Trial products, animal findings, and treatments with negative results stay in their own sections instead of being padded into this list.</p></div>}
         </section>
@@ -1537,7 +1551,8 @@ const isResearchProgramIdea = (idea) => idea?.accessClass !== 'prescription-or-l
 
 const patientDiscussionIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
-  return allTreatmentIdeasForReport(result, condition)
+  const allIdeas = allTreatmentIdeasForReport(result, condition)
+  const directDiscussionIdeas = allIdeas
     .filter((idea) => !isEstablishedTreatmentIdea(idea))
     .filter((idea) => !isResearchProgramIdea(idea))
     .filter((idea) => !isBroadTreatmentClass(idea))
@@ -1545,7 +1560,22 @@ const patientDiscussionIdeasForReport = (result, condition) => {
     .filter((idea) => !evidencePointsAway(result, idea))
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
     .filter((idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId)))
-    .slice(0, 10)
+  const seen = new Set(directDiscussionIdeas.map((idea) => treatmentIdeaKey(idea?.title)))
+  const studyAccessIdeas = allIdeas
+    .filter((idea) => isResearchProgramIdea(idea))
+    .filter((idea) => !isBroadTreatmentClass(idea))
+    .filter((idea) => isConcretePatientTreatmentTitle(idea?.title))
+    .filter((idea) => !evidencePointsAway(result, idea))
+    .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
+    .filter((idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId)))
+    .filter((idea) => {
+      const key = treatmentIdeaKey(idea?.title)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
+  return [...directDiscussionIdeas, ...studyAccessIdeas].slice(0, 10)
 }
 
 const researchProgramIdeasForReport = (result, condition) => allTreatmentIdeasForReport(result, condition)
@@ -2183,7 +2213,7 @@ const reportExportText = ({ form, report, result }) => {
     '4. Lifestyle changes worth discussing',
     lifestyleLines || 'Use the condition-specific lifestyle evidence searches to prepare questions for a clinician.',
     '',
-    '5. Researched medicines, supplements, and procedures',
+    '5. Researched medicines, supplements, procedures, and study programs',
     patientLeadLines || 'This lane stays separate from trial-only research. Use the approved-options and research-program sections to prepare the next discussion.',
     '',
     ...(earlyResearchLines ? ['', '6. Early animal and lab research worth watching', earlyResearchLines] : []),
