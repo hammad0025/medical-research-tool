@@ -32,6 +32,23 @@ const pubMedXml = `
   <PubmedData><ArticleIdList><ArticleId IdType="doi">10.1000/test-rp</ArticleId></ArticleIdList></PubmedData>
 </PubmedArticle>`
 
+const relatedPreclinicalPubMedXml = `
+<PubmedArticle>
+  <MedlineCitation>
+    <PMID>42321469</PMID>
+    <Article>
+      <Journal><Title>Nature Neuroscience</Title></Journal>
+      <ArticleTitle>A fatty acid amide activates myeloid cells and improves neurovascular outcomes in retinal degeneration</ArticleTitle>
+      <Abstract>
+        <AbstractText>Erucamide was dysregulated during photoreceptor degeneration in mice. In vivo delivery of erucamide limited vascular and neuronal degeneration in a retinal disease model. The authors propose erucamide and analogs as candidate therapeutics.</AbstractText>
+      </Abstract>
+      <PublicationTypeList><PublicationType>Journal Article</PublicationType></PublicationTypeList>
+      <JournalIssue><PubDate><Year>2026</Year></PubDate></JournalIssue>
+    </Article>
+  </MedlineCitation>
+  <PubmedData><ArticleIdList><ArticleId IdType="doi">10.1038/s41593-026-02341-w</ArticleId></ArticleIdList></PubmedData>
+</PubmedArticle>`
+
 const titleFallbackPubMedXml = `
 <PubmedArticle>
   <MedlineCitation>
@@ -247,7 +264,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false } = {}) => {
   const pubMedTerms = []
 
   return {
@@ -257,12 +274,18 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
 
       if (url.includes('/esearch.fcgi')) {
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
-        pubMedTerms.push(new URL(url).searchParams.get('term') || '')
+        const term = new URL(url).searchParams.get('term') || ''
+        pubMedTerms.push(term)
+        if (relatedPreclinical && /retinal degeneration/i.test(term)) {
+          return jsonResponse({ esearchresult: { idlist: ['42321469'] } })
+        }
         return jsonResponse({ esearchresult: { idlist: ['1001'] } })
       }
       if (url.includes('/efetch.fcgi')) {
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
-        return textResponse(titleFallback ? `${titleFallbackPubMedXml}${nonConditionComparisonPubMedXml}` : pubMedXml)
+        const ids = new URL(url).searchParams.get('id') || ''
+        const primaryXml = titleFallback ? `${titleFallbackPubMedXml}${nonConditionComparisonPubMedXml}` : pubMedXml
+        return textResponse(relatedPreclinical && ids.includes('42321469') ? `${primaryXml}${relatedPreclinicalPubMedXml}` : primaryXml)
       }
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
@@ -331,8 +354,16 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           })
           return jsonResponse({ status: 'completed', output_text: JSON.stringify({ decisions }) })
         }
+        const packetCandidateOutput = String(request.input || '').includes('erucamide')
+          ? {
+            candidates: [
+              ...packetCandidateDraft.candidates,
+              { name: 'erucamide', category: 'early animal or lab research', sourceIds: ['pmid-42321469'] },
+            ],
+          }
+          : packetCandidateDraft
         const output = request.instructions.includes('Packet Candidate Extractor')
-          ? packetCandidateDraft
+          ? packetCandidateOutput
           : request.instructions.includes('Candidate Scout')
             ? candidateScoutDraft
           : request.instructions.includes('Research Connections Agent') || request.instructions.includes('second safety pass')
@@ -434,6 +465,28 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.exploration, null)
   assert.equal(response.body.review.mode, 'dual-agent')
   assert.equal(response.body.review.independent, false)
+})
+
+test('a related retinal model finding stays in a clearly marked early-research lane', { concurrency: false }, async () => {
+  const mock = createMockFetch({ relatedPreclinical: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.ok(mock.pubMedTerms.some((term) => /retinal degeneration/i.test(term)))
+  const source = response.body.sources.find((item) => item.id === 'pmid-42321469')
+  assert.ok(source, JSON.stringify(response.body.sources))
+  assert.equal(source.conditionScope, 'related-preclinical')
+  assert.match(source.relatedConditionContext, /not a study in people/i)
+  const erucamide = source.candidateLeads?.find((candidate) => candidate.name === 'erucamide')
+  assert.ok(erucamide, JSON.stringify(source))
+  assert.equal(erucamide.relationship, 'condition-family-preclinical')
+  assert.equal(erucamide.roleVerified, true)
+  assert.equal(erucamide.sourceEarlyResearchDerived, true)
+  assert.ok(!response.body.review.treatmentIdeas.some((idea) => /erucamide/i.test(idea.title)))
 })
 
 test('the curated IPF source pack exposes its overview and FDA-labeled medicines', { concurrency: false }, async () => {

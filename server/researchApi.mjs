@@ -447,7 +447,20 @@ const normalizedEvidenceText = (value) => cleanText(value, 2_400)
 // and two-letter acronyms are not accepted as standalone source matches.
 const CONDITION_SEARCH_GROUPS = [
   { canonical: 'Idiopathic Pulmonary Fibrosis', aliases: ['IPF', 'Idiopathic Pulmonary Fibrosis'], matchAliases: ['IPF'] },
-  { canonical: 'Retinitis Pigmentosa', aliases: ['RP', 'Retinitis Pigmentosa'] },
+  {
+    canonical: 'Retinitis Pigmentosa',
+    aliases: ['RP', 'Retinitis Pigmentosa'],
+    // Exact-condition records remain the main report source. This small,
+    // data-driven family map creates a separate early-research lane for a
+    // clearly related disease model. It does not turn a model finding into an
+    // RP treatment claim, and can be extended for other condition families.
+    relatedPreclinicalResearch: {
+      searchPhrase: 'retinal degeneration',
+      matchingPhrases: ['retinal degeneration', 'inherited retinal degeneration', 'photoreceptor degeneration'],
+      label: 'related retinal-degeneration models',
+      context: 'Retinitis pigmentosa is an inherited retinal disease. This source is from a related retinal-degeneration model, not a study in people with retinitis pigmentosa.',
+    },
+  },
   { canonical: 'Multiple Sclerosis', aliases: ['MS', 'Multiple Sclerosis'] },
   { canonical: 'Latent Autoimmune Diabetes in Adults', aliases: ['LADA', 'Latent Autoimmune Diabetes in Adults'], matchAliases: ['LADA'] },
   { canonical: "Crohn's Disease", aliases: ["Crohn's Disease", 'Crohn Disease', "Crohn's"] },
@@ -492,6 +505,8 @@ const conditionEvidenceTerms = (condition) => {
     .filter((term) => term.length >= 3))]
 }
 
+const relatedPreclinicalResearchFor = (condition) => conditionSearchGroup(condition)?.relatedPreclinicalResearch || null
+
 const conditionVariantToken = (condition) => {
   const submitted = cleanText(condition, 120)
   return submitted.match(/\s[-:]\s*([A-Za-z0-9_-]{3,})\s*$/)?.[1] || ''
@@ -509,6 +524,21 @@ const isConditionScopedSource = (source, condition) => {
   // A gene or subtype refines the report but must not hide broad condition
   // evidence when a paper names the disease in its abstract instead of title.
   return true
+}
+
+const isRelatedPreclinicalSource = (source, condition) => {
+  const researchContext = relatedPreclinicalResearchFor(condition)
+  if (!researchContext) return false
+
+  const sourceText = normalizedEvidenceText(`${source?.title || ''} ${source?.summary || ''}`)
+  const matchesFamily = (researchContext.matchingPhrases || [])
+    .map(normalizedEvidenceText)
+    .filter(Boolean)
+    .some((phrase) => ` ${sourceText} `.includes(` ${phrase} `))
+  const preclinicalSignal = /\b(?:animal|animals|mouse|mice|rat|rats|preclinical|in vitro|cell culture|organoid|disease model|models)\b/i.test(sourceText)
+  const interventionSignal = /\b(?:candidate therapeutics?|therap(?:y|ies|eutic)|treat(?:ment|ed|ing)?|protect(?:ion|ive|ed)?|neuroprotect(?:ion|ive|ed)?|rescu(?:e|ed)|restor(?:e|ed|ing))\b/i.test(sourceText)
+
+  return matchesFamily && preclinicalSignal && interventionSignal
 }
 
 const pubmedArticlesFromXml = (xml) => (String(xml || '').match(/<PubmedArticle>[\s\S]*?<\/PubmedArticle>/g) || [])
@@ -538,12 +568,12 @@ const pubmedArticlesFromXml = (xml) => (String(xml || '').match(/<PubmedArticle>
   })
   .filter(Boolean)
 
-const searchPubMed = async (term) => {
+const searchPubMed = async (term, { sort = 'relevance', maximum = 30 } = {}) => {
   const url = new URL(PUBMED_SEARCH_URL)
   url.searchParams.set('db', 'pubmed')
   url.searchParams.set('retmode', 'json')
-  url.searchParams.set('sort', 'relevance')
-  url.searchParams.set('retmax', '30')
+  url.searchParams.set('sort', sort)
+  url.searchParams.set('retmax', String(maximum))
   url.searchParams.set('term', term)
 
   const response = await fetchWithTimeout(url, {}, 16_000)
@@ -667,6 +697,7 @@ const fetchPubMedCandidateEvidence = async (condition, candidates) => {
 const fetchPubMedEvidence = async (condition) => {
   const baseCondition = conditionSearchPhrases(condition)[0]
   const variant = conditionVariantToken(condition)
+  const relatedResearch = relatedPreclinicalResearchFor(condition)
   if (!baseCondition) return []
 
   const titleTerm = `"${baseCondition}"[Title]`
@@ -683,27 +714,54 @@ const fetchPubMedEvidence = async (condition) => {
     { term: `${titleTerm} AND ${qualityTerm}`, limit: 8 },
     { term: titleTerm, limit: 6 },
     { term: titleAbstractTerm, limit: 6 },
+    ...(relatedResearch ? [{
+      // This only creates a separately marked "early animal/lab" source
+      // candidate. It is deliberately not mixed with exact-condition care.
+      term: `("${relatedResearch.searchPhrase}"[Title/Abstract]) AND (therap*[Title/Abstract] OR protect*[Title/Abstract] OR neuroprotect*[Title/Abstract] OR rescu*[Title/Abstract] OR candidate[Title/Abstract])`,
+      limit: 8,
+      scope: 'related-preclinical',
+      sort: 'pub date',
+    }] : []),
   ]
-  const ids = []
+  const directIds = []
+  const relatedIds = []
   for (const plan of searchPlans) {
-    const results = await searchPubMed(plan.term)
+    const results = await searchPubMed(plan.term, { sort: plan.sort || 'relevance' })
     for (const id of results.slice(0, plan.limit)) {
-      if (!ids.includes(id)) ids.push(id)
+      const target = plan.scope === 'related-preclinical' ? relatedIds : directIds
+      if (!target.includes(id)) target.push(id)
     }
-    if (ids.length >= 40) break
   }
+  const ids = [...directIds.slice(0, 40), ...relatedIds.filter((id) => !directIds.includes(id)).slice(0, 6)]
   if (!ids.length) return []
 
   const url = new URL(PUBMED_FETCH_URL)
   url.searchParams.set('db', 'pubmed')
   url.searchParams.set('retmode', 'xml')
-  url.searchParams.set('id', ids.slice(0, 40).join(','))
+  url.searchParams.set('id', ids.slice(0, 46).join(','))
 
   const response = await fetchWithTimeout(url, {}, 18_000)
   if (!response.ok) throw new Error(`PubMed fetch returned ${response.status}.`)
-  return pubmedArticlesFromXml(await response.text())
-    .filter((source) => isConditionScopedSource(source, condition))
-    .slice(0, 18)
+  const directSourceIds = new Set(directIds)
+  const relatedSourceIds = new Set(relatedIds)
+  const sources = pubmedArticlesFromXml(await response.text())
+    .flatMap((source) => {
+      if (directSourceIds.has(source.pmid) && isConditionScopedSource(source, condition)) return [source]
+      if (relatedSourceIds.has(source.pmid) && isRelatedPreclinicalSource(source, condition)) {
+        return [{
+          ...source,
+          conditionScope: 'related-preclinical',
+          conditionScopeLabel: relatedResearch?.label || 'related disease models',
+          relatedConditionContext: relatedResearch?.context || 'This is a related disease-model source, not a study in people with the requested condition.',
+        }]
+      }
+      return []
+    })
+
+  return [
+    ...sources.filter((source) => source.conditionScope !== 'related-preclinical').slice(0, 18),
+    ...sources.filter((source) => source.conditionScope === 'related-preclinical').slice(0, 2),
+  ]
 }
 
 const normalizedDoi = (value) => cleanText(value, 220)
@@ -731,6 +789,7 @@ const sourceQualityScore = (source) => {
   if (source?.origin === 'openFDA') score += 24
   if (source?.origin === 'PubMed') score += 12
   if (source?.origin === 'Europe PMC') score += 8
+  if (source?.conditionScope === 'related-preclinical') score += 26
   if (Array.isArray(source?.candidateLeads) && source.candidateLeads.length) score += 34
   return score
 }
@@ -747,10 +806,16 @@ const dedupeEvidenceSources = (groups, maximum = 14) => {
     byKey.set(key, candidateLeads.length ? { ...preferred, candidateLeads } : preferred)
   })
 
-  return Array.from(byKey.values())
+  const sorted = Array.from(byKey.values())
     .sort((left, right) => sourceQualityScore(right) - sourceQualityScore(left)
       || cleanText(right.year, 12).localeCompare(cleanText(left.year, 12)))
-    .slice(0, maximum)
+  // Keep at most two clearly marked related-model papers from getting crowded
+  // out by reviews, without ever letting them replace the core source set.
+  const relatedPreclinical = sorted.filter((source) => source.conditionScope === 'related-preclinical').slice(0, 2)
+  const regularSources = sorted.filter((source) => source.conditionScope !== 'related-preclinical')
+  return [...regularSources.slice(0, Math.max(0, maximum - relatedPreclinical.length)), ...relatedPreclinical]
+    .sort((left, right) => sourceQualityScore(right) - sourceQualityScore(left)
+      || cleanText(right.year, 12).localeCompare(cleanText(left.year, 12)))
 }
 
 const conditionPhrase = (condition) => cleanText(conditionSearchPhrases(condition)[0], 120).replace(/["\\]/g, ' ').trim()
@@ -1067,7 +1132,7 @@ const retrieveEvidenceSources = async (condition, env) => {
       id: 'pubmed',
       label: 'PubMed abstracts',
       url: sourceSearchPage('pubmed', condition),
-      fetch: async () => ({ status: 'ready', sources: await fetchPubMedEvidence(condition), detail: 'Condition terms are checked in titles and abstracts before records enter the report.' }),
+      fetch: async () => ({ status: 'ready', sources: await fetchPubMedEvidence(condition), detail: 'Direct condition records are checked in titles and abstracts. A small, clearly labeled lane can also include recent animal or lab work from a defined related disease model.' }),
     },
     {
       id: 'europe-pmc',
@@ -1112,8 +1177,8 @@ const retrieveEvidenceSources = async (condition, env) => {
       status,
       records: sources.length,
       detail: cleanText(result.value.detail, 240) || (sources.length
-        ? `${sources.length} exact-condition record${sources.length === 1 ? '' : 's'} passed the source gate.`
-        : 'Searched, but no exact-condition record passed the source gate.'),
+        ? `${sources.length} condition-related record${sources.length === 1 ? '' : 's'} passed the source gate.`
+        : 'Searched, but no condition-related record passed the source gate.'),
       sources,
     }
   })
@@ -1537,7 +1602,7 @@ const sourcePacketForPrompt = ({ patient, sources, centers, trials, evidenceMode
   packetCreatedAt: new Date().toISOString(),
   patient,
   evidenceMode,
-  sourceLinkedEvidence: sources.map(({ id, title, type, origin, journal, year, summary, url, candidateLeads }) => ({
+  sourceLinkedEvidence: sources.map(({ id, title, type, origin, journal, year, summary, url, candidateLeads, conditionScope, conditionScopeLabel, relatedConditionContext }) => ({
     id,
     title,
     type,
@@ -1547,6 +1612,9 @@ const sourcePacketForPrompt = ({ patient, sources, centers, trials, evidenceMode
     summary,
     url,
     candidateLeads: Array.isArray(candidateLeads) ? candidateLeads : [],
+    conditionScope: conditionScope || 'direct',
+    conditionScopeLabel: conditionScopeLabel || '',
+    relatedConditionContext: relatedConditionContext || '',
   })),
   researchSites: centers.map(({ name, city, why, source }) => ({ name, city, why, source })),
   liveTrials: trials.map(({ id, title, status, phase, interventions, interventionDetails, conditionMatch, treatmentFocus, caution, url }) => ({
@@ -1956,10 +2024,40 @@ const sourceTitleTreatmentCandidates = (source, condition) => {
   return candidates.slice(0, 4)
 }
 
+const relatedPreclinicalSourceCandidates = (source) => {
+  if (source?.conditionScope !== 'related-preclinical') return []
+
+  const sourceText = cleanText(`${source?.title || ''}. ${source?.summary || ''}`, 1_000)
+  const candidates = []
+  const add = (value, evidence) => {
+    const name = cleanCandidateName(value)
+    if (!isSpecificCandidateName(name) || !sourceMentionsCandidate(source, { name })) return
+    if (candidates.some((candidate) => candidateKey(candidate.name) === candidateKey(name))) return
+    candidates.push({
+      name,
+      category: 'Early animal or lab research',
+      roleVerified: true,
+      sourceEarlyResearchDerived: true,
+      relationship: 'condition-family-preclinical',
+      relationEvidence: cleanText(evidence, 180),
+    })
+  }
+
+  // These deliberately narrow patterns only release a named molecule when the
+  // source itself says it was delivered, restored, or proposed as a candidate.
+  // They give the early-research lane a deterministic fallback when an AI pass
+  // is delayed, while keeping the exact source text attached to every card.
+  for (const match of sourceText.matchAll(/\b(?:delivery|restor(?:ing|ation)|administration|treatment)\s+(?:of|with)\s+([A-Za-z][A-Za-z0-9-]{2,50})\b/gi)) add(match[1], match[0])
+  for (const match of sourceText.matchAll(/\b([A-Za-z][A-Za-z0-9-]{2,50})(?:\s+and\s+analogs)?\s+as\s+candidate\s+therapeutics?\b/gi)) add(match[1], match[0])
+
+  return candidates.slice(0, 2)
+}
+
 const attachSourceTitleTreatmentCandidates = (sources, condition) => (sources || []).map((source) => {
   const titleCandidates = sourceTitleTreatmentCandidates(source, condition)
-  if (!titleCandidates.length) return source
-  const candidateLeads = [...(source?.candidateLeads || []), ...titleCandidates]
+  const relatedPreclinicalCandidates = relatedPreclinicalSourceCandidates(source)
+  if (!titleCandidates.length && !relatedPreclinicalCandidates.length) return source
+  const candidateLeads = [...(source?.candidateLeads || []), ...titleCandidates, ...relatedPreclinicalCandidates]
     .filter((candidate, index, list) => candidate?.name && list.findIndex((entry) => candidateKey(entry.name) === candidateKey(candidate.name)) === index)
   return { ...source, candidateLeads }
 })
@@ -2036,6 +2134,8 @@ const packetCandidateExtractorSystemPrompt = `You are Packet Candidate Extractor
 
 Find up to 10 specific interventions that are explicitly named in a source title, abstract, or trial intervention field. An intervention can be a medicine, supplement, food product, surgery or procedure, rehabilitation or adaptive support, device, gene or RNA program, cell program, or other named treatment. Keep practical, patient-discussible items ahead of trial-only or advanced programs when the packet contains both. Use the exact intervention name or a faithful shorter name that still appears in the cited record. Do not return generic labels such as "gene therapy", "cell therapy", "nutritional supplementation", "supportive care", or "clinical trial". Do not return tests, scans, biomarkers, questionnaires, monitoring steps, a person, a center, a disease name, or a paper title. Do not add doses, benefit claims, safety claims, access claims, or advice.
 
+If a source record has conditionScope "related-preclinical", it is a carefully limited animal or lab finding from a related disease model. You may extract one exact named molecule or intervention from that record, but classify it as "early animal or lab research." Never describe it as a treatment for people, an approved option, a supplement recommendation, or something a person can obtain.
+
 Every candidate must cite one or more exact sourceIds where its name appears. A candidate is discarded if its name is not present in that cited record.
 
 Return strict JSON only:
@@ -2047,7 +2147,7 @@ Return strict JSON only:
 
 const practicalPacketCandidateExtractorSystemPrompt = `You are Practical Packet Candidate Extractor in a medical-research product. Extract names only from the supplied source packet. You are not allowed to use outside knowledge or invent a treatment.
 
-Find up to 20 specific, patient-discussible interventions that are explicitly named in a source title or abstract. Focus on exact medicines, supplements or foods, named procedures, rehabilitation, adaptive support, and symptom-care treatments. A name belongs in the list only when the record uses or studies it for the requested condition itself, or for a clearly stated complication or symptom caused by that condition. Do not return a medicine used for a separate diagnosis or comorbidity, a procedure step, a premedication, background medicine, adverse-event medicine, transplant regimen, or unrelated study arm. If the relationship is unclear, leave it out. Do not return gene therapy, RNA, cell therapy, exosomes, implants, study products, trial IDs, or other trial-only programs. Do not return broad classes such as "antioxidants," "vitamins," "inhibitors," "supplements," "carotenoids," or "supportive care." Use the exact intervention name or a faithful shorter name that still appears in the cited record. Do not return tests, scans, biomarkers, questionnaires, monitoring steps, a person, a center, a disease name, or a paper title. Do not add doses, benefit claims, safety claims, access claims, or advice.
+Find up to 20 specific, patient-discussible interventions that are explicitly named in a source title or abstract. Focus on exact medicines, supplements or foods, named procedures, rehabilitation, adaptive support, and symptom-care treatments. A name belongs in the list only when the record uses or studies it for the requested condition itself, or for a clearly stated complication or symptom caused by that condition. Do not return a medicine used for a separate diagnosis or comorbidity, a procedure step, a premedication, background medicine, adverse-event medicine, transplant regimen, or unrelated study arm. If the relationship is unclear, leave it out. Do not return anything from a source with conditionScope "related-preclinical" because that lane is not patient-accessible. Do not return gene therapy, RNA, cell therapy, exosomes, implants, study products, trial IDs, or other trial-only programs. Do not return broad classes such as "antioxidants," "vitamins," "inhibitors," "supplements," "carotenoids," or "supportive care." Use the exact intervention name or a faithful shorter name that still appears in the cited record. Do not return tests, scans, biomarkers, questionnaires, monitoring steps, a person, a center, a disease name, or a paper title. Do not add doses, benefit claims, safety claims, access claims, or advice.
 
 Every candidate must cite one or more exact sourceIds where its name appears. A candidate is discarded if its name is not present in that cited record.
 
@@ -2066,6 +2166,7 @@ Approve only when the supplied title or abstract directly supports one of these 
 - "direct-condition-treatment": the candidate is used or studied for the requested condition.
 - "condition-complication-care": the candidate is used for a clearly stated complication or symptom of the requested condition.
 - "condition-support": the candidate is a rehabilitation, adaptive support, or named procedure for people with the requested condition.
+- "condition-family-preclinical": use only when the record itself is marked conditionScope "related-preclinical" and its linked source text explicitly names a laboratory or animal-model intervention. This means early research in a related disease model, not a treatment for people with the requested condition.
 
 Reject when the candidate is for a different illness or comorbidity, a background medicine, a premedication, a procedure detail, a transplant regimen, an adverse-event treatment, a test, a scan, a biomarker, or when the relationship is not clear from the supplied text. Do not use outside knowledge. Do not guess from a shared disease mention. If a record is a case report with multiple diagnoses, be especially strict: approve only if the text explicitly ties the candidate to the requested condition or its stated complication.
 
@@ -2074,7 +2175,7 @@ For each approved decision, copy a short exact phrase from the supplied title or
 Return strict JSON only:
 {
   "decisions": [
-    {"recordId": "exact record id", "candidate": "exact candidate name", "decision": "approve" | "reject", "relationship": "direct-condition-treatment" | "condition-complication-care" | "condition-support", "evidence": "exact short phrase from the supplied record"}
+    {"recordId": "exact record id", "candidate": "exact candidate name", "decision": "approve" | "reject", "relationship": "direct-condition-treatment" | "condition-complication-care" | "condition-support" | "condition-family-preclinical", "evidence": "exact short phrase from the supplied record"}
   ]
 }`
 
@@ -2118,6 +2219,7 @@ const candidateRelationshipTypes = new Set([
   'direct-condition-treatment',
   'condition-complication-care',
   'condition-support',
+  'condition-family-preclinical',
 ])
 
 const candidateClaimsForRelationReview = (records) => {
@@ -2138,6 +2240,8 @@ const candidateClaimsForRelationReview = (records) => {
         title: cleanText(record.title, 320),
         summary: cleanText(record.summary, 720),
         interventions: Array.isArray(record.interventions) ? record.interventions.slice(0, 8) : [],
+        conditionScope: cleanText(record.conditionScope, 80) || 'direct',
+        relatedConditionContext: cleanText(record.relatedConditionContext, 360),
       })
     }
   }
@@ -2169,6 +2273,7 @@ const normalizeCandidateRelationReview = (draft, claims) => {
     const evidence = cleanText(rawDecision?.evidence, 180)
     if (!claim || seen.has(key) || cleanText(rawDecision?.decision, 30).toLowerCase() !== 'approve') continue
     if (!candidateRelationshipTypes.has(relationship) || !evidence || !relationEvidenceAppearsInClaim(evidence, claim)) continue
+    if (relationship === 'condition-family-preclinical' && claim.conditionScope !== 'related-preclinical') continue
     seen.add(key)
     decisions.push({ recordId, candidate, relationship, evidence })
   }
@@ -2214,6 +2319,7 @@ const applyCandidateRelationshipReview = (records, relationReview) => {
     const ambiguousCaseRecord = /\b(?:case report|case series|comorbid|coexisting|trilogy)\b/i.test(cleanText(record?.title, 360))
     const trialProtocolRecord = /\b(?:study protocol|dose[-\s]?finding|phase\s*(?:[1-4]|i{1,3}|iv)\b|clinical trial)\b/i.test(cleanText(record?.title, 360))
     const officialLabelRecord = /\bfda (?:drug )?label\b/i.test(`${record?.type || ''} ${record?.origin || ''}`)
+    const relatedPreclinicalRecord = record?.conditionScope === 'related-preclinical'
     const candidateLeads = (Array.isArray(record?.candidateLeads) ? record.candidateLeads : [])
       .map((candidate) => {
         if (candidateLooksLikePaperOrProtocolLabel(candidate?.name)) return null
@@ -2227,13 +2333,19 @@ const applyCandidateRelationshipReview = (records, relationReview) => {
         // This blocks a paper that only mentions an established treatment as
         // background while studying a different intervention.
         const titleNamesCandidate = sourceMentionsCandidate({ title: record?.title, summary: '' }, candidate)
-        if (candidate?.sourceTitleDerived !== true && !titleNamesCandidate) return null
+        const earlyPreclinicalFallback = relatedPreclinicalRecord
+          && candidate?.sourceEarlyResearchDerived === true
+          && candidate?.roleVerified === true
+          && candidate?.relationship === 'condition-family-preclinical'
+        if (candidate?.sourceTitleDerived !== true && !titleNamesCandidate && !earlyPreclinicalFallback) return null
         const decision = decisions.get(candidateRelationKey(record?.id, candidate?.name))
-        if (decision) return { ...candidate, roleVerified: true, relationship: decision.relationship, relationEvidence: decision.evidence }
+        if (decision && (!relatedPreclinicalRecord || decision.relationship === 'condition-family-preclinical')) {
+          return { ...candidate, roleVerified: true, relationship: decision.relationship, relationEvidence: decision.evidence }
+        }
         // A title-derived lead uses a narrow deterministic grammar that ties
         // the candidate directly to the condition in the paper title. Keep it
         // as a safe fallback when an AI source-role response is unavailable.
-        return candidate?.sourceTitleDerived === true && candidate?.roleVerified === true ? candidate : null
+        return (candidate?.sourceTitleDerived === true || earlyPreclinicalFallback) && candidate?.roleVerified === true ? candidate : null
       })
       .filter(Boolean)
     if (candidateLeads.length) return { ...record, candidateLeads }
@@ -2258,6 +2370,9 @@ const extractPacketCandidates = async ({ patient, sources, trials }, env, {
       id: source.id,
       title: source.title,
       summary: source.summary,
+      conditionScope: source.conditionScope || 'direct',
+      conditionScopeLabel: source.conditionScopeLabel || '',
+      relatedConditionContext: source.relatedConditionContext || '',
     })),
     trialRecords: (trials || []).slice(0, trialLimit).map((trial) => ({
       id: trial.id,

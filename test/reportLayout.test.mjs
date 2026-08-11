@@ -31,6 +31,7 @@ test('the patient-first dossier flow keeps practical decisions ahead of the full
     lastPosition = position
   }
   assert.match(appSource, /const PatientLeadCards/)
+  assert.match(appSource, /const EarlyResearchCards/)
   assert.match(appSource, /const TheoryIdeaCards/)
   assert.match(appSource, /function TreatmentDevelopment/)
   assert.match(appSource, /function ResearchAccessPlan/)
@@ -38,6 +39,8 @@ test('the patient-first dossier flow keeps practical decisions ahead of the full
   assert.match(appSource, /id="clinical-trials"/)
   assert.match(appSource, /Specific options to discuss, plus research ideas to investigate/)
   assert.match(appSource, /Researched options to discuss/)
+  assert.match(appSource, /Early research worth watching/)
+  assert.match(appSource, /Not in people yet/)
   assert.match(appSource, /Possible research ideas to investigate/)
   assert.match(appSource, /Plain takeaway/)
   assert.match(appSource, /Possible things to investigate/)
@@ -62,12 +65,13 @@ test('Word and PDF exports keep the same practical dossier sections', () => {
     '3. Centers and experts',
     '4. Lifestyle changes worth discussing',
     '5. Researched leads to discuss now',
-    '6. Theory leads to verify',
-    '7. Research programs that need a formal access route',
-    '8. Current clinical trials',
-    '9. Your research and access plan',
-    '10. Simple questions to ask your doctor',
-    '11. Important safety points',
+    'Early animal and lab research worth watching',
+    'Theory leads to verify',
+    'Research programs that need a formal access route',
+    'Current clinical trials',
+    'Your research and access plan',
+    'Simple questions to ask your doctor',
+    'Important safety points',
   ]
 
   let lastPosition = -1
