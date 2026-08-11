@@ -156,6 +156,7 @@ const isDisplayableTrialIntervention = (title) => !/^(?:arm|group|cohort)\s*(?:\
 const isConcretePatientTreatmentTitle = (title) => isDisplayableTrialIntervention(title)
   && !/^(?:versus|vs\.?|compared\s+with|comparison\s+with)\b/i.test(String(title || ''))
   && !/^(?:and|or|plus|with)\b/i.test(String(title || ''))
+  && !/^(?:those|these|this|that|it|they|the)$/i.test(String(title || '').trim())
   && !/\b(?:induction and maintenance|maintenance and induction)\s+therap(?:y|ies)\b/i.test(String(title || ''))
   && !/\b(?:bowel|colonoscopy)\s+prep(?:aration)?\b|\b(?:KleanLyte|Bi-PegLyte)\b/i.test(String(title || ''))
   && !/\b(?:physical therapy|physiotherapy|rehabilitation|telerehabilitation|exercise training|occupational therapy)\b/i.test(String(title || ''))
@@ -338,7 +339,10 @@ const addDistinctTreatmentIdea = (ideas, nextIdea) => {
   return false
 }
 
+const sourceIsNotTreatmentEvidence = (source) => /\b(?:biomarker|prognos(?:is|tic)|diagnos(?:is|tic)|screening|monitoring|predict(?:ion|ive)?|outcomes?\s+of\b.*\bcompared\s+with|comparison\s+of)\b/i.test(`${source?.title || ''} ${source?.summary || ''} ${source?.type || ''}`)
+
 const sourceTreatmentCandidates = (source) => {
+  if (sourceIsNotTreatmentEvidence(source)) return []
   const candidates = []
   const add = (title, category) => {
     const cleanTitle = cleanTreatmentDisplayName(title)
