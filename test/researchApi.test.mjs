@@ -494,7 +494,7 @@ const withMockedFetch = async (mockFetch, run) => {
 test('RP expands to retinitis pigmentosa and returns a source-gated report', { concurrency: false }, async () => {
   const mock = createMockFetch()
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
-    apiRoutes().get('/api/research-run'),
+    apiRoutes({ ...env, PERPLEXITY_API_KEY: '' }).get('/api/research-run'),
     'POST',
     { privacyAcknowledged: true, patient: { condition: 'RP', geneticVariant: 'USH2A', reportStyle: 'plain' } },
   ))
