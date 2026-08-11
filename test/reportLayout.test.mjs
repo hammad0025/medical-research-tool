@@ -52,6 +52,7 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /Nalbuphine extended-release \(NAL ER\)/)
   assert.match(appSource, /Pirfenidone \(Esbriet\)/)
   assert.match(appSource, /Nitrate-rich beetroot juice/)
+  assert.match(appSource, /return 'oxygen support'/)
   assert.match(appSource, /study-access-only/)
   assert.match(appSource, /isExplicitlyExcludedTreatment/)
   assert.match(appSource, /Source for disease biology/)

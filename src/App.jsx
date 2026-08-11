@@ -289,6 +289,9 @@ const treatmentFamilyKey = (title) => {
   // These are alternate names for the same consumer-facing omega-3 family,
   // so one card should carry the combined source links instead of three cards.
   if (/\b(?:fish oil|omega ?3|docosahexaenoic acid|dha|eicosapentaenoic acid|epa)\b/.test(key)) return 'omega 3'
+  // Registries and papers use several labels for the same oxygen-support
+  // discussion. Keep their sources together instead of padding the list.
+  if (/\b(?:ambulatory|supplemental) oxygen\b/.test(key)) return 'oxygen support'
   return key
 }
 
