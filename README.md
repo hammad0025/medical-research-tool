@@ -4,14 +4,15 @@ A source-first medical-research prototype for Dorothy's review. It accepts any e
 
 ## What it demonstrates
 
-- Live multi-source evidence retrieval for any condition: PubMed, Europe PMC, openFDA labels when relevant, and OpenAlex when configured
+- Live multi-source evidence retrieval for any condition: PubMed, Europe PMC, Crossref, Semantic Scholar, NIH RePORTER, openFDA labels when relevant, and OpenAlex when configured
+- Optional broad web discovery through Perplexity, with raw web results kept separate from clinical claims until another supported source verifies them
 - An optional plain-language intake that extracts only explicitly stated facts into reviewable profile fields
 - A curator-reviewed IPF evidence core that does not depend on model memory
 - A separate, explicitly exploratory workbench for mechanisms and research questions
 - Live recruiting interventional trials and active research sites from ClinicalTrials.gov
-- A source-coverage ledger that separates retrieved records, metadata-only records withheld from AI, unavailable databases, and authoritative manual search routes
-- A hard source gate: ungrounded, prescriptive, dosing, and unsupported guideline-strength language is withheld
-- A visible audit ledger so reviewers can open the cited sources themselves
+- A source list that separates retrieved records, metadata-only records withheld from AI, unavailable databases, and authoritative manual search routes
+- A safety check that withholds ungrounded, prescriptive, dosing, and unsupported guideline-strength language
+- Direct source links next to the report's major claims and in exports
 - A server-checked passcode, privacy acknowledgement, and plain-language safety notices
 
 The suggestion chips are only shortcuts. A user can enter any condition, subtype, gene, or phenotype. The report always shows the main sections: treatment ideas, research questions, daily-life topics, study sites, and current-trial next steps. When live retrieval is thin or temporarily unavailable, a clearly labeled AI starting map fills the gap with cautious ideas to verify. It does not pretend those ideas are proven evidence or personal medical advice.
@@ -61,7 +62,7 @@ npm run dev
 1. The browser first requests a server-issued passcode session, then collects a temporary research intake and calls `/api/research-run`.
 2. The browser requires a privacy and safety acknowledgement. The server rejects missing acknowledgement and blocks several obvious direct identifiers, such as email addresses, phone numbers, full dates of birth, medical-record numbers, and street addresses.
 3. If the optional plain-language intake is used, Anthropic extracts only explicitly stated facts into the form; the user reviews those fields before research can run.
-4. For IPF, the local server adds its curated reference packet; every run also retrieves independent exact-condition records from PubMed, Europe PMC, openFDA labels where relevant, and OpenAlex when configured.
+4. For IPF, the local server adds its curated reference packet; every run also retrieves independent exact-condition records from PubMed, Europe PMC, Crossref, Semantic Scholar, openFDA labels where relevant, NIH RePORTER active projects, and OpenAlex when configured. An optional Perplexity web-search lane discovers relevant sites beyond those databases but remains link-only until another supported source verifies a claim.
 5. The server deduplicates records by PMID, DOI, or title, rejects retracted or condition-mismatched sources, and withholds metadata-only records from the AI packet while retaining them in the source ledger.
 6. The server pulls live recruiting studies from ClinicalTrials.gov and shows matching active research sites, never an invented "best doctor" ranking.
 7. Cochrane Library, WHO ICTRP, and EU CTIS appear as authoritative search routes until a supported record-level or licensed connector is integrated. They are not scraped or represented as retrieved evidence.
