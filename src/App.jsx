@@ -405,38 +405,6 @@ const sourceTreatmentIdeas = (sources, condition) => {
   return ideas.sort((left, right) => Number(looksLikeAdvancedResearch(left)) - Number(looksLikeAdvancedResearch(right)))
 }
 
-const readableResearchName = (value) => {
-  const name = cleanTreatmentDisplayName(value)
-  return /^[a-z]/.test(name) ? `${name[0].toUpperCase()}${name.slice(1)}` : name
-}
-
-const earlyResearchIdeasForReport = (result, condition) => {
-  const ideas = []
-  const conditionLabel = broadResearchConditionName(condition)
-
-  for (const source of result?.sources || []) {
-    if (source?.conditionScope !== 'related-preclinical' || !source?.id) continue
-    for (const candidate of source?.candidateLeads || []) {
-      if (candidate?.roleVerified !== true || candidate?.relationship !== 'condition-family-preclinical') continue
-      const title = readableResearchName(candidate?.name)
-      if (!title || !isDisplayableTrialIntervention(title)) continue
-      addDistinctTreatmentIdea(ideas, {
-        title,
-        category: 'Early animal or lab research',
-        summary: source.summary || `The linked study examined ${title} in animal or lab research on ${source.conditionScopeLabel || 'a related disease model'}.`,
-        whyItMayMatter: source.relatedConditionContext || `This is related to ${conditionLabel}, but it is not a study in people with ${conditionLabel}.`,
-        accessExplanation: 'This is not a treatment someone can obtain today. It needs human studies before it can be considered in care.',
-        providerQuestion: `Are there any human studies of ${title} for ${conditionLabel}?`,
-        caution: `This is early animal or lab research, not a treatment for people with ${conditionLabel}. Do not buy, compound, or use ${title} based on this study.`,
-        sourceIds: [...new Set([source.id, ...(source.supportingSourceIds || [])])],
-        kind: 'early-preclinical',
-      })
-    }
-  }
-
-  return ideas.slice(0, 2)
-}
-
 const isOfficialLabelSource = (source) => source?.origin === 'openFDA'
   || source?.origin === 'U.S. Food and Drug Administration'
   || /FDA[-\s]?(?:drug\s+)?(?:label|approval record)/i.test(source?.type || '')
@@ -1515,29 +1483,6 @@ const PatientLeadCards = ({ condition, result, ideas }) => (
   </div>
 )
 
-const EarlyResearchCards = ({ condition, result, ideas }) => (
-  <div className="research-ideas-grid">
-    {ideas.map((idea, index) => {
-      const citations = claimCitations(result, idea, condition)
-      return (
-        <article className="research-idea-card research-idea-card--early" key={idea.title}>
-          <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
-          <div className="card-topline"><p className="card-kicker">{idea.category}</p><StatusPill tone="experimental">Not in people yet</StatusPill></div>
-          <h3>{idea.title}</h3>
-          <CitedParagraph citations={citations}><strong>What the study looked at:</strong> {idea.summary}</CitedParagraph>
-          <dl className="research-idea-facts">
-            <div><dt>Why it may matter</dt><dd>{idea.whyItMayMatter}<InlineCitationLinks citations={citations} /></dd></div>
-            <div><dt>What this means today</dt><dd>{idea.accessExplanation}<InlineCitationLinks citations={citations} /></dd></div>
-            <div><dt>Ask your doctor</dt><dd>{idea.providerQuestion}</dd></div>
-          </dl>
-          <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
-          <CitationActions citations={citations} label="Open study" />
-        </article>
-      )
-    })}
-  </div>
-)
-
 const TheoryIdeaCards = ({ condition, result, ideas }) => (
   <div className="research-ideas-grid">
     {ideas.slice(0, 10).map((idea, index) => {
@@ -1570,14 +1515,12 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
 
 function ResearchIdeas({ condition, result }) {
   const patientIdeas = patientDiscussionIdeasForReport(result, condition)
-  const earlyResearchIdeas = earlyResearchIdeasForReport(result, condition)
   const theoryIdeas = theoryIdeasForReport(result)
-  const theoryLaneNumber = earlyResearchIdeas.length ? 3 : 2
 
   return (
     <section id="research-ideas" className="research-ideas section-surface">
       <SectionHeader eyebrow="4. Drug and treatment ideas" title="Treatments to ask about and AI ideas to check" />
-      <p className="section-intro">The first list has things studied for this illness. The second has early lab work. The third has named AI ideas with a direct research check. This report never tells you to take something or mix medicines.</p>
+      <p className="section-intro">The first list has things studied for this illness. The second has named AI ideas with a direct research check. This report never tells you to take something or mix medicines.</p>
 
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
@@ -1588,19 +1531,9 @@ function ResearchIdeas({ condition, result }) {
           {patientIdeas.length ? <PatientLeadCards condition={condition} result={result} ideas={patientIdeas} /> : <div className="research-idea-empty"><Icon name="shield" size={18} /><p>We only show names found in research for this illness. We do not add random names just to fill this list.</p></div>}
         </section>
 
-        {earlyResearchIdeas.length ? (
-          <section className="research-idea-lane research-idea-lane--early">
-            <div className="research-idea-lane__header">
-              <div><p className="card-kicker">2. Early lab or animal research</p><p>These studies are not in people yet. They are not treatments you can try on your own.</p></div>
-              <StatusPill tone="experimental">{earlyResearchIdeas.length} early stud{earlyResearchIdeas.length === 1 ? 'y' : 'ies'}</StatusPill>
-            </div>
-            <EarlyResearchCards condition={condition} result={result} ideas={earlyResearchIdeas} />
-          </section>
-        ) : null}
-
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">{theoryLaneNumber}. AI ideas to check</p><p>AI picked named ideas based on what is known about this illness. Each card says whether PubMed and Europe PMC found a direct match. A match means the idea is not new. No match does not prove it will help.</p></div>
+            <div><p className="card-kicker">2. AI ideas to check</p><p>AI picked named ideas based on what is known about this illness. Each card says whether PubMed and Europe PMC found a direct match. A match means the idea is not new. No match does not prove it will help.</p></div>
             <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Ideas with checks' : 'Nothing safe to show'}</StatusPill>
           </div>
           {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No named AI idea had enough direct search evidence to show safely in this run. We did not fill this section with guesses.</p></div>}
@@ -2213,12 +2146,6 @@ const reportExportText = ({ form, report, result }) => {
       )
     })
     .join('\n')
-  const earlyResearchLines = earlyResearchIdeasForReport(result, condition)
-    .map((idea) => citedLine(
-        `- ${idea.title}: What the study looked at: ${idea.summary} Why it may matter: ${idea.whyItMayMatter} What this means now: ${idea.accessExplanation} Ask your doctor: ${idea.providerQuestion} Important: ${idea.caution}`,
-      claimCitations(result, idea, condition),
-    ))
-    .join('\n')
   const officialLabelLines = officialLabelIdeasForReport(result, condition)
     .map((idea) => citedLine(`- ${idea.title}: ${idea.summary} Boundary: ${idea.caution}`, claimCitations(result, idea, condition)))
     .join('\n')
@@ -2277,7 +2204,7 @@ const reportExportText = ({ form, report, result }) => {
   const mapNote = result?.exploration
     ? 'Ideas to check: These are not proven facts or treatment advice. Check the links and ask a doctor before acting on an idea.'
     : 'Links are included. Open them to check each treatment and question.'
-  const theorySectionNumber = earlyResearchLines ? 7 : 6
+  const theorySectionNumber = 6
   const pipelineSectionNumber = theorySectionNumber + 1
   const trialSectionNumber = pipelineSectionNumber + 1
   const accessPlanSectionNumber = trialSectionNumber + 1
@@ -2311,8 +2238,6 @@ const reportExportText = ({ form, report, result }) => {
     '',
     '5. Things studied for this illness',
     patientLeadLines || 'We only show names found in research for this illness. Look at the approved options and current studies next.',
-    '',
-    ...(earlyResearchLines ? ['', '6. Early lab or animal research', earlyResearchLines] : []),
     '',
     `${theorySectionNumber}. AI ideas to check`,
     theoryLines || 'No named AI idea had enough direct search evidence to show safely in this run. We did not fill this section with guesses.',
