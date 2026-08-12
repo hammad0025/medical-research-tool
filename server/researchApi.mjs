@@ -2536,6 +2536,32 @@ const relatedPreclinicalCandidateStatus = (candidate, sources, trials) => {
   }
 }
 
+const sameEvidenceRecord = (left, right) => {
+  const leftPmid = cleanText(left?.pmid, 40)
+  const rightPmid = cleanText(right?.pmid, 40)
+  if (leftPmid && rightPmid && leftPmid === rightPmid) return true
+
+  const leftDoi = cleanText(left?.doi, 220).replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').toLowerCase()
+  const rightDoi = cleanText(right?.doi, 220).replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').toLowerCase()
+  if (leftDoi && rightDoi && leftDoi === rightDoi) return true
+
+  const leftTitle = normalizedEvidenceText(left?.title)
+  const rightTitle = normalizedEvidenceText(right?.title)
+  return Boolean(leftTitle && rightTitle && leftTitle === rightTitle)
+}
+
+const directResultAfterKnownPreclinicalCheck = (result, relatedSources) => {
+  if (!result || result.status !== 'found') return result
+  const records = Array.isArray(result.sources) ? result.sources : []
+  // Some indexes return only a short or incomplete abstract for the exact
+  // same model paper already audited in the packet. Do not let that thin
+  // metadata turn the model paper into a supposed human-condition match.
+  if (records.length && records.every((record) => relatedSources.some((source) => sameEvidenceRecord(record, source)))) {
+    return { ...result, status: 'preclinical-only' }
+  }
+  return result
+}
+
 const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   const eligibleSeeds = (Array.isArray(ideas) ? ideas : [])
     .filter((idea) => idea?.candidate && isSpecificCandidateName(idea.candidate))
@@ -2560,18 +2586,20 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
         directPubMedCandidateBackgroundCheck(idea),
         directChemblCandidateBackgroundCheck(idea),
       ])
-      const pubMedResult = pubMed.status === 'fulfilled' ? pubMed.value : null
-      const europePmcResult = europePmc.status === 'fulfilled' ? europePmc.value : null
+      const rawPubMedResult = pubMed.status === 'fulfilled' ? pubMed.value : null
+      const rawEuropePmcResult = europePmc.status === 'fulfilled' ? europePmc.value : null
       const pubMedBackgroundResult = pubMedBackground.status === 'fulfilled' ? pubMedBackground.value : null
       const chemblBackgroundResult = chemblBackground.status === 'fulfilled' ? chemblBackground.value : null
       const packetBackgroundSource = candidateBackgroundSourceFromPacket(idea, sources)
+      const packetStatus = relatedPreclinicalCandidateStatus(idea, sources, trials)
+      const pubMedResult = directResultAfterKnownPreclinicalCheck(rawPubMedResult, packetStatus.relatedSources)
+      const europePmcResult = directResultAfterKnownPreclinicalCheck(rawEuropePmcResult, packetStatus.relatedSources)
       const preclinicalSource = [
         ...(pubMedResult?.sources || []),
         ...(europePmcResult?.sources || []),
       ].find((source) => directCandidateRecordClass(source) === 'animal-or-lab')
       const backgroundSource = packetBackgroundSource || preclinicalSource || pubMedBackgroundResult?.source || chemblBackgroundResult?.source
       const hasBackgroundMatch = Boolean(backgroundSource?.title && backgroundSource?.url)
-      const packetStatus = relatedPreclinicalCandidateStatus(idea, sources, trials)
       const hasHumanOrUnclearDirectMatch = packetStatus.hasDirectSourceOrTrialMatch
         || candidateAlreadyAppearsInDirectConditionPacket(idea, condition, sources, trials)
         || pubMedResult?.status === 'found'
