@@ -1433,6 +1433,16 @@ const isResearchProgramIdea = (idea) => idea?.accessClass !== 'prescription-or-l
   || idea?.accessClass === 'study-access-only'
   || Boolean(Array.isArray(idea?.trials) && idea.trials.length))
 
+const specialistForCondition = (condition) => {
+  const conditionText = String(condition || '').toLowerCase()
+  if (/retinitis pigmentosa|inherited retinal|\brp\b/.test(conditionText)) return 'retinal specialist'
+  if (/\b(?:lada|diabetes)\b/.test(conditionText)) return 'diabetes specialist'
+  if (/idiopathic pulmonary fibrosis|\bipf\b|interstitial lung/.test(conditionText)) return 'lung specialist'
+  if (/crohn|ulcerative colitis|inflammatory bowel/.test(conditionText)) return 'IBD specialist'
+  if (/parkinson|huntington|amyotrophic lateral sclerosis|\bals\b/.test(conditionText)) return 'neurology specialist'
+  return 'relevant specialist'
+}
+
 const patientDiscussionIdeasForReport = (result, condition) => {
   const sourceById = new Map((result?.sources || []).map((source) => [source.id, source]))
   const sourceNeedsSpecialistReview = (idea) => idea?.kind === 'source' && (idea?.sourceIds || []).some((sourceId) => {
@@ -1443,7 +1453,7 @@ const patientDiscussionIdeasForReport = (result, condition) => {
     .map((idea) => sourceNeedsSpecialistReview(idea) ? {
       ...idea,
       accessClass: 'specialist-review',
-      accessExplanation: 'This source reports a completed or earlier study. A retinal specialist can explain the result, limits, and whether it matters now.',
+      accessExplanation: `This source reports a completed or earlier study. A ${specialistForCondition(condition)} can explain the result, limits, and whether it matters now.`,
     } : idea)
   const hasTraceableSource = (idea) => (idea?.sourceIds || []).some((sourceId) => sourceById.has(sourceId))
     || (idea?.trials || []).some((trial) => trial?.id && trial?.url)
