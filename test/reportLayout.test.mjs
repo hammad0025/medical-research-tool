@@ -17,7 +17,6 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
     '<CareLocations',
     '<LifestyleResearch',
     '<ResearchIdeas',
-    '<TreatmentResultsThatPointAway',
     '<TreatmentDevelopment',
     '<TrialDirectory',
     '<ResearchAccessPlan',
@@ -59,7 +58,7 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /Check PubMed/)
   assert.doesNotMatch(appSource, /Not established/)
   assert.doesNotMatch(appSource, /sourceMentionsRepurposingCandidate/)
-  assert.match(appSource, /Treatments studied but not listed as options/)
+  assert.doesNotMatch(appSource, /Treatments studied but not listed as options/)
   assert.match(appSource, /centerSourceCitation/)
   assert.match(appSource, /Open official center page/)
   assert.match(appSource, /\{label\}: \{sourceLabel\(citation\)\}/)
@@ -109,7 +108,6 @@ test('Word and PDF exports keep the same practical report sections', () => {
     '5. Things studied for this illness',
     'Early lab or animal research',
     'New AI ideas to check',
-    'Treatments studied but not listed as options',
     'Treatments in current studies',
     'Current clinical trials',
     'What to bring to your next visit',
