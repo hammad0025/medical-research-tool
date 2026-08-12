@@ -1348,9 +1348,9 @@ function ReportOverview({ condition, result }) {
       <SectionHeader
         eyebrow="Condition overview"
         title={`Understanding ${condition || 'this condition'}`}
-        action={exploration && !result?.review?.briefing?.text ? <StatusPill tone="caution">Research ideas to verify</StatusPill> : <StatusPill tone="safe">Source-linked</StatusPill>}
+        action={exploration && !result?.review?.briefing?.text ? <StatusPill tone="caution">Ideas to check</StatusPill> : <StatusPill tone="safe">Links included</StatusPill>}
       />
-      <p className="section-intro">Start here before looking at treatments. This section explains the condition itself, then the rest of the report moves through established options, support, research ideas, and live trials.</p>
+      <p className="section-intro">Start here. It explains the illness. Then you will see treatments, daily-life help, new ideas, and live studies.</p>
       <div className="condition-overview-grid" aria-label="Condition overview">
         {conditionOverviewCardsForReport(result, condition).map((card) => (
           <article className="condition-overview-card" key={card.label}>
@@ -1361,7 +1361,7 @@ function ReportOverview({ condition, result }) {
         ))}
       </div>
       <nav className="report-route" aria-label="Report guide">
-        <span>Read this report in the order that helps you decide what to discuss next:</span>
+        <span>Read the report in this order:</span>
         <div>{reportRoute.map((item) => <a href={item.href} key={item.href}>{item.label}</a>)}</div>
       </nav>
     </section>
@@ -1382,8 +1382,8 @@ function DoctorQuestions({ condition, result }) {
 
   return (
     <section id="doctor-questions" className="doctor-questions section-surface">
-      <SectionHeader eyebrow="Questions for your doctor" title="Simple questions to bring to a visit" action={<StatusPill tone="neutral">Source-linked</StatusPill>} />
-      <p className="section-intro">These questions use the exact studies and research leads in this report. They are conversation starters, not a treatment plan.</p>
+      <SectionHeader eyebrow="Questions for your doctor" title="Short questions to bring to a visit" action={<StatusPill tone="neutral">Links included</StatusPill>} />
+      <p className="section-intro">These are short questions you can ask your doctor. They do not tell you what to do.</p>
       <div className="doctor-questions__list">
         {questions.slice(0, 4).map((question, index) => (
           <CitedParagraph
@@ -1425,29 +1425,29 @@ const patientAccessForIdea = (result, idea) => {
   if (evidencePointsAway(result, idea)) {
     return {
       tone: 'caution',
-      label: 'Evidence points away',
-      detail: 'This was studied, but the linked source reports a negative or worse result. Ask why it is not a routine option.',
+      label: 'Study did not help',
+      detail: 'This was studied, but the result was not good. Ask why it is not a usual option.',
     }
   }
   if (idea?.accessClass === 'prescription-or-label-check') {
     return {
       tone: 'neutral',
-      label: 'Prescription or label check',
-      detail: 'A clinician or pharmacist can check the exact label, prescription status, and safety context.',
+      label: 'Check with your doctor',
+      detail: 'A doctor or pharmacist can check if this is approved, needs a prescription, and is safe with other medicines.',
     }
   }
   if (idea?.accessClass === 'clinician-referral') {
     return {
       tone: 'safe',
-      label: 'Referral or care-service check',
-      detail: idea?.accessExplanation || 'A clinician can help decide whether a referral, assessment, or service is appropriate.',
+      label: 'Ask about a referral',
+      detail: idea?.accessExplanation || 'A doctor can help decide if a referral or care service could help.',
     }
   }
   if (idea?.accessClass === 'specialist-review') {
     return {
       tone: 'neutral',
-      label: 'Specialist review',
-      detail: idea?.accessExplanation || 'This needs a specialist or pharmacist to review the evidence, safety, and fit.',
+      label: 'Ask a specialist',
+      detail: idea?.accessExplanation || 'A specialist or pharmacist should check the research, safety, and fit.',
     }
   }
   if (isResearchProgramIdea(idea)) {
@@ -1456,32 +1456,32 @@ const patientAccessForIdea = (result, idea) => {
     const status = String(trial?.status || '').toUpperCase()
     return {
       tone: status === 'RECRUITING' ? 'safe' : 'neutral',
-      label: status === 'RECRUITING' ? 'Study may be enrolling' : 'Study access only',
+      label: status === 'RECRUITING' ? 'Study may be open' : 'Only through a study',
       detail: status === 'RECRUITING'
-        ? 'Open the linked study and ask its site whether it is still enrolling and whether the person may qualify.'
-        : 'This is not routine care. Ask a specialist whether a current study, future study, or formal expanded-access path exists.',
+        ? 'Open the study and ask the site if it is still open and if the person may fit.'
+        : 'This is not usual care. Ask a specialist if there is a current study or another way to ask about access.',
     }
   }
   if (isSupplementIdea(idea)) {
     return {
       tone: 'safe',
-      label: 'Consumer product to discuss',
-      detail: 'This is a food or supplement item named in condition-specific research. A study does not establish a dose, safety, quality, or personal fit.',
+      label: 'Ask before using',
+      detail: 'This food or supplement was named in research. The study does not tell you a dose or show that it is safe or right for you.',
     }
   }
   return {
     tone: 'safe',
-    label: 'Discuss with a clinician',
-    detail: idea?.accessExplanation || 'This is a source-backed lead to review with a clinician, not a personal treatment plan.',
+    label: 'Ask your doctor',
+    detail: idea?.accessExplanation || 'This is something to ask a doctor about. It is not a treatment plan.',
   }
 }
 
 const treatmentTakeawayForIdea = (result, idea) => {
   if (idea?.takeaway) return idea.takeaway
-  if (evidencePointsAway(result, idea)) return 'This was studied, but the linked evidence does not support it as routine care for this condition.'
-  if (idea?.accessClass === 'prescription-or-label-check') return 'This is an official-label or prescription question that needs a clinician to match it to the person.'
-  if (isSupplementIdea(idea)) return 'Being easy to buy does not prove that it helps this condition or is safe with other medicines.'
-  return 'This is a source-linked item to discuss, not a personal treatment recommendation.'
+  if (evidencePointsAway(result, idea)) return 'This was studied, but the study did not show it should be usual care.'
+  if (idea?.accessClass === 'prescription-or-label-check') return 'Ask a doctor if the label and prescription rules fit this person.'
+  if (isSupplementIdea(idea)) return 'Being sold in stores does not prove it helps or mixes safely with medicines.'
+  return 'This is something to ask a doctor about. It is not a treatment plan.'
 }
 
 const treatmentQuestionForIdea = (result, idea) => {
@@ -1500,13 +1500,13 @@ const PatientLeadCards = ({ condition, result, ideas }) => (
       return (
         <article className={`research-idea-card ${access.tone === 'caution' ? 'research-idea-card--caution' : ''}`} key={idea.title}>
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
-          <div className="card-topline"><p className="card-kicker">{idea.category || 'Source-linked treatment lead'}</p><StatusPill tone={access.tone}>{access.label}</StatusPill></div>
+          <div className="card-topline"><p className="card-kicker">{idea.category || 'Found in research'}</p><StatusPill tone={access.tone}>{access.label}</StatusPill></div>
           <h3>{idea.title}</h3>
-          <CitedParagraph citations={citations}><strong>What the source says:</strong> {idea.summary || idea.rationale || 'This item appears in condition-specific research.'}</CitedParagraph>
+          <CitedParagraph citations={citations}><strong>What we found:</strong> {idea.summary || idea.rationale || 'This item appears in research about this illness.'}</CitedParagraph>
           <dl className="research-idea-facts">
-            <div><dt>Plain takeaway</dt><dd>{treatmentTakeawayForIdea(result, idea)}</dd></div>
-            <div><dt>How to explore it</dt><dd>{access.detail}</dd></div>
-            <div><dt>Ask your healthcare provider</dt><dd>{treatmentQuestionForIdea(result, idea)}</dd></div>
+            <div><dt>What this means</dt><dd>{treatmentTakeawayForIdea(result, idea)}</dd></div>
+            <div><dt>Next step</dt><dd>{access.detail}</dd></div>
+            <div><dt>Ask your doctor</dt><dd>{treatmentQuestionForIdea(result, idea)}</dd></div>
           </dl>
           {idea.whyItMayMatter ? <CitedParagraph className="research-idea-table__summary" citations={citations}><strong>Why it may matter:</strong> {idea.whyItMayMatter}</CitedParagraph> : null}
           <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution || idea.boundary}</span></div>
@@ -1530,7 +1530,7 @@ const EarlyResearchCards = ({ condition, result, ideas }) => (
           <dl className="research-idea-facts">
             <div><dt>Why it may matter</dt><dd>{idea.whyItMayMatter}<InlineCitationLinks citations={citations} /></dd></div>
             <div><dt>What this means today</dt><dd>{idea.accessExplanation}<InlineCitationLinks citations={citations} /></dd></div>
-            <div><dt>Ask your healthcare provider</dt><dd>{idea.providerQuestion}</dd></div>
+            <div><dt>Ask your doctor</dt><dd>{idea.providerQuestion}</dd></div>
           </dl>
           <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
           <CitationActions citations={citations} label="Open study" />
@@ -1549,19 +1549,19 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
       return (
         <article className="research-idea-card research-idea-card--exploratory" key={idea.title}>
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
-          <div className="card-topline"><p className="card-kicker">{idea.category || 'AI research idea'}</p><StatusPill tone="experimental">Two searches completed</StatusPill></div>
+          <div className="card-topline"><p className="card-kicker">{idea.category || 'New AI idea'}</p><StatusPill tone="experimental">2 checks done</StatusPill></div>
           <h3>{idea.title}</h3>
-          <CitedParagraph citations={citations}><strong>Why AI flagged this:</strong> {idea.whyItCouldConnect}</CitedParagraph>
+          <CitedParagraph citations={citations}><strong>Why AI picked this:</strong> {idea.whyItCouldConnect}</CitedParagraph>
           <dl className="research-idea-facts">
-            <div><dt>AI idea to investigate</dt><dd>{theoryPotentialInterventions(idea).join(' · ')}</dd></div>
-            <div><dt>What the direct searches found</dt><dd>{idea.whyNotEstablished}</dd></div>
-            <div><dt>Ask your healthcare provider</dt><dd>{idea.providerQuestion || 'What should I ask about this?'}</dd></div>
+            <div><dt>Possible idea to check</dt><dd>{theoryPotentialInterventions(idea).join(' · ')}</dd></div>
+            <div><dt>What we checked</dt><dd>{idea.whyNotEstablished}</dd></div>
+            <div><dt>Ask your doctor</dt><dd>{idea.providerQuestion || 'What should I ask about this?'}</dd></div>
           </dl>
           <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
-          <CitationActions citations={citations} label="Source for why this may connect" />
+          <CitationActions citations={citations} label="Why AI picked this" />
           {(pubmedUrl || europePmcUrl) ? <div className="citation-actions">
-            {pubmedUrl ? <a href={pubmedUrl} target="_blank" rel="noreferrer" className="citation-action">Open direct PubMed search <Icon name="external" size={12} /></a> : null}
-            {europePmcUrl ? <a href={europePmcUrl} target="_blank" rel="noreferrer" className="citation-action">Open direct Europe PMC search <Icon name="external" size={12} /></a> : null}
+            {pubmedUrl ? <a href={pubmedUrl} target="_blank" rel="noreferrer" className="citation-action">Check PubMed <Icon name="external" size={12} /></a> : null}
+            {europePmcUrl ? <a href={europePmcUrl} target="_blank" rel="noreferrer" className="citation-action">Check Europe PMC <Icon name="external" size={12} /></a> : null}
           </div> : null}
         </article>
       )
@@ -1577,22 +1577,22 @@ function ResearchIdeas({ condition, result }) {
 
   return (
     <section id="research-ideas" className="research-ideas section-surface">
-      <SectionHeader eyebrow="4. Drug and treatment ideas" title="What you can discuss now, plus research questions to check" />
-      <p className="section-intro">These lists keep human research, early animal or lab findings, and AI ideas separate. A card never gives a dose, tells someone to take a product, or combines medicines unless the linked study tested that exact combination.</p>
+      <SectionHeader eyebrow="4. Drug and treatment ideas" title="Treatments to ask about and new ideas to check" />
+      <p className="section-intro">The first list has things studied for this illness. The second has early lab work. The third has new AI ideas. This report never tells you to take something or mix medicines.</p>
 
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">1. Researched medicines, supplements, procedures, and study programs</p><p>These items appear in condition-specific research. A card does not prove approval or benefit. Each card says whether the next step is regular care, specialist review, or study access.</p></div>
-            <StatusPill tone={patientIdeas.length ? 'safe' : 'neutral'}>{patientIdeas.length ? `${patientIdeas.length} source-linked` : 'Carefully limited'}</StatusPill>
+            <div><p className="card-kicker">1. Things studied for this illness</p><p>These drugs, supplements, procedures, or study programs were named in research. That does not prove they work. Each card tells you what to ask next.</p></div>
+            <StatusPill tone={patientIdeas.length ? 'safe' : 'neutral'}>{patientIdeas.length ? `${patientIdeas.length} with links` : 'Only safe items shown'}</StatusPill>
           </div>
-          {patientIdeas.length ? <PatientLeadCards condition={condition} result={result} ideas={patientIdeas} /> : <div className="research-idea-empty"><Icon name="shield" size={18} /><p>This lane includes only patient-discussible, condition-specific leads. Trial products, animal findings, and treatments with negative results stay in their own sections instead of being padded into this list.</p></div>}
+          {patientIdeas.length ? <PatientLeadCards condition={condition} result={result} ideas={patientIdeas} /> : <div className="research-idea-empty"><Icon name="shield" size={18} /><p>We only show names found in research for this illness. We do not add random names just to fill this list.</p></div>}
         </section>
 
         {earlyResearchIdeas.length ? (
           <section className="research-idea-lane research-idea-lane--early">
             <div className="research-idea-lane__header">
-              <div><p className="card-kicker">2. Early research worth watching</p><p>Recent animal or lab findings connected to this condition's disease family. These cards are not human treatment studies and are not ways to self-treat.</p></div>
+              <div><p className="card-kicker">2. Early lab or animal research</p><p>These studies are not in people yet. They are not treatments you can try on your own.</p></div>
               <StatusPill tone="experimental">{earlyResearchIdeas.length} early stud{earlyResearchIdeas.length === 1 ? 'y' : 'ies'}</StatusPill>
             </div>
             <EarlyResearchCards condition={condition} result={result} ideas={earlyResearchIdeas} />
@@ -1601,10 +1601,10 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">{theoryLaneNumber}. AI ideas not found in this condition</p><p>These are not treatment suggestions. AI generated concrete ideas from the condition background, then the app searched PubMed and Europe PMC for the exact condition and idea. A card appears only when both searches finished without a match. This does not prove there is no research anywhere or that the idea will work.</p></div>
-            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Direct searches completed' : 'Nothing unsafe added'}</StatusPill>
+            <div><p className="card-kicker">{theoryLaneNumber}. New AI ideas to check</p><p>AI picked a specific name based on what is known about this illness. We then checked PubMed and Europe PMC for that exact name and illness. We show it only if both checks did not find a match. That does not mean nobody has studied it or that it will help.</p></div>
+            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? '2 checks done' : 'Left blank on purpose'}</StatusPill>
           </div>
-          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No AI idea passed both direct literature checks in this run. The app leaves this section empty rather than labeling a known research topic as new.</p></div>}
+          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No AI idea was safe to show. We left this blank instead of calling a known idea new.</p></div>}
         </section>
       </div>
     </section>
@@ -1628,18 +1628,18 @@ function TreatmentResultsThatPointAway({ condition, result }) {
       <SectionHeader
         eyebrow="Important research results"
         title="Treatments studied but not listed as options"
-        action={<StatusPill tone="caution">Source-linked</StatusPill>}
+        action={<StatusPill tone="caution">Links included</StatusPill>}
       />
-      <p className="section-intro">Some names appear in online treatment lists. We show them here when a source gives a clear reason not to treat them as a positive option for {condition || 'this condition'}.</p>
+      <p className="section-intro">Some treatments are talked about online. We put them here when a study gives a clear reason not to treat them as a good option for {condition || 'this condition'}.</p>
       <div className="safety-grid">
         {treatments.map((item) => {
           const citations = claimCitations(result, item, condition)
           return (
             <article className="safety-card" key={item.title}>
-              <p className="card-kicker">Not a positive option</p>
+              <p className="card-kicker">Not a good option from this study</p>
               <h3>{item.title}</h3>
-              <CitedParagraph citations={citations}><strong>Why it is not in the option list:</strong> {item.reason}</CitedParagraph>
-              <div className="safety-caution"><Icon name="shield" size={16} /><span>This finding does not tell a person to stop a medicine prescribed for another condition. Discuss the specific medicine with the clinician who manages it.</span></div>
+              <CitedParagraph citations={citations}><strong>What the study found:</strong> {item.reason}</CitedParagraph>
+              <div className="safety-caution"><Icon name="shield" size={16} /><span>This does not mean you should stop a medicine used for another illness. Ask the doctor who prescribed it.</span></div>
               <CitationActions citations={citations} label="Open study" />
             </article>
           )
@@ -1794,7 +1794,7 @@ function DevelopmentProgramTable({ condition, result, programs }) {
                 <td><p className="card-kicker">{program.kind === 'trial' ? 'Current study' : 'Research source'}</p><strong>{program.title}</strong></td>
                 <td>
                   <span className="development-program-table__lane">{program.category || 'Treatment research'}</span>
-                  <CitedParagraph citations={citations}>{program.summary || program.rationale || `This approach appears in condition-specific research for ${condition}.`}</CitedParagraph>
+                  <CitedParagraph citations={citations}>{program.summary || program.rationale || `This approach appears in research about ${condition}.`}</CitedParagraph>
                 </td>
                 <td>
                   <StatusPill tone={access.tone}>{access.label}</StatusPill>
@@ -1823,9 +1823,9 @@ function TreatmentDevelopment({ condition, result }) {
         title="Treatments in current clinical studies"
         action={<StatusPill tone="safe">{programs.length} current programs</StatusPill>}
       />
-      <p className="section-intro">This table tracks trial-only gene, cell, device, procedure, and drug programs. It shows what the live registry says today. It does not predict benefit or eligibility, and it does not treat a research program as a product someone can obtain.</p>
+      <p className="section-intro">These are treatments being tested in studies. They may be drugs, gene treatments, cell treatments, devices, or procedures. A study listing does not mean it will help or that a person can join.</p>
       <DevelopmentProgramTable condition={condition} result={result} programs={programs} />
-      <p className="section-note">Some sponsors may have an expanded-access path, but it is not shown on every study record. Ask the study team whether one exists. <a href={FDA_EXPANDED_ACCESS_SOURCE.url} target="_blank" rel="noreferrer">{FDA_EXPANDED_ACCESS_SOURCE.title} <Icon name="external" size={12} /></a></p>
+      <p className="section-note">Some study sponsors may have another way to request a treatment. It is not listed on every study. Ask the study team. <a href={FDA_EXPANDED_ACCESS_SOURCE.url} target="_blank" rel="noreferrer">{FDA_EXPANDED_ACCESS_SOURCE.title} <Icon name="external" size={12} /></a></p>
     </section>
   )
 }
@@ -1833,38 +1833,36 @@ function TreatmentDevelopment({ condition, result }) {
 function LifestyleResearch({ result }) {
   const condition = result?.patient?.condition
   const lifestyle = lifestyleIdeasForReport(result, condition)
-  const hasFallback = lifestyle.some((item) => item.sourceLinkedFallback)
 
   return (
     <section id="lifestyle-support" className="lifestyle-research section-surface">
       <SectionHeader
         eyebrow="3. Lifestyle & environment"
         title="Lifestyle changes worth discussing"
-        action={<StatusPill tone={lifestyle.length ? 'safe' : 'neutral'}>{hasFallback ? 'Source-linked' : lifestyle.length ? 'Research-backed' : 'No claim added'}</StatusPill>}
+        action={<StatusPill tone={lifestyle.length ? 'safe' : 'neutral'}>{lifestyle.length ? 'Links included' : 'No tip added'}</StatusPill>}
       />
-      <p className="section-intro">These are research findings about daily life that may matter for this condition. They are not personal medical instructions.</p>
+      <p className="section-intro">These are daily-life topics from the research. They may help you know what to ask about. They are not personal instructions.</p>
       {lifestyle.length ? <div className="lifestyle-grid">
         {lifestyle.map((item) => {
           const citations = claimCitations(result, item, condition)
           return (
             <article className="lifestyle-card" key={item.id || item.title}>
-              <p className="card-kicker">{item.profileContext?.length ? `Matched to your profile: ${item.profileContext.join(' · ')}` : 'Source-linked discussion point'}</p>
+              <p className="card-kicker">{item.profileContext?.length ? `Based on what you entered: ${item.profileContext.join(' · ')}` : 'Topic from a source'}</p>
               <h3>{item.title}</h3>
               <CitedParagraph citations={citations}>{item.summary}</CitedParagraph>
-              {item.providerQuestion ? <div className="lifestyle-question"><strong>Ask your healthcare provider</strong><span>{item.providerQuestion}</span></div> : null}
+              {item.providerQuestion ? <div className="lifestyle-question"><strong>Ask your doctor</strong><span>{item.providerQuestion}</span></div> : null}
               <div className="lifestyle-caution"><Icon name="shield" size={16} /><span>{item.caution}</span></div>
               <CitationActions citations={citations} label="Open source" />
             </article>
           )
         })}
-      </div> : <RequiredSectionEmptyState title="No lifestyle claim was added without a direct source." icon="shield">This report keeps daily-life suggestions out unless a condition-specific source supports the topic.</RequiredSectionEmptyState>}
+      </div> : <RequiredSectionEmptyState title="No daily-life tip was added." icon="shield">We did not find a source we could use for a daily-life tip in this report.</RequiredSectionEmptyState>}
     </section>
   )
 }
 
 function SafetyResearch({ result }) {
   const safety = safetyIdeasForReport(result)
-  const hasFallback = safety.some((item) => item.sourceLinkedFallback)
   const condition = result?.patient?.condition
 
   return (
@@ -1872,14 +1870,14 @@ function SafetyResearch({ result }) {
       <SectionHeader
         eyebrow="Important safety points"
         title="Cautions found in this research"
-        action={<StatusPill tone={safety.length ? 'caution' : 'neutral'}>{safety.length ? (hasFallback ? 'Source-linked' : 'Review with care') : 'Safety checklist'}</StatusPill>}
+        action={<StatusPill tone={safety.length ? 'caution' : 'neutral'}>{safety.length ? 'Please check' : 'Safety checklist'}</StatusPill>}
       />
-      <p className="section-intro">These are warnings or cautions found in the sources. They do not replace a clinician or pharmacist.</p>
+      <p className="section-intro">These are warnings found in the sources. A doctor or pharmacist should still check your full situation.</p>
       {safety.length ? (
         <div className="safety-grid">
           {safety.map((item) => (
             <article className="safety-card" key={item.title}>
-              <p className="card-kicker">Safety consideration</p>
+              <p className="card-kicker">Important to know</p>
               <h3>{item.title}</h3>
               <CitedParagraph citations={claimCitations(result, item, condition)}>{item.summary}</CitedParagraph>
               <div className="safety-caution"><Icon name="alert" size={16} /><span>{item.caution}</span></div>
@@ -1887,7 +1885,7 @@ function SafetyResearch({ result }) {
           ))}
         </div>
       ) : (
-        <RequiredSectionEmptyState title="Use this safety checklist while you continue the search." icon="alert">Check current medicines, allergies, pregnancy status, and other conditions with a clinician or pharmacist before acting on any research idea.</RequiredSectionEmptyState>
+        <RequiredSectionEmptyState title="Check safety before acting on an idea." icon="alert">Ask a doctor or pharmacist about medicines, allergies, pregnancy, and other health problems first.</RequiredSectionEmptyState>
       )}
     </section>
   )
@@ -2240,7 +2238,7 @@ const reportExportText = ({ form, report, result }) => {
     .map((idea) => {
       const access = patientAccessForIdea(result, idea)
       return citedLine(
-        `- ${idea.title}: ${idea.summary || idea.rationale || 'Named in current condition-specific research.'} Plain takeaway: ${treatmentTakeawayForIdea(result, idea)} How to explore it: ${access.label}. ${access.detail} Ask your healthcare provider: ${treatmentQuestionForIdea(result, idea)}`,
+        `- ${idea.title}: What we found: ${idea.summary || idea.rationale || 'This item appears in research about this illness.'} What this means: ${treatmentTakeawayForIdea(result, idea)} Next step: ${access.label}. ${access.detail} Ask your doctor: ${treatmentQuestionForIdea(result, idea)}`,
         claimCitations(result, idea, condition, { verifyWhenEmpty: idea.kind === 'exploration' }),
       )
   })
@@ -2257,7 +2255,7 @@ const reportExportText = ({ form, report, result }) => {
     .join('\n')
   const earlyResearchLines = earlyResearchIdeasForReport(result, condition)
     .map((idea) => citedLine(
-      `- ${idea.title}: What the study looked at: ${idea.summary} Why it may matter: ${idea.whyItMayMatter} What this means today: ${idea.accessExplanation} Ask your healthcare provider: ${idea.providerQuestion} Boundary: ${idea.caution}`,
+        `- ${idea.title}: What the study looked at: ${idea.summary} Why it may matter: ${idea.whyItMayMatter} What this means now: ${idea.accessExplanation} Ask your doctor: ${idea.providerQuestion} Important: ${idea.caution}`,
       claimCitations(result, idea, condition),
     ))
     .join('\n')
@@ -2272,7 +2270,7 @@ const reportExportText = ({ form, report, result }) => {
         idea?.directSearch?.europePmc?.url ? `Direct Europe PMC search: ${idea.directSearch.europePmc.url}` : '',
       ].filter(Boolean).join(' | ')
       return citedLine(
-        `- ${idea.title}: Why AI flagged this: ${idea.whyItCouldConnect} AI idea to investigate: ${theoryPotentialInterventions(idea).join('; ')} What the direct searches found: ${idea.whyNotEstablished} Ask your healthcare provider: ${idea.providerQuestion || 'What should I ask about this?'} ${links} Boundary: ${idea.caution}`,
+        `- ${idea.title}: Why AI picked this: ${idea.whyItCouldConnect} Possible idea to check: ${theoryPotentialInterventions(idea).join('; ')} What we checked: ${idea.whyNotEstablished} Ask your doctor: ${idea.providerQuestion || 'What should I ask about this?'} ${links} Important: ${idea.caution}`,
         claimCitations(result, idea, condition),
       )
     })
@@ -2285,7 +2283,7 @@ const reportExportText = ({ form, report, result }) => {
     .join('\n')
   const lifestyleLines = lifestyleIdeasForReport(result, condition)
     .map((item) => citedLine(
-      `- ${item.title}: ${item.summary}${item.providerQuestion ? ` Ask your healthcare provider: ${item.providerQuestion}` : ''} Boundary: ${item.caution}`,
+      `- ${item.title}: ${item.summary}${item.providerQuestion ? ` Ask your doctor: ${item.providerQuestion}` : ''} Important: ${item.caution}`,
       claimCitations(result, item, condition),
     ))
     .join('\n')
@@ -2323,8 +2321,8 @@ const reportExportText = ({ form, report, result }) => {
     recruitingTrialLines ? citedLine('- Study-site conversation: Open the recruiting records to check current contacts and enrollment rules.', trials.filter(isRecruitingTrial).slice(0, 3)) : `- Study-site conversation: Use ClinicalTrials.gov to check current studies for ${condition}.`,
   ].join('\n')
   const mapNote = result?.exploration
-    ? 'Research guide: These connections are not verified facts or personal treatment advice. Check trusted sources and a clinician before acting on any idea.'
-    : 'Source-linked report: Use the cited records to check every treatment and research question.'
+    ? 'Ideas to check: These are not proven facts or treatment advice. Check the links and ask a doctor before acting on an idea.'
+    : 'Links are included. Open them to check each treatment and question.'
   const theorySectionNumber = earlyResearchLines ? 7 : 6
   const notPositiveSectionNumber = theorySectionNumber + 1
   const pipelineSectionNumber = theorySectionNumber + 1 + Number(Boolean(notPositiveLines))
@@ -2341,7 +2339,7 @@ const reportExportText = ({ form, report, result }) => {
     'Privacy note',
     'This private beta does not create patient accounts or save profiles in an application database. Do not include real patient names, full birthdays, addresses, phone numbers, emails, medical record numbers, insurance details, or photos.',
     '',
-    'Research context',
+    'What you entered',
     `Location: ${form.location || 'Not supplied'}`,
     `Stage: ${form.stage || 'Not supplied'}`,
     `Current treatments: ${form.currentMeds || 'Not supplied'}`,
@@ -2356,41 +2354,41 @@ const reportExportText = ({ form, report, result }) => {
     centerLines || 'Use the linked recruiting study records and a clinician or disease foundation directory to find an appropriate specialty team.',
     '',
     '4. Lifestyle changes worth discussing',
-    lifestyleLines || 'Use the condition-specific lifestyle evidence searches to prepare questions for a clinician.',
+    lifestyleLines || 'We did not find a source we could use for a daily-life tip in this report.',
     '',
-    '5. Researched medicines, supplements, procedures, and study programs',
-    patientLeadLines || 'This lane stays separate from trial-only research. Use the approved-options and research-program sections to prepare the next discussion.',
+    '5. Things studied for this illness',
+    patientLeadLines || 'We only show names found in research for this illness. Look at the approved options and current studies next.',
     '',
-    ...(earlyResearchLines ? ['', '6. Early animal and lab research worth watching', earlyResearchLines] : []),
+    ...(earlyResearchLines ? ['', '6. Early lab or animal research', earlyResearchLines] : []),
     '',
-    `${theorySectionNumber}. AI ideas not found in this condition`,
-    theoryLines || 'No AI idea passed both direct literature checks in this run. The app does not fill this section with broad pathways or known research topics.',
+    `${theorySectionNumber}. New AI ideas to check`,
+    theoryLines || 'No AI idea was safe to show. We left this blank instead of calling a known idea new.',
     ...(notPositiveLines ? ['', `${notPositiveSectionNumber}. Treatments studied but not listed as options`, notPositiveLines] : []),
     '',
-    `${pipelineSectionNumber}. Pipeline watch`,
-    researchProgramLines || 'Use the live trial directory to check current treatment programs and their enrollment status.',
+    `${pipelineSectionNumber}. Treatments in current studies`,
+    researchProgramLines || 'Use the live study list to see what is being tested now.',
     '',
     `${trialSectionNumber}. Current clinical trials`,
     recruitingTrialLines || `Use ClinicalTrials.gov to check the latest recruiting studies for ${condition}.`,
     ...(otherCurrentTrialLines ? ['', 'Other current clinical studies', otherCurrentTrialLines] : []),
     '',
-    `${accessPlanSectionNumber}. Your research and access plan`,
+    `${accessPlanSectionNumber}. What to bring to your next visit`,
     accessPlanLines,
     '',
     `${questionsSectionNumber}. Simple questions to ask your doctor`,
-    questionLines || 'Use the source-linked treatment and trial tables to prepare questions for a clinician.',
+    questionLines || 'Use the treatment and study lists to make questions for a doctor.',
     '',
-    'Report boundary',
+    'Important',
     mapNote,
     '',
     `${safetySectionNumber}. Important safety points`,
-    safetyLines || 'Use a clinician or pharmacist to review medicines, allergies, other conditions, and pregnancy status before acting on an idea.',
+    safetyLines || 'Ask a doctor or pharmacist about medicines, allergies, other health problems, and pregnancy before acting on an idea.',
     '',
     'Sources',
     sourceLines || 'Live source links were not available in this run. Use the AI research map and a new live search to continue.',
     '',
-    'Sources checked',
-    coverageLines || 'No source coverage details were retrieved yet.',
+    'Where we looked',
+    coverageLines || 'No source details were returned yet.',
     '',
     'Research support, not medical advice. Verify sources with a licensed clinician.',
   ].join('\n')
