@@ -1045,6 +1045,8 @@ const conditionFoundationSources = (condition) => {
       type: 'FDA approval record',
       year: '2017',
       origin: 'U.S. Food and Drug Administration',
+      treatmentName: 'Voretigene neparvovec-rzyl (Luxturna)',
+      establishedCare: true,
       summary: 'FDA-approved gene therapy for people with confirmed biallelic RPE65 mutation-associated retinal dystrophy. This is not an approval for every form of retinitis pigmentosa.',
       caution: 'This approval is limited to confirmed biallelic RPE65 mutation-associated retinal dystrophy. A retinal specialist must confirm whether the gene result and retinal findings fit the labeled use.',
       approvalScope: 'subtype',
