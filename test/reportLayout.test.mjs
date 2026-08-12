@@ -44,9 +44,9 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /Not in people yet/)
   assert.match(appSource, /supportingSourceIds/)
   assert.match(appSource, /Do not buy, compound, or use/)
-  assert.match(appSource, /New repurposing questions/)
+  assert.match(appSource, /AI ideas not found in this condition/)
   assert.match(appSource, /Plain takeaway/)
-  assert.match(appSource, /Named item to investigate/)
+  assert.match(appSource, /AI idea to investigate/)
   assert.match(appSource, /Study may be enrolling/)
   assert.match(appSource, /Nerandomilast \(Jascayd; BI 1015550\)/)
   assert.match(appSource, /Nalbuphine extended-release \(NAL ER\)/)
@@ -55,8 +55,9 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /return 'oxygen support'/)
   assert.match(appSource, /study-access-only/)
   assert.match(appSource, /isExplicitlyExcludedTreatment/)
-  assert.match(appSource, /Source for disease biology/)
-  assert.match(appSource, /Search to check next/)
+  assert.match(appSource, /Source for why this may connect/)
+  assert.match(appSource, /Open direct PubMed search/)
+  assert.doesNotMatch(appSource, /Not established/)
   assert.doesNotMatch(appSource, /sourceMentionsRepurposingCandidate/)
   assert.match(appSource, /Treatments studied but not listed as options/)
   assert.match(appSource, /centerSourceCitation/)
@@ -107,7 +108,7 @@ test('Word and PDF exports keep the same practical report sections', () => {
     '4. Lifestyle changes worth discussing',
     '5. Researched medicines, supplements, procedures, and study programs',
     'Early animal and lab research worth watching',
-    'New repurposing questions',
+    'AI ideas not found in this condition',
     'Treatments studied but not listed as options',
     'Pipeline watch',
     'Current clinical trials',
