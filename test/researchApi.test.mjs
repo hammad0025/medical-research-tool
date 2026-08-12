@@ -381,7 +381,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
   const clinicalTrialRecordIds = []
@@ -635,6 +635,12 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       if (url.includes('open.fda.gov/drug/label.json')) return jsonResponse({ error: { message: 'No matches found' } }, 404)
       if (url.includes('api.openai.com/v1/responses')) {
         const request = JSON.parse(options.body)
+        if (rejectOpenAiJsonFormat && request?.text?.format?.type === 'json_object') {
+          return jsonResponse({ error: { message: 'This model does not accept JSON mode for this request.' } }, 400)
+        }
+        if (rejectOpenAiTools && Array.isArray(request?.tools) && request.tools.length) {
+          return jsonResponse({ error: { message: 'This model does not accept the requested tool.' } }, 400)
+        }
         if (relationReviewUnavailable && request.instructions.includes('Candidate Relation Reviewer')) {
           return jsonResponse({ error: { message: 'Reviewer unavailable in this test.' } }, 503)
         }
@@ -1094,6 +1100,31 @@ test('the AI idea lane reaches ten distinct checked cards when ten public candid
   assert.ok(directIdeas.filter((idea) => /Test repurposing candidate \d+/i.test(idea.title))
     .every((idea) => idea.sourceIds.some((id) => id.startsWith('everycure-matrix-'))))
   assert.ok(directIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
+})
+
+test('a JSON-mode 400 retries OpenAI with a compatible request before withholding AI ideas', { concurrency: false }, async () => {
+  const mock = createMockFetch({ everyCureAllCandidatesNoMatch: true, rejectOpenAiJsonFormat: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.equal(response.body.review.theoryIdeas.length, 10)
+  assert.equal(response.body.sourceCoverage.find((lane) => lane.id === 'academic-centers').status, 'ready')
+})
+
+test('an OpenAI tool-request 400 retries without optional tools before withholding AI ideas', { concurrency: false }, async () => {
+  const mock = createMockFetch({ everyCureAllCandidatesNoMatch: true, rejectOpenAiTools: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  assert.equal(response.body.review.theoryIdeas.length, 10)
 })
 
 test('a registry outage is labeled unavailable instead of as an empty trial search', { concurrency: false }, async () => {
