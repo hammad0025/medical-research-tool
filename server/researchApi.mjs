@@ -4080,6 +4080,30 @@ const mergeAiIdeaSeeds = (drafts, conditionSources) => {
     .slice(0, 32)
 }
 
+const everyCureAiIdeaSeeds = (ideas) => (Array.isArray(ideas) ? ideas : [])
+  .filter((idea) => idea?.kind === 'everycure-computational')
+  .map((idea) => ({
+    candidate: cleanCandidateName((Array.isArray(idea?.potentialInterventions) ? idea.potentialInterventions[0] : '') || idea?.title?.replace(/\s+repurposing question$/i, '')),
+    category: 'Computer-picked drug idea',
+    whyItCouldConnect: cleanText(idea?.whyItCouldConnect, 440),
+    providerQuestion: simpleDoctorQuestion(idea?.providerQuestion || 'Is this worth discussing?'),
+  }))
+  .filter((idea) => isSpecificCandidateName(idea.candidate))
+  .filter((idea) => idea.whyItCouldConnect.length >= 24)
+
+const combineAiIdeaSeeds = (...groups) => {
+  const seen = new Set()
+  return groups.flat()
+    .filter((idea) => idea?.candidate)
+    .filter((idea) => {
+      const key = candidateKey(idea.candidate)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 32)
+}
+
 const scoutAiIdeasNotFound = async ({ patient, sources, env }) => {
   const background = (Array.isArray(sources) ? sources : [])
     .filter(isTrustedAiIdeaBackgroundSource)
@@ -5823,6 +5847,10 @@ const runResearch = async (body, env) => {
     ideas: [],
     detail: 'The AI idea scout could not be reached for this run.',
   }))
+  const aiIdeaSeeds = combineAiIdeaSeeds(
+    aiIdeaScout.ideas,
+    everyCureAiIdeaSeeds(bundle.curatedTheoryIdeas),
+  )
   const [candidateEvidenceResult, packetCandidateResult, practicalPacketCandidateResult] = await Promise.allSettled([
     scout.candidates?.length
       ? fetchCandidateEvidence(patient.condition, scout.candidates)
@@ -5871,7 +5899,7 @@ const runResearch = async (body, env) => {
     && ['ready', 'not-run'].includes(candidateRelationReview.status)
   const aiIdeasNotFoundResult = await verifyAiIdeasNotFound({
     condition: patient.condition,
-    ideas: aiIdeaScout.ideas,
+    ideas: aiIdeaSeeds,
     sources: verifiedSourceRecords,
     trials: verifiedTrialRecords,
   }).catch(() => ({
