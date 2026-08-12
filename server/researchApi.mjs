@@ -1690,7 +1690,10 @@ const CONDITION_SEARCH_GROUPS = [
     // clearly related disease model. It does not turn a model finding into an
     // RP treatment claim, and can be extended for other condition families.
     relatedPreclinicalResearch: {
-      searchPhrase: 'retinal degeneration',
+      // More than one carefully bounded search phrase gives the model-study
+      // lane enough source material to find named products without turning
+      // broad retinal biology into a treatment claim.
+      searchPhrases: ['retinal degeneration', 'photoreceptor degeneration', 'inherited retinal degeneration'],
       matchingPhrases: ['retinal degeneration', 'inherited retinal degeneration', 'photoreceptor degeneration'],
       label: 'related retinal-degeneration models',
       context: 'Retinitis pigmentosa is an inherited retinal disease. This source is from a related retinal-degeneration model, not a study in people with retinitis pigmentosa.',
@@ -1951,14 +1954,16 @@ const fetchPubMedEvidence = async (condition) => {
     { term: `${titleTerm} AND ${qualityTerm}`, limit: 8 },
     { term: titleTerm, limit: 6 },
     { term: titleAbstractTerm, limit: 6 },
-    ...(relatedResearch ? [{
+    ...(relatedResearch ? (relatedResearch.searchPhrases || []).map((searchPhrase) => ({
       // This only creates a separately marked "early animal/lab" source
       // candidate. It is deliberately not mixed with exact-condition care.
-      term: `("${relatedResearch.searchPhrase}"[Title/Abstract]) AND (therap*[Title/Abstract] OR protect*[Title/Abstract] OR neuroprotect*[Title/Abstract] OR rescu*[Title/Abstract] OR candidate[Title/Abstract])`,
-      limit: 8,
+      // The added terms prefer records that name a concrete compound or
+      // intervention instead of general discussions of retinal biology.
+      term: `("${searchPhrase}"[Title/Abstract]) AND (therap*[Title/Abstract] OR protect*[Title/Abstract] OR neuroprotect*[Title/Abstract] OR rescu*[Title/Abstract] OR candidate[Title/Abstract] OR compound*[Title/Abstract] OR molecule*[Title/Abstract] OR pharmacolog*[Title/Abstract])`,
+      limit: 10,
       scope: 'related-preclinical',
       sort: 'pub date',
-    }] : []),
+    })) : []),
   ]
   const directIds = []
   const relatedIds = []
@@ -1969,13 +1974,13 @@ const fetchPubMedEvidence = async (condition) => {
       if (!target.includes(id)) target.push(id)
     }
   }
-  const ids = [...directIds.slice(0, 40), ...relatedIds.filter((id) => !directIds.includes(id)).slice(0, 6)]
+  const ids = [...directIds.slice(0, 40), ...relatedIds.filter((id) => !directIds.includes(id)).slice(0, 16)]
   if (!ids.length) return []
 
   const url = new URL(PUBMED_FETCH_URL)
   url.searchParams.set('db', 'pubmed')
   url.searchParams.set('retmode', 'xml')
-  url.searchParams.set('id', ids.slice(0, 46).join(','))
+  url.searchParams.set('id', ids.slice(0, 56).join(','))
 
   const response = await fetchWithTimeout(url, {}, 18_000)
   if (!response.ok) throw new Error(`PubMed fetch returned ${response.status}.`)
@@ -1997,7 +2002,7 @@ const fetchPubMedEvidence = async (condition) => {
 
   return [
     ...sources.filter((source) => source.conditionScope !== 'related-preclinical').slice(0, 18),
-    ...sources.filter((source) => source.conditionScope === 'related-preclinical').slice(0, 2),
+    ...sources.filter((source) => source.conditionScope === 'related-preclinical').slice(0, 12),
   ]
 }
 
@@ -2058,9 +2063,9 @@ const dedupeEvidenceSources = (groups, maximum = 14) => {
   const sorted = Array.from(byKey.values())
     .sort((left, right) => sourceQualityScore(right) - sourceQualityScore(left)
       || cleanText(right.year, 12).localeCompare(cleanText(left.year, 12)))
-  // Keep at most two clearly marked related-model papers from getting crowded
-  // out by reviews, without ever letting them replace the core source set.
-  const relatedPreclinical = sorted.filter((source) => source.conditionScope === 'related-preclinical').slice(0, 2)
+  // Keep a meaningful, but bounded, set of clearly marked model papers from
+  // getting crowded out by reviews. They cannot replace the core source set.
+  const relatedPreclinical = sorted.filter((source) => source.conditionScope === 'related-preclinical').slice(0, 12)
   const regularSources = sorted.filter((source) => source.conditionScope !== 'related-preclinical')
   return [...regularSources.slice(0, Math.max(0, maximum - relatedPreclinical.length)), ...relatedPreclinical]
     .sort((left, right) => sourceQualityScore(right) - sourceQualityScore(left)
@@ -4462,13 +4467,15 @@ const relatedPreclinicalSourceCandidates = (source) => {
   }
 
   // These deliberately narrow patterns only release a named molecule when the
-  // source itself says it was delivered, restored, or proposed as a candidate.
+  // source itself says it was delivered, tested, or proposed as a candidate.
   // They give the early-research lane a deterministic fallback when an AI pass
   // is delayed, while keeping the exact source text attached to every card.
   for (const match of sourceText.matchAll(/\b(?:delivery|restor(?:ing|ation)|administration|treatment)\s+(?:of|with)\s+([A-Za-z][A-Za-z0-9-]{2,50})\b/gi)) add(match[1], match[0])
+  for (const match of sourceText.matchAll(/\b(?:treated|dosed|exposed)\s+(?:with|to)\s+([A-Za-z][A-Za-z0-9-]{2,50})\b/gi)) add(match[1], match[0])
+  for (const match of sourceText.matchAll(/\b([A-Za-z][A-Za-z0-9-]{2,50})\s+(?:treatment|therapy)\s+(?:limited|reduced|improved|protected|rescued)\b/gi)) add(match[1], match[0])
   for (const match of sourceText.matchAll(/\b([A-Za-z][A-Za-z0-9-]{2,50})(?:\s+and\s+analogs)?\s+as\s+candidate\s+therapeutics?\b/gi)) add(match[1], match[0])
 
-  return candidates.slice(0, 2)
+  return candidates.slice(0, 3)
 }
 
 const attachSourceTitleTreatmentCandidates = (sources, condition) => (sources || []).map((source) => {
@@ -4689,6 +4696,19 @@ Return strict JSON only:
   ]
 }`
 
+const relatedModelCandidateExtractorSystemPrompt = `You are Related Model Candidate Extractor in a medical-research product. Extract names only from the supplied source records. You are not allowed to use outside knowledge or invent a treatment.
+
+Every supplied record is an animal or laboratory study in a disease model related to the requested condition. Find up to one exact named medicine, supplement, food compound, peptide, or other specific product from each record. The name must appear in that record's title or abstract and the record must describe it as tested, delivered, used, or a possible therapeutic. Do not return a pathway, protein, gene, biomarker, broad class, delivery method, cell product, gene therapy, RNA program, implant, trial product, or a made-up name. Do not infer that the product treats the requested condition or that a person can obtain it.
+
+Every candidate must cite the exact sourceId where its name appears. A candidate is discarded if its name is not present in that cited record.
+
+Return strict JSON only:
+{
+  "candidates": [
+    {"name": "exact named product", "searchNames": ["exact name from the record"], "category": "early animal or lab research", "sourceIds": ["exact source id"]}
+  ]
+}`
+
 const candidateRelationReviewerSystemPrompt = `You are Candidate Relation Reviewer, the independent safety check for named treatment cards in a medical-research product. You receive a condition and small source records that mention both the condition and a candidate.
 
 For every record and candidate pair, decide whether the record clearly connects that exact candidate to treatment, study, rehabilitation, adaptive support, or symptom care for the requested condition. A word match is not enough. A paper can mention a disease and a medicine because the person also had another diagnosis.
@@ -4865,12 +4885,18 @@ const applyCandidateRelationshipReview = (records, relationReview, condition) =>
         // background while studying a different intervention.
         const titleNamesCandidate = sourceMentionsCandidate({ title: record?.title, summary: '' }, candidate)
         const directTitleConnection = titleDirectlyConnectsCandidateToCondition(record?.title, candidate, condition)
-        const earlyPreclinicalFallback = relatedPreclinicalRecord
+        const earlyPreclinicalCandidate = relatedPreclinicalRecord
+          && candidate?.sourceEarlyResearchDerived === true
+        const earlyPreclinicalFallback = earlyPreclinicalCandidate
           && candidate?.sourceEarlyResearchDerived === true
           && candidate?.roleVerified === true
           && candidate?.relationship === 'condition-family-preclinical'
-        if (candidate?.sourceTitleDerived !== true && !titleNamesCandidate && !earlyPreclinicalFallback) return null
         const decision = decisions.get(candidateRelationKey(record?.id, candidate?.name))
+        // A model-source candidate can appear only after the separate relation
+        // reviewer confirms that this exact record really describes the named
+        // product in a related animal or lab model. Other candidates still
+        // need a direct title connection or an existing verified fallback.
+        if (candidate?.sourceTitleDerived !== true && !titleNamesCandidate && !earlyPreclinicalFallback && !earlyPreclinicalCandidate) return null
         if (decision && (!relatedPreclinicalRecord || decision.relationship === 'condition-family-preclinical')) {
           return { ...candidate, roleVerified: true, relationship: decision.relationship, relationEvidence: decision.evidence }
         }
@@ -4891,7 +4917,7 @@ const applyCandidateRelationshipReview = (records, relationReview, condition) =>
 
 const extractPacketCandidates = async ({ patient, sources, trials }, env, {
   system = packetCandidateExtractorSystemPrompt,
-  sourceLimit = 18,
+  sourceLimit = 30,
   trialLimit = 14,
   maximum = 10,
   maxTokens = 1_100,
@@ -4948,6 +4974,28 @@ const extractPracticalPacketCandidates = ({ patient, sources }, env) => extractP
     maxTokens: 1_700,
   },
 )
+
+const extractRelatedModelCandidates = ({ patient, sources }, env) => extractPacketCandidates(
+  {
+    patient,
+    sources: (sources || []).filter((source) => source?.conditionScope === 'related-preclinical'),
+    trials: [],
+  },
+  env,
+  {
+    system: relatedModelCandidateExtractorSystemPrompt,
+    sourceLimit: 14,
+    trialLimit: 0,
+    maximum: 14,
+    maxTokens: 2_200,
+  },
+).then((result) => ({
+  ...result,
+  candidates: (result.candidates || []).map((candidate) => ({
+    ...candidate,
+    sourceEarlyResearchDerived: true,
+  })),
+}))
 
 const mergePacketCandidates = (...candidateLists) => {
   const byKey = new Map()
@@ -6294,7 +6342,10 @@ const retrievedEvidenceBundle = async (condition, env) => {
     mode: 'live-retrieved',
     sourceLabel: 'Current research sources',
     sources: retainEveryCurePublicSource(
-      dedupeEvidenceSources([foundationSources, recentResearchSources, liveEvidence.sources], 18),
+      // Preserve enough clearly labeled model records for the separate
+      // research-question lane, while still retaining the direct-condition
+      // overview, human research, and regulatory sources above it.
+      dedupeEvidenceSources([foundationSources, recentResearchSources, liveEvidence.sources], 32),
       liveEvidence.sources,
     ),
     curatedDiscussionLeads: foundationDiscussionLeads.map(toCuratedDiscussionLead).filter(Boolean),
@@ -6392,12 +6443,13 @@ const runResearch = async (body, env) => {
     aiIdeaScout.ideas,
     everyCureAiIdeaSeeds(bundle.curatedTheoryIdeas),
   )
-  const [candidateEvidenceResult, packetCandidateResult, practicalPacketCandidateResult] = await Promise.allSettled([
+  const [candidateEvidenceResult, packetCandidateResult, practicalPacketCandidateResult, relatedModelCandidateResult] = await Promise.allSettled([
     scout.candidates?.length
       ? fetchCandidateEvidence(patient.condition, scout.candidates)
       : Promise.resolve({ sources: [], coverage: [] }),
     extractPacketCandidates({ patient, sources: bundle.sources, trials: trialData.trials }, env),
     extractPracticalPacketCandidates({ patient, sources: bundle.sources }, env),
+    extractRelatedModelCandidates({ patient, sources: bundle.sources }, env),
   ])
   const candidateEvidence = candidateEvidenceResult.status === 'fulfilled'
     ? candidateEvidenceResult.value
@@ -6409,9 +6461,13 @@ const runResearch = async (body, env) => {
   const practicalPacketCandidateExtraction = practicalPacketCandidateResult.status === 'fulfilled'
     ? practicalPacketCandidateResult.value
     : { status: 'unavailable', candidates: [], detail: 'The practical source extractor could not be reached for this run.' }
+  const relatedModelCandidateExtraction = relatedModelCandidateResult.status === 'fulfilled'
+    ? relatedModelCandidateResult.value
+    : { status: 'unavailable', candidates: [], detail: 'The related model extractor could not be reached for this run.' }
   const packetCandidates = mergePacketCandidates(
     packetCandidateExtraction.candidates || [],
     practicalPacketCandidateExtraction.candidates || [],
+    relatedModelCandidateExtraction.candidates || [],
   )
   const sourceRecordsWithCandidates = attachSourceTitleTreatmentCandidates(
     attachPacketCandidates(bundle.sources, packetCandidates),
@@ -6436,6 +6492,7 @@ const runResearch = async (body, env) => {
     .reduce((count, source) => count + (Array.isArray(source?.candidateLeads) ? source.candidateLeads.length : 0), 0)
   const candidateExtractionAvailable = packetCandidateResult.status === 'fulfilled'
     || practicalPacketCandidateResult.status === 'fulfilled'
+    || relatedModelCandidateResult.status === 'fulfilled'
   const candidateVerificationAvailable = candidateExtractionAvailable
     && ['ready', 'not-run'].includes(candidateRelationReview.status)
   const aiIdeasNotFoundResult = await verifyAiIdeasNotFound({
@@ -6470,7 +6527,7 @@ const runResearch = async (body, env) => {
     aiIdeasNotFound: aiIdeasNotFoundResult.ideas,
     aiIdeasWithMatches: aiIdeasNotFoundResult.matchedIdeas,
     sources: retainEveryCurePublicSource(
-      dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources], conditionIsIpf ? 36 : 24),
+      dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources], conditionIsIpf ? 36 : 36),
       bundle.sources,
     ),
     sourceCoverage: [
@@ -6489,7 +6546,7 @@ const runResearch = async (body, env) => {
             ? `${candidateSourceLeadCount} candidate-linked lead${candidateSourceLeadCount === 1 ? '' : 's'} passed an exact condition, candidate, and role check.`
             : scout.candidates?.length
               ? 'Candidate names were checked across the available literature sources, but none had a clear treatment relationship to this condition in the retrieved text.'
-              : candidateRelationReview.detail || practicalPacketCandidateExtraction.detail || packetCandidateExtraction.detail || scout.detail || 'No unverified candidate was added to the report.',
+              : candidateRelationReview.detail || relatedModelCandidateExtraction.detail || practicalPacketCandidateExtraction.detail || packetCandidateExtraction.detail || scout.detail || 'No unverified candidate was added to the report.',
       },
     ],
   }
