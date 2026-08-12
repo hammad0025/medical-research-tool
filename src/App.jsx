@@ -1375,9 +1375,9 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
       return (
         <article className="research-idea-card research-idea-card--exploratory" key={idea.title}>
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
-          <div className="card-topline"><p className="card-kicker">{animalOrLabOnly ? 'Animal or lab research' : (idea.category || 'AI idea to check')}</p><StatusPill tone="experimental">{animalOrLabOnly ? 'Unresearched in people' : 'No direct human study found'}</StatusPill></div>
+          <div className="card-topline"><p className="card-kicker">{animalOrLabOnly ? 'New idea to check' : (idea.category || 'AI idea to check')}</p><StatusPill tone="experimental">{animalOrLabOnly ? 'Unresearched for this illness' : 'No direct human study found'}</StatusPill></div>
           <h3>{idea.title}</h3>
-          <CitedParagraph citations={biologyCitations}><strong>Why this may be worth asking about:</strong> {idea.whyItCouldConnect}</CitedParagraph>
+          <CitedParagraph citations={biologyCitations}><strong>Why this is on the list:</strong> {idea.whyItCouldConnect}</CitedParagraph>
           <dl className="research-idea-facts">
             <div><dt>What we found</dt><dd>{idea.whyNotEstablished}</dd></div>
             <div><dt>Ask your doctor</dt><dd>{idea.providerQuestion || 'What should I ask about this?'}</dd></div>
@@ -1415,7 +1415,7 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">2. Unresearched ideas for this illness</p><p>These are named drugs, supplements, or other products. They have animal or lab research, but we did not find a study in people with this illness. That does not mean they will work. Each card has the exact sources.</p></div>
+            <div><p className="card-kicker">2. Unresearched ideas for this illness</p><p>These are named drugs, supplements, or other products. We found early research, but not a study in people with this illness. That does not mean they will work. Each card has the exact sources.</p></div>
             <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? `${theoryIdeas.length} checked idea${theoryIdeas.length === 1 ? '' : 's'}` : 'No checked idea today'}</StatusPill>
           </div>
           {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>We could not verify a named idea for this report. We do not add random names just to fill this list.</p></div>}

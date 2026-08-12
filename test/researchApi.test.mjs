@@ -955,7 +955,7 @@ test('a related-model molecule is labeled animal-or-lab-only instead of being hi
   assert.equal(idea.directSearch.status, 'preclinical-only')
   assert.equal(idea.directSearch.pubmed.status, 'preclinical-only')
   assert.equal(idea.directSearch.europePmc.status, 'preclinical-only')
-  assert.match(idea.whyNotEstablished, /animal or lab research/i)
+  assert.match(idea.whyNotEstablished, /early research/i)
   assert.ok(idea.directSearch.candidateSource?.url)
 })
 
@@ -972,7 +972,7 @@ test('thin index metadata for the same audited model paper cannot turn it into a
   assert.ok(idea, JSON.stringify(response.body.review.theoryIdeas))
   assert.equal(idea.directSearch.status, 'preclinical-only')
   assert.equal(idea.directSearch.europePmc.status, 'preclinical-only')
-  assert.match(idea.whyNotEstablished, /animal or lab research/i)
+  assert.match(idea.whyNotEstablished, /early research/i)
 })
 
 test('the audited recent-research intake keeps the erucamide paper separate from human RP care', () => {
@@ -1180,6 +1180,10 @@ test('audited IPF model-paper sources can fill ten checked unresearched ideas wi
   assert.ok(directIdeas.some((idea) => /^tetrandrine$/i.test(idea.title)))
   assert.ok(directIdeas.some((idea) => /^spermidine$/i.test(idea.title)))
   assert.ok(directIdeas.some((idea) => /^empagliflozin$/i.test(idea.title)))
+  assert.equal(
+    directIdeas.find((idea) => /^ramelteon$/i.test(idea.title))?.providerQuestion,
+    'Could Ramelteon matter for IPF?',
+  )
   assert.ok(!directIdeas.some((idea) => /pathway|macrophage|rna lung|loxl2/i.test(idea.title)))
 })
 

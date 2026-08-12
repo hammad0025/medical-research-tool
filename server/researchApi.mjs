@@ -1647,6 +1647,13 @@ const selectedSources = (reference) => {
 
 const isIpfCondition = (condition) => /\b(ipf|idiopathic pulmonary fibrosis)\b/i.test(condition || '')
 
+const shortConditionNameForQuestion = (condition) => {
+  const value = cleanText(condition, 120)
+  if (isIpfCondition(value)) return 'IPF'
+  if (/\b(?:rp|retinitis pigmentosa)\b/i.test(value)) return 'RP'
+  return baseConditionName(value) || 'my condition'
+}
+
 const decodeXml = (value) => String(value || '')
   .replace(/<!\[CDATA\[|\]\]>/g, '')
   .replace(/&amp;/g, '&')
@@ -2595,9 +2602,9 @@ const sourceBackedAiIdeaSeeds = (sources, condition) => {
       seen.add(key)
       return {
         candidate: name,
-        category: 'Animal or lab research',
+        category: 'New idea to check',
         whyItCouldConnect: `${name} was studied in ${cleanText(source.conditionScopeLabel || 'a related disease model', 140)}. That is not a study in people with ${cleanText(condition, 120)}, but it gives a specific question for a specialist to check.`,
-        providerQuestion: simpleDoctorQuestion(`Is ${name} worth asking about?`),
+        providerQuestion: simpleDoctorQuestion(`Could ${name} matter for ${shortConditionNameForQuestion(condition)}?`),
         // The exact supporting paper is already in sourceIds. Skipping extra
         // background lookups keeps this lane focused on the direct human
         // evidence check and avoids public-API overload during a full run.
@@ -2716,7 +2723,7 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
         whyItCouldConnect: cleanText(idea.whyItCouldConnect, 440),
         whyNotEstablished: hasNoDirectConditionMatch
           ? hasEarlyResearchOnly
-            ? `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. The direct records we found were animal or lab research, not a study in people. That does not show it will help.`
+            ? `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. The results we found were early research, not a study in people. That does not show it will help.`
             : `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. Neither checked search showed a direct match. That does not prove nobody has studied it or that it will help.`
           : `Our search found a human study or current trial connected with ${candidate} and ${cleanText(condition, 120)}. This is not a new idea, and a search result does not prove it helps.`,
         providerQuestion: simpleDoctorQuestion(idea.providerQuestion || `Is ${candidate} worth discussing`),
