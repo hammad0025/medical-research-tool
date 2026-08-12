@@ -2194,6 +2194,7 @@ const europePmcPhrase = (value) => cleanText(value, 180).replace(/["\\]/g, ' ').
 
 const fetchEuropePmcEvidence = async (condition) => {
   const phrase = conditionPhrase(condition)
+  const relatedResearch = relatedPreclinicalResearchFor(condition)
   if (!phrase) return []
 
   const conditionQuery = `TITLE_ABS:"${europePmcPhrase(phrase)}"`
@@ -2201,6 +2202,10 @@ const fetchEuropePmcEvidence = async (condition) => {
   const results = await Promise.allSettled([
     europePmcRecordsForQuery(treatmentQuery),
     europePmcRecordsForQuery(conditionQuery),
+    ...(relatedResearch ? (relatedResearch.searchPhrases || []).flatMap((searchPhrase) => [
+      europePmcRecordsForQuery(`(TITLE_ABS:"${europePmcPhrase(searchPhrase)}") AND (therapy OR therapeutic OR treatment OR protective OR neuroprotective OR rescue OR compound OR molecule OR pharmacological)`, 18),
+      europePmcRecordsForQuery(`(TITLE_ABS:"${europePmcPhrase(searchPhrase)}") AND (mouse OR mice OR animal OR preclinical OR "in vitro" OR organoid) AND (treatment OR therapeutic OR compound OR molecule)`, 18),
+    ]) : []),
   ])
   const records = results.flatMap((result) => result.status === 'fulfilled' ? result.value : [])
   if (!records.length && results.every((result) => result.status === 'rejected')) {
@@ -2208,7 +2213,7 @@ const fetchEuropePmcEvidence = async (condition) => {
   }
 
   const seen = new Set()
-  return records
+  const directSources = records
     .map(europePmcSourceFromRecord)
     .filter(Boolean)
     .filter((source) => isConditionScopedSource(source, condition))
@@ -2218,6 +2223,20 @@ const fetchEuropePmcEvidence = async (condition) => {
       return true
     })
     .slice(0, 24)
+  const relatedSources = records
+    .map(europePmcSourceFromRecord)
+    .filter(Boolean)
+    .filter((source) => isRelatedPreclinicalSource(source, condition))
+    .map((source) => ({
+      ...source,
+      conditionScope: 'related-preclinical',
+      conditionScopeLabel: relatedResearch?.label || 'related disease models',
+      relatedConditionContext: relatedResearch?.context || 'This is a related disease-model source, not a study in people with the requested condition.',
+    }))
+    .filter((source, index, list) => list.findIndex((entry) => sourceEvidenceKey(entry) === sourceEvidenceKey(source)) === index)
+    .slice(0, 12)
+
+  return [...directSources, ...relatedSources]
 }
 
 // Europe PMC is a second source path for candidate verification. A public
