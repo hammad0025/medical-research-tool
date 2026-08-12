@@ -381,7 +381,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
   const clinicalTrialRecordIds = []
@@ -442,20 +442,23 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           if (!unstudiedPair) return jsonResponse({ esearchresult: { idlist: ['1001'] } })
           return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
         }
+        if (erucamideNoDirectMatch && /erucamide/i.test(term)) {
+          return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['42321469'] } })
+        }
         if (relatedPreclinical && /retinal degeneration/i.test(term)) {
           return jsonResponse({ esearchresult: { idlist: ['42321469'] } })
         }
         return jsonResponse({ esearchresult: { idlist: ['1001'] } })
-      }
-      if (url.includes('/esummary.fcgi')) {
-        const id = new URL(url).searchParams.get('id') || '1001'
-        return jsonResponse({ result: { uids: [id], [id]: { uid: id, title: 'Background research for ' + id } } })
       }
       if (url.includes('/efetch.fcgi')) {
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         const ids = new URL(url).searchParams.get('id') || ''
         const primaryXml = titleFallback ? `${titleFallbackPubMedXml}${nonConditionComparisonPubMedXml}` : pubMedXml
         return textResponse(relatedPreclinical && ids.includes('42321469') ? `${primaryXml}${relatedPreclinicalPubMedXml}` : primaryXml)
+      }
+      if (url.includes('/esummary.fcgi')) {
+        const id = new URL(url).searchParams.get('id') || '1001'
+        return jsonResponse({ result: { uids: [id], [id]: { uid: id, title: `Background research for ${id}` } } })
       }
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
@@ -464,6 +467,9 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           const unstudiedPair = /Test AI idea with no condition match/i.test(query)
             || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(query))
           if (!unstudiedPair) return jsonResponse({ resultList: { result: [{ source: 'MED', id: '1001', pmid: '1001', title: 'Known condition match', abstractText: 'Known condition match.', pubYear: '2025', journalTitle: 'Test Retina Journal', pubType: 'Systematic Review' }] } })
+          return jsonResponse({ resultList: { result: [] } })
+        }
+        if (erucamideNoDirectMatch && /erucamide/i.test(query)) {
           return jsonResponse({ resultList: { result: [] } })
         }
         if (/AAV-RP therapy/i.test(query)) {
@@ -526,6 +532,22 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
               URL: 'https://doi.org/10.1000/crossref-rp',
             }],
           },
+        })
+      }
+      if (url.includes('api.openalex.org/works')) {
+        if (failEvidence) throw new Error('OpenAlex is unavailable')
+        return jsonResponse({
+          results: [{
+            id: 'https://openalex.org/W12345',
+            display_name: 'Global retinitis pigmentosa treatment research',
+            type: 'article',
+            publication_year: 2025,
+            is_retracted: false,
+            doi: 'https://doi.org/10.1000/openalex-rp',
+            ids: {},
+            primary_location: { landing_page_url: 'https://doi.org/10.1000/openalex-rp', source: { display_name: 'Global Retina Journal' } },
+            abstract_inverted_index: { Global: [0], retinitis: [1], pigmentosa: [2], research: [3] },
+          }],
         })
       }
       if (url.includes('api.semanticscholar.org/graph/v1/paper/search')) {
@@ -682,7 +704,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   }))
   assert.ok(mock.clinicalTrialQueries.some((url) => url.searchParams.get('query.cond') === 'USH2A'))
   assert.deepEqual(mock.clinicalTrialRecordIds, ['NCT06627179'])
-  for (const laneId of ['crossref', 'semantic-scholar', 'nih-reporter']) {
+  for (const laneId of ['openalex', 'crossref', 'semantic-scholar', 'nih-reporter']) {
     assert.equal(response.body.sourceCoverage.find((lane) => lane.id === laneId)?.status, 'ready')
   }
   assert.equal(response.body.sourceCoverage.find((lane) => lane.id === 'perplexity-web')?.status, 'not-configured')
@@ -720,9 +742,9 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.match(response.body.trials[0].caution, /confirm current status/i)
   assert.ok(!response.body.trials.some((item) => /NAION|umbilical cord/i.test(item.title)))
   assert.equal(response.body.centers.length, 5)
-  assert.equal(response.body.centers[0].name, 'University of California, San Francisco')
-  assert.equal(response.body.centers[0].variantMatch, true)
-  assert.equal(response.body.centers[0].siteKind, 'academic-or-clinical-center')
+  assert.equal(response.body.centers[0].name, 'Mass Eye and Ear Inherited Retinal Disorders Service')
+  assert.ok(response.body.centers.every((center) => center.url?.startsWith('https://')))
+  assert.ok(response.body.centers.some((center) => /Johns Hopkins/i.test(center.name)))
   assert.equal(response.body.trials[0].siteName, 'University of California, San Francisco')
   assert.equal(response.body.review.treatmentIdeas.length, 1)
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /blood dopamine|adjuvant therapy|Orai-1 inhibitor|rehabilitation|physical therapy|initial MAO-B inhibitor/i.test(idea.title)))
@@ -731,7 +753,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.review.hypotheses.length, 1)
   const aiIdeaGate = response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')
   assert.equal(aiIdeaGate.status, 'ready')
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(response.body.review.theoryIdeas.length >= 1, JSON.stringify({ coverage: response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search'), theoryIdeas: response.body.review.theoryIdeas }))
   assert.equal(response.body.review.theoryIdeas[0].title, 'Test AI idea with no condition match')
   assert.equal(response.body.review.theoryIdeas[0].directSearch.status, 'not-found')
   assert.equal(response.body.review.theoryIdeas[0].directSearch.pubmed.status, 'not-found')
@@ -740,6 +762,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.providerQuestion))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.pubmedBackground?.source?.url))
   assert.ok(response.body.review.theoryIdeas.every((idea) => !/\bhigh[-\s]?dose\b/i.test(`${idea.title} ${idea.whyItCouldConnect} ${idea.caution}`)))
   assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
   assert.equal(response.body.review.questions[0].text, 'Could this study fit me?')
@@ -806,6 +829,24 @@ test('a related retinal model finding stays in a clearly marked early-research l
   assert.equal(erucamide.roleVerified, true)
   assert.equal(erucamide.sourceEarlyResearchDerived, true)
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /erucamide/i.test(idea.title)))
+})
+
+test('a source-backed related-model molecule can enter the checked new-idea lane', { concurrency: false }, async () => {
+  const mock = createMockFetch({ relatedPreclinical: true, erucamideNoDirectMatch: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const idea = response.body.review.theoryIdeas.find((item) => /^erucamide$/i.test(item.title))
+  assert.ok(idea, JSON.stringify(response.body.review.theoryIdeas))
+  assert.equal(idea.directSearch.status, 'not-found')
+  assert.equal(idea.directSearch.pubmed.status, 'not-found')
+  assert.equal(idea.directSearch.europePmc.status, 'not-found')
+  assert.match(idea.whyItCouldConnect, /related retinal-degeneration models/i)
+  assert.ok(idea.directSearch.candidateSource?.url)
 })
 
 test('the audited recent-research intake keeps the erucamide paper separate from human RP care', () => {
@@ -945,7 +986,8 @@ test('Every Cure public scores are shown only as attributable computational ques
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
   const directIdeas = response.body.review.theoryIdeas
   assert.ok(directIdeas.some((idea) => /Test repurposing candidate one/i.test(idea.title)))
-  assert.ok(directIdeas.every((idea) => ['not-found', 'found'].includes(idea.directSearch?.status)))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.pubmedBackground?.source?.url))
   assert.ok(!directIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
 })
 

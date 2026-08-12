@@ -590,6 +590,7 @@ const repurposingCandidatesForIdea = (idea) => (Array.isArray(idea?.potentialInt
 
 const theoryIdeasForReport = (result) => {
   const reviewedIdeas = Array.isArray(result?.review?.theoryIdeas) ? result.review.theoryIdeas : []
+
   return uniqueIdeas(reviewedIdeas
     .map((idea) => ({ ...idea, potentialInterventions: repurposingCandidatesForIdea(idea) }))
     .filter((idea) => idea?.kind === 'ai-direct-search-no-match')
@@ -597,7 +598,10 @@ const theoryIdeasForReport = (result) => {
     .filter((idea) => idea.potentialInterventions.length)
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
     .filter((idea) => !idea.potentialInterventions.some((candidate) => isExplicitlyExcludedTreatment(result, { title: candidate })))
-    .filter((idea) => idea?.directSearch?.pubmedBackground?.source?.title && idea?.directSearch?.pubmedBackground?.source?.url), 10)
+    .filter((idea) => {
+      const candidateSource = idea?.directSearch?.candidateSource || idea?.directSearch?.pubmedBackground?.source
+      return candidateSource?.title && candidateSource?.url
+    }), 10)
 }
 
 const theoryPotentialInterventions = (idea) => {
@@ -1363,22 +1367,23 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
   <div className="research-ideas-grid">
     {ideas.slice(0, 10).map((idea, index) => {
       const biologyCitations = claimCitations(result, idea, condition)
-      const candidateSource = idea?.directSearch?.pubmedBackground?.source
+      const candidateSource = idea?.directSearch?.candidateSource || idea?.directSearch?.pubmedBackground?.source
+      const candidateCitations = candidateSource ? [candidateSource] : []
       const pubmedUrl = idea?.directSearch?.pubmed?.url
       const europePmcUrl = idea?.directSearch?.europePmc?.url
       return (
         <article className="research-idea-card research-idea-card--exploratory" key={idea.title}>
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
-          <div className="card-topline"><p className="card-kicker">{idea.category || 'AI idea to check'}</p><StatusPill tone="experimental">No direct match found</StatusPill></div>
+          <div className="card-topline"><p className="card-kicker">{idea.category || 'AI idea to check'}</p><StatusPill tone="experimental">Not yet studied for this illness</StatusPill></div>
           <h3>{idea.title}</h3>
-          <CitedParagraph citations={biologyCitations}><strong>Why this may connect:</strong> {idea.whyItCouldConnect}</CitedParagraph>
+          <CitedParagraph citations={biologyCitations}><strong>Why this may be worth asking about:</strong> {idea.whyItCouldConnect}</CitedParagraph>
           <dl className="research-idea-facts">
             <div><dt>What we checked</dt><dd>{idea.whyNotEstablished}</dd></div>
             <div><dt>Ask your doctor</dt><dd>{idea.providerQuestion || 'What should I ask about this?'}</dd></div>
           </dl>
           <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
-          <CitationActions citations={biologyCitations} label="Condition source" />
-          {candidateSource ? <CitationActions citations={[candidateSource]} label="Candidate research" /> : null}
+          <CitationActions citations={biologyCitations} label="Why this could matter" />
+          <CitationActions citations={candidateCitations} label={candidateSource?.origin === 'ChEMBL' ? 'About this item' : 'Research on this item'} />
           {(pubmedUrl || europePmcUrl) ? <div className="citation-actions">
             {pubmedUrl ? <a href={pubmedUrl} target="_blank" rel="noreferrer" className="citation-action">Check PubMed <Icon name="external" size={12} /></a> : null}
             {europePmcUrl ? <a href={europePmcUrl} target="_blank" rel="noreferrer" className="citation-action">Check Europe PMC <Icon name="external" size={12} /></a> : null}
@@ -1396,7 +1401,8 @@ function ResearchIdeas({ condition, result }) {
   return (
     <section id="research-ideas" className="research-ideas section-surface">
       <SectionHeader eyebrow="4. Drug and treatment ideas" title="Treatments to ask about and AI ideas to check" />
-      <p className="section-intro">The first list has things studied for this illness. The second has specific ideas that did not show a direct match in PubMed or Europe PMC. This report never tells you to take something or mix medicines.</p>
+      <p className="section-intro">The first list has things studied for this illness. The second has named products that did not show a direct match in two medical searches. The report never tells you to take something or mix medicines.</p>
+
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
           <div className="research-idea-lane__header">
@@ -1405,12 +1411,13 @@ function ResearchIdeas({ condition, result }) {
           </div>
           {patientIdeas.length ? <PatientLeadCards condition={condition} result={result} ideas={patientIdeas} /> : <div className="research-idea-empty"><Icon name="shield" size={18} /><p>We only show names found in research for this illness. We do not add random names just to fill this list.</p></div>}
         </section>
+
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">2. New AI ideas to check</p><p>These are specific drugs, supplements, or other named products. The app found a source about the illness and a separate source about the product, then searched PubMed and Europe PMC for both together. It only shows a card when those two searches did not find a direct match. That does not prove it will help.</p></div>
-            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Checked ideas' : 'Nothing safe to show'}</StatusPill>
+            <div><p className="card-kicker">2. New AI ideas to check</p><p>These are named drugs, supplements, or other products that did not show up in our direct search for this illness. Each card links to research about the illness and research about the item. A missing match does not prove it has never been studied or that it will help.</p></div>
+            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Research questions' : 'No checked idea today'}</StatusPill>
           </div>
-          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No new idea passed the source checks in this run. We left this section empty instead of showing a generic or already-studied item.</p></div>}
+          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>We could not find a new, source-linked idea for this report. We do not add random names just to fill this list.</p></div>}
         </section>
       </div>
     </section>
@@ -1709,7 +1716,6 @@ function UniversalReport({ condition, form, result }) {
           <ResearchIdeas condition={displayCondition} result={result} />
           <TreatmentDevelopment condition={displayCondition} result={result} />
           <TrialDirectory condition={displayCondition} result={result} />
-
           {result.leads?.length ? (
             <section className="source-leads section-surface">
               <SectionHeader eyebrow="Freshness scout" title="New leads waiting for human verification" action={<StatusPill tone="caution">Not verified evidence</StatusPill>} />
@@ -2059,7 +2065,7 @@ const reportExportText = ({ form, report, result }) => {
     patientLeadLines || 'We only show names found in research for this illness. Look at the approved options and current studies next.',
     '',
     `${theorySectionNumber}. AI ideas to check`,
-    theoryLines || 'No new idea passed the source checks in this run. We did not fill this section with generic or already-studied items.',
+    theoryLines || 'No named AI idea had enough direct search evidence to show safely in this run. We did not fill this section with guesses.',
     '',
     `${pipelineSectionNumber}. Treatments in current studies`,
     researchProgramLines || 'Use the live study list to see what is being tested now.',
@@ -2067,6 +2073,9 @@ const reportExportText = ({ form, report, result }) => {
     `${trialSectionNumber}. Current clinical trials`,
     recruitingTrialLines || `Use ClinicalTrials.gov to check the latest recruiting studies for ${condition}.`,
     ...(otherCurrentTrialLines ? ['', 'Other current clinical studies', otherCurrentTrialLines] : []),
+    '',
+    'Important',
+    mapNote,
     '',
     'Sources',
     sourceLines || 'Live source links were not available in this run. Use the AI research map and a new live search to continue.',

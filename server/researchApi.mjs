@@ -10,6 +10,8 @@ const PUBMED_SUMMARY_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esumma
 const EUROPE_PMC_SEARCH_URL = 'https://www.ebi.ac.uk/europepmc/webservices/rest/search'
 const OPEN_ALEX_WORKS_URL = 'https://api.openalex.org/works'
 const OPEN_FDA_LABEL_URL = 'https://api.fda.gov/drug/label.json'
+const OPEN_TARGETS_GRAPHQL_URL = 'https://api.platform.opentargets.org/api/v4/graphql'
+const CHEMBL_MOLECULE_SEARCH_URL = 'https://www.ebi.ac.uk/chembl/api/data/molecule/search.json'
 const CROSSREF_WORKS_URL = 'https://api.crossref.org/works'
 const SEMANTIC_SCHOLAR_SEARCH_URL = 'https://api.semanticscholar.org/graph/v1/paper/search'
 const NIH_REPORTER_PROJECTS_URL = 'https://api.reporter.nih.gov/v2/projects/search'
@@ -1095,6 +1097,172 @@ const conditionFoundationSources = (condition) => {
   ]
 }
 
+// These are official program pages, not a quality ranking. They give people
+// with a well-defined condition a short, useful starting list even when a
+// registry search does not happen to return a nearby study site.
+const conditionFoundationCenters = (condition) => {
+  const conditionText = cleanText(condition, 120)
+
+  if (/\b(?:retinitis pigmentosa|\brp\b|rod-cone dystrophy|inherited retinal)\b/i.test(conditionText)) {
+    return [
+      {
+        name: 'Mass Eye and Ear Inherited Retinal Disorders Service',
+        city: 'Boston, MA',
+        why: 'This official program page describes care, genetic testing, clinical trials, and vision rehabilitation for inherited retinal disorders, including retinitis pigmentosa.',
+        url: 'https://www.masseyeandear.org/specialties/ird',
+        sourceTitle: 'Mass Eye and Ear: Inherited Retinal Disorders Service',
+        source: 'Official institution program page',
+      },
+      {
+        name: 'Johns Hopkins Wilmer Genetic Eye Disease Center',
+        city: 'Baltimore, MD',
+        why: 'This official center page describes coordinated genetic-eye care, genetic counseling, and inherited-retinal-disease research and trials.',
+        url: 'https://www.hopkinsmedicine.org/wilmer/services/gedi/',
+        sourceTitle: 'Johns Hopkins Medicine: Wilmer Genetic Eye Disease Center',
+        source: 'Official institution program page',
+      },
+      {
+        name: 'UCLA Vision Genetics Center',
+        city: 'Los Angeles, CA',
+        why: 'This official UCLA program page describes genetic testing, counseling, and research for inherited eye and retinal conditions.',
+        url: 'https://www.uclahealth.org/departments/eye/about-us/academic-centers/vision-genetics',
+        sourceTitle: 'UCLA Health: Vision Genetics Center',
+        source: 'Official institution program page',
+      },
+      {
+        name: 'Cleveland Clinic Cole Eye Institute',
+        city: 'Cleveland, OH',
+        why: 'This official retina program page lists inherited retinal dystrophies and describes clinical care and research for retinal disease.',
+        url: 'https://my.clevelandclinic.org/departments/eye/services/retina',
+        sourceTitle: 'Cleveland Clinic: Retinal Diseases and Treatments',
+        source: 'Official institution program page',
+      },
+      {
+        name: 'UCI Gavin Herbert Eye Institute',
+        city: 'Irvine, CA',
+        why: 'This official UCI retina program page lists retinitis pigmentosa and related retinal disease care. Its research pages also describe retinal-degeneration research.',
+        url: 'https://ophthalmology.uci.edu/patient-care/specialties/retina-vitreous',
+        sourceTitle: 'UCI Gavin Herbert Eye Institute: Retina and Vitreous',
+        source: 'Official institution program page',
+      },
+    ]
+  }
+
+  return []
+}
+
+const officialInstitutionHost = (url) => {
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    return host.endsWith('.edu')
+      || host.endsWith('.ac.uk')
+      || host.endsWith('.nhs.uk')
+      // Academic domains differ around the world. These country-specific
+      // education domains keep the discovery lane usable outside the U.S.
+      // without treating a general search result as a medical source.
+      || host.endsWith('.ac.in')
+      || host.endsWith('.edu.in')
+      || host.endsWith('.edu.au')
+      || host.endsWith('.ac.nz')
+      || host.endsWith('.ac.za')
+      || host.endsWith('.ac.jp')
+      || host.endsWith('.ac.kr')
+      || host.endsWith('.edu.cn')
+      || host.endsWith('.edu.pk')
+      || host.endsWith('.edu.sg')
+      || host.endsWith('.edu.hk')
+      || host.endsWith('.edu.br')
+      || host.endsWith('.edu.mx')
+      || host.endsWith('.uwaterloo.ca')
+      || host.includes('mayoclinic.org')
+      || host.includes('clevelandclinic.org')
+      || host.includes('hopkinsmedicine.org')
+      || host.includes('masseyeandear.org')
+      || host.includes('stanfordhealthcare.org')
+      || host.includes('ucsfhealth.org')
+      || host.includes('nationaljewish.org')
+  } catch {
+    return false
+  }
+}
+
+const urlHost = (url) => {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+
+// This is a discovery lane, not a treatment-evidence lane. It uses the
+// provider's web search to find official university and health-system pages,
+// then only returns direct institutional URLs. The page is still labeled as a
+// place to investigate rather than a recommendation or a claim of expertise.
+const discoverAcademicCenters = async (condition, env) => {
+  const phrase = conditionPhrase(condition)
+  if (!phrase) return { status: 'ready', centers: [], detail: 'No condition phrase was supplied for academic-center discovery.' }
+  const request = {
+    system: `You find official academic medical center pages for a medical-research directory. Return JSON only. Never rank centers, recommend a doctor, claim a treatment works, or use blogs, news, directories, or commercial clinic pages. Keep only an official hospital, university, or national health-service program page that explicitly mentions the entered condition or its clear condition family.`,
+    user: JSON.stringify({
+      condition: phrase,
+      task: 'Find up to six official university or academic-health-system program pages where someone could investigate condition-specific care, genetics, research, or trials. Use worldwide sources when relevant.',
+      output: { centers: [{ name: 'official program name', city: 'city, region or country if stated', why: 'one short source-limited sentence', url: 'https://official-program-page' }] },
+    }),
+    env,
+    maxTokens: 1_200,
+    models: openAiWriterModels(env),
+    tools: [{ type: 'web_search', search_context_size: 'high' }],
+  }
+  const response = await callOpenAi(request)
+  if (!response.ok) return { status: response.code || 'unavailable', centers: [], detail: response.message || 'Academic-center discovery was unavailable.' }
+  const draft = extractJson(response.text)
+  const searchedHosts = new Set([...response.webSearchUrls].map(urlHost).filter(Boolean))
+  const seen = new Set()
+  const centers = (Array.isArray(draft?.centers) ? draft.centers : [])
+    .map((center) => ({
+      name: cleanText(center?.name, 200),
+      city: cleanText(center?.city, 160),
+      why: cleanText(center?.why, 360),
+      url: cleanText(center?.url, 1_000),
+    }))
+    .filter((center) => center.name && center.url && officialInstitutionHost(center.url))
+    // Require the host to be a returned search source, not merely a domain the
+    // model typed from memory. This keeps a plausible-looking URL from being
+    // displayed as a verified academic program page.
+    .filter((center) => searchedHosts.has(urlHost(center.url)))
+    .filter((center) => {
+      const key = `${center.name}|${center.url}`.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .map((center) => ({
+      ...center,
+      why: center.why || `Official program page to investigate care and research for ${phrase}.`,
+      source: 'Official institution program page found by web discovery',
+      sourceTitle: `${center.name} official program page`,
+    }))
+    .slice(0, 6)
+  return {
+    status: 'ready',
+    centers,
+    detail: centers.length
+      ? `${centers.length} official academic or health-system program page${centers.length === 1 ? '' : 's'} passed the institution URL filter.`
+      : 'No official condition-specific academic program page passed the URL filter for this run.',
+  }
+}
+
+const mergeCenters = (...groups) => {
+  const seen = new Set()
+  return groups.flat().filter(Boolean).filter((center) => {
+    const key = `${cleanText(center?.name, 200)}|${cleanText(center?.url, 1_000)}`.toLowerCase()
+    if (!key || key === '|') return false
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 8)
+}
+
 const conditionFoundationDiscussionLeads = (condition) => {
   const conditionText = cleanText(condition, 120)
 
@@ -2165,7 +2333,7 @@ const directPubMedCandidateCheck = async (condition, candidate) => {
 const directPubMedCandidateBackgroundCheck = async (candidate) => {
   const name = candidateSearchNamesFor(candidate)[0] || cleanCandidateName(candidate?.name || candidate)
   if (!name) throw new Error('A named idea is required for the PubMed background check.')
-  const term = '"' + name + '"[Title/Abstract]'
+  const term = `"${name}"[Title/Abstract]`
   const ids = await searchPubMed(term, { maximum: 5 })
   let source = null
   if (ids[0]) {
@@ -2180,19 +2348,53 @@ const directPubMedCandidateBackgroundCheck = async (candidate) => {
       const title = cleanText(record?.title, 320)
       if (title) {
         source = {
-          id: 'pmid-' + ids[0],
+          id: `pmid-${ids[0]}`,
           title,
-          url: 'https://pubmed.ncbi.nlm.nih.gov/' + ids[0] + '/',
+          url: `https://pubmed.ncbi.nlm.nih.gov/${ids[0]}/`,
           origin: 'PubMed',
         }
       }
     }
   }
   return {
+    // A named background record is required before the report can explain
+    // why a candidate was considered. A search-result count by itself is not
+    // a useful source for a patient-facing card.
     status: source ? 'found' : 'not-found',
-    url: 'https://pubmed.ncbi.nlm.nih.gov/?term=' + encodeURIComponent(term),
+    url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(term)}`,
     records: ids.length,
     source,
+  }
+}
+
+// ChEMBL is a drug-information backstop for a real named molecule. It does
+// not establish a disease benefit; it only helps the reader verify that the
+// candidate is a real, identified product when PubMed metadata is sparse.
+const directChemblCandidateBackgroundCheck = async (candidate) => {
+  const aliases = candidateSearchNamesFor(candidate)
+  const name = aliases[0] || cleanCandidateName(candidate?.name || candidate)
+  if (!name) throw new Error('A named idea is required for the ChEMBL background check.')
+  const url = new URL(CHEMBL_MOLECULE_SEARCH_URL)
+  url.searchParams.set('q', name)
+  url.searchParams.set('limit', '5')
+  const response = await fetchWithTimeout(url, {}, 12_000)
+  if (!response.ok) throw new Error(`ChEMBL candidate search returned ${response.status}.`)
+  const data = await response.json()
+  const records = Array.isArray(data?.molecules) ? data.molecules : []
+  const aliasKeys = new Set(aliases.map(candidateKey))
+  const record = records.find((item) => aliasKeys.has(candidateKey(item?.pref_name)))
+  const chemblId = cleanText(record?.molecule_chembl_id, 80)
+  const title = cleanText(record?.pref_name, 180)
+  return {
+    status: chemblId && title ? 'found' : 'not-found',
+    url: `https://www.ebi.ac.uk/chembl/explore/compound/${encodeURIComponent(chemblId || name)}`,
+    records: records.length,
+    source: chemblId && title ? {
+      id: `chembl-${chemblId.toLowerCase()}`,
+      title: `ChEMBL drug record: ${title}`,
+      url: `https://www.ebi.ac.uk/chembl/explore/compound/${encodeURIComponent(chemblId)}`,
+      origin: 'ChEMBL',
+    } : null,
   }
 }
 
@@ -2221,22 +2423,70 @@ const directSearchEvidenceSourceIds = (sources) => (Array.isArray(sources) ? sou
   .map((source) => source.id)
   .slice(0, 2)
 
-const candidateAlreadyAppearsInPacket = (candidate, sources, trials) => [
-  ...(Array.isArray(sources) ? sources : []),
-  ...(Array.isArray(trials) ? trials : []),
-].some((record) => recordMentionsCandidate(record, candidate))
+const candidateAlreadyAppearsInDirectConditionPacket = (candidate, condition, sources, trials) => {
+  const sourceMatch = (Array.isArray(sources) ? sources : []).some((source) => (
+    // A finding in a related animal or lab model is useful background for a
+    // new research question. It is not a direct study in the entered illness.
+    source?.conditionScope !== 'related-preclinical'
+    && isConditionScopedSource(source, condition)
+    && recordMentionsCandidate(source, candidate)
+  ))
+  const trialMatch = (Array.isArray(trials) ? trials : []).some((trial) => recordMentionsCandidate(trial, candidate))
+  return sourceMatch || trialMatch
+}
+
+const candidateBackgroundSourceFromPacket = (candidate, sources) => {
+  const source = (Array.isArray(sources) ? sources : [])
+    .find((entry) => entry?.title && entry?.url && recordMentionsCandidate(entry, candidate))
+  if (!source) return null
+  return {
+    id: cleanText(source.id, 140) || `source-${candidateKey(candidate)}`,
+    title: cleanText(source.title, 320),
+    url: cleanText(source.url, 1_000),
+    origin: cleanText(source.origin || source.type || 'Research source', 120),
+  }
+}
+
+const sourceBackedAiIdeaSeeds = (sources, condition) => {
+  const allSources = Array.isArray(sources) ? sources : []
+  const overview = allSources.find((source) => source?.conditionOverview && isTrustedAiIdeaBackgroundSource(source))
+  const seen = new Set()
+
+  return allSources
+    .filter((source) => source?.conditionScope === 'related-preclinical')
+    .flatMap((source) => (Array.isArray(source?.candidateLeads) ? source.candidateLeads : [])
+      .map((candidate) => ({ source, candidate })))
+    .map(({ source, candidate }) => {
+      const name = cleanCandidateName(candidate?.name)
+      if (!name || !isSpecificCandidateName(name) || !isPatientDiscussibleAiIdeaCandidate(name)) return null
+      const key = candidateKey(name)
+      if (!key || seen.has(key)) return null
+      seen.add(key)
+      return {
+        candidate: name,
+        category: 'Related research question',
+        whyItCouldConnect: `${name} was studied in ${cleanText(source.conditionScopeLabel || 'a related disease model', 140)}. That is not a study in people with ${cleanText(condition, 120)}, but it gives a specific question for a specialist to check.`,
+        providerQuestion: simpleDoctorQuestion(`Is ${name} worth asking about?`),
+        // Keep both the illness overview and the product/model source on the
+        // card, so a reader can see exactly why the question was generated.
+        sourceIds: [overview?.id, source?.id].filter(Boolean),
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 8)
+}
 
 const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   const eligibleSeeds = (Array.isArray(ideas) ? ideas : [])
     .filter((idea) => idea?.candidate && isSpecificCandidateName(idea.candidate))
     .filter((idea) => isPatientDiscussibleAiIdeaCandidate(idea.candidate))
     .slice(0, 12)
-  const sourceIds = directSearchEvidenceSourceIds(sources)
-  if (!eligibleSeeds.length || !sourceIds.length) {
+  const defaultSourceIds = directSearchEvidenceSourceIds(sources)
+  if (!eligibleSeeds.length || !defaultSourceIds.length) {
     return {
       ideas: [],
       matchedIdeas: [],
-      coverage: { id: 'ai-idea-direct-search', label: 'AI idea direct literature check', status: 'not-run', records: 0, detail: 'No named AI idea was released without a condition source and two completed direct searches.' },
+      coverage: { id: 'ai-idea-direct-search', label: 'AI idea direct literature check', status: 'not-run', records: 0, detail: 'No named AI idea was released without a condition-biology source and two completed direct searches.' },
     }
   }
 
@@ -2244,47 +2494,65 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   for (let index = 0; index < eligibleSeeds.length; index += 6) {
     const batch = eligibleSeeds.slice(index, index + 6)
     const batchResults = await Promise.all(batch.map(async (idea) => {
-      const [pubMed, europePmc, pubMedBackground] = await Promise.allSettled([
+      const [pubMed, europePmc, pubMedBackground, chemblBackground] = await Promise.allSettled([
         directPubMedCandidateCheck(condition, idea),
         directEuropePmcCandidateCheck(condition, idea),
         directPubMedCandidateBackgroundCheck(idea),
+        directChemblCandidateBackgroundCheck(idea),
       ])
       const pubMedResult = pubMed.status === 'fulfilled' ? pubMed.value : null
       const europePmcResult = europePmc.status === 'fulfilled' ? europePmc.value : null
-      const backgroundResult = pubMedBackground.status === 'fulfilled' ? pubMedBackground.value : null
-      const candidate = cleanCandidateName(idea.candidate)
-      const hasDirectMatch = candidateAlreadyAppearsInPacket(idea, sources, trials)
+      const pubMedBackgroundResult = pubMedBackground.status === 'fulfilled' ? pubMedBackground.value : null
+      const chemblBackgroundResult = chemblBackground.status === 'fulfilled' ? chemblBackground.value : null
+      const packetBackgroundSource = candidateBackgroundSourceFromPacket(idea, sources)
+      const backgroundSource = pubMedBackgroundResult?.source || chemblBackgroundResult?.source || packetBackgroundSource
+      const hasBackgroundMatch = Boolean(backgroundSource?.title && backgroundSource?.url)
+      const hasDirectConditionMatch = candidateAlreadyAppearsInDirectConditionPacket(idea, condition, sources, trials)
         || pubMedResult?.status === 'found'
         || europePmcResult?.status === 'found'
-      const hasCandidateSource = backgroundResult?.status === 'found'
-        && Boolean(backgroundResult?.source?.title && backgroundResult?.source?.url)
-      if (hasDirectMatch || !hasCandidateSource) return null
+      const hasNoDirectConditionMatch = !hasDirectConditionMatch
+        && pubMedResult?.status === 'not-found'
+        && europePmcResult?.status === 'not-found'
+        && hasBackgroundMatch
+      const directSearch = {
+        status: hasNoDirectConditionMatch ? 'not-found' : hasDirectConditionMatch ? 'found' : 'unavailable',
+        pubmed: pubMedResult || { status: 'unavailable', url: directCandidateSearchUrl('pubmed', condition, idea), records: 0 },
+        europePmc: europePmcResult || { status: 'unavailable', url: directCandidateSearchUrl('europe-pmc', condition, idea), records: 0 },
+        pubmedBackground: pubMedBackgroundResult || { status: 'unavailable', url: '', records: 0 },
+        chemblBackground: chemblBackgroundResult || { status: 'unavailable', url: '', records: 0 },
+        candidateSource: backgroundSource,
+      }
+      if (!hasNoDirectConditionMatch && !hasDirectConditionMatch) return null
 
+      const candidate = cleanCandidateName(idea.candidate)
       return {
         title: candidate,
         potentialInterventions: [candidate],
-        category: cleanText(idea.category, 80) || 'AI idea to check',
+        category: cleanText(idea.category, 80) || 'AI research idea',
         whyItCouldConnect: cleanText(idea.whyItCouldConnect, 440),
-        whyNotEstablished: 'We searched ' + candidate + ' together with ' + cleanText(condition, 120) + ' in PubMed and Europe PMC. Neither search showed a match. That does not prove nobody has studied it or that it will help.',
-        providerQuestion: simpleDoctorQuestion(idea.providerQuestion || ('Is ' + candidate + ' worth discussing?')),
+        whyNotEstablished: hasNoDirectConditionMatch
+          ? `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. Neither search showed a match. That does not prove nobody has studied it or that it will help.`
+          : `Our search found ${candidate} connected with ${cleanText(condition, 120)}. This is not a new idea, and a search result does not prove it helps.`,
+        providerQuestion: simpleDoctorQuestion(idea.providerQuestion || `Is ${candidate} worth discussing`),
         caution: 'This is an AI research question, not a treatment recommendation. Do not start, stop, buy, combine, or change a treatment from this card.',
-        verificationQuery: '"' + cleanText(condition, 120) + '" AND "' + candidate + '"',
-        sourceIds,
-        kind: 'ai-direct-search-no-match',
-        directSearch: {
-          status: 'not-found',
-          pubmed: pubMedResult || { status: 'unavailable', url: directCandidateSearchUrl('pubmed', condition, idea), records: 0 },
-          europePmc: europePmcResult || { status: 'unavailable', url: directCandidateSearchUrl('europe-pmc', condition, idea), records: 0 },
-          pubmedBackground: backgroundResult,
-        },
+        verificationQuery: `"${cleanText(condition, 120)}" AND "${candidate}"`,
+        sourceIds: [...new Set([
+          ...(Array.isArray(idea?.sourceIds) ? idea.sourceIds : []),
+          ...defaultSourceIds,
+        ])].filter((sourceId) => (Array.isArray(sources) ? sources : []).some((source) => source?.id === sourceId)).slice(0, 3),
+        kind: hasNoDirectConditionMatch ? 'ai-direct-search-no-match' : 'ai-direct-search-has-match',
+        directSearch,
       }
     }))
     checked.push(...batchResults.filter(Boolean))
   }
 
+  const directSearchesCompleted = eligibleSeeds.length * 4
+  const noMatchIdeas = checked.filter((idea) => idea.kind === 'ai-direct-search-no-match')
+  const matchedIdeas = checked.filter((idea) => idea.kind === 'ai-direct-search-has-match')
   return {
-    ideas: checked.slice(0, 10),
-    matchedIdeas: [],
+    ideas: noMatchIdeas.slice(0, 10),
+    matchedIdeas: matchedIdeas.slice(0, 10),
     coverage: {
       id: 'ai-idea-direct-search',
       label: 'AI idea direct literature check',
@@ -2292,8 +2560,8 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       status: 'ready',
       records: checked.length,
       detail: checked.length
-        ? checked.length + ' named AI idea' + (checked.length === 1 ? ' had' : 's had') + ' no direct match in the two exact searches and includes a separate candidate research paper.'
-        : 'No idea was shown unless it had a real candidate paper and no direct match in either condition search.',
+        ? `${noMatchIdeas.length} named AI idea${noMatchIdeas.length === 1 ? '' : 's'} had no direct match in the two exact searches. ${matchedIdeas.length} idea${matchedIdeas.length === 1 ? '' : 's'} already ${matchedIdeas.length === 1 ? 'has' : 'have'} a condition match and ${matchedIdeas.length === 1 ? 'is' : 'are'} clearly marked as already studied.`
+        : `We ran ${directSearchesCompleted} checks, but no named AI idea had enough search evidence to show safely.`,
     },
   }
 }
@@ -2312,21 +2580,16 @@ const rebuildOpenAlexAbstract = (invertedIndex) => {
 
 const fetchOpenAlexEvidence = async (condition, env) => {
   const apiKey = env.OPENALEX_API_KEY || process.env.OPENALEX_API_KEY
-  if (!apiKey) {
-    return {
-      status: 'not-configured',
-      sources: [],
-      detail: 'OpenAlex is available for scholarly discovery after an API key is configured.',
-    }
-  }
-
   const phrase = conditionPhrase(condition)
   if (!phrase) return { status: 'ready', sources: [], detail: 'No condition phrase was supplied for OpenAlex.' }
 
   const url = new URL(OPEN_ALEX_WORKS_URL)
   url.searchParams.set('search', phrase)
   url.searchParams.set('per-page', '25')
-  url.searchParams.set('api_key', apiKey)
+  // OpenAlex permits public discovery without a key. A configured key can
+  // still be used for higher-volume deployment traffic, but a missing key
+  // must never silently remove this worldwide research index from a report.
+  if (apiKey) url.searchParams.set('api_key', apiKey)
 
   const response = await fetchWithTimeout(url, {}, 18_000)
   if (!response.ok) throw new Error(`OpenAlex search returned ${response.status}.`)
@@ -2361,6 +2624,40 @@ const fetchOpenAlexEvidence = async (condition, env) => {
     .slice(0, 6)
 
   return { status: 'ready', sources, detail: '' }
+}
+
+// Open Targets is a disease/target knowledge layer. Its record can help a
+// reviewer understand what disease entity was retrieved, but it is not used
+// alone to make a treatment claim or to label a product as useful.
+const fetchOpenTargetsEvidence = async (condition) => {
+  const query = `query SearchDisease($queryString: String!) {
+    search(queryString: $queryString) {
+      hits { id entity name description }
+    }
+  }`
+  const response = await fetchWithTimeout(OPEN_TARGETS_GRAPHQL_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables: { queryString: conditionPhrase(condition) } }),
+  }, 14_000)
+  if (!response.ok) throw new Error(`Open Targets search returned ${response.status}.`)
+  const data = await response.json()
+  const aliases = new Set(conditionSearchPhrases(condition).map(normalizedEvidenceText))
+  const hit = (Array.isArray(data?.data?.search?.hits) ? data.data.search.hits : [])
+    .find((item) => String(item?.entity || '').toLowerCase() === 'disease'
+      && aliases.has(normalizedEvidenceText(item?.name)))
+  const id = cleanText(hit?.id, 140)
+  const name = cleanText(hit?.name, 220)
+  if (!id || !name) return []
+  return [{
+    id: `open-targets-${id.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+    title: `Open Targets disease record: ${name}`,
+    url: `https://platform.opentargets.org/disease/${encodeURIComponent(id)}`,
+    type: 'Target and disease knowledge record',
+    origin: 'Open Targets Platform',
+    summary: cleanText(hit?.description, 620) || `Open Targets has a disease record for ${name}. This source is used for research discovery, not as proof that a treatment works.`,
+    aiEligible: false,
+  }]
 }
 
 const crossrefYear = (record) => {
@@ -2859,6 +3156,16 @@ const retrieveEvidenceSources = async (condition, env) => {
       fetch: () => fetchOpenAlexEvidence(condition, env),
     },
     {
+      id: 'open-targets',
+      label: 'Open Targets disease and gene knowledge',
+      url: 'https://platform.opentargets.org/',
+      fetch: async () => ({
+        status: 'ready',
+        sources: await fetchOpenTargetsEvidence(condition),
+        detail: 'Disease and target knowledge is used for discovery only. It does not prove that a product will help.',
+      }),
+    },
+    {
       id: 'crossref',
       label: 'Crossref publisher index',
       url: sourceSearchPage('crossref', condition),
@@ -2962,6 +3269,14 @@ const retrieveEvidenceSources = async (condition, env) => {
         status: 'manual',
         records: 0,
         detail: 'Authoritative search route only. It is not scraped or merged into this report without a result-level integration.',
+      },
+      {
+        id: 'global-index-medicus',
+        label: 'WHO Global Index Medicus',
+        url: `https://globalindexmedicus.net/search?query=${encodeURIComponent(conditionPhrase(condition))}`,
+        status: 'manual',
+        records: 0,
+        detail: 'Worldwide health-literature search route covering WHO regional indexes. It stays outside the report until a supported record-level connector is added.',
       },
       {
         id: 'who-ictrp',
@@ -3747,7 +4062,37 @@ const openAiOutputText = (data) => {
     .join('\n')
 }
 
-const callOpenAi = async ({ system, user, env, maxTokens = 3_200, models }) => {
+const openAiWebSearchUrls = (data) => {
+  const urls = new Set()
+  const output = Array.isArray(data?.output) ? data.output : []
+  output.forEach((item) => {
+    if (!/web_search/i.test(cleanText(item?.type, 100))) return
+    const sources = Array.isArray(item?.action?.sources) ? item.action.sources : []
+    sources.forEach((source) => {
+      const url = cleanText(source?.url, 1_000)
+      if (/^https:\/\//i.test(url)) urls.add(url)
+    })
+  })
+  // The Responses API can attach returned pages to message annotations instead
+  // of the tool action, depending on the model and API version. Those URLs are
+  // equally useful for proving that a center page came from the web search.
+  const visit = (value) => {
+    if (Array.isArray(value)) {
+      value.forEach(visit)
+      return
+    }
+    if (!isRecord(value)) return
+    if (/url_citation|web_search/i.test(cleanText(value?.type, 100))) {
+      const url = cleanText(value?.url, 1_000)
+      if (/^https:\/\//i.test(url)) urls.add(url)
+    }
+    Object.values(value).forEach(visit)
+  }
+  visit(output)
+  return urls
+}
+
+const callOpenAi = async ({ system, user, env, maxTokens = 3_200, models, tools = [] }) => {
   const apiKey = env.OPENAI_API_KEY || process.env.OPENAI_API_KEY
   if (!apiKey) return { ok: false, code: 'not-configured', message: 'OpenAI is not configured for this local server.' }
 
@@ -3771,6 +4116,7 @@ const callOpenAi = async ({ system, user, env, maxTokens = 3_200, models }) => {
           max_output_tokens: maxTokens,
           store: false,
           ...(model.startsWith('gpt-5') ? { reasoning: { effort: 'minimal' } } : {}),
+          ...(Array.isArray(tools) && tools.length ? { tools } : {}),
           text: { format: { type: 'json_object' } },
         }),
       }, AI_REQUEST_TIMEOUT_MS)
@@ -3791,7 +4137,7 @@ const callOpenAi = async ({ system, user, env, maxTokens = 3_200, models }) => {
 
     const text = openAiOutputText(data)
     if (!text.trim()) return { ok: false, code: 'empty-response', message: 'OpenAI returned no usable AI content.' }
-    return { ok: true, provider: 'OpenAI', model, text }
+    return { ok: true, provider: 'OpenAI', model, text, webSearchUrls: openAiWebSearchUrls(data) }
   }
 
   return lastUnavailable || { ok: false, code: 'model-unavailable', message: 'No configured OpenAI model was available for this AI pass.' }
@@ -3840,8 +4186,8 @@ Return strict JSON only:
 {
   "ideas": [
     {
-      "candidate": "one exact, real named item",
-      "category": "medicine, supplement or food, peptide, or other",
+      "candidate": "one exact, real named item or focused research approach",
+      "category": "medicine, supplement or food, peptide, gene or RNA research, cell research, or other",
       "whyItCouldConnect": "one plain-language sentence that clearly says this is a possible connection, not a result",
       "providerQuestion": "one short question for a healthcare provider"
     }
@@ -3856,8 +4202,9 @@ const isSpecificCandidateName = (name) => {
     && isSpecificTrialIntervention(normalized)
 }
 
-// Keep the AI idea lane focused on concrete names a person can discuss. Trial
-// products and gene/cell platforms are shown with their real study records instead.
+// The new-idea lane is for names a person can recognize and bring to a
+// clinician. Gene/cell platforms and proprietary study products belong in the
+// trial section, where the report can show the real study record and access.
 const isPatientDiscussibleAiIdeaCandidate = (name) => !/\b(?:gene(?:\s|-)?therapy|gene editing|crispr|aav|viral vector|rna(?:\s|-)?therapy|oligonucleotide|stem cell|cell-derived|cell transplantation|transplant(?:ation)?|retinal pigment epithelium|implant|prosthesis|luxturna|optogenetic)\b/i.test(cleanCandidateName(name))
 
 const cleanTitleTreatmentCandidate = (value) => cleanCandidateName(value)
@@ -5486,11 +5833,18 @@ const _theoryTemplatesForCondition = (condition) => {
 
 const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
   const seen = new Set()
+  // Do not fill this lane from a condition map, a pathway list, or unsupported
+  // AI prose. Each card must carry a completed direct literature check. Ideas
+  // A direct condition match is not a new idea. It belongs in the studied
+  // treatment or trial lanes, not beside a claim that AI found something new.
   return (Array.isArray(packet?.aiIdeasNotFound) ? packet.aiIdeasNotFound : [])
     .filter((idea) => idea?.kind === 'ai-direct-search-no-match')
     .filter((idea) => idea?.directSearch?.status === 'not-found')
     .filter((idea) => isPatientDiscussibleAiIdeaCandidate(idea?.title))
-    .filter((idea) => idea?.directSearch?.pubmedBackground?.source?.title && idea?.directSearch?.pubmedBackground?.source?.url)
+    .filter((idea) => {
+      const candidateSource = idea?.directSearch?.candidateSource || idea?.directSearch?.pubmedBackground?.source
+      return candidateSource?.title && candidateSource?.url
+    })
     .filter((idea) => Array.isArray(idea?.potentialInterventions) && idea.potentialInterventions.length)
     .filter((idea) => {
       const key = candidateKey(idea.title)
@@ -5803,7 +6157,7 @@ const retrievedEvidenceBundle = async (condition, env) => {
     curatedLifestyleIdeas: foundationLifestyleIdeas.map(toCuratedLifestyleIdea).filter(Boolean),
     curatedTheoryIdeas: liveEvidence.everyCureTheoryIdeas || [],
     excludedTreatments: foundationExcludedTreatments.map(toExcludedTreatment).filter(Boolean),
-    centers: [],
+    centers: conditionFoundationCenters(condition),
     researchers: [],
     sourceCoverage,
   }
@@ -5852,8 +6206,9 @@ const runResearch = async (body, env) => {
     : retrievedEvidenceBundle(patient.condition, env)
   const trialPromise = fetchTrials(patient.condition, patient.location, patient.geneticVariant)
   const candidateScoutPromise = scoutResearchCandidates(patient, env)
+  const academicCenterPromise = discoverAcademicCenters(patient.condition, env)
 
-  const [evidenceResult, trialResult, scoutResult] = await Promise.allSettled([evidencePromise, trialPromise, candidateScoutPromise])
+  const [evidenceResult, trialResult, scoutResult, academicCenterResult] = await Promise.allSettled([evidencePromise, trialPromise, candidateScoutPromise, academicCenterPromise])
   const bundle = evidenceResult.status === 'fulfilled'
     ? evidenceResult.value
     : {
@@ -5867,6 +6222,20 @@ const runResearch = async (body, env) => {
   }
   const trialServiceAvailable = trialResult.status === 'fulfilled'
   const trialData = trialServiceAvailable ? trialResult.value : { trials: [], sites: [], researchers: [] }
+  const academicCenterDiscovery = academicCenterResult.status === 'fulfilled'
+    ? academicCenterResult.value
+    : { status: 'unavailable', centers: [], detail: 'Academic-center discovery could not be reached for this run.' }
+  bundle.centers = mergeCenters(bundle.centers, academicCenterDiscovery.centers)
+  bundle.sourceCoverage = [
+    ...(bundle.sourceCoverage || []),
+    {
+      id: 'academic-centers',
+      label: 'Official academic-center discovery',
+      status: academicCenterDiscovery.status,
+      records: academicCenterDiscovery.centers.length,
+      detail: academicCenterDiscovery.detail,
+    },
+  ]
   const scout = scoutResult.status === 'fulfilled'
     ? scoutResult.value
     : { status: 'unavailable', candidates: [], detail: 'The candidate scout could not be reached for this run.' }
@@ -5927,7 +6296,10 @@ const runResearch = async (body, env) => {
     && ['ready', 'not-run'].includes(candidateRelationReview.status)
   const aiIdeasNotFoundResult = await verifyAiIdeasNotFound({
     condition: patient.condition,
-    ideas: aiIdeaSeeds,
+    ideas: combineAiIdeaSeeds(
+      sourceBackedAiIdeaSeeds(verifiedSourceRecords, patient.condition),
+      aiIdeaSeeds,
+    ),
     sources: verifiedSourceRecords,
     trials: verifiedTrialRecords,
   }).catch(() => ({
