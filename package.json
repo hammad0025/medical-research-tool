@@ -10,6 +10,7 @@
     "lint": "oxlint",
     "test": "node --test",
     "test:matrix": "node --test --test-name-pattern='ten-condition report matrix'",
+    "test:stress": "node --test --test-name-pattern='fifteen-condition stress matrix'",
     "verify:deployment": "node scripts/deploymentVerifier.mjs",
     "preview": "vite preview"
   },
