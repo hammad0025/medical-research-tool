@@ -1542,6 +1542,7 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
   <div className="research-ideas-grid">
     {ideas.slice(0, 10).map((idea, index) => {
       const citations = claimCitations(result, idea, condition)
+      const everyCureLead = idea.kind === 'everycure-computational'
       return (
         <article className="research-idea-card research-idea-card--exploratory" key={idea.title}>
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
@@ -1555,7 +1556,7 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
             {idea.verificationQuery ? <div><dt>Search to check next</dt><dd>{idea.verificationQuery}</dd></div> : null}
           </dl>
           <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
-          <CitationActions citations={citations} label="Source for disease biology" />
+          <CitationActions citations={citations} label={everyCureLead ? 'Open Every Cure public source' : 'Source for disease biology'} />
         </article>
       )
     })}
@@ -1594,7 +1595,7 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">{theoryLaneNumber}. New repurposing questions</p><p>These are not treatment suggestions. Each card names something to investigate, links the condition biology behind the question, and gives a search to check whether direct research exists. The link does not prove the item works.</p></div>
+            <div><p className="card-kicker">{theoryLaneNumber}. New repurposing questions</p><p>These are not treatment suggestions. Cards may come from condition biology or a clearly labeled public computer screen. Each one names something to investigate and gives a simple search to check for real studies. A computer score does not prove an item works.</p></div>
             <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Source-linked questions' : 'Strict source check'}</StatusPill>
           </div>
           {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No careful repurposing question passed this run. A card needs a named item, a condition-biology source, and a clear search to check next.</p></div>}
