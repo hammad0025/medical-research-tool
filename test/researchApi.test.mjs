@@ -447,6 +447,10 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         }
         return jsonResponse({ esearchresult: { idlist: ['1001'] } })
       }
+      if (url.includes('/esummary.fcgi')) {
+        const id = new URL(url).searchParams.get('id') || '1001'
+        return jsonResponse({ result: { uids: [id], [id]: { uid: id, title: 'Background research for ' + id } } })
+      }
       if (url.includes('/efetch.fcgi')) {
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         const ids = new URL(url).searchParams.get('id') || ''
@@ -727,18 +731,15 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.review.hypotheses.length, 1)
   const aiIdeaGate = response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')
   assert.equal(aiIdeaGate.status, 'ready')
-  assert.ok(response.body.review.theoryIdeas.length >= 2, JSON.stringify({ coverage: response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search'), theoryIdeas: response.body.review.theoryIdeas }))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.equal(response.body.review.theoryIdeas[0].title, 'Test AI idea with no condition match')
   assert.equal(response.body.review.theoryIdeas[0].directSearch.status, 'not-found')
   assert.equal(response.body.review.theoryIdeas[0].directSearch.pubmed.status, 'not-found')
   assert.equal(response.body.review.theoryIdeas[0].directSearch.europePmc.status, 'not-found')
-  const existingAavIdea = response.body.review.theoryIdeas.find((idea) => /AAV-RP therapy/i.test(idea.title))
-  assert.ok(existingAavIdea)
-  assert.equal(existingAavIdea.kind, 'ai-direct-search-has-match')
-  assert.equal(existingAavIdea.directSearch.status, 'found')
+  assert.ok(!response.body.review.theoryIdeas.some((idea) => /AAV-RP therapy/i.test(idea.title)))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.providerQuestion))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'found'].includes(idea.directSearch?.status)))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(response.body.review.theoryIdeas.every((idea) => !/\bhigh[-\s]?dose\b/i.test(`${idea.title} ${idea.whyItCouldConnect} ${idea.caution}`)))
   assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
   assert.equal(response.body.review.questions[0].text, 'Could this study fit me?')
@@ -765,9 +766,9 @@ test('an any-condition report uses MedlinePlus for the disease overview', { conc
   assert.match(overview.conditionOverview.whatItIs, /movement disorder/i)
   assert.match(overview.conditionOverview.whatToWatch, /tremor|stiffness/i)
   assert.ok(response.body.sourceCoverage.some((lane) => lane.id === 'medlineplus' && lane.status === 'ready'))
-  assert.ok(response.body.review.theoryIdeas.length >= 1)
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'found'].includes(idea.directSearch?.status)))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
 })
 
 test('a direct condition-matched CAR-T or cell study stays in the live trial list', { concurrency: false }, async () => {
@@ -898,10 +899,10 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   assert.ok(blockedNac.aliases.some((alias) => /^NAC$/i.test(alias)))
 
   assert.equal(response.body.curatedTheoryIdeas.length, 4)
-  assert.ok(response.body.review.theoryIdeas.length >= 1)
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'found'].includes(idea.directSearch?.status)))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(!response.body.review.theoryIdeas.some((idea) => /LOXL2|macrophage|stromal cells|RNA lung/i.test(idea.title)))
   for (const name of ['Bosentan', 'Sildenafil', 'Interferon gamma-1b']) {
     const excluded = response.body.excludedTreatments.find((item) => item.aliases.some((alias) => alias.toLowerCase() === name.toLowerCase()))
@@ -1024,7 +1025,7 @@ test('a source-backed run keeps a source-linked overview when a report lane is e
   assert.ok(response.body.review.briefing.sourceIds.length)
   assert.ok(response.body.review.questions.length)
   assert.ok(response.body.review.questions.every((question) => question.sourceIds.length))
-  assert.ok(response.body.review.theoryIdeas.length >= 1)
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
 })
 
 test('a source-gated writer overview survives a malformed second AI pass', { concurrency: false }, async () => {

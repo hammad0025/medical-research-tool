@@ -6,6 +6,7 @@ import { recentResearchSignalsFor } from './recentResearchSignals.mjs'
 const CLINICAL_TRIALS_URL = 'https://clinicaltrials.gov/api/v2/studies'
 const PUBMED_SEARCH_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi'
 const PUBMED_FETCH_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi'
+const PUBMED_SUMMARY_URL = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi'
 const EUROPE_PMC_SEARCH_URL = 'https://www.ebi.ac.uk/europepmc/webservices/rest/search'
 const OPEN_ALEX_WORKS_URL = 'https://api.openalex.org/works'
 const OPEN_FDA_LABEL_URL = 'https://api.fda.gov/drug/label.json'
@@ -2164,12 +2165,34 @@ const directPubMedCandidateCheck = async (condition, candidate) => {
 const directPubMedCandidateBackgroundCheck = async (candidate) => {
   const name = candidateSearchNamesFor(candidate)[0] || cleanCandidateName(candidate?.name || candidate)
   if (!name) throw new Error('A named idea is required for the PubMed background check.')
-  const term = `"${name}"[Title/Abstract]`
+  const term = '"' + name + '"[Title/Abstract]'
   const ids = await searchPubMed(term, { maximum: 5 })
+  let source = null
+  if (ids[0]) {
+    const summaryUrl = new URL(PUBMED_SUMMARY_URL)
+    summaryUrl.searchParams.set('db', 'pubmed')
+    summaryUrl.searchParams.set('retmode', 'json')
+    summaryUrl.searchParams.set('id', ids[0])
+    const response = await fetchWithTimeout(summaryUrl, {}, 12_000)
+    if (response.ok) {
+      const data = await response.json()
+      const record = data?.result?.[ids[0]]
+      const title = cleanText(record?.title, 320)
+      if (title) {
+        source = {
+          id: 'pmid-' + ids[0],
+          title,
+          url: 'https://pubmed.ncbi.nlm.nih.gov/' + ids[0] + '/',
+          origin: 'PubMed',
+        }
+      }
+    }
+  }
   return {
-    status: ids.length ? 'found' : 'not-found',
-    url: `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(term)}`,
+    status: source ? 'found' : 'not-found',
+    url: 'https://pubmed.ncbi.nlm.nih.gov/?term=' + encodeURIComponent(term),
     records: ids.length,
+    source,
   }
 }
 
@@ -2206,19 +2229,20 @@ const candidateAlreadyAppearsInPacket = (candidate, sources, trials) => [
 const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   const eligibleSeeds = (Array.isArray(ideas) ? ideas : [])
     .filter((idea) => idea?.candidate && isSpecificCandidateName(idea.candidate))
-    .slice(0, 32)
+    .filter((idea) => isPatientDiscussibleAiIdeaCandidate(idea.candidate))
+    .slice(0, 12)
   const sourceIds = directSearchEvidenceSourceIds(sources)
   if (!eligibleSeeds.length || !sourceIds.length) {
     return {
       ideas: [],
       matchedIdeas: [],
-      coverage: { id: 'ai-idea-direct-search', label: 'AI idea direct literature check', status: 'not-run', records: 0, detail: 'No named AI idea was released without a condition-biology source and two completed direct searches.' },
+      coverage: { id: 'ai-idea-direct-search', label: 'AI idea direct literature check', status: 'not-run', records: 0, detail: 'No named AI idea was released without a condition source and two completed direct searches.' },
     }
   }
 
   const checked = []
-  for (let index = 0; index < eligibleSeeds.length; index += 3) {
-    const batch = eligibleSeeds.slice(index, index + 3)
+  for (let index = 0; index < eligibleSeeds.length; index += 6) {
+    const batch = eligibleSeeds.slice(index, index + 6)
     const batchResults = await Promise.all(batch.map(async (idea) => {
       const [pubMed, europePmc, pubMedBackground] = await Promise.allSettled([
         directPubMedCandidateCheck(condition, idea),
@@ -2227,50 +2251,40 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       ])
       const pubMedResult = pubMed.status === 'fulfilled' ? pubMed.value : null
       const europePmcResult = europePmc.status === 'fulfilled' ? europePmc.value : null
-      const pubMedBackgroundResult = pubMedBackground.status === 'fulfilled' ? pubMedBackground.value : null
-      const alreadyInPacket = candidateAlreadyAppearsInPacket(idea, sources, trials)
-      const hasBackgroundMatch = pubMedBackgroundResult?.status === 'found'
-      const hasDirectConditionMatch = alreadyInPacket
+      const backgroundResult = pubMedBackground.status === 'fulfilled' ? pubMedBackground.value : null
+      const candidate = cleanCandidateName(idea.candidate)
+      const hasDirectMatch = candidateAlreadyAppearsInPacket(idea, sources, trials)
         || pubMedResult?.status === 'found'
         || europePmcResult?.status === 'found'
-      const hasNoDirectConditionMatch = !alreadyInPacket
-        && pubMedResult?.status === 'not-found'
-        && europePmcResult?.status === 'not-found'
-        && hasBackgroundMatch
-      const directSearch = {
-        status: hasNoDirectConditionMatch ? 'not-found' : hasDirectConditionMatch ? 'found' : 'unavailable',
-        pubmed: pubMedResult || { status: 'unavailable', url: directCandidateSearchUrl('pubmed', condition, idea), records: 0 },
-        europePmc: europePmcResult || { status: 'unavailable', url: directCandidateSearchUrl('europe-pmc', condition, idea), records: 0 },
-        pubmedBackground: pubMedBackgroundResult || { status: 'unavailable', url: '', records: 0 },
-      }
-      if (!hasNoDirectConditionMatch && !hasDirectConditionMatch) return null
+      const hasCandidateSource = backgroundResult?.status === 'found'
+        && Boolean(backgroundResult?.source?.title && backgroundResult?.source?.url)
+      if (hasDirectMatch || !hasCandidateSource) return null
 
-      const candidate = cleanCandidateName(idea.candidate)
       return {
         title: candidate,
         potentialInterventions: [candidate],
-        category: cleanText(idea.category, 80) || 'AI research idea',
+        category: cleanText(idea.category, 80) || 'AI idea to check',
         whyItCouldConnect: cleanText(idea.whyItCouldConnect, 440),
-        whyNotEstablished: hasNoDirectConditionMatch
-          ? `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. Neither search showed a match. That does not prove nobody has studied it or that it will help.`
-          : `Our search found ${candidate} connected with ${cleanText(condition, 120)}. This is not a new idea, and a search result does not prove it helps.`,
-        providerQuestion: simpleDoctorQuestion(idea.providerQuestion || `Is ${candidate} worth discussing`),
+        whyNotEstablished: 'We searched ' + candidate + ' together with ' + cleanText(condition, 120) + ' in PubMed and Europe PMC. Neither search showed a match. That does not prove nobody has studied it or that it will help.',
+        providerQuestion: simpleDoctorQuestion(idea.providerQuestion || ('Is ' + candidate + ' worth discussing?')),
         caution: 'This is an AI research question, not a treatment recommendation. Do not start, stop, buy, combine, or change a treatment from this card.',
-        verificationQuery: `"${cleanText(condition, 120)}" AND "${candidate}"`,
+        verificationQuery: '"' + cleanText(condition, 120) + '" AND "' + candidate + '"',
         sourceIds,
-        kind: hasNoDirectConditionMatch ? 'ai-direct-search-no-match' : 'ai-direct-search-has-match',
-        directSearch,
+        kind: 'ai-direct-search-no-match',
+        directSearch: {
+          status: 'not-found',
+          pubmed: pubMedResult || { status: 'unavailable', url: directCandidateSearchUrl('pubmed', condition, idea), records: 0 },
+          europePmc: europePmcResult || { status: 'unavailable', url: directCandidateSearchUrl('europe-pmc', condition, idea), records: 0 },
+          pubmedBackground: backgroundResult,
+        },
       }
     }))
     checked.push(...batchResults.filter(Boolean))
   }
 
-  const directSearchesCompleted = eligibleSeeds.length * 3
-  const noMatchIdeas = checked.filter((idea) => idea.kind === 'ai-direct-search-no-match')
-  const matchedIdeas = checked.filter((idea) => idea.kind === 'ai-direct-search-has-match')
   return {
-    ideas: noMatchIdeas.slice(0, 10),
-    matchedIdeas: matchedIdeas.slice(0, 10),
+    ideas: checked.slice(0, 10),
+    matchedIdeas: [],
     coverage: {
       id: 'ai-idea-direct-search',
       label: 'AI idea direct literature check',
@@ -2278,8 +2292,8 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       status: 'ready',
       records: checked.length,
       detail: checked.length
-        ? `${noMatchIdeas.length} named AI idea${noMatchIdeas.length === 1 ? '' : 's'} had no direct match in the two exact searches. ${matchedIdeas.length} idea${matchedIdeas.length === 1 ? '' : 's'} already ${matchedIdeas.length === 1 ? 'has' : 'have'} a condition match and ${matchedIdeas.length === 1 ? 'is' : 'are'} clearly marked as already studied.`
-        : `We ran ${directSearchesCompleted} checks, but no named AI idea had enough search evidence to show safely.`,
+        ? checked.length + ' named AI idea' + (checked.length === 1 ? ' had' : 's had') + ' no direct match in the two exact searches and includes a separate candidate research paper.'
+        : 'No idea was shown unless it had a real candidate paper and no direct match in either condition search.',
     },
   }
 }
@@ -3818,7 +3832,7 @@ Return strict JSON only:
 
 const aiIdeaScoutSystemPrompt = `You are AI Idea Scout in a medical-research product. Create possible research questions only, never treatment advice.
 
-Given a condition, optional subtype or gene, and a small set of trusted condition-background sources, suggest up to 20 concrete named ideas that might be worth a clinician-led research discussion. Aim for 12 different real names when the condition background supports it. Look beyond well-known condition treatments: include named drugs or supplements used in related biology, as well as focused peptide, gene-targeted, cell, or RNA research approaches. An idea must name one specific item, not a broad class, pathway, or phrase such as "immune signaling", "gene therapy", "antioxidants", or "an inhibitor". Do not invent fictional products. Do not add a dose, a safety claim, a benefit claim, a way to obtain it, a private clinic, or a combination of medicines.
+Given a condition, optional subtype or gene, and a small set of trusted condition-background sources, suggest up to 12 concrete named ideas that might be worth a clinician-led research discussion. Prioritize real, patient-recognizable medicines, supplements, foods, peptides, or natural compounds used in related biology. Do not return a known treatment for the condition, an active condition-specific trial product, a gene-editing program, a cell product, a transplant, an implant, or a broad class. An idea must name one specific item, not a pathway or phrase such as "immune signaling", "gene therapy", "antioxidants", or "an inhibitor". Do not invent fictional products. Do not add a dose, a safety claim, a benefit claim, a way to obtain it, a private clinic, or a combination of medicines.
 
 This is a hypothesis list. Do not say an item is unresearched, effective, safe, approved, or right for the person. Explain the possible connection as a careful question based only on the supplied condition-background text. The app will independently search PubMed and Europe PMC for the exact condition and item, and will hide any item with a match.
 
@@ -3826,8 +3840,8 @@ Return strict JSON only:
 {
   "ideas": [
     {
-      "candidate": "one exact, real named item or focused research approach",
-      "category": "medicine, supplement or food, peptide, gene or RNA research, cell research, or other",
+      "candidate": "one exact, real named item",
+      "category": "medicine, supplement or food, peptide, or other",
       "whyItCouldConnect": "one plain-language sentence that clearly says this is a possible connection, not a result",
       "providerQuestion": "one short question for a healthcare provider"
     }
@@ -3841,6 +3855,10 @@ const isSpecificCandidateName = (name) => {
     && !candidateLooksLikePaperOrProtocolLabel(normalized)
     && isSpecificTrialIntervention(normalized)
 }
+
+// Keep the AI idea lane focused on concrete names a person can discuss. Trial
+// products and gene/cell platforms are shown with their real study records instead.
+const isPatientDiscussibleAiIdeaCandidate = (name) => !/\b(?:gene(?:\s|-)?therapy|gene editing|crispr|aav|viral vector|rna(?:\s|-)?therapy|oligonucleotide|stem cell|cell-derived|cell transplantation|transplant(?:ation)?|retinal pigment epithelium|implant|prosthesis|luxturna|optogenetic)\b/i.test(cleanCandidateName(name))
 
 const cleanTitleTreatmentCandidate = (value) => cleanCandidateName(value)
   .replace(/^(?:head[- ]to[- ]head\s+)?(?:trial|study|comparison|evaluation|assessment|use|impact|efficacy|safety|outcomes?)\s+of\s+/i, '')
@@ -5468,15 +5486,11 @@ const _theoryTemplatesForCondition = (condition) => {
 
 const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
   const seen = new Set()
-  // Do not fill this lane from a condition map, a pathway list, or unsupported
-  // AI prose. Each card must carry a completed direct literature check. Ideas
-  // with an existing condition match stay visible, but never get called new.
-  return [
-    ...(Array.isArray(packet?.aiIdeasNotFound) ? packet.aiIdeasNotFound : []),
-    ...(Array.isArray(packet?.aiIdeasWithMatches) ? packet.aiIdeasWithMatches : []),
-  ]
-    .filter((idea) => ['ai-direct-search-no-match', 'ai-direct-search-has-match'].includes(idea?.kind))
-    .filter((idea) => ['not-found', 'found'].includes(idea?.directSearch?.status))
+  return (Array.isArray(packet?.aiIdeasNotFound) ? packet.aiIdeasNotFound : [])
+    .filter((idea) => idea?.kind === 'ai-direct-search-no-match')
+    .filter((idea) => idea?.directSearch?.status === 'not-found')
+    .filter((idea) => isPatientDiscussibleAiIdeaCandidate(idea?.title))
+    .filter((idea) => idea?.directSearch?.pubmedBackground?.source?.title && idea?.directSearch?.pubmedBackground?.source?.url)
     .filter((idea) => Array.isArray(idea?.potentialInterventions) && idea.potentialInterventions.length)
     .filter((idea) => {
       const key = candidateKey(idea.title)
