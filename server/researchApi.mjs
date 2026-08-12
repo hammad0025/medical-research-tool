@@ -2635,8 +2635,10 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
         caution: 'This is an AI research question, not a treatment recommendation. Do not start, stop, buy, combine, or change a treatment from this card.',
         verificationQuery: `"${cleanText(condition, 120)}" AND "${candidate}"`,
         sourceIds: [...new Set([
-          ...(Array.isArray(idea?.sourceIds) ? idea.sourceIds : []),
-          ...defaultSourceIds,
+          // A source-backed seed already carries the condition overview and
+          // the exact paper that named the idea. Do not append an unrelated
+          // general source such as a lifestyle page just to fill this field.
+          ...(Array.isArray(idea?.sourceIds) && idea.sourceIds.length ? idea.sourceIds : defaultSourceIds),
         ])].filter((sourceId) => (Array.isArray(sources) ? sources : []).some((source) => source?.id === sourceId)).slice(0, 3),
         kind: hasNoDirectConditionMatch ? 'ai-direct-search-no-match' : 'ai-direct-search-has-match',
         directSearch,
