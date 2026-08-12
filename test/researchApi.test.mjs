@@ -401,8 +401,9 @@ const textResponse = (body, status = 200) => ({
 })
 
 const auditedRpModelCandidatePattern = /erucamide|melatonin|sulforaphane|tauroursodeoxycholic acid|tudca|minocycline|kus121|piceid octanoate|curcumin|ibuprofen|thx-b/i
+const auditedIpfModelCandidatePattern = /tetrandrine|spermidine|celastrol|andrographolide|ginsenoside rb1|melatonin|ramelteon|empagliflozin|berberine|tauroursodeoxycholic acid|tudca|fisetin|sulforaphane/i
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, auditedRpModelCandidatesNoMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, auditedRpModelCandidatesNoMatch = false, auditedIpfModelCandidatesNoMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
   const clinicalTrialRecordIds = []
@@ -481,11 +482,12 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         const term = new URL(url).searchParams.get('term') || ''
         pubMedTerms.push(term)
-        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(term) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(term))) {
+        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(term) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(term)) || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(term))) {
           const unstudiedPair = /Test AI idea with no condition match/i.test(term)
             || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(term))
             || (everyCureAllCandidatesNoMatch && /Test repurposing candidate \d+/i.test(term))
             || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(term))
+            || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(term))
           if (!unstudiedPair) return jsonResponse({ esearchresult: { idlist: ['1001'] } })
           return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
         }
@@ -518,11 +520,12 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
         const query = new URL(url).searchParams.get('query') || ''
-        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(query) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(query))) {
+        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(query) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(query)) || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(query))) {
           const unstudiedPair = /Test AI idea with no condition match/i.test(query)
             || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(query))
             || (everyCureAllCandidatesNoMatch && /Test repurposing candidate \d+/i.test(query))
             || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(query))
+            || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(query))
           if (!unstudiedPair) return jsonResponse({ resultList: { result: [{ source: 'MED', id: '1001', pmid: '1001', title: 'Known condition match', abstractText: 'Known condition match.', pubYear: '2025', journalTitle: 'Test Retina Journal', pubType: 'Systematic Review' }] } })
           return jsonResponse({ resultList: { result: [] } })
         }
@@ -1157,6 +1160,27 @@ test('audited RP model-paper sources can fill ten checked AI ideas when Every Cu
   assert.ok(directIdeas.some((idea) => /^erucamide$/i.test(idea.title)))
   assert.ok(directIdeas.some((idea) => /^melatonin$/i.test(idea.title)))
   assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id.startsWith('rp-'))))
+})
+
+test('audited IPF model-paper sources can fill ten checked unresearched ideas without vague pathways', { concurrency: false }, async () => {
+  const mock = createMockFetch({ auditedIpfModelCandidatesNoMatch: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Idiopathic Pulmonary Fibrosis', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const directIdeas = response.body.review.theoryIdeas
+  assert.equal(directIdeas.length, 10, JSON.stringify(response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')))
+  assert.equal(new Set(directIdeas.map((idea) => idea.title.toLowerCase())).size, 10)
+  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
+  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id === 'ipf-fda-condition-overview')))
+  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id.startsWith('ipf-'))))
+  assert.ok(directIdeas.some((idea) => /^tetrandrine$/i.test(idea.title)))
+  assert.ok(directIdeas.some((idea) => /^spermidine$/i.test(idea.title)))
+  assert.ok(directIdeas.some((idea) => /^empagliflozin$/i.test(idea.title)))
+  assert.ok(!directIdeas.some((idea) => /pathway|macrophage|rna lung|loxl2/i.test(idea.title)))
 })
 
 test('a JSON-mode 400 retries OpenAI with a compatible request before withholding AI ideas', { concurrency: false }, async () => {
