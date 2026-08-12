@@ -16,6 +16,13 @@ const PERPLEXITY_SEARCH_URL = 'https://api.perplexity.ai/search'
 const MEDLINEPLUS_SEARCH_URL = 'https://wsearch.nlm.nih.gov/ws/query'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses'
+const HUGGINGFACE_DATASETS_SERVER_URL = 'https://datasets-server.huggingface.co'
+const EVERYCURE_MATRIX_DATASET = 'everycure/matrix-scores'
+const EVERYCURE_DISEASE_DATASET = 'everycure/disease-list'
+const EVERYCURE_DRUG_DATASET = 'everycure/drug-list'
+const EVERYCURE_MATRIX_URL = 'https://huggingface.co/datasets/everycure/matrix-scores'
+const EVERYCURE_PUBLIC_RELEASE_URL = 'https://docs.dev.everycure.org/releases/public_data_releases/'
+const EVERYCURE_ATTRIBUTION_URL = 'https://docs.dev.everycure.org/releases/attribution/'
 const MAX_BODY_BYTES = 60_000
 const REQUEST_TIMEOUT_MS = 50_000
 const AI_REQUEST_TIMEOUT_MS = 35_000
@@ -82,6 +89,7 @@ const PRIORITIZED_RESEARCH_COUNTRIES = new Set([
 ])
 
 let referencePromise
+const everyCureDatasetConfigPromises = new Map()
 
 const isRecord = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
@@ -1844,6 +1852,9 @@ const sourceQualityScore = (source) => {
   if (source?.origin === 'openFDA') score += 24
   if (source?.origin === 'PubMed') score += 12
   if (source?.origin === 'Europe PMC') score += 8
+  // This keeps the single public Every Cure release alongside the report so
+  // its computational cards can always link to the source that produced them.
+  if (source?.everyCurePublicRelease === true) score += 6
   if (source?.conditionScope === 'related-preclinical') score += 26
   if (Array.isArray(source?.candidateLeads) && source.candidateLeads.length) score += 34
   return score
@@ -2447,6 +2458,195 @@ const fetchOpenFdaLabels = async (condition) => {
     .slice(0, 8)
 }
 
+const everyCureEnabled = (env) => String(environmentValue(env, 'EVERYCURE_PUBLIC_DATA_ENABLED') || 'true').toLowerCase() !== 'false'
+
+// Dataset Server filters use SQL-style quoted strings. Doubling a quote keeps
+// a condition such as Crohn's disease inside one literal value.
+const everyCureFilterValue = (value) => String(value || '').replace(/'/g, "''").replace(/[\r\n]/g, ' ').trim()
+
+const everyCureRow = (value) => isRecord(value?.row) ? value.row : value
+
+const everyCureValue = (record, keys) => {
+  for (const key of keys) {
+    const value = record?.[key]
+    if (value !== undefined && value !== null && String(value).trim()) return cleanText(value, 360)
+  }
+  return ''
+}
+
+const everyCureTrue = (value) => value === true || /^(?:true|1|yes)$/i.test(String(value || '').trim())
+
+const everyCureDatasetConfig = async (dataset) => {
+  const cached = everyCureDatasetConfigPromises.get(dataset)
+  if (cached) return cached
+
+  const request = (async () => {
+    const url = new URL(`${HUGGINGFACE_DATASETS_SERVER_URL}/splits`)
+    url.searchParams.set('dataset', dataset)
+    const response = await fetchWithTimeout(url, {}, 7_000)
+    if (!response.ok) throw new Error(`Every Cure dataset metadata returned ${response.status}.`)
+    const data = await response.json()
+    const splits = Array.isArray(data?.splits) ? data.splits : []
+    const selected = splits.find((entry) => entry?.split === 'train') || splits[0]
+    const config = cleanText(selected?.config, 160)
+    const split = cleanText(selected?.split, 80)
+    if (!config || !split) throw new Error('Every Cure dataset metadata did not include a readable split.')
+    return { config, split }
+  })()
+
+  everyCureDatasetConfigPromises.set(dataset, request)
+  try {
+    return await request
+  } catch (error) {
+    everyCureDatasetConfigPromises.delete(dataset)
+    throw error
+  }
+}
+
+const fetchEveryCureRows = async (dataset, { where, orderby = '', length = 10 }) => {
+  const { config, split } = await everyCureDatasetConfig(dataset)
+  const url = new URL(`${HUGGINGFACE_DATASETS_SERVER_URL}/filter`)
+  url.searchParams.set('dataset', dataset)
+  url.searchParams.set('config', config)
+  url.searchParams.set('split', split)
+  url.searchParams.set('where', where)
+  if (orderby) url.searchParams.set('orderby', orderby)
+  url.searchParams.set('offset', '0')
+  url.searchParams.set('length', String(Math.max(1, Math.min(Number(length) || 10, 25))))
+  const response = await fetchWithTimeout(url, {}, 8_000)
+  if (!response.ok) throw new Error(`Every Cure public data returned ${response.status}.`)
+  const data = await response.json()
+  return (Array.isArray(data?.rows) ? data.rows : []).map(everyCureRow).filter(isRecord)
+}
+
+const everyCureConditionNames = (condition) => {
+  const candidates = [
+    ...conditionSearchPhrases(condition),
+    baseConditionName(condition),
+  ].flatMap((name) => {
+    const clean = cleanText(name, 140)
+    if (!clean) return []
+    const sentenceCase = clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase()
+    return [clean, sentenceCase]
+  })
+  return [...new Set(candidates.filter(Boolean))].slice(0, 6)
+}
+
+const findEveryCureDisease = async (condition) => {
+  for (const name of everyCureConditionNames(condition)) {
+    const rows = await fetchEveryCureRows(EVERYCURE_DISEASE_DATASET, {
+      where: `"name" = '${everyCureFilterValue(name)}'`,
+      length: 3,
+    })
+    const exact = rows.find((row) => normalizedEvidenceText(row?.name) === normalizedEvidenceText(name)) || rows[0]
+    const id = everyCureValue(exact, ['id', 'mondo_id', 'disease_id'])
+    if (id) return { id, name: everyCureValue(exact, ['name']) || name }
+  }
+  return null
+}
+
+const everyCureSource = (condition, disease, count) => ({
+  id: `everycure-matrix-${cleanText(disease?.id, 80).replace(/[^A-Za-z0-9]+/g, '-').toLowerCase() || 'public-release'}`,
+  title: `Every Cure MATRIX computational screen for ${cleanText(disease?.name || condition, 140)}`,
+  url: EVERYCURE_MATRIX_URL,
+  type: 'Every Cure computational discovery dataset',
+  origin: 'Every Cure MATRIX public release',
+  year: '',
+  summary: `${count} computer-ranked drug-and-condition research question${count === 1 ? '' : 's'} came from Every Cure's public MATRIX release. These rankings show possible biological connections, not proof a treatment works in people. Attribution and upstream-source details are linked from the public release.`,
+  attributionUrl: EVERYCURE_ATTRIBUTION_URL,
+  releaseUrl: EVERYCURE_PUBLIC_RELEASE_URL,
+  everyCurePublicRelease: true,
+  aiEligible: false,
+})
+
+const fetchEveryCureRepurposingLeads = async (condition, env) => {
+  if (!everyCureEnabled(env)) {
+    return {
+      status: 'not-configured',
+      sources: [],
+      ideas: [],
+      detail: 'Disabled by EVERYCURE_PUBLIC_DATA_ENABLED. Other source searches continue normally.',
+    }
+  }
+
+  const disease = await findEveryCureDisease(condition)
+  if (!disease) {
+    return {
+      status: 'ready',
+      sources: [],
+      ideas: [],
+      detail: 'The public disease list did not have an exact match for this wording. Other literature and trial searches still ran.',
+    }
+  }
+
+  const scoreRows = await fetchEveryCureRows(EVERYCURE_MATRIX_DATASET, {
+    where: `"target" = '${everyCureFilterValue(disease.id)}'`,
+    orderby: '"rank_disease" ASC',
+    length: 20,
+  })
+  const scoredLeads = scoreRows
+    .filter((row) => !everyCureTrue(row?.is_known_positive) && !everyCureTrue(row?.is_known_negative))
+    .map((row) => ({
+      row,
+      drugId: everyCureValue(row, ['source_ec_id', 'drug_ec_id', 'source_id']),
+      rank: Number(row?.rank_disease) || Number.MAX_SAFE_INTEGER,
+    }))
+    .filter((lead) => lead.drugId)
+    .sort((left, right) => left.rank - right.rank)
+    .slice(0, 8)
+
+  if (!scoredLeads.length) {
+    return {
+      status: 'ready',
+      sources: [],
+      ideas: [],
+      detail: 'The public MATRIX screen returned no usable untested drug-and-condition pairs for this condition. Other literature and trial searches still ran.',
+    }
+  }
+
+  const requestedDrugIds = [...new Set(scoredLeads.map((lead) => lead.drugId))]
+  const drugWhere = requestedDrugIds.map((id) => `"id" = '${everyCureFilterValue(id)}'`).join(' OR ')
+  const drugRows = await fetchEveryCureRows(EVERYCURE_DRUG_DATASET, { where: drugWhere, length: requestedDrugIds.length })
+  const drugsById = new Map(drugRows.map((row) => [everyCureValue(row, ['id', 'ec_id']), row]))
+  const source = everyCureSource(condition, disease, 0)
+  const ideas = scoredLeads.flatMap((lead) => {
+    const drug = drugsById.get(lead.drugId)
+    const name = everyCureValue(drug, ['name', 'drug_name', 'label'])
+    if (!name) return []
+    const description = everyCureValue(drug, ['drug_function', 'drug_class', 'therapeutic_area'])
+    return [{
+      title: `${name} repurposing question`,
+      category: 'Every Cure computational lead',
+      whyItCouldConnect: `Every Cure's public computer screen ranked ${name} as a possible biological connection to ${cleanText(disease.name || condition, 140)}. ${description ? `Its public drug record describes it as ${description}. ` : ''}This is a starting point for a real literature check, not a finding that it helps people with this condition.`,
+      potentialInterventions: [name],
+      accessRoute: 'A clinician discussion and a condition-specific literature check. This score does not show that the drug is safe, available, or appropriate for this condition.',
+      whyNotEstablished: 'This is a computer-ranked biological clue. It is not a clinical study, an approved use, or proof of benefit.',
+      providerQuestion: `Has ${name} been studied for ${cleanText(disease.name || condition, 80)}?`,
+      caution: 'Do not start, stop, buy, or combine medicines from this card. A clinician needs to check the actual studies, other medicines, and safety.',
+      verificationQuery: `${cleanText(disease.name || condition, 120)} ${name} treatment research`,
+      sourceIds: [source.id],
+      kind: 'everycure-computational',
+    }]
+  }).slice(0, 4)
+
+  if (!ideas.length) {
+    return {
+      status: 'ready',
+      sources: [],
+      ideas: [],
+      detail: 'The public MATRIX screen returned score rows, but the matching public drug metadata was incomplete for this run. Other literature and trial searches still ran.',
+    }
+  }
+
+  const finalSource = everyCureSource(condition, disease, ideas.length)
+  return {
+    status: 'ready',
+    sources: [finalSource],
+    ideas: ideas.map((idea) => ({ ...idea, sourceIds: [finalSource.id] })),
+    detail: `${ideas.length} public computational lead${ideas.length === 1 ? '' : 's'} added as questions to verify. These are not clinical findings or treatment suggestions.`,
+  }
+}
+
 const sourceSearchPage = (provider, condition) => {
   const phrase = encodeURIComponent(conditionPhrase(condition))
   if (provider === 'pubmed') return `https://pubmed.ncbi.nlm.nih.gov/?term=${phrase}`
@@ -2459,6 +2659,7 @@ const sourceSearchPage = (provider, condition) => {
   if (provider === 'cochrane') return `https://www.cochranelibrary.com/search?text=${phrase}`
   if (provider === 'who-ictrp') return 'https://trialsearch.who.int/'
   if (provider === 'eu-ctis') return 'https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en'
+  if (provider === 'everycure') return EVERYCURE_MATRIX_URL
   return 'https://open.fda.gov/drug/label/'
 }
 
@@ -2518,6 +2719,12 @@ const retrieveEvidenceSources = async (condition, env) => {
       url: sourceSearchPage('perplexity', condition),
       fetch: () => fetchPerplexityWebDiscovery(condition, env),
     },
+    {
+      id: 'everycure-matrix',
+      label: 'Every Cure public computational screen',
+      url: sourceSearchPage('everycure', condition),
+      fetch: () => fetchEveryCureRepurposingLeads(condition, env),
+    },
   ]
 
   const results = await Promise.allSettled(adapters.map((adapter) => adapter.fetch()))
@@ -2546,17 +2753,30 @@ const retrieveEvidenceSources = async (condition, env) => {
         ? `${sources.length} condition-related record${sources.length === 1 ? '' : 's'} passed the source gate.`
         : 'Searched, but no condition-related record passed the source gate.'),
       sources,
+      ideas: Array.isArray(result.value.ideas) ? result.value.ideas : [],
     }
   })
+
+  const everyCureLane = coverage.find((lane) => lane.id === 'everycure-matrix')
+  const coreSources = dedupeEvidenceSources(
+    coverage.map((lane) => attachSourceTitleTreatmentCandidates(lane.sources || [], condition)),
+    16,
+  )
+  // The Every Cure release is not sent to the writing model, but it must stay
+  // in the finished report so the displayed computational cards keep their
+  // direct attribution link even when a broad literature search is large.
+  const everyCureSources = (everyCureLane?.sources || []).filter((source) => source?.everyCurePublicRelease === true)
+  const sourcesWithEveryCure = [
+    ...coreSources,
+    ...everyCureSources.filter((source) => !coreSources.some((item) => item.id === source.id)),
+  ]
 
   return {
     // Tag direct condition-titled treatment records before trimming the source
     // packet, so useful patient-facing evidence is not displaced by a generic
     // background paper when an AI pass is slow or unavailable.
-    sources: dedupeEvidenceSources(
-      coverage.map((lane) => attachSourceTitleTreatmentCandidates(lane.sources || [], condition)),
-      16,
-    ),
+    sources: sourcesWithEveryCure,
+    everyCureTheoryIdeas: Array.isArray(everyCureLane?.ideas) ? everyCureLane.ideas : [],
     coverage: [
       ...coverage.map((lane) => ({
       id: lane.id,
@@ -2592,6 +2812,16 @@ const retrieveEvidenceSources = async (condition, env) => {
       },
     ],
   }
+}
+
+const retainEveryCurePublicSource = (sources, availableSources) => {
+  const base = Array.isArray(sources) ? sources : []
+  const releaseSources = (Array.isArray(availableSources) ? availableSources : [])
+    .filter((source) => source?.everyCurePublicRelease === true)
+  return [
+    ...base,
+    ...releaseSources.filter((source) => !base.some((item) => item.id === source.id)),
+  ]
 }
 
 const normalizePatient = (raw) => ({
@@ -5249,10 +5479,16 @@ const ipfEvidenceBundle = async (condition, env) => {
   return {
     mode: 'curated-plus-live',
     sourceLabel: 'Curated IPF and current research sources',
-    sources: dedupeEvidenceSources([curatedSources, liveEvidence.sources], 24),
+    sources: retainEveryCurePublicSource(
+      dedupeEvidenceSources([curatedSources, liveEvidence.sources], 24),
+      liveEvidence.sources,
+    ),
     curatedDiscussionLeads: (reference.discussionLeads || []).map(toCuratedDiscussionLead).filter(Boolean),
     curatedLifestyleIdeas: (reference.lifestyleCards || []).map(toCuratedLifestyleIdea).filter(Boolean),
-    curatedTheoryIdeas: (reference.theoryLeads || []).map(toCuratedTheoryIdea).filter(Boolean),
+    curatedTheoryIdeas: [
+      ...(liveEvidence.everyCureTheoryIdeas || []),
+      ...(reference.theoryLeads || []).map(toCuratedTheoryIdea).filter(Boolean),
+    ].slice(0, 10),
     excludedTreatments: (reference.excludedAgents || []).map(toExcludedTreatment).filter(Boolean),
     centers: (reference.topCenters || []).slice(0, 6).map((center) => ({
       name: cleanText(center.name, 200),
@@ -5316,10 +5552,13 @@ const retrievedEvidenceBundle = async (condition, env) => {
   return {
     mode: 'live-retrieved',
     sourceLabel: 'Current research sources',
-    sources: dedupeEvidenceSources([foundationSources, recentResearchSources, liveEvidence.sources], 18),
+    sources: retainEveryCurePublicSource(
+      dedupeEvidenceSources([foundationSources, recentResearchSources, liveEvidence.sources], 18),
+      liveEvidence.sources,
+    ),
     curatedDiscussionLeads: foundationDiscussionLeads.map(toCuratedDiscussionLead).filter(Boolean),
     curatedLifestyleIdeas: foundationLifestyleIdeas.map(toCuratedLifestyleIdea).filter(Boolean),
-    curatedTheoryIdeas: [],
+    curatedTheoryIdeas: liveEvidence.everyCureTheoryIdeas || [],
     excludedTreatments: foundationExcludedTreatments.map(toExcludedTreatment).filter(Boolean),
     centers: [],
     researchers: [],
@@ -5434,7 +5673,10 @@ const runResearch = async (body, env) => {
     && ['ready', 'not-run'].includes(candidateRelationReview.status)
   const enrichedBundle = {
     ...bundle,
-    sources: dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources], conditionIsIpf ? 36 : 24),
+    sources: retainEveryCurePublicSource(
+      dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources], conditionIsIpf ? 36 : 24),
+      bundle.sources,
+    ),
     sourceCoverage: [
       ...(bundle.sourceCoverage || []),
       ...(candidateEvidence.coverage || []),

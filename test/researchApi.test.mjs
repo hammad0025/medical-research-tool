@@ -377,6 +377,44 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
     fetch: async (input, options = {}) => {
       const url = String(input)
 
+      if (url.includes('datasets-server.huggingface.co/splits')) {
+        return jsonResponse({ splits: [{ config: 'default', split: 'train' }] })
+      }
+      if (url.includes('datasets-server.huggingface.co/filter')) {
+        const datasetUrl = new URL(url)
+        const dataset = datasetUrl.searchParams.get('dataset') || ''
+        const where = datasetUrl.searchParams.get('where') || ''
+        if (dataset === 'everycure/disease-list') {
+          const diseaseName = where.match(/'([^']+(?:''[^']+)*)'/)?.[1]?.replace(/''/g, "'") || ''
+          const normalized = diseaseName.toLowerCase()
+          const disease = normalized.includes('parkinson')
+            ? { id: 'MONDO:0005180', name: "Parkinson's disease" }
+            : normalized.includes('pulmonary fibrosis')
+              ? { id: 'MONDO:0002063', name: 'Idiopathic pulmonary fibrosis' }
+              : { id: 'MONDO:0019200', name: 'Retinitis pigmentosa' }
+          return jsonResponse({ rows: [{ row: disease }] })
+        }
+        if (dataset === 'everycure/matrix-scores') {
+          return jsonResponse({ rows: [
+            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0001', rank_disease: 1, is_known_positive: false, is_known_negative: false } },
+            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0002', rank_disease: 2, is_known_positive: false, is_known_negative: false } },
+            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0003', rank_disease: 3, is_known_positive: false, is_known_negative: false } },
+            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0004', rank_disease: 4, is_known_positive: false, is_known_negative: false } },
+            // Known pairs must not be presented as new repurposing questions.
+            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0005', rank_disease: 0, is_known_positive: true, is_known_negative: false } },
+          ] })
+        }
+        if (dataset === 'everycure/drug-list') {
+          return jsonResponse({ rows: [
+            { row: { id: 'EC:0001', name: 'Test repurposing candidate one', drug_class: 'small molecule' } },
+            { row: { id: 'EC:0002', name: 'Test repurposing candidate two', drug_class: 'small molecule' } },
+            { row: { id: 'EC:0003', name: 'Test repurposing candidate three', drug_class: 'small molecule' } },
+            { row: { id: 'EC:0004', name: 'Test repurposing candidate four', drug_class: 'small molecule' } },
+            { row: { id: 'EC:0005', name: 'Known pair that must be filtered', drug_class: 'small molecule' } },
+          ] })
+        }
+      }
+
       if (url.includes('/esearch.fcgi')) {
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         const term = new URL(url).searchParams.get('term') || ''
@@ -829,11 +867,40 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
     assert.ok(excluded, `${name} should stay in the negative-results lane`)
     assert.ok(excluded.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
   }
-  const cellResearch = response.body.curatedTheoryIdeas.find((idea) => idea.title === 'Academic cell and exosome research')
-  assert.ok(cellResearch)
-  assert.ok(cellResearch.potentialInterventions.some((item) => /exosome/i.test(item)))
-  assert.match(cellResearch.accessRoute, /academic/i)
-  assert.ok(cellResearch.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
+  const everyCureLead = response.body.curatedTheoryIdeas.find((idea) => idea.kind === 'everycure-computational')
+  assert.ok(everyCureLead)
+  assert.match(everyCureLead.whyNotEstablished, /not a clinical study/i)
+  assert.ok(everyCureLead.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
+})
+
+test('Every Cure public scores are shown only as attributable computational questions', { concurrency: false }, async () => {
+  const mock = createMockFetch()
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const coverage = response.body.sourceCoverage.find((lane) => lane.id === 'everycure-matrix')
+  assert.ok(coverage)
+  assert.equal(coverage.status, 'ready')
+  assert.equal(coverage.records, 1)
+  assert.match(coverage.detail, /not clinical findings/i)
+
+  const source = response.body.sources.find((item) => item.everyCurePublicRelease === true)
+  assert.ok(source)
+  assert.match(source.url, /huggingface\.co\/datasets\/everycure\/matrix-scores/)
+  assert.match(source.releaseUrl, /docs\.dev\.everycure\.org/)
+  assert.equal(source.aiEligible, false)
+
+  const ideas = response.body.curatedTheoryIdeas.filter((idea) => idea.kind === 'everycure-computational')
+  assert.equal(ideas.length, 4)
+  assert.ok(ideas.every((idea) => idea.sourceIds.includes(source.id)))
+  assert.ok(ideas.every((idea) => /not a clinical study/i.test(idea.whyNotEstablished)))
+  assert.ok(!ideas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
+  assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Test repurposing candidate/i.test(idea.title)))
+  assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
 })
 
 test('a registry outage is labeled unavailable instead of as an empty trial search', { concurrency: false }, async () => {
