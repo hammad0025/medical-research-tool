@@ -865,6 +865,11 @@ test('a source-backed related-model molecule can enter the checked new-idea lane
   assert.equal(idea.directSearch.europePmc.status, 'not-found')
   assert.match(idea.whyItCouldConnect, /related retinal-degeneration models/i)
   assert.ok(idea.directSearch.candidateSource?.url)
+  assert.equal(idea.sourceIds.length, 2)
+  const linkedSources = idea.sourceIds.map((id) => response.body.sources.find((source) => source.id === id))
+  assert.ok(linkedSources.some((source) => /retinitis pigmentosa/i.test(source?.title || '')))
+  assert.ok(linkedSources.some((source) => /erucamide/i.test(`${source?.title || ''} ${source?.summary || ''}`)))
+  assert.ok(!linkedSources.some((source) => /vision rehabilitation/i.test(source?.title || '')))
 })
 
 test('a related-model molecule is labeled animal-or-lab-only instead of being hidden as a known human treatment', { concurrency: false }, async () => {
