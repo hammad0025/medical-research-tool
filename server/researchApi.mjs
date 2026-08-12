@@ -1686,7 +1686,17 @@ const normalizedEvidenceText = (value) => cleanText(value, 2_400)
 // Expand common condition shorthand before searching. Full names stay primary,
 // and two-letter acronyms are not accepted as standalone source matches.
 const CONDITION_SEARCH_GROUPS = [
-  { canonical: 'Idiopathic Pulmonary Fibrosis', aliases: ['IPF', 'Idiopathic Pulmonary Fibrosis'], matchAliases: ['IPF'] },
+  {
+    canonical: 'Idiopathic Pulmonary Fibrosis',
+    aliases: ['IPF', 'Idiopathic Pulmonary Fibrosis'],
+    matchAliases: ['IPF'],
+    relatedPreclinicalResearch: {
+      searchPhrases: ['bleomycin-induced pulmonary fibrosis', 'lung fibrosis animal model'],
+      matchingPhrases: ['bleomycin-induced pulmonary fibrosis', 'lung fibrosis animal model', 'pulmonary fibrosis'],
+      label: 'lung-fibrosis animal or lab models',
+      context: 'This source is from animal or lab research on lung fibrosis, not a study in people with idiopathic pulmonary fibrosis.',
+    },
+  },
   {
     canonical: 'Retinitis Pigmentosa',
     aliases: ['RP', 'Retinitis Pigmentosa'],
@@ -6331,11 +6341,12 @@ const ipfEvidenceBundle = async (condition, env) => {
     retrieveEvidenceSources(condition, env),
   ])
   const curatedSources = selectedSources(reference)
+  const recentResearchSources = recentResearchSignalsFor(condition)
   return {
     mode: 'curated-plus-live',
     sourceLabel: 'Curated IPF and current research sources',
     sources: retainEveryCurePublicSource(
-      dedupeEvidenceSources([curatedSources, liveEvidence.sources], 24),
+      dedupeEvidenceSources([curatedSources, recentResearchSources, liveEvidence.sources], 40),
       liveEvidence.sources,
     ),
     curatedDiscussionLeads: (reference.discussionLeads || []).map(toCuratedDiscussionLead).filter(Boolean),
@@ -6369,6 +6380,16 @@ const ipfEvidenceBundle = async (condition, env) => {
         records: curatedSources.length,
         detail: 'Core IPF references included with every IPF report.',
       },
+      ...(recentResearchSources.length
+        ? [{
+          id: 'verified-recent-research',
+          label: 'Verified recent research',
+          url: recentResearchSources[0].url,
+          status: 'ready',
+          records: recentResearchSources.length,
+          detail: 'Source-linked animal or lab research is kept separate from human treatment evidence.',
+        }]
+        : []),
       ...liveEvidence.coverage,
     ],
   }
