@@ -594,7 +594,7 @@ const theoryIdeasForReport = (result) => {
   return uniqueIdeas(reviewedIdeas
     .map((idea) => ({ ...idea, potentialInterventions: repurposingCandidatesForIdea(idea) }))
     .filter((idea) => idea?.kind === 'ai-direct-search-no-match')
-    .filter((idea) => idea?.directSearch?.status === 'not-found')
+    .filter((idea) => ['not-found', 'preclinical-only'].includes(idea?.directSearch?.status))
     .filter((idea) => idea.potentialInterventions.length)
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
     .filter((idea) => !idea.potentialInterventions.some((candidate) => isExplicitlyExcludedTreatment(result, { title: candidate })))
@@ -1371,14 +1371,15 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
       const candidateCitations = candidateSource ? [candidateSource] : []
       const pubmedUrl = idea?.directSearch?.pubmed?.url
       const europePmcUrl = idea?.directSearch?.europePmc?.url
+      const animalOrLabOnly = idea?.directSearch?.status === 'preclinical-only'
       return (
         <article className="research-idea-card research-idea-card--exploratory" key={idea.title}>
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
-          <div className="card-topline"><p className="card-kicker">{idea.category || 'AI idea to check'}</p><StatusPill tone="experimental">Not yet studied for this illness</StatusPill></div>
+          <div className="card-topline"><p className="card-kicker">{animalOrLabOnly ? 'Animal or lab research only' : (idea.category || 'AI idea to check')}</p><StatusPill tone="experimental">{animalOrLabOnly ? 'Not tried in people yet' : 'No direct human study found'}</StatusPill></div>
           <h3>{idea.title}</h3>
           <CitedParagraph citations={biologyCitations}><strong>Why this may be worth asking about:</strong> {idea.whyItCouldConnect}</CitedParagraph>
           <dl className="research-idea-facts">
-            <div><dt>What we checked</dt><dd>{idea.whyNotEstablished}</dd></div>
+            <div><dt>What we found</dt><dd>{idea.whyNotEstablished}</dd></div>
             <div><dt>Ask your doctor</dt><dd>{idea.providerQuestion || 'What should I ask about this?'}</dd></div>
           </dl>
           <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
@@ -1401,7 +1402,7 @@ function ResearchIdeas({ condition, result }) {
   return (
     <section id="research-ideas" className="research-ideas section-surface">
       <SectionHeader eyebrow="4. Drug and treatment ideas" title="Treatments to ask about and AI ideas to check" />
-      <p className="section-intro">The first list has things studied for this illness. The second has named products that did not show a direct match in two medical searches. The report never tells you to take something or mix medicines.</p>
+      <p className="section-intro">The first list has things studied for this illness. The second has named ideas that may connect to the illness but are not proven treatments. The report never tells you to take something or mix medicines.</p>
 
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
@@ -1414,10 +1415,10 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">2. New AI ideas to check</p><p>These are named drugs, supplements, or other products that did not show up in our direct search for this illness. Each card links to research about the illness and research about the item. A missing match does not prove it has never been studied or that it will help.</p></div>
-            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Research questions' : 'No checked idea today'}</StatusPill>
+            <div><p className="card-kicker">2. AI ideas not yet tried in people</p><p>These are named drugs, supplements, or other products. We show them when our checks find only animal or lab work, or no direct human study in PubMed and Europe PMC. Each card explains the possible link and has the exact sources.</p></div>
+            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Ideas to discuss' : 'No checked idea today'}</StatusPill>
           </div>
-          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>We could not find a new, source-linked idea for this report. We do not add random names just to fill this list.</p></div>}
+          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>We could not verify a named idea for this report. We do not add random names just to fill this list.</p></div>}
         </section>
       </div>
     </section>
@@ -2004,7 +2005,7 @@ const reportExportText = ({ form, report, result }) => {
         idea?.directSearch?.europePmc?.url ? `Direct Europe PMC search: ${idea.directSearch.europePmc.url}` : '',
       ].filter(Boolean).join(' | ')
       return citedLine(
-        `- ${idea.title}: Why AI picked this: ${idea.whyItCouldConnect} Possible idea to check: ${theoryPotentialInterventions(idea).join('; ')} What we checked: ${idea.whyNotEstablished} Ask your doctor: ${idea.providerQuestion || 'What should I ask about this?'} ${links} Important: ${idea.caution}`,
+        `- ${idea.title}: Why it may connect: ${idea.whyItCouldConnect} Name to discuss: ${theoryPotentialInterventions(idea).join('; ')} What we found: ${idea.whyNotEstablished} Ask your doctor: ${idea.providerQuestion || 'What should I ask about this?'} ${links} Important: ${idea.caution}`,
         claimCitations(result, idea, condition),
       )
     })
