@@ -2065,7 +2065,10 @@ const dedupeEvidenceSources = (groups, maximum = 14) => {
       || cleanText(right.year, 12).localeCompare(cleanText(left.year, 12)))
   // Keep a meaningful, but bounded, set of clearly marked model papers from
   // getting crowded out by reviews. They cannot replace the core source set.
-  const relatedPreclinical = sorted.filter((source) => source.conditionScope === 'related-preclinical').slice(0, 12)
+  // Keep the complete audited model-paper intake plus a small number of live
+  // related findings. A twelve-record cap can silently drop the oldest or
+  // newest source before the direct-condition screen gets a chance to use it.
+  const relatedPreclinical = sorted.filter((source) => source.conditionScope === 'related-preclinical').slice(0, 18)
   const regularSources = sorted.filter((source) => source.conditionScope !== 'related-preclinical')
   return [...regularSources.slice(0, Math.max(0, maximum - relatedPreclinical.length)), ...relatedPreclinical]
     .sort((left, right) => sourceQualityScore(right) - sourceQualityScore(left)
@@ -2535,6 +2538,13 @@ const sourceBackedAiIdeaSeeds = (sources, condition) => {
     .filter((source) => source?.conditionScope === 'related-preclinical')
     .flatMap((source) => (Array.isArray(source?.candidateLeads) ? source.candidateLeads : [])
       .map((candidate) => ({ source, candidate })))
+    // Use the curated primary-paper sources before a generated or public-score
+    // seed. This keeps a real, linked finding from being displaced by a name
+    // that merely passed a broad computational screen.
+    .sort((left, right) => (
+      Number(right.source?.aiIdeaPriority || 0) - Number(left.source?.aiIdeaPriority || 0)
+      || String(left.candidate?.name || '').localeCompare(String(right.candidate?.name || ''))
+    ))
     .map(({ source, candidate }) => {
       const name = cleanCandidateName(candidate?.name)
       if (!name || !isSpecificCandidateName(name) || !isPatientDiscussibleAiIdeaCandidate(name)) return null
@@ -2552,7 +2562,10 @@ const sourceBackedAiIdeaSeeds = (sources, condition) => {
       }
     })
     .filter(Boolean)
-    .slice(0, TARGET_AI_IDEA_COUNT)
+    // Send a wider source-backed pool into the direct screen. A direct human
+    // condition match removes a name, so limiting this stage to ten would
+    // make it impossible to finish with ten checked cards.
+    .slice(0, MAX_AI_IDEA_SEEDS)
 }
 
 const relatedPreclinicalCandidateStatus = (candidate, sources, trials) => {
@@ -6364,7 +6377,7 @@ const retrievedEvidenceBundle = async (condition, env) => {
       // Preserve enough clearly labeled model records for the separate
       // research-question lane, while still retaining the direct-condition
       // overview, human research, and regulatory sources above it.
-      dedupeEvidenceSources([foundationSources, recentResearchSources, liveEvidence.sources], 32),
+      dedupeEvidenceSources([foundationSources, recentResearchSources, liveEvidence.sources], 40),
       liveEvidence.sources,
     ),
     curatedDiscussionLeads: foundationDiscussionLeads.map(toCuratedDiscussionLead).filter(Boolean),
@@ -6514,11 +6527,14 @@ const runResearch = async (body, env) => {
     || relatedModelCandidateResult.status === 'fulfilled'
   const candidateVerificationAvailable = candidateExtractionAvailable
     && ['ready', 'not-run'].includes(candidateRelationReview.status)
+  const sourceBackedAiSeeds = sourceBackedAiIdeaSeeds(verifiedSourceRecords, patient.condition)
   const aiIdeasNotFoundResult = await verifyAiIdeasNotFound({
     condition: patient.condition,
     ideas: combineAiIdeaSeeds(
-      sourceBackedAiIdeaSeeds(verifiedSourceRecords, patient.condition),
-      everyCureAiIdeaSeeds(bundle.curatedTheoryIdeas),
+      // First use products that have a specific linked paper in a related
+      // model. Scout and public-score ideas can still fill gaps after the
+      // direct literature screen removes known condition matches.
+      sourceBackedAiSeeds,
       aiIdeaSeeds,
     ),
     sources: verifiedSourceRecords,
