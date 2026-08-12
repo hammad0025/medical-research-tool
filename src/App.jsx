@@ -1549,12 +1549,12 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
       return (
         <article className="research-idea-card research-idea-card--exploratory" key={idea.title}>
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
-          <div className="card-topline"><p className="card-kicker">{idea.category || 'New AI idea'}</p><StatusPill tone="experimental">2 checks done</StatusPill></div>
+          <div className="card-topline"><p className="card-kicker">{idea.category || 'AI idea to check'}</p><StatusPill tone="experimental">2 searches clear</StatusPill></div>
           <h3>{idea.title}</h3>
-          <CitedParagraph citations={citations}><strong>Why AI picked this:</strong> {idea.whyItCouldConnect}</CitedParagraph>
+          <CitedParagraph citations={citations}><strong>Why AI thinks this may connect:</strong> {idea.whyItCouldConnect}</CitedParagraph>
           <dl className="research-idea-facts">
-            <div><dt>Possible idea to check</dt><dd>{theoryPotentialInterventions(idea).join(' · ')}</dd></div>
-            <div><dt>What we checked</dt><dd>{idea.whyNotEstablished}</dd></div>
+            <div><dt>AI idea</dt><dd>{theoryPotentialInterventions(idea).join(' · ')}</dd></div>
+            <div><dt>What we looked for</dt><dd>{idea.whyNotEstablished}</dd></div>
             <div><dt>Ask your doctor</dt><dd>{idea.providerQuestion || 'What should I ask about this?'}</dd></div>
           </dl>
           <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
@@ -1577,8 +1577,8 @@ function ResearchIdeas({ condition, result }) {
 
   return (
     <section id="research-ideas" className="research-ideas section-surface">
-      <SectionHeader eyebrow="4. Drug and treatment ideas" title="Treatments to ask about and new ideas to check" />
-      <p className="section-intro">The first list has things studied for this illness. The second has early lab work. The third has new AI ideas. This report never tells you to take something or mix medicines.</p>
+      <SectionHeader eyebrow="4. Drug and treatment ideas" title="Treatments to ask about and AI ideas to check" />
+      <p className="section-intro">The first list has things studied for this illness. The second has early lab work. The third has AI ideas that were not found in our two searches for this illness. This report never tells you to take something or mix medicines.</p>
 
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
@@ -1601,10 +1601,10 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">{theoryLaneNumber}. New AI ideas to check</p><p>AI picked a specific name based on what is known about this illness. We then checked PubMed and Europe PMC for that exact name and illness. We show it only if both checks did not find a match. That does not mean nobody has studied it or that it will help.</p></div>
-            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? '2 checks done' : 'Left blank on purpose'}</StatusPill>
+            <div><p className="card-kicker">{theoryLaneNumber}. AI ideas not found in the illness research we checked</p><p>These are things AI thinks may be worth asking about. We searched PubMed and Europe PMC for the exact idea and this illness. A card appears only when both searches did not find a match. That does not prove it has never been studied or that it will help.</p></div>
+            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? '2 searches clear' : 'Only checked ideas show'}</StatusPill>
           </div>
-          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No AI idea was safe to show. We left this blank instead of calling a known idea new.</p></div>}
+          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No idea passed both searches in this run. We did not label a known treatment as a new AI idea.</p></div>}
         </section>
       </div>
     </section>
@@ -2315,7 +2315,7 @@ const reportExportText = ({ form, report, result }) => {
     '',
     ...(earlyResearchLines ? ['', '6. Early lab or animal research', earlyResearchLines] : []),
     '',
-    `${theorySectionNumber}. New AI ideas to check`,
+    `${theorySectionNumber}. AI ideas not found in the illness research we checked`,
     theoryLines || 'No AI idea was safe to show. We left this blank instead of calling a known idea new.',
     '',
     `${pipelineSectionNumber}. Treatments in current studies`,
@@ -3047,7 +3047,7 @@ function App() {
           <section className="mrc-reference-report">
             <div className="mrc-report-toolbar">
               <ExportActions onExportText={exportText} onExportWord={exportWord} onExportPdf={exportPdf} disabled={!canExport} />
-              <button className="mrc-demo-load" type="button" onClick={loadSavedDemo}><Icon name="file" size={16} /> Load saved demo (not live)</button>
+              <button className="mrc-demo-load" type="button" onClick={loadSavedDemo}><Icon name="file" size={16} /> Load fictional RP profile</button>
             </div>
 
             <section className="mrc-detail-hero">
