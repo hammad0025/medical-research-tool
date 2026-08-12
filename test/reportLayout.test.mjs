@@ -39,7 +39,7 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /Treatments to ask about and AI ideas to check/)
   assert.match(appSource, /Things studied for this illness/)
   assert.doesNotMatch(appSource, /Early lab or animal research/)
-  assert.doesNotMatch(appSource, /Not in people yet/)  assert.match(appSource, /AI ideas to check/)
+  assert.doesNotMatch(appSource, /Not in people yet/)\n  assert.match(appSource, /AI ideas to check/)
   assert.match(appSource, /What this means/)
   assert.match(appSource, /Possible idea to check/)
   assert.match(appSource, /Study may be open/)
