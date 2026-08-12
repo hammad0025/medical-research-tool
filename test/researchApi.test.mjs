@@ -49,6 +49,25 @@ const relatedPreclinicalPubMedXml = `
   </MedlineCitation>
   <PubmedData><ArticleIdList><ArticleId IdType="doi">10.1038/s41593-026-02341-w</ArticleId></ArticleIdList></PubmedData>
 </PubmedArticle>`
+  + Array.from({ length: 11 }, (_unused, index) => {
+    const number = String(index + 2).padStart(2, '0')
+    return `
+<PubmedArticle>
+  <MedlineCitation>
+    <PMID>423214${number}</PMID>
+    <Article>
+      <Journal><Title>Model Retina Journal</Title></Journal>
+      <ArticleTitle>PreclinicalCandidate${number} protects photoreceptors in a retinal degeneration mouse model</ArticleTitle>
+      <Abstract>
+        <AbstractText>PreclinicalCandidate${number} treatment protected retinal cells in mice with photoreceptor degeneration. This animal study describes PreclinicalCandidate${number} as a candidate therapeutic.</AbstractText>
+      </Abstract>
+      <PublicationTypeList><PublicationType>Journal Article</PublicationType></PublicationTypeList>
+      <JournalIssue><PubDate><Year>2026</Year></PubDate></JournalIssue>
+    </Article>
+  </MedlineCitation>
+  <PubmedData><ArticleIdList><ArticleId IdType="doi">10.1000/model-${number}</ArticleId></ArticleIdList></PubmedData>
+</PubmedArticle>`
+  }).join('')
 
 const medlinePlusParkinsonXml = `
 <nlmSearchResult>
@@ -467,16 +486,19 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           if (!unstudiedPair) return jsonResponse({ esearchresult: { idlist: ['1001'] } })
           return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
         }
-        if (/erucamide/i.test(term)) {
+        if (/erucamide|PreclinicalCandidate\d+/i.test(term)) {
           if (erucamideNoDirectMatch) {
             return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['42321469'] } })
+          }
+          if (/PreclinicalCandidate\d+/i.test(term)) {
+            return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['42321402'] } })
           }
           // The direct query represents the live case: the molecular work is
           // in a retinal-disease model, not a human treatment study.
           if (/\)\s+AND\s+\(/i.test(term)) return jsonResponse({ esearchresult: { idlist: ['42321469'] } })
         }
-        if (relatedPreclinical && /retinal degeneration/i.test(term)) {
-          return jsonResponse({ esearchresult: { idlist: ['42321469'] } })
+        if (relatedPreclinical && /retinal degeneration|photoreceptor degeneration|inherited retinal degeneration/i.test(term)) {
+          return jsonResponse({ esearchresult: { idlist: ['42321469', ...Array.from({ length: 11 }, (_unused, index) => `423214${String(index + 2).padStart(2, '0')}`)] } })
         }
         return jsonResponse({ esearchresult: { idlist: ['1001'] } })
       }
@@ -500,8 +522,9 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           if (!unstudiedPair) return jsonResponse({ resultList: { result: [{ source: 'MED', id: '1001', pmid: '1001', title: 'Known condition match', abstractText: 'Known condition match.', pubYear: '2025', journalTitle: 'Test Retina Journal', pubType: 'Systematic Review' }] } })
           return jsonResponse({ resultList: { result: [] } })
         }
-        if (/erucamide/i.test(query)) {
+        if (/erucamide|PreclinicalCandidate\d+/i.test(query)) {
           if (erucamideNoDirectMatch) return jsonResponse({ resultList: { result: [] } })
+          if (/PreclinicalCandidate\d+/i.test(query)) return jsonResponse({ resultList: { result: [] } })
           return jsonResponse({ resultList: { result: [{
             source: 'MED',
             id: '42321469',
@@ -661,13 +684,25 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
               recordId: record.recordId,
               candidate: record.candidate,
               decision: unrelatedComorbidityMedicine ? 'reject' : 'approve',
-              relationship: /rehabilitation/i.test(record.candidate) ? 'condition-support' : 'direct-condition-treatment',
+              relationship: record.conditionScope === 'related-preclinical'
+                ? 'condition-family-preclinical'
+                : /rehabilitation/i.test(record.candidate) ? 'condition-support' : 'direct-condition-treatment',
               evidence: evidence.slice(0, 170),
             }
           })
           return jsonResponse({ status: 'completed', output_text: JSON.stringify({ decisions }) })
         }
-        const packetCandidateOutput = String(request.input || '').includes('erucamide')
+        const relatedModelPacket = request.instructions.includes('Related Model Candidate Extractor')
+          ? JSON.parse(String(request.input || '').slice(String(request.input || '').indexOf('{'), String(request.input || '').lastIndexOf('}') + 1))
+          : null
+        const relatedModelCandidates = (relatedModelPacket?.sourceRecords || []).map((record) => {
+          const name = String(record?.title || '').match(/(PreclinicalCandidate\d+)/)?.[1]
+            || (String(record?.title || '').toLowerCase().includes('erucamide') ? 'Erucamide' : '')
+          return name ? { name, category: 'early animal or lab research', sourceIds: [record.id] } : null
+        }).filter(Boolean)
+        const packetCandidateOutput = relatedModelPacket
+          ? { candidates: relatedModelCandidates }
+          : String(request.input || '').includes('erucamide')
           ? {
             candidates: [
               ...packetCandidateDraft.candidates,
@@ -1100,6 +1135,24 @@ test('the AI idea lane reaches ten distinct checked cards when ten public candid
   assert.ok(directIdeas.filter((idea) => /Test repurposing candidate \d+/i.test(idea.title))
     .every((idea) => idea.sourceIds.some((id) => id.startsWith('everycure-matrix-'))))
   assert.ok(directIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
+})
+
+test('related model sources can fill ten checked AI ideas when Every Cure is unavailable', { concurrency: false }, async () => {
+  const mock = createMockFetch({ relatedPreclinical: true, erucamideNoDirectMatch: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const directIdeas = response.body.review.theoryIdeas
+  assert.equal(directIdeas.length, 10, JSON.stringify(response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'preclinical-only'))
+  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id === 'rp-nei-condition-overview')))
+  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id.startsWith('pmid-423214'))))
+  assert.ok(directIdeas.some((idea) => /^erucamide$/i.test(idea.title)))
+  assert.ok(directIdeas.filter((idea) => /^PreclinicalCandidate\d+$/i.test(idea.title)).length >= 9)
 })
 
 test('a JSON-mode 400 retries OpenAI with a compatible request before withholding AI ideas', { concurrency: false }, async () => {
