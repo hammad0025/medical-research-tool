@@ -846,7 +846,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.providerQuestion))
   assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.pubmedBackground?.source?.url))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.candidateSource?.url))
   assert.ok(response.body.review.theoryIdeas.every((idea) => !/\bhigh[-\s]?dose\b/i.test(`${idea.title} ${idea.whyItCouldConnect} ${idea.caution}`)))
   assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
   assert.equal(response.body.review.questions[0].text, 'Could this study fit me?')
@@ -1117,7 +1117,7 @@ test('Every Cure public scores are shown only as attributable computational ques
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
   const directIdeas = response.body.review.theoryIdeas
   assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
-  assert.ok(directIdeas.every((idea) => idea.directSearch?.pubmedBackground?.source?.url))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.candidateSource?.url))
   assert.ok(!directIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
 })
 
