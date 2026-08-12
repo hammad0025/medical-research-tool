@@ -1609,3 +1609,116 @@ test('common-condition foundations keep established care and lifestyle sections 
   assert.ok(wilson.body.review.briefing.sourceIds.includes('wilson-medlineplus-overview'))
   assert.equal(wilson.body.review.theoryIdeas.length, 0)
 })
+
+test('ten-condition report matrix keeps the product useful during service outages', { concurrency: false }, async () => {
+  const routes = apiRoutes({
+    ...env,
+    ANTHROPIC_RESEARCH_DISABLED: 'true',
+    OPENAI_API_KEY: '',
+    RESEARCH_RUN_MAX_PER_WINDOW: '20',
+  })
+  const unavailableFetch = async () => { throw new Error('Network unavailable for report matrix') }
+  const run = (condition, geneticVariant = '') => withMockedFetch(unavailableFetch, () => callRoute(
+    routes.get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition, geneticVariant } },
+  ))
+  const sourceExists = (report, sourceId) => report.sources.some((source) => source.id === sourceId)
+  const sourceIdsResolve = (items, report) => (items || []).every((item) => (item.sourceIds || [])
+    .every((sourceId) => sourceExists(report, sourceId)))
+
+  const groundedConditions = [
+    {
+      condition: 'Idiopathic Pulmonary Fibrosis',
+      overviewId: 'ipf-fda-condition-overview',
+      minimumEstablishedOptions: 3,
+      minimumLifestyleCards: 3,
+      minimumLocations: 3,
+    },
+    {
+      condition: 'Retinitis Pigmentosa',
+      geneticVariant: 'USH2A',
+      overviewId: 'rp-nei-condition-overview',
+      minimumEstablishedOptions: 1,
+      minimumLifestyleCards: 2,
+      minimumLocations: 3,
+    },
+    {
+      condition: 'Huntington Disease',
+      overviewId: 'hd-ninds-condition-overview',
+      minimumEstablishedOptions: 3,
+      minimumLifestyleCards: 3,
+    },
+    {
+      condition: "Crohn's Disease",
+      overviewId: 'crohn-niddk-overview',
+      minimumEstablishedOptions: 6,
+      minimumLifestyleCards: 3,
+      minimumDiscussionLeads: 3,
+    },
+    {
+      condition: "Parkinson's Disease",
+      overviewId: 'parkinson-ninds-overview-support',
+      minimumEstablishedOptions: 8,
+      minimumLifestyleCards: 3,
+    },
+    {
+      condition: 'LADA',
+      overviewId: 'lada-expert-consensus-overview',
+      minimumEstablishedOptions: 1,
+      minimumLifestyleCards: 3,
+      minimumDiscussionLeads: 6,
+    },
+    {
+      condition: 'Wilson Disease',
+      overviewId: 'wilson-medlineplus-overview',
+      minimumEstablishedOptions: 4,
+      minimumLifestyleCards: 4,
+    },
+  ]
+
+  for (const expectations of groundedConditions) {
+    const response = await run(expectations.condition, expectations.geneticVariant)
+    assert.equal(response.status, 200, expectations.condition)
+    const report = response.body
+    assert.equal(report.status, 'ready', expectations.condition)
+    assert.equal(report.exploration, null, expectations.condition)
+    assert.ok(sourceExists(report, expectations.overviewId), `${expectations.condition} has a source-backed overview`)
+    assert.ok(report.sources.every((source) => source.id && /^https:\/\//.test(source.url)), `${expectations.condition} has only direct source links`)
+    assert.ok(report.review.briefing?.text, `${expectations.condition} has a readable overview`)
+    assert.ok(report.review.briefing.sourceIds.includes(expectations.overviewId), `${expectations.condition} overview names its source`)
+    assert.ok(report.sources.filter((source) => source.treatmentName).length >= expectations.minimumEstablishedOptions, `${expectations.condition} has established-option cards`)
+    if (expectations.condition === 'Retinitis Pigmentosa') {
+      assert.ok(report.sources.some((source) => source.treatmentName === 'Voretigene neparvovec-rzyl (Luxturna)' && source.approvalScope === 'subtype'), 'RP keeps the RPE65 approval scope clear')
+    }
+    assert.ok(report.curatedLifestyleIdeas.length >= expectations.minimumLifestyleCards, `${expectations.condition} has daily-life cards`)
+    assert.ok(sourceIdsResolve(report.curatedLifestyleIdeas, report), `${expectations.condition} lifestyle links resolve`)
+    assert.ok(sourceIdsResolve(report.curatedDiscussionLeads, report), `${expectations.condition} treatment-idea links resolve`)
+    assert.ok(report.centers.length >= (expectations.minimumLocations || 0), `${expectations.condition} has expected care locations`)
+    assert.ok(report.curatedDiscussionLeads.length >= (expectations.minimumDiscussionLeads || 0), `${expectations.condition} has expected research ideas`)
+    assert.equal(report.review.theoryIdeas.length, 0, `${expectations.condition} does not invent unverified theory cards while sources are down`)
+  }
+
+  const startingMapConditions = [
+    'Multiple Sclerosis',
+    'Amyotrophic Lateral Sclerosis',
+    'Koolen-de Vries syndrome',
+  ]
+
+  for (const condition of startingMapConditions) {
+    const response = await run(condition)
+    assert.equal(response.status, 200, condition)
+    const report = response.body
+    assert.equal(report.status, 'exploration', condition)
+    assert.equal(report.sources.length, 0, `${condition} does not invent sources`)
+    assert.equal(report.trials.length, 0, `${condition} does not invent current trials`)
+    assert.equal(report.exploration.mode, 'structured-starting-map', condition)
+    assert.equal(report.exploration.treatmentPaths.length, 10, `${condition} has ten treatment paths to search`)
+    assert.equal(report.exploration.connections.length, 10, `${condition} has ten research connections to search`)
+    assert.equal(report.exploration.lifestyle.length, 2, `${condition} has two daily-life prompts`)
+    assert.equal(report.exploration.safety.length, 2, `${condition} has two safety prompts`)
+    assert.ok(report.exploration.treatmentPaths.every((item) => item.needsVerification), `${condition} labels unverified paths clearly`)
+    assert.ok(report.exploration.connections.every((item) => item.needsVerification), `${condition} labels unverified connections clearly`)
+    assert.match(report.exploration.briefing, new RegExp(condition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+  }
+})
