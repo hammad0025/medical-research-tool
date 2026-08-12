@@ -1109,7 +1109,7 @@ function TrialDirectory({ condition, result }) {
   )
 }
 
-function CenterCardfunction CenterCard({ center, result }) {
+function CenterCard({ center, result }) {
   const officialSource = centerSourceCitation(center)
   const trialCitations = citationsFor(result, (center.trials || []).map((trial) => trial.id))
   const citations = centerCitations(result, center)
@@ -1240,7 +1240,7 @@ function ReportOverview({ condition, result }) {
   )
 }
 
-const sourceTextForIdeaconst sourceTextForIdea = (result, idea) => (idea?.sourceIds || [])
+const sourceTextForIdea = (result, idea) => (idea?.sourceIds || [])
   .map((sourceId) => (result?.sources || []).find((source) => source.id === sourceId))
   .filter(Boolean)
   .map((source) => `${source.title || ''} ${source.summary || ''}`)
@@ -1629,7 +1629,7 @@ function LifestyleResearch({ result }) {
   )
 }
 
-function UniversalReportfunction UniversalReport({ condition, form, result }) {
+function UniversalReport({ condition, form, result }) {
   const displayCondition = displayConditionName(result?.patient?.condition || condition) || 'Condition'
   const trialCount = result?.trials?.length || 0
   const resultIsEmpty = result?.status === 'empty'
@@ -2009,7 +2009,7 @@ const reportExportText = ({ form, report, result }) => {
       claimCitations(result, item, condition),
     ))
     .join('\n')
-  const centerLines  const centerLines = (result?.centers?.length ? result.centers : (isIpf ? report.specialists : []))
+  const centerLines = (result?.centers?.length ? result.centers : (isIpf ? report.specialists : []))
     .map((center) => citedLine(
       `- ${center.name}${center.city ? ` (${center.city})` : ''}: ${center.why || 'Condition-specific institution or study site.'}`,
       centerCitations(result, center),
@@ -2023,7 +2023,7 @@ const reportExportText = ({ form, report, result }) => {
     searchTerms: searchTermsFor(result),
     verifyWhenEmpty: Boolean(result?.exploration && !result?.review?.briefing?.text),
   })
-  const mapNote  const mapNote = result?.exploration
+  const mapNote = result?.exploration
     ? 'Ideas to check: These are not proven facts or treatment advice. Check the links and ask a doctor before acting on an idea.'
     : 'Links are included. Open them to check each treatment and question.'
   const theorySectionNumber = 6
