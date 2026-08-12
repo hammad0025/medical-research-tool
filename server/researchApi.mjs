@@ -2483,7 +2483,10 @@ const everyCureDatasetConfig = async (dataset) => {
   const request = (async () => {
     const url = new URL(`${HUGGINGFACE_DATASETS_SERVER_URL}/splits`)
     url.searchParams.set('dataset', dataset)
-    const response = await fetchWithTimeout(url, {}, 7_000)
+    // The public release is large and the Dataset Viewer can wake a cold
+    // cached query. Give it room within the report's six-minute budget, while
+    // keeping this optional lane separate from the core literature sources.
+    const response = await fetchWithTimeout(url, {}, 20_000)
     if (!response.ok) throw new Error(`Every Cure dataset metadata returned ${response.status}.`)
     const data = await response.json()
     const splits = Array.isArray(data?.splits) ? data.splits : []
@@ -2513,7 +2516,7 @@ const fetchEveryCureRows = async (dataset, { where, orderby = '', length = 10 })
   if (orderby) url.searchParams.set('orderby', orderby)
   url.searchParams.set('offset', '0')
   url.searchParams.set('length', String(Math.max(1, Math.min(Number(length) || 10, 25))))
-  const response = await fetchWithTimeout(url, {}, 8_000)
+  const response = await fetchWithTimeout(url, {}, 25_000)
   if (!response.ok) throw new Error(`Every Cure public data returned ${response.status}.`)
   const data = await response.json()
   return (Array.isArray(data?.rows) ? data.rows : []).map(everyCureRow).filter(isRecord)
