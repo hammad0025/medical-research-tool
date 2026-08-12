@@ -2505,13 +2505,35 @@ const directSearchEvidenceSourceIds = (sources) => (Array.isArray(sources) ? sou
   .map((source) => source.id)
   .slice(0, 2)
 
+const sameEvidenceRecord = (left, right) => {
+  const leftPmid = cleanText(left?.pmid, 40)
+  const rightPmid = cleanText(right?.pmid, 40)
+  if (leftPmid && rightPmid && leftPmid === rightPmid) return true
+
+  const leftDoi = cleanText(left?.doi, 220).replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').toLowerCase()
+  const rightDoi = cleanText(right?.doi, 220).replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').toLowerCase()
+  if (leftDoi && rightDoi && leftDoi === rightDoi) return true
+
+  const leftTitle = normalizedEvidenceText(left?.title)
+  const rightTitle = normalizedEvidenceText(right?.title)
+  return Boolean(leftTitle && rightTitle && leftTitle === rightTitle)
+}
+
 const candidateAlreadyAppearsInDirectConditionPacket = (candidate, condition, sources, trials) => {
+  const relatedModelSources = (Array.isArray(sources) ? sources : [])
+    .filter((source) => source?.conditionScope === 'related-preclinical')
+    .filter((source) => recordMentionsCandidate(source, candidate))
   const sourceMatch = (Array.isArray(sources) ? sources : []).some((source) => (
     // A finding in a related animal or lab model is useful background for a
     // new research question. It is not a direct study in the entered illness.
+    // Indexes can return the exact same model paper again as a normal source,
+    // so use its PMID, DOI, or title to avoid calling that duplicate a human
+    // condition study.
     source?.conditionScope !== 'related-preclinical'
     && isConditionScopedSource(source, condition)
     && recordMentionsCandidate(source, candidate)
+    && directCandidateRecordClass(source) !== 'animal-or-lab'
+    && !relatedModelSources.some((modelSource) => sameEvidenceRecord(source, modelSource))
   ))
   const trialMatch = (Array.isArray(trials) ? trials : []).some((trial) => recordMentionsCandidate(trial, candidate))
   return sourceMatch || trialMatch
@@ -2580,27 +2602,16 @@ const relatedPreclinicalCandidateStatus = (candidate, sources, trials) => {
   }
 }
 
-const sameEvidenceRecord = (left, right) => {
-  const leftPmid = cleanText(left?.pmid, 40)
-  const rightPmid = cleanText(right?.pmid, 40)
-  if (leftPmid && rightPmid && leftPmid === rightPmid) return true
-
-  const leftDoi = cleanText(left?.doi, 220).replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').toLowerCase()
-  const rightDoi = cleanText(right?.doi, 220).replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').toLowerCase()
-  if (leftDoi && rightDoi && leftDoi === rightDoi) return true
-
-  const leftTitle = normalizedEvidenceText(left?.title)
-  const rightTitle = normalizedEvidenceText(right?.title)
-  return Boolean(leftTitle && rightTitle && leftTitle === rightTitle)
-}
-
 const directResultAfterKnownPreclinicalCheck = (result, relatedSources) => {
   if (!result || result.status !== 'found') return result
   const records = Array.isArray(result.sources) ? result.sources : []
   // Some indexes return only a short or incomplete abstract for the exact
   // same model paper already audited in the packet. Do not let that thin
   // metadata turn the model paper into a supposed human-condition match.
-  if (records.length && records.every((record) => relatedSources.some((source) => sameEvidenceRecord(record, source)))) {
+  if (records.length && records.every((record) => (
+    relatedSources.some((source) => sameEvidenceRecord(record, source))
+    || directCandidateRecordClass(record) === 'animal-or-lab'
+  ))) {
     return { ...result, status: 'preclinical-only' }
   }
   return result
@@ -6530,13 +6541,13 @@ const runResearch = async (body, env) => {
   const sourceBackedAiSeeds = sourceBackedAiIdeaSeeds(verifiedSourceRecords, patient.condition)
   const aiIdeasNotFoundResult = await verifyAiIdeasNotFound({
     condition: patient.condition,
-    ideas: combineAiIdeaSeeds(
-      // First use products that have a specific linked paper in a related
-      // model. Scout and public-score ideas can still fill gaps after the
-      // direct literature screen removes known condition matches.
-      sourceBackedAiSeeds,
-      aiIdeaSeeds,
-    ),
+    // When the source packet has named products from exact related-model
+    // papers, do not fill this patient-facing section with broader AI or
+    // computer-score guesses. Those paper-backed candidates get checked
+    // first; the other lanes remain available when no such papers exist.
+    ideas: sourceBackedAiSeeds.length
+      ? sourceBackedAiSeeds
+      : aiIdeaSeeds,
     sources: verifiedSourceRecords,
     trials: verifiedTrialRecords,
   }).catch(() => ({
