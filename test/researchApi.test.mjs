@@ -381,7 +381,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
   const clinicalTrialRecordIds = []
@@ -412,22 +412,46 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           return jsonResponse({ rows: [{ row: disease }] })
         }
         if (dataset === 'everycure/matrix-scores') {
+          const rows = everyCureAllCandidatesNoMatch
+            ? Array.from({ length: 12 }, (_unused, index) => ({
+              row: {
+                target: 'MONDO:0019200',
+                source_ec_id: `EC:${String(index + 1).padStart(4, '0')}`,
+                rank_disease: index + 1,
+                is_known_positive: false,
+                is_known_negative: false,
+              },
+            }))
+            : [
+              { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0001', rank_disease: 1, is_known_positive: false, is_known_negative: false } },
+              { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0002', rank_disease: 2, is_known_positive: false, is_known_negative: false } },
+              { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0003', rank_disease: 3, is_known_positive: false, is_known_negative: false } },
+              { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0004', rank_disease: 4, is_known_positive: false, is_known_negative: false } },
+              // Known pairs must not be presented as new repurposing questions.
+              { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0005', rank_disease: 0, is_known_positive: true, is_known_negative: false } },
+            ]
           return jsonResponse({ rows: [
-            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0001', rank_disease: 1, is_known_positive: false, is_known_negative: false } },
-            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0002', rank_disease: 2, is_known_positive: false, is_known_negative: false } },
-            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0003', rank_disease: 3, is_known_positive: false, is_known_negative: false } },
-            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0004', rank_disease: 4, is_known_positive: false, is_known_negative: false } },
-            // Known pairs must not be presented as new repurposing questions.
-            { row: { target: 'MONDO:0019200', source_ec_id: 'EC:0005', rank_disease: 0, is_known_positive: true, is_known_negative: false } },
+            ...rows,
           ] })
         }
         if (dataset === 'everycure/drug-list') {
+          const rows = everyCureAllCandidatesNoMatch
+            ? Array.from({ length: 12 }, (_unused, index) => ({
+              row: {
+                id: `EC:${String(index + 1).padStart(4, '0')}`,
+                name: `Test repurposing candidate ${index + 1}`,
+                drug_class: 'small molecule',
+              },
+            }))
+            : [
+              { row: { id: 'EC:0001', name: 'Test repurposing candidate one', drug_class: 'small molecule' } },
+              { row: { id: 'EC:0002', name: 'Test repurposing candidate two', drug_class: 'small molecule' } },
+              { row: { id: 'EC:0003', name: 'Test repurposing candidate three', drug_class: 'small molecule' } },
+              { row: { id: 'EC:0004', name: 'Test repurposing candidate four', drug_class: 'small molecule' } },
+              { row: { id: 'EC:0005', name: 'Known pair that must be filtered', drug_class: 'small molecule' } },
+            ]
           return jsonResponse({ rows: [
-            { row: { id: 'EC:0001', name: 'Test repurposing candidate one', drug_class: 'small molecule' } },
-            { row: { id: 'EC:0002', name: 'Test repurposing candidate two', drug_class: 'small molecule' } },
-            { row: { id: 'EC:0003', name: 'Test repurposing candidate three', drug_class: 'small molecule' } },
-            { row: { id: 'EC:0004', name: 'Test repurposing candidate four', drug_class: 'small molecule' } },
-            { row: { id: 'EC:0005', name: 'Known pair that must be filtered', drug_class: 'small molecule' } },
+            ...rows,
           ] })
         }
       }
@@ -436,9 +460,10 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         const term = new URL(url).searchParams.get('term') || ''
         pubMedTerms.push(term)
-        if (/Test AI idea with no condition match|Test repurposing candidate one/i.test(term)) {
+        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(term)) {
           const unstudiedPair = /Test AI idea with no condition match/i.test(term)
             || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(term))
+            || (everyCureAllCandidatesNoMatch && /Test repurposing candidate \d+/i.test(term))
           if (!unstudiedPair) return jsonResponse({ esearchresult: { idlist: ['1001'] } })
           return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
         }
@@ -468,9 +493,10 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
         const query = new URL(url).searchParams.get('query') || ''
-        if (/Test AI idea with no condition match|Test repurposing candidate one/i.test(query)) {
+        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(query)) {
           const unstudiedPair = /Test AI idea with no condition match/i.test(query)
             || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(query))
+            || (everyCureAllCandidatesNoMatch && /Test repurposing candidate \d+/i.test(query))
           if (!unstudiedPair) return jsonResponse({ resultList: { result: [{ source: 'MED', id: '1001', pmid: '1001', title: 'Known condition match', abstractText: 'Known condition match.', pubYear: '2025', journalTitle: 'Test Retina Journal', pubType: 'Systematic Review' }] } })
           return jsonResponse({ resultList: { result: [] } })
         }
@@ -1046,6 +1072,28 @@ test('Every Cure public scores are shown only as attributable computational ques
   assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
   assert.ok(directIdeas.every((idea) => idea.directSearch?.pubmedBackground?.source?.url))
   assert.ok(!directIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
+})
+
+test('the AI idea lane reaches ten distinct checked cards when ten public candidates pass both searches', { concurrency: false }, async () => {
+  const mock = createMockFetch({ everyCureAllCandidatesNoMatch: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const directIdeas = response.body.review.theoryIdeas
+  assert.equal(directIdeas.length, 10, JSON.stringify(response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')))
+  assert.equal(new Set(directIdeas.map((idea) => idea.title.toLowerCase())).size, 10)
+  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
+  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.pubmed?.status)))
+  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.europePmc?.status)))
+  assert.ok(directIdeas.some((idea) => /^erucamide$/i.test(idea.title)))
+  assert.ok(directIdeas.filter((idea) => /Test repurposing candidate \d+/i.test(idea.title)).length >= 9)
+  assert.ok(directIdeas.filter((idea) => /Test repurposing candidate \d+/i.test(idea.title))
+    .every((idea) => idea.sourceIds.some((id) => id.startsWith('everycure-matrix-'))))
+  assert.ok(directIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
 })
 
 test('a registry outage is labeled unavailable instead of as an empty trial search', { concurrency: false }, async () => {

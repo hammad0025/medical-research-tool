@@ -1415,8 +1415,8 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">2. AI ideas not yet tried in people</p><p>These are named drugs, supplements, or other products. We show them when our checks find only animal or lab work, or no direct human study in PubMed and Europe PMC. Each card explains the possible link and has the exact sources.</p></div>
-            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Ideas to discuss' : 'No checked idea today'}</StatusPill>
+            <div><p className="card-kicker">2. AI ideas not yet tried in people</p><p>We aim to show 10 named drugs, supplements, or other products. We show a card only when our checks find animal or lab work, or no direct human study in PubMed and Europe PMC. Each card explains the possible link and has the exact sources.</p></div>
+            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? `${theoryIdeas.length} checked idea${theoryIdeas.length === 1 ? '' : 's'}` : 'No checked idea today'}</StatusPill>
           </div>
           {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>We could not verify a named idea for this report. We do not add random names just to fill this list.</p></div>}
         </section>
