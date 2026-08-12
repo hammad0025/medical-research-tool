@@ -1611,44 +1611,6 @@ function ResearchIdeas({ condition, result }) {
   )
 }
 
-const treatmentsNotListedAsOptionsForReport = (result) => {
-  const sourceIds = new Set((result?.sources || []).map((source) => source?.id).filter(Boolean))
-  return (Array.isArray(result?.excludedTreatments) ? result.excludedTreatments : [])
-    .map((item) => ({ ...item, sourceIds: (item?.sourceIds || []).filter((sourceId) => sourceIds.has(sourceId)) }))
-    .filter((item) => item.title && item.reason && item.sourceIds.length)
-    .slice(0, 6)
-}
-
-function TreatmentResultsThatPointAway({ condition, result }) {
-  const treatments = treatmentsNotListedAsOptionsForReport(result)
-  if (!treatments.length) return null
-
-  return (
-    <section id="not-positive-options" className="safety-research section-surface">
-      <SectionHeader
-        eyebrow="Important research results"
-        title="Treatments studied but not listed as options"
-        action={<StatusPill tone="caution">Links included</StatusPill>}
-      />
-      <p className="section-intro">Some treatments are talked about online. We put them here when a study gives a clear reason not to treat them as a good option for {condition || 'this condition'}.</p>
-      <div className="safety-grid">
-        {treatments.map((item) => {
-          const citations = claimCitations(result, item, condition)
-          return (
-            <article className="safety-card" key={item.title}>
-              <p className="card-kicker">Not a good option from this study</p>
-              <h3>{item.title}</h3>
-              <CitedParagraph citations={citations}><strong>What the study found:</strong> {item.reason}</CitedParagraph>
-              <div className="safety-caution"><Icon name="shield" size={16} /><span>This does not mean you should stop a medicine used for another illness. Ask the doctor who prescribed it.</span></div>
-              <CitationActions citations={citations} label="Open study" />
-            </article>
-          )
-        })}
-      </div>
-    </section>
-  )
-}
-
 const isAdvancedResearchProgram = (idea) => looksLikeAdvancedResearch(idea)
 
 const isResearchProgramIdea = (idea) => idea?.accessClass !== 'prescription-or-label-check'
@@ -1969,7 +1931,6 @@ function UniversalReport({ condition, form, result }) {
           <CareLocations condition={displayCondition} result={result} hasAiStartingMap={hasAiStartingMap} />
           <LifestyleResearch result={result} />
           <ResearchIdeas condition={displayCondition} result={result} />
-          <TreatmentResultsThatPointAway condition={displayCondition} result={result} />
           <TreatmentDevelopment condition={displayCondition} result={result} />
           <TrialDirectory condition={displayCondition} result={result} />
           <ResearchAccessPlan condition={displayCondition} form={form} result={result} />
@@ -2275,12 +2236,6 @@ const reportExportText = ({ form, report, result }) => {
       )
     })
     .join('\n')
-  const notPositiveLines = treatmentsNotListedAsOptionsForReport(result)
-    .map((item) => citedLine(
-      `- ${item.title}: Why it is not in the option list: ${item.reason} This does not tell a person to stop a medicine prescribed for another condition.`,
-      claimCitations(result, item, condition),
-    ))
-    .join('\n')
   const lifestyleLines = lifestyleIdeasForReport(result, condition)
     .map((item) => citedLine(
       `- ${item.title}: ${item.summary}${item.providerQuestion ? ` Ask your doctor: ${item.providerQuestion}` : ''} Important: ${item.caution}`,
@@ -2324,8 +2279,7 @@ const reportExportText = ({ form, report, result }) => {
     ? 'Ideas to check: These are not proven facts or treatment advice. Check the links and ask a doctor before acting on an idea.'
     : 'Links are included. Open them to check each treatment and question.'
   const theorySectionNumber = earlyResearchLines ? 7 : 6
-  const notPositiveSectionNumber = theorySectionNumber + 1
-  const pipelineSectionNumber = theorySectionNumber + 1 + Number(Boolean(notPositiveLines))
+  const pipelineSectionNumber = theorySectionNumber + 1
   const trialSectionNumber = pipelineSectionNumber + 1
   const accessPlanSectionNumber = trialSectionNumber + 1
   const questionsSectionNumber = accessPlanSectionNumber + 1
@@ -2363,7 +2317,6 @@ const reportExportText = ({ form, report, result }) => {
     '',
     `${theorySectionNumber}. New AI ideas to check`,
     theoryLines || 'No AI idea was safe to show. We left this blank instead of calling a known idea new.',
-    ...(notPositiveLines ? ['', `${notPositiveSectionNumber}. Treatments studied but not listed as options`, notPositiveLines] : []),
     '',
     `${pipelineSectionNumber}. Treatments in current studies`,
     researchProgramLines || 'Use the live study list to see what is being tested now.',
