@@ -626,10 +626,8 @@ const theoryIdeasForReport = (result) => {
 
   return uniqueIdeas(reviewedIdeas
     .map((idea) => ({ ...idea, potentialInterventions: repurposingCandidatesForIdea(idea) }))
-    .filter((idea) => idea?.kind === 'ai-direct-search-no-match')
-    .filter((idea) => idea?.directSearch?.status === 'not-found')
-    .filter((idea) => idea?.directSearch?.pubmed?.status === 'not-found')
-    .filter((idea) => idea?.directSearch?.europePmc?.status === 'not-found')
+    .filter((idea) => ['ai-direct-search-no-match', 'ai-direct-search-has-match'].includes(idea?.kind))
+    .filter((idea) => ['not-found', 'found'].includes(idea?.directSearch?.status))
     .filter((idea) => idea.potentialInterventions.length)
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
     .filter((idea) => !idea.potentialInterventions.some((candidate) => isExplicitlyExcludedTreatment(result, { title: candidate })))
@@ -1546,19 +1544,20 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
       const citations = claimCitations(result, idea, condition)
       const pubmedUrl = idea?.directSearch?.pubmed?.url
       const europePmcUrl = idea?.directSearch?.europePmc?.url
+      const isNoMatch = idea?.kind === 'ai-direct-search-no-match'
       return (
         <article className="research-idea-card research-idea-card--exploratory" key={idea.title}>
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
-          <div className="card-topline"><p className="card-kicker">{idea.category || 'AI idea to check'}</p><StatusPill tone="experimental">No match in 2 searches</StatusPill></div>
+          <div className="card-topline"><p className="card-kicker">{idea.category || 'AI idea to check'}</p><StatusPill tone="experimental">{isNoMatch ? 'No match in 2 searches' : 'Already studied'}</StatusPill></div>
           <h3>{idea.title}</h3>
           <CitedParagraph citations={citations}><strong>Why AI thinks this may connect:</strong> {idea.whyItCouldConnect}</CitedParagraph>
           <dl className="research-idea-facts">
             <div><dt>AI idea</dt><dd>{theoryPotentialInterventions(idea).join(' · ')}</dd></div>
-            <div><dt>What we looked for</dt><dd>{idea.whyNotEstablished}</dd></div>
+            <div><dt>{isNoMatch ? 'What we looked for' : 'What our search found'}</dt><dd>{idea.whyNotEstablished}</dd></div>
             <div><dt>Ask your doctor</dt><dd>{idea.providerQuestion || 'What should I ask about this?'}</dd></div>
           </dl>
           <div className="research-idea-boundary"><Icon name="shield" size={16} /><span>{idea.caution}</span></div>
-          <CitationActions citations={citations} label="Why AI picked this" />
+          <CitationActions citations={citations} label="Why AI checked this" />
           {(pubmedUrl || europePmcUrl) ? <div className="citation-actions">
             {pubmedUrl ? <a href={pubmedUrl} target="_blank" rel="noreferrer" className="citation-action">Check PubMed <Icon name="external" size={12} /></a> : null}
             {europePmcUrl ? <a href={europePmcUrl} target="_blank" rel="noreferrer" className="citation-action">Check Europe PMC <Icon name="external" size={12} /></a> : null}
@@ -1578,7 +1577,7 @@ function ResearchIdeas({ condition, result }) {
   return (
     <section id="research-ideas" className="research-ideas section-surface">
       <SectionHeader eyebrow="4. Drug and treatment ideas" title="Treatments to ask about and AI ideas to check" />
-      <p className="section-intro">The first list has things studied for this illness. The second has early lab work. The third has new AI ideas to check. This report never tells you to take something or mix medicines.</p>
+      <p className="section-intro">The first list has things studied for this illness. The second has early lab work. The third has named AI ideas with a direct research check. This report never tells you to take something or mix medicines.</p>
 
       <div className="research-idea-lanes">
         <section className="research-idea-lane">
@@ -1601,10 +1600,10 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">{theoryLaneNumber}. New AI ideas to check</p><p>AI picked a specific name based on what is known about this illness. We checked PubMed and Europe PMC for that exact name and illness. We show it only if both checks did not find a match. That does not mean nobody has studied it or that it will help.</p></div>
-            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'No match in 2 searches' : 'Only checked ideas show'}</StatusPill>
+            <div><p className="card-kicker">{theoryLaneNumber}. AI ideas to check</p><p>AI picked named ideas based on what is known about this illness. Each card says whether PubMed and Europe PMC found a direct match. A match means the idea is not new. No match does not prove it will help.</p></div>
+            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? 'Ideas with checks' : 'Nothing safe to show'}</StatusPill>
           </div>
-          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No new AI idea passed both searches in this run. We did not label a known treatment as new.</p></div>}
+          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No named AI idea had enough direct search evidence to show safely in this run. We did not fill this section with guesses.</p></div>}
         </section>
       </div>
     </section>
@@ -2315,8 +2314,8 @@ const reportExportText = ({ form, report, result }) => {
     '',
     ...(earlyResearchLines ? ['', '6. Early lab or animal research', earlyResearchLines] : []),
     '',
-    `${theorySectionNumber}. New AI ideas to check`,
-    theoryLines || 'No AI idea was safe to show. We left this blank instead of calling a known idea new.',
+    `${theorySectionNumber}. AI ideas to check`,
+    theoryLines || 'No named AI idea had enough direct search evidence to show safely in this run. We did not fill this section with guesses.',
     '',
     `${pipelineSectionNumber}. Treatments in current studies`,
     researchProgramLines || 'Use the live study list to see what is being tested now.',
