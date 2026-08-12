@@ -45,7 +45,9 @@ const RESEARCH_RUN_MAX_PER_WINDOW = 6
 // available sources can support them. It is a target, not permission to fill
 // the report with names that fail the direct literature checks.
 const TARGET_AI_IDEA_COUNT = 10
-const MAX_AI_IDEA_SEEDS = 30
+// A lot of plausible names are already studied for a condition. Check a wide
+// enough pool to still reach ten after the direct literature gate removes them.
+const MAX_AI_IDEA_SEEDS = 48
 const CURRENT_INTERVENTIONAL_STATUSES = new Set([
   'RECRUITING',
   'NOT_YET_RECRUITING',
@@ -4210,47 +4212,66 @@ const callOpenAi = async ({ system, user, env, maxTokens = 3_200, models, tools 
   if (!apiKey) return { ok: false, code: 'not-configured', message: 'OpenAI is not configured for this local server.' }
 
   const candidates = Array.isArray(models) && models.length ? models : openAiReviewerModels(env)
+  const requestVariants = [
+    { jsonMode: true, reasoning: true, tools: true },
+    { jsonMode: false, reasoning: false, tools: true },
+    { jsonMode: false, reasoning: false, tools: false },
+  ]
   let lastUnavailable = null
   for (const model of candidates) {
-    let response
-    try {
-      response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          instructions: system,
-          // The Responses API requires the user input itself to mention JSON
-          // when json_object output is requested.
-          input: `${user}\n\nReturn one valid JSON object only.`,
-          max_output_tokens: maxTokens,
-          store: false,
-          ...(model.startsWith('gpt-5') ? { reasoning: { effort: 'minimal' } } : {}),
-          ...(Array.isArray(tools) && tools.length ? { tools } : {}),
-          text: { format: { type: 'json_object' } },
-        }),
-      }, AI_REQUEST_TIMEOUT_MS)
-    } catch {
-      lastUnavailable = { ok: false, code: 'provider-unavailable', message: 'OpenAI could not be reached, so this AI pass was withheld.' }
-      continue
-    }
+    // A configured key can allow a model while rejecting an optional response
+    // setting. Try the full request first, then keep only the plain JSON prompt
+    // before moving to the next configured model.
+    for (let variantIndex = 0; variantIndex < requestVariants.length; variantIndex += 1) {
+      const requestVariant = requestVariants[variantIndex]
+      let response
+      try {
+        response = await fetchWithTimeout(OPENAI_RESPONSES_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            instructions: system,
+            // The prompt itself still requires JSON when response-format
+            // options are not supported by a configured model version.
+            input: `${user}\n\nReturn one valid JSON object only.`,
+            max_output_tokens: maxTokens,
+            store: false,
+            ...(requestVariant.reasoning && model.startsWith('gpt-5') ? { reasoning: { effort: 'minimal' } } : {}),
+            ...(requestVariant.tools && Array.isArray(tools) && tools.length ? { tools } : {}),
+            ...(requestVariant.jsonMode ? { text: { format: { type: 'json_object' } } } : {}),
+          }),
+        }, AI_REQUEST_TIMEOUT_MS)
+      } catch {
+        lastUnavailable = { ok: false, code: 'provider-unavailable', message: 'OpenAI could not be reached, so this AI pass was withheld.' }
+        break
+      }
 
-    const data = await response.json().catch(() => null)
-    if (!response.ok) {
-      const message = cleanText(data?.error?.message, 240)
-      if (response.status === 404 || /model.*(?:not found|does not exist|access)/i.test(message)) continue
-      return { ok: false, code: 'provider-error', message: `OpenAI returned ${response.status}.` }
-    }
-    if (data?.status && data.status !== 'completed') {
-      return { ok: false, code: 'incomplete', message: 'OpenAI did not complete this AI pass.' }
-    }
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        const message = cleanText(data?.error?.message, 240)
+        if (response.status === 404 || /model.*(?:not found|does not exist|access)/i.test(message)) break
+        // A 400 can be a parameter incompatibility. Retry without JSON mode
+        // and reasoning, then without optional tools, before switching models.
+        if (response.status === 400 && variantIndex < requestVariants.length - 1) continue
+        lastUnavailable = { ok: false, code: 'provider-error', message: `OpenAI returned ${response.status}.` }
+        break
+      }
+      if (data?.status && data.status !== 'completed') {
+        lastUnavailable = { ok: false, code: 'incomplete', message: 'OpenAI did not complete this AI pass.' }
+        break
+      }
 
-    const text = openAiOutputText(data)
-    if (!text.trim()) return { ok: false, code: 'empty-response', message: 'OpenAI returned no usable AI content.' }
-    return { ok: true, provider: 'OpenAI', model, text, webSearchUrls: openAiWebSearchUrls(data) }
+      const text = openAiOutputText(data)
+      if (!text.trim()) {
+        lastUnavailable = { ok: false, code: 'empty-response', message: 'OpenAI returned no usable AI content.' }
+        break
+      }
+      return { ok: true, provider: 'OpenAI', model, text, webSearchUrls: openAiWebSearchUrls(data) }
+    }
   }
 
   return lastUnavailable || { ok: false, code: 'model-unavailable', message: 'No configured OpenAI model was available for this AI pass.' }
@@ -4291,7 +4312,7 @@ Return strict JSON only:
 
 const aiIdeaScoutSystemPrompt = `You are AI Idea Scout in a medical-research product. Create possible research questions only, never treatment advice.
 
-Given a condition, optional subtype or gene, and a small set of trusted condition-background sources, suggest up to 20 concrete named ideas that might be worth a clinician-led research discussion. Aim for at least 12 different names so the app can check ten after removing anything that already has direct human research for this illness. Prioritize real, patient-recognizable medicines, supplements, foods, peptides, or natural compounds used in related biology. Do not return a known treatment for the condition, an active condition-specific trial product, a gene-editing program, a cell product, a transplant, an implant, or a broad class. An idea must name one specific item, not a pathway or phrase such as "immune signaling", "gene therapy", "antioxidants", or "an inhibitor". Do not invent fictional products. Do not add a dose, a safety claim, a benefit claim, a way to obtain it, a private clinic, or a combination of medicines.
+Given a condition, optional subtype or gene, and a small set of trusted condition-background sources, suggest up to 36 concrete named ideas that might be worth a clinician-led research discussion. Aim for at least 24 different names so the app can check ten after removing anything that already has direct human research for this illness. Prioritize real, patient-recognizable medicines, supplements, foods, peptides, or natural compounds used in related biology. Do not return a known treatment for the condition, an active condition-specific trial product, a gene-editing program, a cell product, a transplant, an implant, or a broad class. An idea must name one specific item, not a pathway or phrase such as "immune signaling", "gene therapy", "antioxidants", or "an inhibitor". Do not invent fictional products. Do not add a dose, a safety claim, a benefit claim, a way to obtain it, a private clinic, or a combination of medicines.
 
 This is a hypothesis list. Do not say an item is unresearched, effective, safe, approved, or right for the person. Explain the possible connection as a careful question based only on the supplied condition-background text. The app will independently search PubMed and Europe PMC for the exact condition and item, and will hide any item with a match.
 
@@ -4552,7 +4573,7 @@ const normalizeAiIdeaSeeds = (draft, conditionSources) => {
     // The model may reason from supplied condition biology, but cannot claim
     // a new disease fact that is absent from the source packet.
     .filter((idea) => backgroundText || !idea.whyItCouldConnect)
-    .slice(0, 24)
+    .slice(0, MAX_AI_IDEA_SEEDS)
 }
 
 const mergeAiIdeaSeeds = (drafts, conditionSources) => {
@@ -4598,8 +4619,15 @@ const combineAiIdeaSeeds = (...groups) => {
 const scoutAiIdeasNotFound = async ({ patient, sources, env }) => {
   const background = (Array.isArray(sources) ? sources : [])
     .filter(isTrustedAiIdeaBackgroundSource)
-    .filter((source) => source?.conditionOverview || /guideline|systematic review|meta-analysis|review/i.test(source?.type || ''))
-    .slice(0, 4)
+    .filter((source) => source?.conditionOverview || source?.conditionScope === 'related-preclinical' || /guideline|systematic review|meta-analysis|review/i.test(source?.type || ''))
+    .sort((left, right) => {
+      const score = (source) => Number(Boolean(source?.conditionOverview)) * 4
+        + Number(source?.conditionScope === 'related-preclinical') * 3
+        + Number(/guideline|systematic review|meta-analysis|review/i.test(source?.type || '')) * 2
+        + Number(Boolean(source?.candidateLeads?.length))
+      return score(right) - score(left)
+    })
+    .slice(0, 8)
     .map((source) => ({ id: source.id, title: source.title, summary: cleanText(source.summary, 520) }))
   if (!background.length) return { status: 'not-run', ideas: [], detail: 'No condition-background source was available for the AI idea scout.' }
 
@@ -4609,7 +4637,7 @@ const scoutAiIdeasNotFound = async ({ patient, sources, env }) => {
     currentSymptoms: cleanText(patient?.symptoms, 400),
     conditionBackground: background,
   })
-  const request = { system: aiIdeaScoutSystemPrompt, user, env, maxTokens: 3_400 }
+  const request = { system: aiIdeaScoutSystemPrompt, user, env, maxTokens: 6_400 }
   // Both independent models may propose names, but neither can put a card in
   // the report. Every name still has to pass the direct literature gate.
   const [anthropicResponse, openAiResponse] = await Promise.all([
