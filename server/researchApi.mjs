@@ -2206,7 +2206,7 @@ const candidateAlreadyAppearsInPacket = (candidate, sources, trials) => [
 const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   const eligibleSeeds = (Array.isArray(ideas) ? ideas : [])
     .filter((idea) => idea?.candidate && isSpecificCandidateName(idea.candidate))
-    .slice(0, 8)
+    .slice(0, 16)
   const sourceIds = directSearchEvidenceSourceIds(sources)
   if (!eligibleSeeds.length || !sourceIds.length) {
     return {
@@ -2246,7 +2246,7 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
         potentialInterventions: [candidate],
         category: cleanText(idea.category, 80) || 'AI research idea',
         whyItCouldConnect: cleanText(idea.whyItCouldConnect, 440),
-        whyNotEstablished: `The app did not find ${candidate} linked to ${cleanText(condition, 120)} in the direct PubMed and Europe PMC searches completed for this report. That is not proof that no research exists anywhere, and it does not show that this idea will help.`,
+        whyNotEstablished: `We did not find ${candidate} together with ${cleanText(condition, 120)} in the PubMed and Europe PMC searches for this report. That does not prove there is no research anywhere or that it will help.`,
         providerQuestion: simpleDoctorQuestion(idea.providerQuestion || `Is ${candidate} worth discussing`),
         caution: 'This is an AI research question, not a treatment recommendation. Do not start, stop, buy, combine, or change a treatment from this card.',
         verificationQuery: `"${cleanText(condition, 120)}" AND "${candidate}"`,
@@ -2268,8 +2268,8 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       status: 'ready',
       records: checked.length,
       detail: checked.length
-        ? `${checked.length} named AI idea${checked.length === 1 ? '' : 's'} passed two exact condition-plus-name searches with no match and a separate PubMed check showing the named item exists in published research. Any idea found in either condition search was held back.`
-        : `Ran ${directSearchesCompleted} direct checks. No AI idea was shown because a condition search found a match, the named item lacked a PubMed record, a service was unavailable, or the idea was too vague.`,
+        ? `${checked.length} AI idea${checked.length === 1 ? '' : 's'} did not show up in either exact illness-plus-name search. Any idea found in either search was left out.`
+        : `We ran ${directSearchesCompleted} checks. No AI idea passed both searches in this run.`,
     },
   }
 }
@@ -3808,7 +3808,7 @@ Return strict JSON only:
 
 const aiIdeaScoutSystemPrompt = `You are AI Idea Scout in a medical-research product. Create possible research questions only, never treatment advice.
 
-Given a condition, optional subtype or gene, and a small set of trusted condition-background sources, suggest up to 8 concrete named ideas that might be worth a clinician-led research discussion. An idea can be a named medicine, supplement or food product, peptide, gene-targeted research approach, or cell or RNA research approach. It must name one specific item, not a broad class, pathway, or phrase such as "immune signaling", "gene therapy", "antioxidants", or "an inhibitor". Do not invent fictional products. Do not add a dose, a safety claim, a benefit claim, a way to obtain it, a private clinic, or a combination of medicines.
+Given a condition, optional subtype or gene, and a small set of trusted condition-background sources, suggest up to 16 concrete named ideas that might be worth a clinician-led research discussion. Aim for 10 different real names when the condition background supports it. An idea can be a named medicine, supplement or food product, peptide, gene-targeted research approach, or cell or RNA research approach. It must name one specific item, not a broad class, pathway, or phrase such as "immune signaling", "gene therapy", "antioxidants", or "an inhibitor". Do not invent fictional products. Do not add a dose, a safety claim, a benefit claim, a way to obtain it, a private clinic, or a combination of medicines.
 
 This is a hypothesis list. Do not say an item is unresearched, effective, safe, approved, or right for the person. Explain the possible connection as a careful question based only on the supplied condition-background text. The app will independently search PubMed and Europe PMC for the exact condition and item, and will hide any item with a match.
 
@@ -4064,7 +4064,7 @@ const normalizeAiIdeaSeeds = (draft, conditionSources) => {
     // The model may reason from supplied condition biology, but cannot claim
     // a new disease fact that is absent from the source packet.
     .filter((idea) => backgroundText || !idea.whyItCouldConnect)
-    .slice(0, 8)
+    .slice(0, 16)
 }
 
 const scoutAiIdeasNotFound = async ({ patient, sources, env }) => {
