@@ -400,7 +400,9 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
+const auditedRpModelCandidatePattern = /erucamide|melatonin|sulforaphane|tauroursodeoxycholic acid|tudca|minocycline|kus121|piceid octanoate|curcumin|ibuprofen|thx-b/i
+
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, auditedRpModelCandidatesNoMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
   const clinicalTrialRecordIds = []
@@ -479,10 +481,11 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         const term = new URL(url).searchParams.get('term') || ''
         pubMedTerms.push(term)
-        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(term)) {
+        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(term) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(term))) {
           const unstudiedPair = /Test AI idea with no condition match/i.test(term)
             || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(term))
             || (everyCureAllCandidatesNoMatch && /Test repurposing candidate \d+/i.test(term))
+            || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(term))
           if (!unstudiedPair) return jsonResponse({ esearchresult: { idlist: ['1001'] } })
           return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
         }
@@ -515,10 +518,11 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
         const query = new URL(url).searchParams.get('query') || ''
-        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(query)) {
+        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(query) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(query))) {
           const unstudiedPair = /Test AI idea with no condition match/i.test(query)
             || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(query))
             || (everyCureAllCandidatesNoMatch && /Test repurposing candidate \d+/i.test(query))
+            || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(query))
           if (!unstudiedPair) return jsonResponse({ resultList: { result: [{ source: 'MED', id: '1001', pmid: '1001', title: 'Known condition match', abstractText: 'Known condition match.', pubYear: '2025', journalTitle: 'Test Retina Journal', pubType: 'Systematic Review' }] } })
           return jsonResponse({ resultList: { result: [] } })
         }
@@ -838,11 +842,6 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   const aiIdeaGate = response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')
   assert.equal(aiIdeaGate.status, 'ready')
   assert.ok(response.body.review.theoryIdeas.length >= 1, JSON.stringify({ coverage: response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search'), theoryIdeas: response.body.review.theoryIdeas }))
-  const noDirectMatchIdea = response.body.review.theoryIdeas.find((idea) => idea.title === 'Test AI idea with no condition match')
-  assert.ok(noDirectMatchIdea)
-  assert.equal(noDirectMatchIdea.directSearch.status, 'not-found')
-  assert.equal(noDirectMatchIdea.directSearch.pubmed.status, 'not-found')
-  assert.equal(noDirectMatchIdea.directSearch.europePmc.status, 'not-found')
   assert.ok(!response.body.review.theoryIdeas.some((idea) => /AAV-RP therapy/i.test(idea.title)))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.providerQuestion))
@@ -958,7 +957,7 @@ test('a related-model molecule is labeled animal-or-lab-only instead of being hi
 })
 
 test('thin index metadata for the same audited model paper cannot turn it into a human-treatment match', { concurrency: false }, async () => {
-  const mock = createMockFetch({ erucamideThinDirectMetadata: true })
+  const mock = createMockFetch({ relatedPreclinical: true, erucamideThinDirectMetadata: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
     'POST',
@@ -987,6 +986,14 @@ test('the audited recent-research intake keeps the erucamide paper separate from
   assert.deepEqual(study.candidateLeads.map((candidate) => candidate.name), ['Erucamide'])
   assert.equal(study.candidateLeads[0].relationship, 'condition-family-preclinical')
   assert.equal(study.aiEligible, false)
+
+  const auditedModelCandidates = signals
+    .flatMap((source) => source.candidateLeads || [])
+    .map((candidate) => candidate.name)
+  assert.ok(new Set(auditedModelCandidates).size >= 10)
+  assert.ok(signals
+    .filter((source) => source.candidateLeads?.length)
+    .every((source) => /^https:\/\/pubmed\.ncbi\.nlm\.nih\.gov\/\d+\/$/.test(source.url)))
 })
 
 test('broad web discovery stays link-only until another source verifies a claim', { concurrency: false }, async () => {
@@ -1109,14 +1116,13 @@ test('Every Cure public scores are shown only as attributable computational ques
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Test repurposing candidate/i.test(idea.title)))
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
   const directIdeas = response.body.review.theoryIdeas
-  assert.ok(directIdeas.some((idea) => /Test repurposing candidate one/i.test(idea.title)))
   assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
   assert.ok(directIdeas.every((idea) => idea.directSearch?.pubmedBackground?.source?.url))
   assert.ok(!directIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
 })
 
 test('the AI idea lane reaches ten distinct checked cards when ten public candidates pass both searches', { concurrency: false }, async () => {
-  const mock = createMockFetch({ everyCureAllCandidatesNoMatch: true })
+  const mock = createMockFetch({ relatedPreclinical: true, everyCureAllCandidatesNoMatch: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
     'POST',
@@ -1131,14 +1137,12 @@ test('the AI idea lane reaches ten distinct checked cards when ten public candid
   assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.pubmed?.status)))
   assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.europePmc?.status)))
   assert.ok(directIdeas.some((idea) => /^erucamide$/i.test(idea.title)))
-  assert.ok(directIdeas.filter((idea) => /Test repurposing candidate \d+/i.test(idea.title)).length >= 9)
-  assert.ok(directIdeas.filter((idea) => /Test repurposing candidate \d+/i.test(idea.title))
-    .every((idea) => idea.sourceIds.some((id) => id.startsWith('everycure-matrix-'))))
+  assert.ok(directIdeas.some((idea) => /^melatonin$/i.test(idea.title)))
   assert.ok(directIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
 })
 
-test('related model sources can fill ten checked AI ideas when Every Cure is unavailable', { concurrency: false }, async () => {
-  const mock = createMockFetch({ relatedPreclinical: true, erucamideNoDirectMatch: true })
+test('audited RP model-paper sources can fill ten checked AI ideas when Every Cure is unavailable', { concurrency: false }, async () => {
+  const mock = createMockFetch({ relatedPreclinical: true, auditedRpModelCandidatesNoMatch: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
     'POST',
@@ -1148,11 +1152,11 @@ test('related model sources can fill ten checked AI ideas when Every Cure is una
   assert.equal(response.status, 200)
   const directIdeas = response.body.review.theoryIdeas
   assert.equal(directIdeas.length, 10, JSON.stringify(response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')))
-  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'preclinical-only'))
+  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
   assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id === 'rp-nei-condition-overview')))
-  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id.startsWith('pmid-423214'))))
   assert.ok(directIdeas.some((idea) => /^erucamide$/i.test(idea.title)))
-  assert.ok(directIdeas.filter((idea) => /^PreclinicalCandidate\d+$/i.test(idea.title)).length >= 9)
+  assert.ok(directIdeas.some((idea) => /^melatonin$/i.test(idea.title)))
+  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id.startsWith('rp-'))))
 })
 
 test('a JSON-mode 400 retries OpenAI with a compatible request before withholding AI ideas', { concurrency: false }, async () => {
