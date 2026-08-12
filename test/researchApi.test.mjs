@@ -1722,3 +1722,58 @@ test('ten-condition report matrix keeps the product useful during service outage
     assert.match(report.exploration.briefing, new RegExp(condition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
   }
 })
+
+test('fifteen-condition stress matrix keeps varied profiles useful during service outages', { concurrency: false }, async () => {
+  const routes = apiRoutes({
+    ...env,
+    ANTHROPIC_RESEARCH_DISABLED: 'true',
+    OPENAI_API_KEY: '',
+    RESEARCH_RUN_MAX_PER_WINDOW: '30',
+  })
+  const unavailableFetch = async () => { throw new Error('Network unavailable for stress matrix') }
+  const run = (patient) => withMockedFetch(unavailableFetch, () => callRoute(
+    routes.get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient },
+  ))
+
+  const profiles = [
+    { condition: 'Rheumatoid Arthritis', stage: 'moderate', age: '43', sex: 'Female', symptoms: 'Morning stiffness and hand pain', currentMeds: 'Methotrexate', otherConditions: 'High blood pressure' },
+    { condition: 'Ulcerative Colitis', stage: 'active flare', age: '29', sex: 'Male', symptoms: 'Urgency and blood in stool', currentMeds: 'Mesalamine', priorTherapies: 'Prednisone' },
+    { condition: 'Systemic Lupus Erythematosus', stage: 'moderate', age: '35', sex: 'Female', symptoms: 'Joint pain, rash, fatigue', currentMeds: 'Hydroxychloroquine', otherConditions: 'Raynaud phenomenon' },
+    { condition: 'Type 1 Diabetes', stage: 'established', age: '21', sex: 'Female', symptoms: 'Overnight low blood sugar', currentMeds: 'Insulin pump', scans: 'A1c 7.4%' },
+    { condition: 'Cystic Fibrosis', stage: 'moderate lung disease', age: '24', sex: 'Male', symptoms: 'Cough and shortness of breath', currentMeds: 'Elexacaftor/tezacaftor/ivacaftor', geneticVariant: 'F508del' },
+    { condition: 'Sickle Cell Disease', stage: 'frequent pain crises', age: '31', sex: 'Female', symptoms: 'Pain crises and fatigue', currentMeds: 'Hydroxyurea', otherConditions: 'Asthma' },
+    { condition: 'Pompe Disease', stage: 'late-onset', age: '47', sex: 'Male', symptoms: 'Muscle weakness and shortness of breath', currentMeds: 'Enzyme replacement therapy', geneticVariant: 'GAA variant' },
+    { condition: 'Friedreich Ataxia', stage: 'progressive', age: '19', sex: 'Female', symptoms: 'Balance trouble and fatigue', currentMeds: 'No current therapy', geneticVariant: 'FXN GAA repeat expansion' },
+    { condition: 'Myasthenia Gravis', stage: 'generalized', age: '52', sex: 'Male', symptoms: 'Drooping eyelid and weakness', currentMeds: 'Pyridostigmine', geneticVariant: 'AChR antibody positive' },
+    { condition: 'Ehlers-Danlos Syndrome', stage: 'hypermobile type', age: '27', sex: 'Female', symptoms: 'Joint instability and pain', currentMeds: 'Physical therapy', otherConditions: 'POTS' },
+    { condition: 'Endometriosis', stage: 'severe pain', age: '34', sex: 'Female', symptoms: 'Pelvic pain and painful periods', currentMeds: 'Hormonal therapy', priorTherapies: 'Laparoscopy' },
+    { condition: 'Chronic Kidney Disease', stage: 'stage 3', age: '61', sex: 'Male', symptoms: 'Swelling and fatigue', currentMeds: 'Losartan', otherConditions: 'Type 2 diabetes' },
+    { condition: 'Psoriasis', stage: 'moderate to severe', age: '39', sex: 'Female', symptoms: 'Plaques and itching', currentMeds: 'Topical steroid', otherConditions: 'Psoriatic arthritis' },
+    { condition: 'Primary Sclerosing Cholangitis', stage: 'monitoring', age: '40', sex: 'Male', symptoms: 'Itching and fatigue', currentMeds: 'Ursodiol', otherConditions: 'Ulcerative colitis' },
+    { condition: 'Pulmonary Arterial Hypertension', stage: 'functional class II', age: '56', sex: 'Female', symptoms: 'Shortness of breath on exertion', currentMeds: 'Tadalafil', scans: 'Recent echocardiogram available' },
+  ]
+
+  for (const patient of profiles) {
+    const response = await run(patient)
+    assert.equal(response.status, 200, patient.condition)
+    const report = response.body
+    assert.equal(report.status, 'exploration', patient.condition)
+    assert.equal(report.sources.length, 0, `${patient.condition} does not invent source links during an outage`)
+    assert.equal(report.trials.length, 0, `${patient.condition} does not invent current trials during an outage`)
+    assert.equal(report.exploration.mode, 'structured-starting-map', patient.condition)
+    assert.match(report.exploration.briefing, new RegExp(patient.condition.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
+    assert.equal(report.exploration.treatmentPaths.length, 10, `${patient.condition} has ten treatment research paths`)
+    assert.equal(report.exploration.connections.length, 10, `${patient.condition} has ten research questions`)
+    assert.ok(report.exploration.treatmentPaths.every((item) => item.needsVerification && item.title && item.summary && item.caution), `${patient.condition} treatment paths are complete and labeled`)
+    assert.ok(report.exploration.connections.every((item) => item.needsVerification && item.title && item.question && item.caution), `${patient.condition} research questions are complete and labeled`)
+    assert.ok(report.exploration.lifestyle.length >= 2, `${patient.condition} keeps daily-life support visible`)
+    assert.ok(report.exploration.safety.length >= 2, `${patient.condition} keeps safety support visible`)
+    assert.equal(new Set(report.exploration.treatmentPaths.map((item) => item.title.toLowerCase())).size, 10, `${patient.condition} has no duplicate treatment paths`)
+    assert.equal(new Set(report.exploration.connections.map((item) => item.title.toLowerCase())).size, 10, `${patient.condition} has no duplicate research questions`)
+    assert.equal(report.patient.condition, patient.condition, `${patient.condition} stays attached to the right profile`)
+    assert.equal(report.patient.symptoms, patient.symptoms, `${patient.condition} retains its symptom context`)
+    assert.equal(report.patient.geneticVariant, patient.geneticVariant || '', `${patient.condition} retains its gene context`)
+  }
+})
