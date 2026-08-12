@@ -381,7 +381,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
   const clinicalTrialRecordIds = []
@@ -481,7 +481,9 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
             id: '42321469',
             pmid: '42321469',
             title: 'A fatty acid amide activates myeloid cells and improves neurovascular outcomes in retinal degeneration',
-            abstractText: 'Erucamide was delivered in mice with a retinal disease model and limited vascular and neuronal degeneration.',
+            abstractText: erucamideThinDirectMetadata
+              ? 'Erucamide research in retinitis pigmentosa is described in this record.'
+              : 'Erucamide was delivered in mice with a retinal disease model and limited vascular and neuronal degeneration.',
             pubYear: '2026',
             journalTitle: 'Nature Neuroscience',
             pubType: 'Journal Article',
@@ -881,6 +883,22 @@ test('a related-model molecule is labeled animal-or-lab-only instead of being hi
   assert.equal(idea.directSearch.europePmc.status, 'preclinical-only')
   assert.match(idea.whyNotEstablished, /animal or lab research/i)
   assert.ok(idea.directSearch.candidateSource?.url)
+})
+
+test('thin index metadata for the same audited model paper cannot turn it into a human-treatment match', { concurrency: false }, async () => {
+  const mock = createMockFetch({ erucamideThinDirectMetadata: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const idea = response.body.review.theoryIdeas.find((item) => /^erucamide$/i.test(item.title))
+  assert.ok(idea, JSON.stringify(response.body.review.theoryIdeas))
+  assert.equal(idea.directSearch.status, 'preclinical-only')
+  assert.equal(idea.directSearch.europePmc.status, 'preclinical-only')
+  assert.match(idea.whyNotEstablished, /animal or lab research/i)
 })
 
 test('the audited recent-research intake keeps the erucamide paper separate from human RP care', () => {
