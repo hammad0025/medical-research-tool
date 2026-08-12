@@ -41,6 +41,11 @@ const ACCESS_LOGIN_MAX_ATTEMPTS = 5
 // paid-API abuse; it is not presented as a patient or clinical limit.
 const RESEARCH_RUN_WINDOW_MS = 10 * 60 * 1_000
 const RESEARCH_RUN_MAX_PER_WINDOW = 6
+// The exploratory lane aims to give a reader ten concrete questions when the
+// available sources can support them. It is a target, not permission to fill
+// the report with names that fail the direct literature checks.
+const TARGET_AI_IDEA_COUNT = 10
+const MAX_AI_IDEA_SEEDS = 30
 const CURRENT_INTERVENTIONAL_STATUSES = new Set([
   'RECRUITING',
   'NOT_YET_RECRUITING',
@@ -2521,7 +2526,7 @@ const sourceBackedAiIdeaSeeds = (sources, condition) => {
       }
     })
     .filter(Boolean)
-    .slice(0, 8)
+    .slice(0, TARGET_AI_IDEA_COUNT)
 }
 
 const relatedPreclinicalCandidateStatus = (candidate, sources, trials) => {
@@ -2566,7 +2571,7 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   const eligibleSeeds = (Array.isArray(ideas) ? ideas : [])
     .filter((idea) => idea?.candidate && isSpecificCandidateName(idea.candidate))
     .filter((idea) => isPatientDiscussibleAiIdeaCandidate(idea.candidate))
-    .slice(0, 12)
+    .slice(0, MAX_AI_IDEA_SEEDS)
   const defaultSourceIds = directSearchEvidenceSourceIds(sources)
   if (!eligibleSeeds.length || !defaultSourceIds.length) {
     return {
@@ -2635,24 +2640,32 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
         caution: 'This is an AI research question, not a treatment recommendation. Do not start, stop, buy, combine, or change a treatment from this card.',
         verificationQuery: `"${cleanText(condition, 120)}" AND "${candidate}"`,
         sourceIds: [...new Set([
-          // A source-backed seed already carries the condition overview and
-          // the exact paper that named the idea. Do not append an unrelated
-          // general source such as a lifestyle page just to fill this field.
-          ...(Array.isArray(idea?.sourceIds) && idea.sourceIds.length ? idea.sourceIds : defaultSourceIds),
+          // Source-backed model papers already carry a condition overview and
+          // their exact paper. Computer-screen candidates keep that source,
+          // plus one condition overview, without adding generic filler links.
+          ...((Array.isArray(idea?.sourceIds) && idea.sourceIds.length)
+            ? [
+                ...defaultSourceIds.slice(0, 1),
+                ...idea.sourceIds,
+              ]
+            : defaultSourceIds),
         ])].filter((sourceId) => (Array.isArray(sources) ? sources : []).some((source) => source?.id === sourceId)).slice(0, 3),
         kind: hasNoDirectConditionMatch ? 'ai-direct-search-no-match' : 'ai-direct-search-has-match',
         directSearch,
       }
     }))
     checked.push(...batchResults.filter(Boolean))
+    // Once ten separate candidates have passed both direct searches, keep the
+    // run fast instead of spending more public-database requests on extras.
+    if (checked.filter((idea) => idea.kind === 'ai-direct-search-no-match').length >= TARGET_AI_IDEA_COUNT) break
   }
 
   const directSearchesCompleted = eligibleSeeds.length * 4
   const noMatchIdeas = checked.filter((idea) => idea.kind === 'ai-direct-search-no-match')
   const matchedIdeas = checked.filter((idea) => idea.kind === 'ai-direct-search-has-match')
   return {
-    ideas: noMatchIdeas.slice(0, 10),
-    matchedIdeas: matchedIdeas.slice(0, 10),
+    ideas: noMatchIdeas.slice(0, TARGET_AI_IDEA_COUNT),
+    matchedIdeas: matchedIdeas.slice(0, TARGET_AI_IDEA_COUNT),
     coverage: {
       id: 'ai-idea-direct-search',
       label: 'AI idea direct literature check',
@@ -3159,7 +3172,7 @@ const fetchEveryCureRepurposingLeads = async (condition, env) => {
     }))
     .filter((lead) => lead.drugId)
     .sort((left, right) => left.rank - right.rank)
-    .slice(0, 8)
+    .slice(0, 12)
 
   if (!scoredLeads.length) {
     return {
@@ -3193,7 +3206,7 @@ const fetchEveryCureRepurposingLeads = async (condition, env) => {
       sourceIds: [source.id],
       kind: 'everycure-computational',
     }]
-  }).slice(0, 4)
+  }).slice(0, 12)
 
   if (!ideas.length) {
     return {
@@ -4278,7 +4291,7 @@ Return strict JSON only:
 
 const aiIdeaScoutSystemPrompt = `You are AI Idea Scout in a medical-research product. Create possible research questions only, never treatment advice.
 
-Given a condition, optional subtype or gene, and a small set of trusted condition-background sources, suggest up to 12 concrete named ideas that might be worth a clinician-led research discussion. Prioritize real, patient-recognizable medicines, supplements, foods, peptides, or natural compounds used in related biology. Do not return a known treatment for the condition, an active condition-specific trial product, a gene-editing program, a cell product, a transplant, an implant, or a broad class. An idea must name one specific item, not a pathway or phrase such as "immune signaling", "gene therapy", "antioxidants", or "an inhibitor". Do not invent fictional products. Do not add a dose, a safety claim, a benefit claim, a way to obtain it, a private clinic, or a combination of medicines.
+Given a condition, optional subtype or gene, and a small set of trusted condition-background sources, suggest up to 20 concrete named ideas that might be worth a clinician-led research discussion. Aim for at least 12 different names so the app can check ten after removing anything that already has direct human research for this illness. Prioritize real, patient-recognizable medicines, supplements, foods, peptides, or natural compounds used in related biology. Do not return a known treatment for the condition, an active condition-specific trial product, a gene-editing program, a cell product, a transplant, an implant, or a broad class. An idea must name one specific item, not a pathway or phrase such as "immune signaling", "gene therapy", "antioxidants", or "an inhibitor". Do not invent fictional products. Do not add a dose, a safety claim, a benefit claim, a way to obtain it, a private clinic, or a combination of medicines.
 
 This is a hypothesis list. Do not say an item is unresearched, effective, safe, approved, or right for the person. Explain the possible connection as a careful question based only on the supplied condition-background text. The app will independently search PubMed and Europe PMC for the exact condition and item, and will hide any item with a match.
 
@@ -4539,7 +4552,7 @@ const normalizeAiIdeaSeeds = (draft, conditionSources) => {
     // The model may reason from supplied condition biology, but cannot claim
     // a new disease fact that is absent from the source packet.
     .filter((idea) => backgroundText || !idea.whyItCouldConnect)
-    .slice(0, 20)
+    .slice(0, 24)
 }
 
 const mergeAiIdeaSeeds = (drafts, conditionSources) => {
@@ -4552,7 +4565,7 @@ const mergeAiIdeaSeeds = (drafts, conditionSources) => {
       seen.add(key)
       return true
     })
-    .slice(0, 32)
+    .slice(0, MAX_AI_IDEA_SEEDS)
 }
 
 const everyCureAiIdeaSeeds = (ideas) => (Array.isArray(ideas) ? ideas : [])
@@ -4562,6 +4575,9 @@ const everyCureAiIdeaSeeds = (ideas) => (Array.isArray(ideas) ? ideas : [])
     category: 'Computer-picked drug idea',
     whyItCouldConnect: cleanText(idea?.whyItCouldConnect, 440),
     providerQuestion: simpleDoctorQuestion(idea?.providerQuestion || 'Is this worth discussing?'),
+    // This public screen supplied the candidate. The direct literature checks
+    // below still decide whether the candidate can appear in the report.
+    sourceIds: Array.isArray(idea?.sourceIds) ? idea.sourceIds : [],
   }))
   .filter((idea) => isSpecificCandidateName(idea.candidate))
   .filter((idea) => idea.whyItCouldConnect.length >= 24)
@@ -4576,7 +4592,7 @@ const combineAiIdeaSeeds = (...groups) => {
       seen.add(key)
       return true
     })
-    .slice(0, 32)
+    .slice(0, MAX_AI_IDEA_SEEDS)
 }
 
 const scoutAiIdeasNotFound = async ({ patient, sources, env }) => {
@@ -4593,7 +4609,7 @@ const scoutAiIdeasNotFound = async ({ patient, sources, env }) => {
     currentSymptoms: cleanText(patient?.symptoms, 400),
     conditionBackground: background,
   })
-  const request = { system: aiIdeaScoutSystemPrompt, user, env, maxTokens: 2_200 }
+  const request = { system: aiIdeaScoutSystemPrompt, user, env, maxTokens: 3_400 }
   // Both independent models may propose names, but neither can put a card in
   // the report. Every name still has to pass the direct literature gate.
   const [anthropicResponse, openAiResponse] = await Promise.all([
@@ -6398,6 +6414,7 @@ const runResearch = async (body, env) => {
     condition: patient.condition,
     ideas: combineAiIdeaSeeds(
       sourceBackedAiIdeaSeeds(verifiedSourceRecords, patient.condition),
+      everyCureAiIdeaSeeds(bundle.curatedTheoryIdeas),
       aiIdeaSeeds,
     ),
     sources: verifiedSourceRecords,
