@@ -9,6 +9,7 @@
     "check": "npm run lint && npm test",
     "lint": "oxlint",
     "test": "node --test",
+    "test:matrix": "node --test --test-name-pattern='ten-condition report matrix'",
     "verify:deployment": "node scripts/deploymentVerifier.mjs",
     "preview": "vite preview"
   },
