@@ -48,6 +48,11 @@ const TARGET_AI_IDEA_COUNT = 10
 // A lot of plausible names are already studied for a condition. Check a wide
 // enough pool to still reach ten after the direct literature gate removes them.
 const MAX_AI_IDEA_SEEDS = 48
+// The direct screen uses public literature services. Keep this deliberately
+// small: several simultaneous exact searches cause intermittent timeouts,
+// which used to make a source-backed card disappear even though its paper had
+// already been retrieved and linked.
+const AI_IDEA_DIRECT_CHECK_BATCH_SIZE = 2
 const CURRENT_INTERVENTIONAL_STATUSES = new Set([
   'RECRUITING',
   'NOT_YET_RECRUITING',
@@ -2354,7 +2359,10 @@ const directCandidateSearchUrl = (provider, condition, candidate) => {
 const directCandidateRecordClass = (source) => {
   const text = normalizedEvidenceText(`${source?.title || ''} ${source?.summary || ''}`)
   const animalOrLabSignal = /\b(?:animal|animals|mouse|mice|rat|rats|preclinical|in vitro|cell culture|organoid|disease model|models)\b/i.test(text)
-  const humanStudySignal = /\b(?:patients?|people with|participants?|human subjects?|clinical trial|randomi[sz]ed|phase\s*(?:[1-4]|i{1,3}|iv))\b/i.test(text)
+  // Do not turn a review sentence such as "clinical trials are needed" into
+  // a supposed human study. Require a concrete study-design or participant
+  // signal before removing a source-backed animal/lab card from this lane.
+  const humanStudySignal = /\b(?:randomi[sz]ed|double[-\s]?blind|placebo[-\s]?controlled|phase\s*(?:[1-4]|i{1,3}|iv)|clinical trial|participants?\s+(?:were|received|completed|enrolled)|patients?\s+(?:were|received|underwent|enrolled)|\bin\s+\d+\s+(?:patients?|participants?))\b/i.test(text)
 
   // When an abstract discusses both people and animal work, keep it out of
   // the "not tried in people" lane. That is safer than guessing which part
@@ -2373,9 +2381,11 @@ const classifyDirectCandidateRecords = (records, candidate) => {
   return {
     status: !matchingRecords.length
       ? 'not-found'
-      : classes.some((kind) => kind === 'human' || kind === 'unclear')
+      : classes.some((kind) => kind === 'human')
         ? 'found'
-        : 'preclinical-only',
+        : classes.some((kind) => kind === 'animal-or-lab')
+          ? 'preclinical-only'
+          : 'unclear',
     records: matchingRecords.length,
     sources: matchingRecords.slice(0, 3),
   }
@@ -2532,7 +2542,7 @@ const candidateAlreadyAppearsInDirectConditionPacket = (candidate, condition, so
     source?.conditionScope !== 'related-preclinical'
     && isConditionScopedSource(source, condition)
     && recordMentionsCandidate(source, candidate)
-    && directCandidateRecordClass(source) !== 'animal-or-lab'
+    && directCandidateRecordClass(source) === 'human'
     && !relatedModelSources.some((modelSource) => sameEvidenceRecord(source, modelSource))
   ))
   const trialMatch = (Array.isArray(trials) ? trials : []).some((trial) => recordMentionsCandidate(trial, candidate))
@@ -2575,9 +2585,13 @@ const sourceBackedAiIdeaSeeds = (sources, condition) => {
       seen.add(key)
       return {
         candidate: name,
-        category: 'Related research question',
+        category: 'Animal or lab research',
         whyItCouldConnect: `${name} was studied in ${cleanText(source.conditionScopeLabel || 'a related disease model', 140)}. That is not a study in people with ${cleanText(condition, 120)}, but it gives a specific question for a specialist to check.`,
         providerQuestion: simpleDoctorQuestion(`Is ${name} worth asking about?`),
+        // The exact supporting paper is already in sourceIds. Skipping extra
+        // background lookups keeps this lane focused on the direct human
+        // evidence check and avoids public-API overload during a full run.
+        sourceBackedResearch: true,
         // Keep both the illness overview and the product/model source on the
         // card, so a reader can see exactly why the question was generated.
         sourceIds: [overview?.id, source?.id].filter(Boolean),
@@ -2603,7 +2617,7 @@ const relatedPreclinicalCandidateStatus = (candidate, sources, trials) => {
 }
 
 const directResultAfterKnownPreclinicalCheck = (result, relatedSources) => {
-  if (!result || result.status !== 'found') return result
+  if (!result || !['found', 'unclear'].includes(result.status)) return result
   const records = Array.isArray(result.sources) ? result.sources : []
   // Some indexes return only a short or incomplete abstract for the exact
   // same model paper already audited in the packet. Do not let that thin
@@ -2632,14 +2646,18 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   }
 
   const checked = []
-  for (let index = 0; index < eligibleSeeds.length; index += 6) {
-    const batch = eligibleSeeds.slice(index, index + 6)
+  for (let index = 0; index < eligibleSeeds.length; index += AI_IDEA_DIRECT_CHECK_BATCH_SIZE) {
+    const batch = eligibleSeeds.slice(index, index + AI_IDEA_DIRECT_CHECK_BATCH_SIZE)
     const batchResults = await Promise.all(batch.map(async (idea) => {
+      const sourceBackedResearch = idea?.sourceBackedResearch === true
       const [pubMed, europePmc, pubMedBackground, chemblBackground] = await Promise.allSettled([
         directPubMedCandidateCheck(condition, idea),
         directEuropePmcCandidateCheck(condition, idea),
-        directPubMedCandidateBackgroundCheck(idea),
-        directChemblCandidateBackgroundCheck(idea),
+        // A curated animal or lab paper is already a named, linked
+        // background source for this exact card. Only generated candidates
+        // need these extra identity/background lookups.
+        sourceBackedResearch ? Promise.resolve(null) : directPubMedCandidateBackgroundCheck(idea),
+        sourceBackedResearch ? Promise.resolve(null) : directChemblCandidateBackgroundCheck(idea),
       ])
       const rawPubMedResult = pubMed.status === 'fulfilled' ? pubMed.value : null
       const rawEuropePmcResult = europePmc.status === 'fulfilled' ? europePmc.value : null
@@ -2649,31 +2667,36 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       const packetStatus = relatedPreclinicalCandidateStatus(idea, sources, trials)
       const pubMedResult = directResultAfterKnownPreclinicalCheck(rawPubMedResult, packetStatus.relatedSources)
       const europePmcResult = directResultAfterKnownPreclinicalCheck(rawEuropePmcResult, packetStatus.relatedSources)
+      const completedDirectSearch = Boolean(pubMedResult || europePmcResult)
       const preclinicalSource = [
         ...(pubMedResult?.sources || []),
         ...(europePmcResult?.sources || []),
       ].find((source) => directCandidateRecordClass(source) === 'animal-or-lab')
       const backgroundSource = packetBackgroundSource || preclinicalSource || pubMedBackgroundResult?.source || chemblBackgroundResult?.source
       const hasBackgroundMatch = Boolean(backgroundSource?.title && backgroundSource?.url)
-      const hasHumanOrUnclearDirectMatch = packetStatus.hasDirectSourceOrTrialMatch
+      const hasConfirmedHumanDirectMatch = packetStatus.hasDirectSourceOrTrialMatch
         || candidateAlreadyAppearsInDirectConditionPacket(idea, condition, sources, trials)
         || pubMedResult?.status === 'found'
         || europePmcResult?.status === 'found'
-      const hasEarlyResearchOnly = !hasHumanOrUnclearDirectMatch
+      const hasEarlyResearchOnly = !hasConfirmedHumanDirectMatch
         && (packetStatus.hasRelatedAnimalOrLabSource
           || [pubMedResult?.status, europePmcResult?.status].some((status) => status === 'preclinical-only'))
-      const hasNoDirectConditionMatch = !hasHumanOrUnclearDirectMatch
-        && [pubMedResult?.status, europePmcResult?.status].every((status) => status === 'not-found' || status === 'preclinical-only')
+      // A linked model paper can support an honest "not tested in people"
+      // card even when an index returns a vague review record or is slow. A
+      // confirmed human study or a current trial still removes the card.
+      const hasNoDirectConditionMatch = !hasConfirmedHumanDirectMatch
+        && (hasEarlyResearchOnly || [pubMedResult?.status, europePmcResult?.status].every((status) => status === 'not-found' || status === 'preclinical-only'))
+        && completedDirectSearch
         && hasBackgroundMatch
       const directSearch = {
-        status: hasNoDirectConditionMatch ? (hasEarlyResearchOnly ? 'preclinical-only' : 'not-found') : hasHumanOrUnclearDirectMatch ? 'found' : 'unavailable',
+        status: hasNoDirectConditionMatch ? (hasEarlyResearchOnly ? 'preclinical-only' : 'not-found') : hasConfirmedHumanDirectMatch ? 'found' : 'unavailable',
         pubmed: pubMedResult || { status: 'unavailable', url: directCandidateSearchUrl('pubmed', condition, idea), records: 0 },
         europePmc: europePmcResult || { status: 'unavailable', url: directCandidateSearchUrl('europe-pmc', condition, idea), records: 0 },
         pubmedBackground: pubMedBackgroundResult || { status: 'unavailable', url: '', records: 0 },
         chemblBackground: chemblBackgroundResult || { status: 'unavailable', url: '', records: 0 },
         candidateSource: backgroundSource,
       }
-      if (!hasNoDirectConditionMatch && !hasHumanOrUnclearDirectMatch) return null
+      if (!hasNoDirectConditionMatch && !hasConfirmedHumanDirectMatch) return null
 
       const candidate = cleanCandidateName(idea.candidate)
       return {
@@ -2685,7 +2708,7 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
           ? hasEarlyResearchOnly
             ? `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. The direct records we found were animal or lab research, not a study in people. That does not show it will help.`
             : `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. Neither checked search showed a direct match. That does not prove nobody has studied it or that it will help.`
-          : `Our search found ${candidate} connected with ${cleanText(condition, 120)}. This is not a new idea, and a search result does not prove it helps.`,
+          : `Our search found a human study or current trial connected with ${candidate} and ${cleanText(condition, 120)}. This is not a new idea, and a search result does not prove it helps.`,
         providerQuestion: simpleDoctorQuestion(idea.providerQuestion || `Is ${candidate} worth discussing`),
         caution: 'This is an AI research question, not a treatment recommendation. Do not start, stop, buy, combine, or change a treatment from this card.',
         verificationQuery: `"${cleanText(condition, 120)}" AND "${candidate}"`,
