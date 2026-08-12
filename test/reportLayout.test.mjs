@@ -43,7 +43,7 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /Not in people yet/)
   assert.match(appSource, /supportingSourceIds/)
   assert.match(appSource, /Do not buy, compound, or use/)
-  assert.match(appSource, /AI ideas not found in the illness research we checked/)
+  assert.match(appSource, /New AI ideas to check/)
   assert.match(appSource, /What this means/)
   assert.match(appSource, /Possible idea to check/)
   assert.match(appSource, /Study may be open/)
@@ -107,7 +107,7 @@ test('Word and PDF exports keep the same practical report sections', () => {
     '4. Lifestyle changes worth discussing',
     '5. Things studied for this illness',
     'Early lab or animal research',
-    'AI ideas not found in the illness research we checked',
+    'New AI ideas to check',
     'Treatments in current studies',
     'Current clinical trials',
     'What to bring to your next visit',
