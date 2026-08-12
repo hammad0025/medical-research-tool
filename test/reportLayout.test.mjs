@@ -19,9 +19,6 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
     '<ResearchIdeas',
     '<TreatmentDevelopment',
     '<TrialDirectory',
-    '<ResearchAccessPlan',
-    '<DoctorQuestions',
-    '<SafetyResearch',
   ]
 
   let lastPosition = -1
@@ -33,14 +30,13 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /const PatientLeadCards/)
   assert.match(appSource, /const TheoryIdeaCards/)
   assert.match(appSource, /function TreatmentDevelopment/)
-  assert.match(appSource, /function ResearchAccessPlan/)
   assert.match(appSource, /id="condition-overview"/)
   assert.match(appSource, /id="clinical-trials"/)
   assert.match(appSource, /Treatments to ask about and AI ideas to check/)
   assert.match(appSource, /Things studied for this illness/)
   assert.doesNotMatch(appSource, /Early lab or animal research/)
   assert.doesNotMatch(appSource, /Not in people yet/)
-assert.match(appSource, /AI ideas to check/)
+assert.match(appSource, /New AI ideas to check/)
   assert.match(appSource, /What this means/)
   assert.match(appSource, /Possible idea to check/)
   assert.match(appSource, /Study may be open/)
@@ -51,11 +47,14 @@ assert.match(appSource, /AI ideas to check/)
   assert.match(appSource, /return 'oxygen support'/)
   assert.match(appSource, /study-access-only/)
   assert.match(appSource, /isExplicitlyExcludedTreatment/)
-  assert.match(appSource, /Why AI thinks this may connect/)
+  assert.match(appSource, /Why this may connect/)
   assert.match(appSource, /Check PubMed/)
   assert.doesNotMatch(appSource, /Not established/)
   assert.doesNotMatch(appSource, /sourceMentionsRepurposingCandidate/)
   assert.doesNotMatch(appSource, /Treatments studied but not listed as options/)
+  assert.doesNotMatch(universalReport, /<ResearchAccessPlan/)
+  assert.doesNotMatch(universalReport, /<DoctorQuestions/)
+  assert.doesNotMatch(universalReport, /<SafetyResearch/)
   assert.match(appSource, /centerSourceCitation/)
   assert.match(appSource, /Open official center page/)
   assert.match(appSource, /\{label\}: \{sourceLabel\(citation\)\}/)
@@ -106,9 +105,6 @@ test('Word and PDF exports keep the same practical report sections', () => {
     'AI ideas to check',
     'Treatments in current studies',
     'Current clinical trials',
-    'What to bring to your next visit',
-    'Simple questions to ask your doctor',
-    'Important safety points',
   ]
 
   let lastPosition = -1
