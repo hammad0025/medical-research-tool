@@ -2211,6 +2211,7 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   if (!eligibleSeeds.length || !sourceIds.length) {
     return {
       ideas: [],
+      matchedIdeas: [],
       coverage: { id: 'ai-idea-direct-search', label: 'AI idea direct literature check', status: 'not-run', records: 0, detail: 'No named AI idea was released without a condition-biology source and two completed direct searches.' },
     }
   }
@@ -2228,17 +2229,21 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       const europePmcResult = europePmc.status === 'fulfilled' ? europePmc.value : null
       const pubMedBackgroundResult = pubMedBackground.status === 'fulfilled' ? pubMedBackground.value : null
       const alreadyInPacket = candidateAlreadyAppearsInPacket(idea, sources, trials)
+      const hasBackgroundMatch = pubMedBackgroundResult?.status === 'found'
+      const hasDirectConditionMatch = alreadyInPacket
+        || pubMedResult?.status === 'found'
+        || europePmcResult?.status === 'found'
+      const hasNoDirectConditionMatch = !alreadyInPacket
+        && pubMedResult?.status === 'not-found'
+        && europePmcResult?.status === 'not-found'
+        && hasBackgroundMatch
       const directSearch = {
-        status: !alreadyInPacket && pubMedResult?.status === 'not-found' && europePmcResult?.status === 'not-found' && pubMedBackgroundResult?.status === 'found'
-          ? 'not-found'
-          : pubMedResult || europePmcResult || pubMedBackgroundResult || alreadyInPacket
-            ? 'found-or-unavailable'
-            : 'unavailable',
+        status: hasNoDirectConditionMatch ? 'not-found' : hasDirectConditionMatch ? 'found' : 'unavailable',
         pubmed: pubMedResult || { status: 'unavailable', url: directCandidateSearchUrl('pubmed', condition, idea), records: 0 },
         europePmc: europePmcResult || { status: 'unavailable', url: directCandidateSearchUrl('europe-pmc', condition, idea), records: 0 },
         pubmedBackground: pubMedBackgroundResult || { status: 'unavailable', url: '', records: 0 },
       }
-      if (directSearch.status !== 'not-found') return null
+      if (!hasNoDirectConditionMatch && !hasDirectConditionMatch) return null
 
       const candidate = cleanCandidateName(idea.candidate)
       return {
@@ -2246,12 +2251,14 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
         potentialInterventions: [candidate],
         category: cleanText(idea.category, 80) || 'AI research idea',
         whyItCouldConnect: cleanText(idea.whyItCouldConnect, 440),
-        whyNotEstablished: `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. Neither search showed a match. That does not prove nobody has studied it or that it will help.`,
+        whyNotEstablished: hasNoDirectConditionMatch
+          ? `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. Neither search showed a match. That does not prove nobody has studied it or that it will help.`
+          : `Our search found ${candidate} connected with ${cleanText(condition, 120)}. This is not a new idea, and a search result does not prove it helps.`,
         providerQuestion: simpleDoctorQuestion(idea.providerQuestion || `Is ${candidate} worth discussing`),
         caution: 'This is an AI research question, not a treatment recommendation. Do not start, stop, buy, combine, or change a treatment from this card.',
         verificationQuery: `"${cleanText(condition, 120)}" AND "${candidate}"`,
         sourceIds,
-        kind: 'ai-direct-search-no-match',
+        kind: hasNoDirectConditionMatch ? 'ai-direct-search-no-match' : 'ai-direct-search-has-match',
         directSearch,
       }
     }))
@@ -2259,8 +2266,11 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   }
 
   const directSearchesCompleted = eligibleSeeds.length * 3
+  const noMatchIdeas = checked.filter((idea) => idea.kind === 'ai-direct-search-no-match')
+  const matchedIdeas = checked.filter((idea) => idea.kind === 'ai-direct-search-has-match')
   return {
-    ideas: checked.slice(0, 10),
+    ideas: noMatchIdeas.slice(0, 10),
+    matchedIdeas: matchedIdeas.slice(0, 10),
     coverage: {
       id: 'ai-idea-direct-search',
       label: 'AI idea direct literature check',
@@ -2268,8 +2278,8 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       status: 'ready',
       records: checked.length,
       detail: checked.length
-        ? `${checked.length} AI idea${checked.length === 1 ? '' : 's'} had no match in either exact illness-plus-name search. Any idea found in either search was left out.`
-        : `We ran ${directSearchesCompleted} checks. No new AI idea passed both searches in this run.`,
+        ? `${noMatchIdeas.length} named AI idea${noMatchIdeas.length === 1 ? '' : 's'} had no direct match in the two exact searches. ${matchedIdeas.length} idea${matchedIdeas.length === 1 ? '' : 's'} already ${matchedIdeas.length === 1 ? 'has' : 'have'} a condition match and ${matchedIdeas.length === 1 ? 'is' : 'are'} clearly marked as already studied.`
+        : `We ran ${directSearchesCompleted} checks, but no named AI idea had enough search evidence to show safely.`,
     },
   }
 }
@@ -5458,12 +5468,15 @@ const _theoryTemplatesForCondition = (condition) => {
 
 const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
   const seen = new Set()
-  // Do not fill this lane from a condition map, a pathway list, or an AI
-  // writer's unsupported prose. Each final card must carry the completed
-  // two-database search record produced by verifyAiIdeasNotFound().
-  return (Array.isArray(packet?.aiIdeasNotFound) ? packet.aiIdeasNotFound : [])
-    .filter((idea) => idea?.kind === 'ai-direct-search-no-match')
-    .filter((idea) => idea?.directSearch?.status === 'not-found')
+  // Do not fill this lane from a condition map, a pathway list, or unsupported
+  // AI prose. Each card must carry a completed direct literature check. Ideas
+  // with an existing condition match stay visible, but never get called new.
+  return [
+    ...(Array.isArray(packet?.aiIdeasNotFound) ? packet.aiIdeasNotFound : []),
+    ...(Array.isArray(packet?.aiIdeasWithMatches) ? packet.aiIdeasWithMatches : []),
+  ]
+    .filter((idea) => ['ai-direct-search-no-match', 'ai-direct-search-has-match'].includes(idea?.kind))
+    .filter((idea) => ['not-found', 'found'].includes(idea?.directSearch?.status))
     .filter((idea) => Array.isArray(idea?.potentialInterventions) && idea.potentialInterventions.length)
     .filter((idea) => {
       const key = candidateKey(idea.title)
@@ -5795,6 +5808,7 @@ const createPacket = ({ patient, bundle, trials, sites, researchers }) => ({
   curatedLifestyleIdeas: Array.isArray(bundle.curatedLifestyleIdeas) ? bundle.curatedLifestyleIdeas : [],
   curatedTheoryIdeas: Array.isArray(bundle.curatedTheoryIdeas) ? bundle.curatedTheoryIdeas : [],
   aiIdeasNotFound: Array.isArray(bundle.aiIdeasNotFound) ? bundle.aiIdeasNotFound : [],
+  aiIdeasWithMatches: Array.isArray(bundle.aiIdeasWithMatches) ? bundle.aiIdeasWithMatches : [],
   excludedTreatments: Array.isArray(bundle.excludedTreatments) ? bundle.excludedTreatments : [],
 })
 
@@ -5904,6 +5918,7 @@ const runResearch = async (body, env) => {
     trials: verifiedTrialRecords,
   }).catch(() => ({
     ideas: [],
+    matchedIdeas: [],
     coverage: {
       id: 'ai-idea-direct-search',
       label: 'AI idea direct literature check',
@@ -5922,6 +5937,7 @@ const runResearch = async (body, env) => {
   const enrichedBundle = {
     ...bundle,
     aiIdeasNotFound: aiIdeasNotFoundResult.ideas,
+    aiIdeasWithMatches: aiIdeasNotFoundResult.matchedIdeas,
     sources: retainEveryCurePublicSource(
       dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources], conditionIsIpf ? 36 : 24),
       bundle.sources,
