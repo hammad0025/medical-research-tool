@@ -381,7 +381,7 @@ const textResponse = (body, status = 200) => ({
   text: async () => body,
 })
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
   const clinicalTrialRecordIds = []
@@ -436,7 +436,10 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         const term = new URL(url).searchParams.get('term') || ''
         pubMedTerms.push(term)
-        if (/Test AI idea with no condition match/i.test(term)) {
+        if (/Test AI idea with no condition match|Test repurposing candidate one/i.test(term)) {
+          const unstudiedPair = /Test AI idea with no condition match/i.test(term)
+            || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(term))
+          if (!unstudiedPair) return jsonResponse({ esearchresult: { idlist: ['1001'] } })
           return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
         }
         if (relatedPreclinical && /retinal degeneration/i.test(term)) {
@@ -453,7 +456,10 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
         const query = new URL(url).searchParams.get('query') || ''
-        if (/Test AI idea with no condition match/i.test(query)) {
+        if (/Test AI idea with no condition match|Test repurposing candidate one/i.test(query)) {
+          const unstudiedPair = /Test AI idea with no condition match/i.test(query)
+            || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(query))
+          if (!unstudiedPair) return jsonResponse({ resultList: { result: [{ source: 'MED', id: '1001', pmid: '1001', title: 'Known condition match', abstractText: 'Known condition match.', pubYear: '2025', journalTitle: 'Test Retina Journal', pubType: 'Systematic Review' }] } })
           return jsonResponse({ resultList: { result: [] } })
         }
         if (/AAV-RP therapy/i.test(query)) {
@@ -905,7 +911,7 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
 })
 
 test('Every Cure public scores are shown only as attributable computational questions', { concurrency: false }, async () => {
-  const mock = createMockFetch()
+  const mock = createMockFetch({ everyCureCandidateNoMatch: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
     'POST',
@@ -932,6 +938,10 @@ test('Every Cure public scores are shown only as attributable computational ques
   assert.ok(!ideas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Test repurposing candidate/i.test(idea.title)))
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
+  const directIdeas = response.body.review.theoryIdeas
+  assert.ok(directIdeas.some((idea) => /Test repurposing candidate one/i.test(idea.title)))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(!directIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
 })
 
 test('a registry outage is labeled unavailable instead of as an empty trial search', { concurrency: false }, async () => {
