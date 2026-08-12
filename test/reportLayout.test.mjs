@@ -31,7 +31,6 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
     lastPosition = position
   }
   assert.match(appSource, /const PatientLeadCards/)
-  assert.match(appSource, /const EarlyResearchCards/)
   assert.match(appSource, /const TheoryIdeaCards/)
   assert.match(appSource, /function TreatmentDevelopment/)
   assert.match(appSource, /function ResearchAccessPlan/)
@@ -39,8 +38,8 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /id="clinical-trials"/)
   assert.match(appSource, /Treatments to ask about and AI ideas to check/)
   assert.match(appSource, /Things studied for this illness/)
-  assert.match(appSource, /Early lab or animal research/)
-  assert.match(appSource, /Not in people yet/)
+  assert.doesNotMatch(appSource, /Early lab or animal research/)
+  assert.doesNotMatch(appSource, /Not in people yet/)
   assert.match(appSource, /supportingSourceIds/)
   assert.match(appSource, /Do not buy, compound, or use/)
   assert.match(appSource, /AI ideas to check/)
@@ -106,7 +105,6 @@ test('Word and PDF exports keep the same practical report sections', () => {
     '3. Centers and study sites',
     '4. Lifestyle changes worth discussing',
     '5. Things studied for this illness',
-    'Early lab or animal research',
     'AI ideas to check',
     'Treatments in current studies',
     'Current clinical trials',
