@@ -38,16 +38,16 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /function ResearchAccessPlan/)
   assert.match(appSource, /id="condition-overview"/)
   assert.match(appSource, /id="clinical-trials"/)
-  assert.match(appSource, /What you can discuss now, plus research questions to check/)
-  assert.match(appSource, /Researched medicines, supplements, procedures, and study programs/)
-  assert.match(appSource, /Early research worth watching/)
+  assert.match(appSource, /Treatments to ask about and new ideas to check/)
+  assert.match(appSource, /Things studied for this illness/)
+  assert.match(appSource, /Early lab or animal research/)
   assert.match(appSource, /Not in people yet/)
   assert.match(appSource, /supportingSourceIds/)
   assert.match(appSource, /Do not buy, compound, or use/)
-  assert.match(appSource, /AI ideas not found in this condition/)
-  assert.match(appSource, /Plain takeaway/)
-  assert.match(appSource, /AI idea to investigate/)
-  assert.match(appSource, /Study may be enrolling/)
+  assert.match(appSource, /New AI ideas to check/)
+  assert.match(appSource, /What this means/)
+  assert.match(appSource, /Possible idea to check/)
+  assert.match(appSource, /Study may be open/)
   assert.match(appSource, /Nerandomilast \(Jascayd; BI 1015550\)/)
   assert.match(appSource, /Nalbuphine extended-release \(NAL ER\)/)
   assert.match(appSource, /Pirfenidone \(Esbriet\)/)
@@ -55,8 +55,8 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /return 'oxygen support'/)
   assert.match(appSource, /study-access-only/)
   assert.match(appSource, /isExplicitlyExcludedTreatment/)
-  assert.match(appSource, /Source for why this may connect/)
-  assert.match(appSource, /Open direct PubMed search/)
+  assert.match(appSource, /Why AI picked this/)
+  assert.match(appSource, /Check PubMed/)
   assert.doesNotMatch(appSource, /Not established/)
   assert.doesNotMatch(appSource, /sourceMentionsRepurposingCandidate/)
   assert.match(appSource, /Treatments studied but not listed as options/)
@@ -67,11 +67,11 @@ test('the patient-first report flow keeps practical decisions ahead of the full 
   assert.match(appSource, /Treatments in current clinical studies/)
   assert.match(appSource, /FDA_EXPANDED_ACCESS_SOURCE/)
   assert.match(appSource, /Full current trial directory/)
-  assert.match(appSource, /No lifestyle claim was added without a direct source/)
+  assert.match(appSource, /No daily-life tip was added/)
   assert.match(appSource, /curatedLifestyleIdeas/)
   assert.match(appSource, /profileAwareLifestyleIdeas/)
   assert.match(appSource, /Night-time travel and driving safety/)
-  assert.match(appSource, /Matched to your profile/)
+  assert.match(appSource, /Based on what you entered/)
   assert.match(appSource, /Do not use this report to decide whether to drive/)
   assert.match(appSource, /rp-nei-low-vision/)
   assert.match(appSource, /induction and maintenance/)
@@ -106,13 +106,13 @@ test('Word and PDF exports keep the same practical report sections', () => {
     '2. Approved and established options',
     '3. Centers and study sites',
     '4. Lifestyle changes worth discussing',
-    '5. Researched medicines, supplements, procedures, and study programs',
-    'Early animal and lab research worth watching',
-    'AI ideas not found in this condition',
+    '5. Things studied for this illness',
+    'Early lab or animal research',
+    'New AI ideas to check',
     'Treatments studied but not listed as options',
-    'Pipeline watch',
+    'Treatments in current studies',
     'Current clinical trials',
-    'Your research and access plan',
+    'What to bring to your next visit',
     'Simple questions to ask your doctor',
     'Important safety points',
   ]
