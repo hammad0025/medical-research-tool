@@ -2317,16 +2317,61 @@ const directCandidateSearchUrl = (provider, condition, candidate) => {
   return `https://europepmc.org/search?query=${encodeURIComponent(query)}`
 }
 
+const directCandidateRecordClass = (source) => {
+  const text = normalizedEvidenceText(`${source?.title || ''} ${source?.summary || ''}`)
+  const animalOrLabSignal = /\b(?:animal|animals|mouse|mice|rat|rats|preclinical|in vitro|cell culture|organoid|disease model|models)\b/i.test(text)
+  const humanStudySignal = /\b(?:patients?|people with|participants?|human subjects?|clinical trial|randomi[sz]ed|phase\s*(?:[1-4]|i{1,3}|iv))\b/i.test(text)
+
+  // When an abstract discusses both people and animal work, keep it out of
+  // the "not tried in people" lane. That is safer than guessing which part
+  // of a mixed record applies to the candidate.
+  if (animalOrLabSignal && humanStudySignal) return 'unclear'
+  if (humanStudySignal) return 'human'
+  if (animalOrLabSignal) return 'animal-or-lab'
+  return 'unclear'
+}
+
+const classifyDirectCandidateRecords = (records, candidate) => {
+  const matchingRecords = (Array.isArray(records) ? records : [])
+    .filter((record) => recordMentionsCandidate(record, candidate))
+  const classes = matchingRecords.map(directCandidateRecordClass)
+
+  return {
+    status: !matchingRecords.length
+      ? 'not-found'
+      : classes.some((kind) => kind === 'human' || kind === 'unclear')
+        ? 'found'
+        : 'preclinical-only',
+    records: matchingRecords.length,
+    sources: matchingRecords.slice(0, 3),
+  }
+}
+
+const fetchPubMedSourcesForIds = async (ids) => {
+  const usableIds = (Array.isArray(ids) ? ids : []).map((id) => cleanText(id, 40)).filter(Boolean).slice(0, 5)
+  if (!usableIds.length) return []
+  const url = new URL(PUBMED_FETCH_URL)
+  url.searchParams.set('db', 'pubmed')
+  url.searchParams.set('retmode', 'xml')
+  url.searchParams.set('id', usableIds.join(','))
+  const response = await fetchWithTimeout(url, {}, 16_000)
+  if (!response.ok) throw new Error(`PubMed direct candidate fetch returned ${response.status}.`)
+  return pubmedArticlesFromXml(await response.text())
+}
+
 const directPubMedCandidateCheck = async (condition, candidate) => {
   const phrase = conditionPhrase(condition)
   const name = candidateSearchNamesFor(candidate)[0] || cleanCandidateName(candidate?.name || candidate)
   if (!phrase || !name) throw new Error('A condition and named idea are required for the direct PubMed check.')
   const term = `("${phrase}"[Title/Abstract]) AND ("${name}"[Title/Abstract])`
   const ids = await searchPubMed(term, { maximum: 5 })
+  const sources = await fetchPubMedSourcesForIds(ids)
+  const classification = classifyDirectCandidateRecords(sources, candidate)
   return {
-    status: ids.length ? 'found' : 'not-found',
+    status: classification.status,
     url: directCandidateSearchUrl('pubmed', condition, candidate),
-    records: ids.length,
+    records: classification.records,
+    sources: classification.sources,
   }
 }
 
@@ -2404,10 +2449,13 @@ const directEuropePmcCandidateCheck = async (condition, candidate) => {
   if (!phrase || !name) throw new Error('A condition and named idea are required for the direct Europe PMC check.')
   const query = `(TITLE_ABS:"${europePmcPhrase(phrase)}") AND TITLE_ABS:"${europePmcPhrase(name)}"`
   const records = await europePmcRecordsForQuery(query, 5)
+  const sources = records.map(europePmcSourceFromRecord).filter(Boolean)
+  const classification = classifyDirectCandidateRecords(sources, candidate)
   return {
-    status: records.length ? 'found' : 'not-found',
+    status: classification.status,
     url: directCandidateSearchUrl('europe-pmc', condition, candidate),
-    records: records.length,
+    records: classification.records,
+    sources: classification.sources,
   }
 }
 
@@ -2476,6 +2524,18 @@ const sourceBackedAiIdeaSeeds = (sources, condition) => {
     .slice(0, 8)
 }
 
+const relatedPreclinicalCandidateStatus = (candidate, sources, trials) => {
+  const relatedSources = (Array.isArray(sources) ? sources : [])
+    .filter((source) => source?.conditionScope === 'related-preclinical')
+    .filter((source) => recordMentionsCandidate(source, candidate))
+  const trialMatch = (Array.isArray(trials) ? trials : []).some((trial) => recordMentionsCandidate(trial, candidate))
+  return {
+    hasRelatedAnimalOrLabSource: relatedSources.length > 0,
+    hasDirectSourceOrTrialMatch: trialMatch,
+    relatedSources,
+  }
+}
+
 const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
   const eligibleSeeds = (Array.isArray(ideas) ? ideas : [])
     .filter((idea) => idea?.candidate && isSpecificCandidateName(idea.candidate))
@@ -2505,24 +2565,32 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       const pubMedBackgroundResult = pubMedBackground.status === 'fulfilled' ? pubMedBackground.value : null
       const chemblBackgroundResult = chemblBackground.status === 'fulfilled' ? chemblBackground.value : null
       const packetBackgroundSource = candidateBackgroundSourceFromPacket(idea, sources)
-      const backgroundSource = pubMedBackgroundResult?.source || chemblBackgroundResult?.source || packetBackgroundSource
+      const preclinicalSource = [
+        ...(pubMedResult?.sources || []),
+        ...(europePmcResult?.sources || []),
+      ].find((source) => directCandidateRecordClass(source) === 'animal-or-lab')
+      const backgroundSource = packetBackgroundSource || preclinicalSource || pubMedBackgroundResult?.source || chemblBackgroundResult?.source
       const hasBackgroundMatch = Boolean(backgroundSource?.title && backgroundSource?.url)
-      const hasDirectConditionMatch = candidateAlreadyAppearsInDirectConditionPacket(idea, condition, sources, trials)
+      const packetStatus = relatedPreclinicalCandidateStatus(idea, sources, trials)
+      const hasHumanOrUnclearDirectMatch = packetStatus.hasDirectSourceOrTrialMatch
+        || candidateAlreadyAppearsInDirectConditionPacket(idea, condition, sources, trials)
         || pubMedResult?.status === 'found'
         || europePmcResult?.status === 'found'
-      const hasNoDirectConditionMatch = !hasDirectConditionMatch
-        && pubMedResult?.status === 'not-found'
-        && europePmcResult?.status === 'not-found'
+      const hasEarlyResearchOnly = !hasHumanOrUnclearDirectMatch
+        && (packetStatus.hasRelatedAnimalOrLabSource
+          || [pubMedResult?.status, europePmcResult?.status].some((status) => status === 'preclinical-only'))
+      const hasNoDirectConditionMatch = !hasHumanOrUnclearDirectMatch
+        && [pubMedResult?.status, europePmcResult?.status].every((status) => status === 'not-found' || status === 'preclinical-only')
         && hasBackgroundMatch
       const directSearch = {
-        status: hasNoDirectConditionMatch ? 'not-found' : hasDirectConditionMatch ? 'found' : 'unavailable',
+        status: hasNoDirectConditionMatch ? (hasEarlyResearchOnly ? 'preclinical-only' : 'not-found') : hasHumanOrUnclearDirectMatch ? 'found' : 'unavailable',
         pubmed: pubMedResult || { status: 'unavailable', url: directCandidateSearchUrl('pubmed', condition, idea), records: 0 },
         europePmc: europePmcResult || { status: 'unavailable', url: directCandidateSearchUrl('europe-pmc', condition, idea), records: 0 },
         pubmedBackground: pubMedBackgroundResult || { status: 'unavailable', url: '', records: 0 },
         chemblBackground: chemblBackgroundResult || { status: 'unavailable', url: '', records: 0 },
         candidateSource: backgroundSource,
       }
-      if (!hasNoDirectConditionMatch && !hasDirectConditionMatch) return null
+      if (!hasNoDirectConditionMatch && !hasHumanOrUnclearDirectMatch) return null
 
       const candidate = cleanCandidateName(idea.candidate)
       return {
@@ -2531,7 +2599,9 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
         category: cleanText(idea.category, 80) || 'AI research idea',
         whyItCouldConnect: cleanText(idea.whyItCouldConnect, 440),
         whyNotEstablished: hasNoDirectConditionMatch
-          ? `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. Neither search showed a match. That does not prove nobody has studied it or that it will help.`
+          ? hasEarlyResearchOnly
+            ? `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. The direct records we found were animal or lab research, not a study in people. That does not show it will help.`
+            : `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. Neither checked search showed a direct match. That does not prove nobody has studied it or that it will help.`
           : `Our search found ${candidate} connected with ${cleanText(condition, 120)}. This is not a new idea, and a search result does not prove it helps.`,
         providerQuestion: simpleDoctorQuestion(idea.providerQuestion || `Is ${candidate} worth discussing`),
         caution: 'This is an AI research question, not a treatment recommendation. Do not start, stop, buy, combine, or change a treatment from this card.',
@@ -2560,7 +2630,7 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       status: 'ready',
       records: checked.length,
       detail: checked.length
-        ? `${noMatchIdeas.length} named AI idea${noMatchIdeas.length === 1 ? '' : 's'} had no direct match in the two exact searches. ${matchedIdeas.length} idea${matchedIdeas.length === 1 ? '' : 's'} already ${matchedIdeas.length === 1 ? 'has' : 'have'} a condition match and ${matchedIdeas.length === 1 ? 'is' : 'are'} clearly marked as already studied.`
+        ? `${noMatchIdeas.length} named AI idea${noMatchIdeas.length === 1 ? '' : 's'} had no human-condition match in the two exact searches. ${matchedIdeas.length} idea${matchedIdeas.length === 1 ? '' : 's'} already ${matchedIdeas.length === 1 ? 'has' : 'have'} a direct condition match and ${matchedIdeas.length === 1 ? 'is' : 'are'} clearly marked as already studied.`
         : `We ran ${directSearchesCompleted} checks, but no named AI idea had enough search evidence to show safely.`,
     },
   }
@@ -5839,7 +5909,7 @@ const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
   // treatment or trial lanes, not beside a claim that AI found something new.
   return (Array.isArray(packet?.aiIdeasNotFound) ? packet.aiIdeasNotFound : [])
     .filter((idea) => idea?.kind === 'ai-direct-search-no-match')
-    .filter((idea) => idea?.directSearch?.status === 'not-found')
+    .filter((idea) => ['not-found', 'preclinical-only'].includes(idea?.directSearch?.status))
     .filter((idea) => isPatientDiscussibleAiIdeaCandidate(idea?.title))
     .filter((idea) => {
       const candidateSource = idea?.directSearch?.candidateSource || idea?.directSearch?.pubmedBackground?.source

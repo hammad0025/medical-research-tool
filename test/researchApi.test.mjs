@@ -442,8 +442,13 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           if (!unstudiedPair) return jsonResponse({ esearchresult: { idlist: ['1001'] } })
           return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
         }
-        if (erucamideNoDirectMatch && /erucamide/i.test(term)) {
-          return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['42321469'] } })
+        if (/erucamide/i.test(term)) {
+          if (erucamideNoDirectMatch) {
+            return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['42321469'] } })
+          }
+          // The direct query represents the live case: the molecular work is
+          // in a retinal-disease model, not a human treatment study.
+          if (/\)\s+AND\s+\(/i.test(term)) return jsonResponse({ esearchresult: { idlist: ['42321469'] } })
         }
         if (relatedPreclinical && /retinal degeneration/i.test(term)) {
           return jsonResponse({ esearchresult: { idlist: ['42321469'] } })
@@ -469,8 +474,18 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           if (!unstudiedPair) return jsonResponse({ resultList: { result: [{ source: 'MED', id: '1001', pmid: '1001', title: 'Known condition match', abstractText: 'Known condition match.', pubYear: '2025', journalTitle: 'Test Retina Journal', pubType: 'Systematic Review' }] } })
           return jsonResponse({ resultList: { result: [] } })
         }
-        if (erucamideNoDirectMatch && /erucamide/i.test(query)) {
-          return jsonResponse({ resultList: { result: [] } })
+        if (/erucamide/i.test(query)) {
+          if (erucamideNoDirectMatch) return jsonResponse({ resultList: { result: [] } })
+          return jsonResponse({ resultList: { result: [{
+            source: 'MED',
+            id: '42321469',
+            pmid: '42321469',
+            title: 'A fatty acid amide activates myeloid cells and improves neurovascular outcomes in retinal degeneration',
+            abstractText: 'Erucamide was delivered in mice with a retinal disease model and limited vascular and neuronal degeneration.',
+            pubYear: '2026',
+            journalTitle: 'Nature Neuroscience',
+            pubType: 'Journal Article',
+          }] } })
         }
         if (/AAV-RP therapy/i.test(query)) {
           return jsonResponse({
@@ -754,14 +769,15 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   const aiIdeaGate = response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')
   assert.equal(aiIdeaGate.status, 'ready')
   assert.ok(response.body.review.theoryIdeas.length >= 1, JSON.stringify({ coverage: response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search'), theoryIdeas: response.body.review.theoryIdeas }))
-  assert.equal(response.body.review.theoryIdeas[0].title, 'Test AI idea with no condition match')
-  assert.equal(response.body.review.theoryIdeas[0].directSearch.status, 'not-found')
-  assert.equal(response.body.review.theoryIdeas[0].directSearch.pubmed.status, 'not-found')
-  assert.equal(response.body.review.theoryIdeas[0].directSearch.europePmc.status, 'not-found')
+  const noDirectMatchIdea = response.body.review.theoryIdeas.find((idea) => idea.title === 'Test AI idea with no condition match')
+  assert.ok(noDirectMatchIdea)
+  assert.equal(noDirectMatchIdea.directSearch.status, 'not-found')
+  assert.equal(noDirectMatchIdea.directSearch.pubmed.status, 'not-found')
+  assert.equal(noDirectMatchIdea.directSearch.europePmc.status, 'not-found')
   assert.ok(!response.body.review.theoryIdeas.some((idea) => /AAV-RP therapy/i.test(idea.title)))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.providerQuestion))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.pubmedBackground?.source?.url))
   assert.ok(response.body.review.theoryIdeas.every((idea) => !/\bhigh[-\s]?dose\b/i.test(`${idea.title} ${idea.whyItCouldConnect} ${idea.caution}`)))
   assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
@@ -789,9 +805,9 @@ test('an any-condition report uses MedlinePlus for the disease overview', { conc
   assert.match(overview.conditionOverview.whatItIs, /movement disorder/i)
   assert.match(overview.conditionOverview.whatToWatch, /tremor|stiffness/i)
   assert.ok(response.body.sourceCoverage.some((lane) => lane.id === 'medlineplus' && lane.status === 'ready'))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
 })
 
 test('a direct condition-matched CAR-T or cell study stays in the live trial list', { concurrency: false }, async () => {
@@ -842,10 +858,28 @@ test('a source-backed related-model molecule can enter the checked new-idea lane
   assert.equal(response.status, 200)
   const idea = response.body.review.theoryIdeas.find((item) => /^erucamide$/i.test(item.title))
   assert.ok(idea, JSON.stringify(response.body.review.theoryIdeas))
-  assert.equal(idea.directSearch.status, 'not-found')
+  assert.equal(idea.directSearch.status, 'preclinical-only')
   assert.equal(idea.directSearch.pubmed.status, 'not-found')
   assert.equal(idea.directSearch.europePmc.status, 'not-found')
   assert.match(idea.whyItCouldConnect, /related retinal-degeneration models/i)
+  assert.ok(idea.directSearch.candidateSource?.url)
+})
+
+test('a related-model molecule is labeled animal-or-lab-only instead of being hidden as a known human treatment', { concurrency: false }, async () => {
+  const mock = createMockFetch({ relatedPreclinical: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const idea = response.body.review.theoryIdeas.find((item) => /^erucamide$/i.test(item.title))
+  assert.ok(idea, JSON.stringify(response.body.review.theoryIdeas))
+  assert.equal(idea.directSearch.status, 'preclinical-only')
+  assert.equal(idea.directSearch.pubmed.status, 'preclinical-only')
+  assert.equal(idea.directSearch.europePmc.status, 'preclinical-only')
+  assert.match(idea.whyNotEstablished, /animal or lab research/i)
   assert.ok(idea.directSearch.candidateSource?.url)
 })
 
@@ -940,10 +974,10 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   assert.ok(blockedNac.aliases.some((alias) => /^NAC$/i.test(alias)))
 
   assert.equal(response.body.curatedTheoryIdeas.length, 4)
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
   assert.ok(!response.body.review.theoryIdeas.some((idea) => /LOXL2|macrophage|stromal cells|RNA lung/i.test(idea.title)))
   for (const name of ['Bosentan', 'Sildenafil', 'Interferon gamma-1b']) {
     const excluded = response.body.excludedTreatments.find((item) => item.aliases.some((alias) => alias.toLowerCase() === name.toLowerCase()))
@@ -986,7 +1020,7 @@ test('Every Cure public scores are shown only as attributable computational ques
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
   const directIdeas = response.body.review.theoryIdeas
   assert.ok(directIdeas.some((idea) => /Test repurposing candidate one/i.test(idea.title)))
-  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
   assert.ok(directIdeas.every((idea) => idea.directSearch?.pubmedBackground?.source?.url))
   assert.ok(!directIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
 })
@@ -1067,7 +1101,7 @@ test('a source-backed run keeps a source-linked overview when a report lane is e
   assert.ok(response.body.review.briefing.sourceIds.length)
   assert.ok(response.body.review.questions.length)
   assert.ok(response.body.review.questions.every((question) => question.sourceIds.length))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
 })
 
 test('a source-gated writer overview survives a malformed second AI pass', { concurrency: false }, async () => {
