@@ -294,6 +294,23 @@ const reviewerDraft = {
   flags: [],
 }
 
+const aiIdeaScoutDraft = {
+  ideas: [
+    {
+      candidate: 'Test AI idea with no condition match',
+      category: 'Medicine',
+      whyItCouldConnect: 'AI flagged this as a possible question based on the condition information in the source records.',
+      providerQuestion: 'Is this worth discussing?',
+    },
+    {
+      candidate: 'AAV-RP therapy',
+      category: 'Gene research',
+      whyItCouldConnect: 'AI flagged this as a possible question based on the condition information in the source records.',
+      providerQuestion: 'Is this worth discussing?',
+    },
+  ],
+}
+
 const explorationDraft = {
   briefing: 'This is an AI starting map for retinitis pigmentosa. It gives possible research connections to verify with trusted sources and a specialist.',
   treatmentPaths: [{
@@ -419,6 +436,9 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         const term = new URL(url).searchParams.get('term') || ''
         pubMedTerms.push(term)
+        if (/Test AI idea with no condition match/i.test(term)) {
+          return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
+        }
         if (relatedPreclinical && /retinal degeneration/i.test(term)) {
           return jsonResponse({ esearchresult: { idlist: ['42321469'] } })
         }
@@ -433,6 +453,9 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
         const query = new URL(url).searchParams.get('query') || ''
+        if (/Test AI idea with no condition match/i.test(query)) {
+          return jsonResponse({ resultList: { result: [] } })
+        }
         if (/AAV-RP therapy/i.test(query)) {
           return jsonResponse({
             resultList: {
@@ -573,6 +596,8 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           : packetCandidateDraft
         const output = request.instructions.includes('Packet Candidate Extractor')
           ? packetCandidateOutput
+          : request.instructions.includes('AI Idea Scout')
+            ? aiIdeaScoutDraft
           : request.instructions.includes('Candidate Scout')
             ? candidateScoutDraft
           : request.instructions.includes('Research Connections Agent') || request.instructions.includes('second safety pass')
@@ -694,8 +719,14 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.equal(response.body.review.lifestyle.length, 1)
   assert.equal(response.body.review.safety.length, 1)
   assert.equal(response.body.review.hypotheses.length, 1)
-  assert.equal(response.body.review.theoryIdeas.length, 10)
-  assert.ok(response.body.review.theoryIdeas.some((idea) => idea.title === 'Vitamin D signaling and retinal cell stress'))
+  const aiIdeaGate = response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')
+  assert.equal(aiIdeaGate.status, 'ready')
+  assert.equal(response.body.review.theoryIdeas.length, 1, JSON.stringify({ coverage: response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search'), theoryIdeas: response.body.review.theoryIdeas }))
+  assert.equal(response.body.review.theoryIdeas[0].title, 'Test AI idea with no condition match')
+  assert.equal(response.body.review.theoryIdeas[0].directSearch.status, 'not-found')
+  assert.equal(response.body.review.theoryIdeas[0].directSearch.pubmed.status, 'not-found')
+  assert.equal(response.body.review.theoryIdeas[0].directSearch.europePmc.status, 'not-found')
+  assert.ok(!response.body.review.theoryIdeas.some((idea) => /AAV-RP therapy/i.test(idea.title)))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.providerQuestion))
   assert.ok(response.body.review.theoryIdeas.every((idea) => !/\bhigh[-\s]?dose\b/i.test(`${idea.title} ${idea.whyItCouldConnect} ${idea.caution}`)))
@@ -724,9 +755,9 @@ test('an any-condition report uses MedlinePlus for the disease overview', { conc
   assert.match(overview.conditionOverview.whatItIs, /movement disorder/i)
   assert.match(overview.conditionOverview.whatToWatch, /tremor|stiffness/i)
   assert.ok(response.body.sourceCoverage.some((lane) => lane.id === 'medlineplus' && lane.status === 'ready'))
-  assert.equal(response.body.review.theoryIdeas.length, 10)
+  assert.equal(response.body.review.theoryIdeas.length, 1)
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.verificationQuery))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
 })
 
 test('a direct condition-matched CAR-T or cell study stays in the live trial list', { concurrency: false }, async () => {
@@ -856,12 +887,12 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   assert.ok(blockedNac)
   assert.ok(blockedNac.aliases.some((alias) => /^NAC$/i.test(alias)))
 
-  assert.equal(response.body.curatedTheoryIdeas.length, 10)
-  assert.equal(response.body.review.theoryIdeas.length, 10)
+  assert.equal(response.body.curatedTheoryIdeas.length, 4)
+  assert.equal(response.body.review.theoryIdeas.length, 1)
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
-  const vagueTheoryItem = /\b(?:research|study|studies|platform|pathway|target|treatment|therapy|drug class|cell program|gene program|rna program|formal|academic|question|screen|search|trial)\b/i
-  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.some((item) => !vagueTheoryItem.test(item))))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(!response.body.review.theoryIdeas.some((idea) => /LOXL2|macrophage|stromal cells|RNA lung/i.test(idea.title)))
   for (const name of ['Bosentan', 'Sildenafil', 'Interferon gamma-1b']) {
     const excluded = response.body.excludedTreatments.find((item) => item.aliases.some((alias) => alias.toLowerCase() === name.toLowerCase()))
     assert.ok(excluded, `${name} should stay in the negative-results lane`)
@@ -979,7 +1010,7 @@ test('a source-backed run keeps a source-linked overview when a report lane is e
   assert.ok(response.body.review.briefing.sourceIds.length)
   assert.ok(response.body.review.questions.length)
   assert.ok(response.body.review.questions.every((question) => question.sourceIds.length))
-  assert.equal(response.body.review.theoryIdeas.length, 10)
+  assert.equal(response.body.review.theoryIdeas.length, 1)
 })
 
 test('a source-gated writer overview survives a malformed second AI pass', { concurrency: false }, async () => {
@@ -1030,7 +1061,7 @@ test('an authoritative condition foundation prevents a blank RP report when live
   assert.equal(response.body.exploration, null)
   assert.match(response.body.review.briefing.text, /rare inherited eye diseases/i)
   assert.ok(response.body.review.briefing.sourceIds.includes('rp-nei-condition-overview'))
-  assert.equal(response.body.review.theoryIdeas.length, 10)
+  assert.equal(response.body.review.theoryIdeas.length, 0)
 })
 
 test('a report request without a condition is rejected before any research starts', { concurrency: false }, async () => {
@@ -1198,7 +1229,7 @@ test('the offline starting map stays condition-specific for common and arbitrary
       assert.equal(response.body.exploration, null)
       assert.ok(response.body.review.briefing.text)
       assert.ok(response.body.review.briefing.sourceIds.length)
-      assert.equal(response.body.review.theoryIdeas.length, 10)
+      assert.equal(response.body.review.theoryIdeas.length, 0)
       if (/retinitis pigmentosa/i.test(condition)) {
         assert.ok(response.body.review.briefing.sourceIds.includes('rp-nei-condition-overview'))
       }
@@ -1262,11 +1293,7 @@ test('common-condition foundations keep established care and lifestyle sections 
     && source.candidateLeads?.[0]?.roleVerified === true))
   assert.equal(crohn.body.curatedLifestyleIdeas.length, 3)
   assert.ok(crohn.body.review.briefing.sourceIds.includes('crohn-niddk-overview'))
-  assert.equal(crohn.body.review.theoryIdeas.length, 10)
-  assert.ok(crohn.body.review.theoryIdeas.some((idea) => /NOD2-RIPK2/i.test(idea.title)))
-  assert.ok(crohn.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
-  assert.ok(crohn.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.every((item) =>
-    !/\b(?:research|study|platform|pathway|target|treatment|therapy|drug class|question|trial)\b/i.test(item))))
+  assert.equal(crohn.body.review.theoryIdeas.length, 0)
 
   const parkinson = await run("Parkinson's Disease")
   assert.equal(parkinson.status, 200)
@@ -1290,10 +1317,7 @@ test('common-condition foundations keep established care and lifestyle sections 
   assert.ok(lada.body.excludedTreatments.some((item) => item.title === 'Sulfonylureas for LADA'))
   assert.equal(lada.body.curatedLifestyleIdeas.length, 3)
   assert.ok(lada.body.review.briefing.sourceIds.includes('lada-expert-consensus-overview'))
-  assert.equal(lada.body.review.theoryIdeas.length, 10)
-  assert.ok(lada.body.review.theoryIdeas.some((idea) => /Anti-CD3/i.test(idea.title)))
-  assert.ok(lada.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.every((item) =>
-    !/\b(?:research|study|platform|pathway|target|treatment|therapy|drug class|question|trial)\b/i.test(item))))
+  assert.equal(lada.body.review.theoryIdeas.length, 0)
 
   const wilson = await run('Wilson disease')
   assert.equal(wilson.status, 200)
@@ -1305,7 +1329,5 @@ test('common-condition foundations keep established care and lifestyle sections 
   assert.ok(wilsonOptions.includes('Zinc acetate (Galzin)'))
   assert.equal(wilson.body.curatedLifestyleIdeas.length, 4)
   assert.ok(wilson.body.review.briefing.sourceIds.includes('wilson-medlineplus-overview'))
-  assert.equal(wilson.body.review.theoryIdeas.length, 10)
-  assert.ok(wilson.body.review.theoryIdeas.some((idea) => /ATP7B/i.test(idea.title)))
-  assert.ok(wilson.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
+  assert.equal(wilson.body.review.theoryIdeas.length, 0)
 })
