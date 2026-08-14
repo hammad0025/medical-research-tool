@@ -465,7 +465,7 @@ const textResponse = (body, status = 200) => ({
 const auditedRpModelCandidatePattern = /erucamide|melatonin|sulforaphane|tauroursodeoxycholic acid|tudca|minocycline|kus121|piceid octanoate|curcumin|ibuprofen|thx-b/i
 const auditedIpfModelCandidatePattern = /tetrandrine|spermidine|celastrol|andrographolide|ginsenoside rb1|melatonin|ramelteon|empagliflozin|berberine|tauroursodeoxycholic acid|tudca|fisetin|sulforaphane/i
 const rpLibraryCandidatePattern = /dimethyl fumarate|edaravone|trehalose|spermidine|fisetin|nicotinamide riboside|urolithin a|riluzole|elamipretide|carnosic acid|astaxanthin|pterostilbene/i
-const ipfLibraryCandidatePattern = /riluzole|apremilast|roflumilast|ibudilast|naltrexone|urolithin a|elamipretide|carnosic acid|astaxanthin|pterostilbene|resmetirom|ketotifen|cromolyn sodium|palmitoylethanolamide|hydroxytyrosol|dexpramipexole|coenzyme q10|alpha-lipoic acid|fluvoxamine|dextromethorphan/i
+const ipfLibraryCandidatePattern = /riluzole|ibudilast|urolithin a|carnosic acid|ketotifen|hydroxytyrosol|dexpramipexole|alpha-lipoic acid|fluvoxamine|pyrroloquinoline quinone|ergothioneine|benfotiamine|ivabradine|ranolazine|guanfacine|memantine|amantadine|colesevelam|buspirone|mirtazapine|famotidine|acetazolamide/i
 const ladaLibraryCandidatePattern = /teplizumab|low-dose aldesleukin|abatacept|rituximab|verapamil|imatinib|baricitinib|alpha-1 antitrypsin|golimumab|ustekinumab|low-dose anti-thymocyte globulin/i
 
 const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, auditedRpModelCandidatesNoMatch = false, auditedIpfModelCandidatesNoMatch = false, rpLibraryCandidatesNoMatch = false, ipfLibraryCandidatesNoMatch = false, ladaLibraryCandidatesNoMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, targetLinkedCandidateNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
@@ -1316,13 +1316,13 @@ test('the IPF reviewed library fills checked unresearched cards without leaking 
   assert.equal(directIdeas.length, 10, JSON.stringify(response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')))
   assert.equal(new Set(directIdeas.map((idea) => idea.title.toLowerCase())).size, 10)
   assert.ok(directIdeas.some((idea) => /^riluzole$/i.test(idea.title)), JSON.stringify(directIdeas))
-  assert.ok(directIdeas.some((idea) => /^apremilast$/i.test(idea.title)), JSON.stringify(directIdeas))
-  assert.ok(directIdeas.some((idea) => /^roflumilast$/i.test(idea.title)), JSON.stringify(directIdeas))
+  assert.ok(directIdeas.some((idea) => /^ibudilast$/i.test(idea.title)), JSON.stringify(directIdeas))
+  assert.ok(directIdeas.some((idea) => /^urolithin a$/i.test(idea.title)), JSON.stringify(directIdeas))
   assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(directIdeas.every((idea) => idea.directSearch?.pubmed?.status === 'not-found'))
   assert.ok(directIdeas.every((idea) => idea.directSearch?.europePmc?.status === 'not-found'))
   assert.ok(directIdeas.every((idea) => idea.directSearch?.candidateSource?.url))
-  assert.ok(!directIdeas.some((idea) => /nintedanib|pirfenidone|nicotinamide riboside|zinc|tetrandrine|metformin|n-acetylcysteine/i.test(idea.title)), JSON.stringify(directIdeas))
+  assert.ok(!directIdeas.some((idea) => /nintedanib|pirfenidone|nicotinamide riboside|zinc|tetrandrine|metformin|n-acetylcysteine|apremilast|roflumilast|naltrexone|elamipretide|astaxanthin|pterostilbene|resmetirom|cromolyn|palmitoylethanolamide|coenzyme q10|dextromethorphan/i.test(idea.title)), JSON.stringify(directIdeas))
 })
 
 test('audited RP model-paper candidates are withheld from the new-idea lane', { concurrency: false }, async () => {
