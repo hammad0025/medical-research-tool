@@ -5963,17 +5963,124 @@ const sourceBackedReportFallback = (packet) => {
   }
 }
 
+const sourceLooksLikePositiveOrNeutralTreatmentLead = (source) => {
+  const text = `${source?.title || ''} ${source?.summary || ''}`
+  return !/\b(?:worse|harm|harmful|no benefit|no effect|did not support|does not support|not support|failed to|stopped early|increased mortality|increased hospitalization|guideline(?:s)?\s+against)\b/i.test(text)
+}
+
+const fallbackTreatmentAccessClass = (item, trialOnly = false) => {
+  if (trialOnly) return 'trial-only'
+  const normalized = normalizedTreatmentAccessClass(item?.accessClass)
+  if (normalized) return normalized
+  const text = `${item?.title || ''} ${item?.category || ''} ${item?.accessExplanation || ''}`
+  if (/\b(?:trial|study access|study[-\s]?only|clinical study|research program)\b/i.test(text)) return 'trial-only'
+  if (/\b(?:label|approved|prescription|rx|gene therapy)\b/i.test(text)) return 'prescription-or-label-check'
+  return 'patient-discussible'
+}
+
+const safeFallbackTreatmentCaution = 'This is research information, not a personal treatment plan. A clinician or pharmacist needs to check safety and fit.'
+
+const sourceBackedTreatmentIdeaFallback = (packet) => {
+  const condition = cleanText(packet?.patient?.condition, 120) || 'this condition'
+  const sources = Array.isArray(packet?.sources) ? packet.sources : []
+  const trials = Array.isArray(packet?.trials) ? packet.trials : []
+  const allowedSourceIds = new Set([
+    ...sources.map((source) => source?.id),
+    ...trials.map((trial) => trial?.id),
+  ].map((id) => cleanText(id, 100)).filter(Boolean))
+  const rawIdeas = []
+  const seen = new Set()
+
+  const addIdea = (idea, { trialOnly = false } = {}) => {
+    const title = cleanText(idea?.title, 120)
+    const key = candidateKey(title)
+    const sourceIds = sourceIdsFrom(idea?.sourceIds, allowedSourceIds)
+    if (!key || seen.has(key) || !sourceIds.length) return
+    seen.add(key)
+    rawIdeas.push({
+      title,
+      category: cleanText(idea?.category, 80) || (trialOnly ? 'Current study treatment' : 'Treatment named in research'),
+      summary: cleanText(idea?.summary, 440)
+        || `A linked source names ${title} in research for ${condition}.`,
+      takeaway: cleanText(idea?.takeaway, 360)
+        || 'This is something to ask about, not proof that it works.',
+      whyItMayMatter: cleanText(idea?.whyItMayMatter, 440)
+        || 'It gives a specific name to discuss with a clinician instead of a broad treatment category.',
+      accessClass: fallbackTreatmentAccessClass(idea, trialOnly),
+      accessExplanation: cleanText(idea?.accessExplanation, 360)
+        || (trialOnly
+          ? 'Access depends on study rules and study-team review.'
+          : 'The linked source gives a research reason to ask about it.'),
+      providerQuestion: simpleDoctorQuestion(idea?.providerQuestion || `Could ${title} fit me?`),
+      caution: hasUnsafeRecommendationLanguage(idea?.caution || '') || hasUnsupportedGuidelineStrength(idea?.caution || '')
+        ? safeFallbackTreatmentCaution
+        : cleanText(idea?.caution, 420) || safeFallbackTreatmentCaution,
+      sourceIds,
+    })
+  }
+
+  for (const lead of Array.isArray(packet?.curatedDiscussionLeads) ? packet.curatedDiscussionLeads : []) {
+    addIdea(lead)
+  }
+
+  for (const source of sources) {
+    if (!source?.id || !sourceLooksLikePositiveOrNeutralTreatmentLead(source)) continue
+    for (const candidate of Array.isArray(source?.candidateLeads) ? source.candidateLeads : []) {
+      if (candidate?.roleVerified !== true) continue
+      const title = cleanText(candidate?.name, 120)
+      addIdea({
+        title,
+        category: cleanText(candidate?.category, 80) || 'Treatment named in research',
+        summary: `A linked source names ${title} in research for ${condition}. Open the source to see what was studied.`,
+        takeaway: 'This is a named research item to ask about, not proof that it helps.',
+        whyItMayMatter: 'It gives the visit a specific name to check instead of a broad treatment category.',
+        accessClass: 'patient-discussible',
+        accessExplanation: 'The linked source names it for this condition or a closely related research model.',
+        providerQuestion: `Could ${title} fit me?`,
+        caution: safeFallbackTreatmentCaution,
+        sourceIds: [source.id],
+      })
+    }
+  }
+
+  for (const trial of trials) {
+    if (!trial?.id || trial?.conditionMatch === 'broad') continue
+    for (const title of therapeuticTrialCandidateNames(trial)) {
+      addIdea({
+        title,
+        category: 'Current study treatment',
+        summary: `A current study record lists ${title} for ${condition}. A study listing does not prove that it works.`,
+        takeaway: 'The study team can explain what is being tested and who may qualify.',
+        whyItMayMatter: 'It may help the person ask about current research access.',
+        accessClass: 'trial-only',
+        accessExplanation: 'Access depends on study rules and study-team review.',
+        providerQuestion: `Could ${title} fit me?`,
+        caution: 'A study listing does not prove safety or benefit. A clinician or study team needs to review it.',
+        sourceIds: [trial.id],
+      }, { trialOnly: true })
+    }
+  }
+
+  const allowedCandidates = new Set(rawIdeas.map((idea) => candidateKey(idea.title)).filter(Boolean))
+  return rawIdeas
+    .map((idea) => normalizeTreatmentIdea(idea, allowedSourceIds, allowedCandidates))
+    .filter(Boolean)
+    .slice(0, 10)
+}
+
 const completeSourceBackedReview = (review, packet) => {
   if (!packet?.sources?.length && !packet?.trials?.length) return review
   const fallback = sourceBackedReportFallback(packet)
   const hasBriefing = Boolean(review?.briefing?.text && Array.isArray(review?.briefing?.sourceIds) && review.briefing.sourceIds.length)
   const hasQuestions = Array.isArray(review?.questions) && review.questions.length
+  const hasTreatmentIdeas = Array.isArray(review?.treatmentIdeas) && review.treatmentIdeas.length
   const hasAuthoritativeOverview = (packet?.sources || []).some((source) => source?.conditionOverview && source?.id)
   return {
     ...(review || defaultReview()),
     // The core disease definition should not drift between AI runs.
     briefing: hasAuthoritativeOverview ? fallback.briefing : hasBriefing ? review.briefing : fallback.briefing,
     questions: hasQuestions ? review.questions : fallback.questions,
+    treatmentIdeas: hasTreatmentIdeas ? review.treatmentIdeas : sourceBackedTreatmentIdeaFallback(packet),
     theoryIdeas: completeTheoryIdeasForPacket(review?.theoryIdeas, packet),
   }
 }
