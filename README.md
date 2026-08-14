@@ -6,6 +6,8 @@ A source-first, private-beta medical-research product for Dorothy's review. It a
 
 - Live multi-source evidence retrieval for any condition: PubMed, Europe PMC, Crossref, Semantic Scholar, NIH RePORTER, openFDA labels when relevant, and OpenAlex when configured
 - Optional broad web discovery through Perplexity, with raw web results kept separate from clinical claims until another supported source verifies them
+- A target-linked hypothesis path: Open Targets disease-to-target associations and ChEMBL compound-target activity records can create named research questions, but only after PubMed and Europe PMC find no condition match
+- A separate, worker-ready transcriptomic-inversion engine for curated human disease signatures and measured CMap/LINCS compound signatures; it is source-linked, thresholded, and withheld until literature checks finish
 - An optional plain-language intake that extracts only explicitly stated facts into reviewable profile fields
 - A curator-reviewed IPF evidence core that does not depend on model memory
 - A separate, explicitly exploratory workbench for mechanisms and research questions
@@ -67,13 +69,41 @@ npm run dev
 3. If the optional plain-language intake is used, Anthropic extracts only explicitly stated facts into the form; the user reviews those fields before research can run.
 4. For IPF, the local server adds its curated reference packet; every run also retrieves independent exact-condition records from PubMed, Europe PMC, Crossref, Semantic Scholar, openFDA labels where relevant, NIH RePORTER active projects, and OpenAlex when configured. An optional Perplexity web-search lane discovers relevant sites beyond those databases but remains link-only until another supported source verifies a claim.
 5. The server deduplicates records by PMID, DOI, or title, rejects retracted or condition-mismatched sources, and withholds metadata-only records from the AI packet while retaining them in the source ledger.
-6. The server pulls live recruiting studies from ClinicalTrials.gov and shows matching active research sites, never an invented "best doctor" ranking.
-7. Cochrane Library, WHO ICTRP, and EU CTIS appear as authoritative search routes until a supported record-level or licensed connector is integrated. They are not scraped or represented as retrieved evidence.
-8. The preferred Anthropic writer, or OpenAI fallback, receives only the eligible source packet and returns structured JSON. It may only discuss entities and source IDs in that packet.
-9. A second reviewer request receives the draft plus the same packet and may approve, rewrite, or reject every item. The interface calls it an independent-provider review only when the writer and reviewer use different providers.
-10. A deterministic server gate accepts only known source IDs and blocks medical instructions, dosage language, unsafe promotional claims, invented center rankings, and ungrounded content.
+6. For a target-linked research question, the server requires an exact Open Targets disease-to-target association and a ChEMBL compound-target activity record. It then searches the condition and the candidate together in PubMed and Europe PMC. Any result in the condition, a close medical name, or an included related disease model blocks the card from being labeled “Not researched for this condition.”
+7. The server pulls live recruiting studies from ClinicalTrials.gov and shows matching active research sites, never an invented "best doctor" ranking.
+8. Cochrane Library, WHO ICTRP, and EU CTIS appear as authoritative search routes until a supported record-level or licensed connector is integrated. They are not scraped or represented as retrieved evidence.
+9. The preferred Anthropic writer, or OpenAI fallback, receives only the eligible source packet and returns structured JSON. It may only discuss entities and source IDs in that packet.
+10. A second reviewer request receives the draft plus the same packet and may approve, rewrite, or reject every item. The interface calls it an independent-provider review only when the writer and reviewer use different providers.
+11. A deterministic server gate accepts only known source IDs and blocks medical instructions, dosage language, unsafe promotional claims, invented center rankings, and ungrounded content.
 
 The important product choice is that the AI cannot rewrite retrieved or curated source material. It can only produce a separately labeled research briefing after the reviewer accepts it. Accepted model content renders with direct source links.
+
+## Transcriptomic research worker
+
+`scripts/transcriptomicInversionWorker.mjs` is intentionally outside the Vercel
+report request. It ranks named compounds with measured CMap/LINCS signatures
+against a curated human disease signature, then requires complete PubMed and
+Europe PMC checks before releasing a research hypothesis. It does not generate
+molecules, train a model, infer efficacy, or write treatment advice. See
+[`docs/transcriptomic-inversion-worker.md`](docs/transcriptomic-inversion-worker.md)
+for the job contract and deployment boundary.
+
+`scripts/geoSignatureIngestionWorker.mjs` provides the first data-ingestion
+step: it searches GEO, downloads a selected Series metadata manifest, and turns
+a curator-verified DGE table into a signed human disease signature. It does not
+infer cohorts or generate statistics from a raw matrix.
+
+`scripts/exportLincsGctxSlice.py` and `scripts/lincsSignatureIngestionWorker.mjs`
+provide the matching local LINCS path. The Python exporter requires a separate
+compute environment with `h5py` and an authorized local GCTx file; the Node
+importer only accepts documented Level 5 MODZ small-molecule signatures.
+
+For a private AWS Batch implementation of this worker, including encrypted S3
+source/result buckets, an ECR worker image, job isolation, and an explicit
+no-patient-data input contract, see
+[`infra/aws/README.md`](infra/aws/README.md). It is intentionally separate from
+the Vercel website and is not deployed until AWS account and source-license
+details are supplied.
 
 ## Verification
 

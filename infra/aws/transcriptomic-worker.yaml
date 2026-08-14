@@ -1,0 +1,309 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Private AWS Batch infrastructure for source-only transcriptomic inversion jobs.
+  It does not create a patient, EHR, or FHIR datastore.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: research
+    AllowedPattern: '^[a-z0-9-]{2,24}$'
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Existing VPC for the Batch worker.
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets for Batch jobs. Use private NAT-backed subnets by default, or public subnets only with SubnetAccessMode set to PUBLIC_WITH_ASSIGNED_IP for a demo.
+  SubnetAccessMode:
+    Type: String
+    Default: PRIVATE_WITH_NAT
+    AllowedValues: [PRIVATE_WITH_NAT, PUBLIC_WITH_ASSIGNED_IP]
+    Description: PRIVATE_WITH_NAT keeps Fargate public IPs disabled. PUBLIC_WITH_ASSIGNED_IP enables Fargate public IPs for public-subnet demo deployments.
+  ContainerImage:
+    Type: String
+    Default: ''
+    Description: ECR image URI after the worker image is built and pushed.
+  MaximumvCpus:
+    Type: Number
+    Default: 16
+    MinValue: 1
+    MaxValue: 256
+  JobVcpus:
+    Type: Number
+    Default: 4
+    AllowedValues: [1, 2, 4, 8, 16]
+  JobMemoryMiB:
+    Type: Number
+    Default: 16384
+  JobEphemeralStorageGiB:
+    Type: Number
+    Default: 200
+    MinValue: 21
+    MaxValue: 200
+
+Conditions:
+  HasContainerImage: !Not [!Equals [!Ref ContainerImage, '']]
+  UsePublicSubnetMode: !Equals [!Ref SubnetAccessMode, PUBLIC_WITH_ASSIGNED_IP]
+
+Resources:
+  ResearchKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Encrypts transcriptomic source and result artifacts.
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowAccountAdministration
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+
+  ResearchKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub 'alias/${EnvironmentName}-transcriptomic-research'
+      TargetKeyId: !Ref ResearchKey
+
+  ResearchInputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt ResearchKey.Arn
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: DataClassification
+          Value: Source-only research input. No patient or EHR data.
+
+  ResearchInputBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ResearchInputBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: [!GetAtt ResearchInputBucket.Arn, !Sub '${ResearchInputBucket.Arn}/*']
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  ResearchOutputBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt ResearchKey.Arn
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireResearchArtifacts
+            Status: Enabled
+            ExpirationInDays: 365
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+      Tags:
+        - Key: DataClassification
+          Value: Source-only research result. No patient or EHR data.
+
+  ResearchOutputBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ResearchOutputBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource: [!GetAtt ResearchOutputBucket.Arn, !Sub '${ResearchOutputBucket.Arn}/*']
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  WorkerRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: IMMUTABLE
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"Keep the newest 20 worker images","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":20},"action":{"type":"expire"}}]}
+
+  BatchSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: No inbound access for transcriptomic worker jobs.
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS to approved research sources through NAT, VPC endpoints, or assigned public IP in demo mode.
+
+  BatchServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: batch.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSBatchServiceRole
+
+  BatchExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  BatchJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ResearchArtifactAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:GetObject, s3:GetObjectVersion]
+                Resource: !Sub '${ResearchInputBucket.Arn}/*'
+              - Effect: Allow
+                Action: [s3:PutObject]
+                Resource: !Sub '${ResearchOutputBucket.Arn}/*'
+              - Effect: Allow
+                Action: [kms:Decrypt, kms:GenerateDataKey]
+                Resource: !GetAtt ResearchKey.Arn
+
+  BatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 30
+
+  BatchComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      Type: MANAGED
+      State: ENABLED
+      ComputeResources:
+        Type: FARGATE
+        MaxvCpus: !Ref MaximumvCpus
+        Subnets: !Ref SubnetIds
+        SecurityGroupIds: [!GetAtt BatchSecurityGroup.GroupId]
+      ServiceRole: !GetAtt BatchServiceRole.Arn
+
+  BatchJobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      State: ENABLED
+      Priority: 1
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !Ref BatchComputeEnvironment
+
+  TranscriptomicJobDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: container
+      PlatformCapabilities: [FARGATE]
+      RetryStrategy:
+        Attempts: 1
+      Timeout:
+        AttemptDurationSeconds: 21600
+      ContainerProperties:
+        Image: !If [HasContainerImage, !Ref ContainerImage, !Sub '${WorkerRepository.RepositoryUri}:replace-before-submit']
+        Command: []
+        ExecutionRoleArn: !GetAtt BatchExecutionRole.Arn
+        JobRoleArn: !GetAtt BatchJobRole.Arn
+        ResourceRequirements:
+          - Type: VCPU
+            Value: !Ref JobVcpus
+          - Type: MEMORY
+            Value: !Ref JobMemoryMiB
+        EphemeralStorage:
+          SizeInGiB: !Ref JobEphemeralStorageGiB
+        NetworkConfiguration:
+          AssignPublicIp: !If [UsePublicSubnetMode, ENABLED, DISABLED]
+        FargatePlatformConfiguration:
+          PlatformVersion: LATEST
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: !Ref BatchLogGroup
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: batch
+        Environment:
+          - Name: RESEARCH_INPUT_BUCKET
+            Value: !Ref ResearchInputBucket
+          - Name: RESEARCH_OUTPUT_BUCKET
+            Value: !Ref ResearchOutputBucket
+          - Name: RESEARCH_KMS_KEY_ARN
+            Value: !GetAtt ResearchKey.Arn
+
+Outputs:
+  InputBucketName:
+    Value: !Ref ResearchInputBucket
+  OutputBucketName:
+    Value: !Ref ResearchOutputBucket
+  WorkerRepositoryUri:
+    Value: !GetAtt WorkerRepository.RepositoryUri
+  JobQueueArn:
+    Value: !Ref BatchJobQueue
+  JobDefinitionArn:
+    Value: !Ref TranscriptomicJobDefinition
+  JobRoleArn:
+    Value: !GetAtt BatchJobRole.Arn
+  CloudWatchLogGroup:
+    Value: !Ref BatchLogGroup

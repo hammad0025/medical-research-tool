@@ -151,7 +151,7 @@ const FDA_EXPANDED_ACCESS_SOURCE = {
   origin: 'U.S. Food and Drug Administration',
 }
 
-const isDisplayableTrialIntervention = (title) => !/^(?:arm|group|cohort)\s*(?:\d+|[a-z])$|^(?:placebo|sham|no intervention|standard(?: care| treatment)?|usual(?: care| treatment)?|routine(?: care| treatment)?|supportive care|observation(?:al)?)(?:\b|:)|\b(?:blood (?:test|draw|sample)|biomarker|imaging|scan|mri|pet|diagnostic|diagnosis|screening|assessment|questionnaire|survey|monitoring|registry|observation)\b|\b(?:clinical|sham)\s+(?:dbs\s+)?(?:setting|configuration|programming)\b|\bimmunosuppressive regimen\b|\bcustomized microinjection device\b/i.test(title)
+const isDisplayableTrialIntervention = (title) => !/^(?:arm|group|cohort)\s*(?:\d+|[a-z])$|\b(?:placebo|sham)\b|^(?:no intervention|standard(?: care| treatment)?|usual(?: care| treatment)?|routine(?: care| treatment)?|supportive care|observation(?:al)?)(?:\b|:)|\b(?:blood (?:test|draw|sample)|biomarker|imaging|scan|mri|pet|diagnostic|diagnosis|screening|assessment|questionnaire|survey|monitoring|registry|observation)\b|\b(?:clinical|sham)\s+(?:dbs\s+)?(?:setting|configuration|programming)\b|\bimmunosuppressive regimen\b|\bcustomized microinjection device\b/i.test(title)
 
 const isConcretePatientTreatmentTitle = (title) => isDisplayableTrialIntervention(title)
   && !/^(?:versus|vs\.?|compared\s+with|comparison\s+with)\b/i.test(String(title || ''))
@@ -189,6 +189,9 @@ const treatmentCategoryForType = (type) => ({
 const cleanTreatmentDisplayName = (title) => {
   const cleaned = String(title || '')
     .replace(/^(?:drug|biological|combination product|dietary supplement|genetic|device|procedure|radiation):\s*/i, '')
+    // Trial registries can prefix an intervention with an arm label. Keep
+    // that label out of the patient-facing product name.
+    .replace(/^phase\s*\d+(?:\s*[a-z]|\s*\/?\s*\d+)?\s*:\s*/i, '')
     .replace(/\s*\((?:high|low|intermediate|selected|single)[-\s]+dose(?: and standard corticosteroid regimen)?\)/ig, '')
     .replace(/\b(?:low|high|intermediate|selected|single)[-\s]+dose\b/ig, '')
     .replace(/\b(?:standard|modified)\s+corticosteroid regimen\b/ig, '')
@@ -594,7 +597,7 @@ const theoryIdeasForReport = (result) => {
   return uniqueIdeas(reviewedIdeas
     .map((idea) => ({ ...idea, potentialInterventions: repurposingCandidatesForIdea(idea) }))
     .filter((idea) => idea?.kind === 'ai-direct-search-no-match')
-    .filter((idea) => ['not-found', 'preclinical-only'].includes(idea?.directSearch?.status))
+    .filter((idea) => idea?.directSearch?.status === 'not-found')
     .filter((idea) => idea.potentialInterventions.length)
     .filter((idea) => !isExplicitlyExcludedTreatment(result, idea))
     .filter((idea) => !idea.potentialInterventions.some((candidate) => isExplicitlyExcludedTreatment(result, { title: candidate })))
@@ -1371,11 +1374,10 @@ const TheoryIdeaCards = ({ condition, result, ideas }) => (
       const candidateCitations = candidateSource ? [candidateSource] : []
       const pubmedUrl = idea?.directSearch?.pubmed?.url
       const europePmcUrl = idea?.directSearch?.europePmc?.url
-      const animalOrLabOnly = idea?.directSearch?.status === 'preclinical-only'
       return (
         <article className="research-idea-card research-idea-card--exploratory" key={idea.title}>
           <span className="research-idea-card__number">{String(index + 1).padStart(2, '0')}</span>
-          <div className="card-topline"><p className="card-kicker">{animalOrLabOnly ? 'New idea to check' : (idea.category || 'AI idea to check')}</p><StatusPill tone="experimental">{animalOrLabOnly ? 'Unresearched for this illness' : 'No direct human study found'}</StatusPill></div>
+          <div className="card-topline"><p className="card-kicker">{idea.category || 'AI idea to check'}</p><StatusPill tone="experimental">Not researched for this condition</StatusPill></div>
           <h3>{idea.title}</h3>
           <CitedParagraph citations={biologyCitations}><strong>Why this is on the list:</strong> {idea.whyItCouldConnect}</CitedParagraph>
           <dl className="research-idea-facts">
@@ -1415,7 +1417,7 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">2. Unresearched ideas for this illness</p><p>These are named drugs, supplements, or other products. We found early research, but not a study in people with this illness. That does not mean they will work. Each card has the exact sources.</p></div>
+            <div><p className="card-kicker">2. Not researched for this condition</p><p>These names did not show research for this condition in the sources we checked. They are ideas to discuss, not treatments. They may not help.</p></div>
             <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? `${theoryIdeas.length} checked idea${theoryIdeas.length === 1 ? '' : 's'}` : 'No checked idea today'}</StatusPill>
           </div>
           {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>We could not verify a named idea for this report. We do not add random names just to fill this list.</p></div>}

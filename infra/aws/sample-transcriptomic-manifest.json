@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "transcriptomic-batch-input/v1",
+  "jobId": "fictional-ipf-study-signature-2026-08-12",
+  "condition": "Idiopathic Pulmonary Fibrosis",
+  "conditionSearchTerms": ["Pulmonary Fibrosis"],
+  "maximumCandidates": 20,
+  "diseaseSignature": {
+    "condition": "Idiopathic Pulmonary Fibrosis",
+    "source": {
+      "id": "geo-gse-example",
+      "title": "Replace with the exact curated human study title",
+      "url": "https://www.ncbi.nlm.nih.gov/geo/",
+      "accession": "GSE000000",
+      "organism": "Homo sapiens",
+      "tissue": "Lung",
+      "contrast": "Curator-verified disease tissue versus control tissue",
+      "processing": "Curator-verified differential expression table"
+    },
+    "genes": [
+      { "symbol": "REPLACE", "log2FoldChange": 1.5, "adjustedPValue": 0.05 }
+    ]
+  },
+  "lincs": {
+    "gctxS3Uri": "s3://REPLACE-INPUT-BUCKET/authorized-lincs/level5.gctx",
+    "dataset": {
+      "id": "REPLACE",
+      "title": "Authorized CMap/LINCS Level 5 release",
+      "url": "https://clue.io/data",
+      "release": "REPLACE"
+    },
+    "cellLines": ["A549"],
+    "geneSpace": "landmark",
+    "aggregationMethod": "by_rna_well",
+    "minimumAbsoluteZScore": 2,
+    "minimumTas": 0.5,
+    "maximumSignatures": 500,
+    "restrictToCoreTouchstone": true
+  }
+}

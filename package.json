@@ -8,9 +8,12 @@
     "build": "npm run check && vite build",
     "check": "npm run lint && npm test",
     "lint": "oxlint",
-    "test": "node --test",
+    "test": "node --test && python3 scripts/testLincsGctxExporter.py && python3 scripts/testAwsTranscriptomicBatchWorker.py && python3 scripts/testAwsInfrastructure.py",
     "test:matrix": "node --test --test-name-pattern='ten-condition report matrix'",
     "test:stress": "node --test --test-name-pattern='fifteen-condition stress matrix'",
+    "worker:geo": "node scripts/geoSignatureIngestionWorker.mjs",
+    "worker:lincs": "node scripts/lincsSignatureIngestionWorker.mjs",
+    "worker:transcriptomic": "node scripts/transcriptomicInversionWorker.mjs",
     "verify:deployment": "node scripts/deploymentVerifier.mjs",
     "preview": "vite preview"
   },

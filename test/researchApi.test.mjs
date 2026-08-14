@@ -16,6 +16,68 @@ const env = {
   SITE_ACCESS_SECURE_COOKIE: '',
 }
 
+const transcriptomicIpfArtifact = {
+  schemaVersion: 'aws-batch-transcriptomic-result/v1',
+  jobId: 'ipf-transcriptomic-smoke',
+  completedAt: '2026-08-13T23:02:33.250Z',
+  inversion: {
+    condition: 'Idiopathic Pulmonary Fibrosis',
+    released: [
+      {
+        compoundName: 'Transcriptomic Test Compound',
+        score: {
+          sharedGenes: 10,
+          inversionScore: 0.91,
+          oppositeFraction: 0.9,
+        },
+        diseaseSource: {
+          id: 'ipf-geo-signature',
+          title: 'Curated human IPF lung expression signature',
+          url: 'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE24206',
+          organism: 'Homo sapiens',
+          tissue: 'Human lung tissue',
+          contrast: 'Idiopathic pulmonary fibrosis versus control lung',
+          processing: 'Curated differential-expression table.',
+        },
+        perturbationSource: {
+          id: 'lincs-ipf-test-compound',
+          title: 'LINCS L1000 Level 5 MODZ signature: Transcriptomic Test Compound',
+          url: 'https://clue.io/data',
+          signatureId: 'SIG-IPF-TEST',
+          cellLine: 'A549',
+          dose: '10',
+          doseUnit: 'uM',
+          timeHours: 24,
+          dataset: 'LINCS L1000 Level 5',
+          processing: 'MODZ moderated z-score signature.',
+          tas: 0.95,
+        },
+        explanation: 'Transcriptomic Test Compound moved 10 shared genes in the opposite direction from the supplied IPF signature.',
+        novelty: {
+          complete: true,
+          status: 'not-found',
+          checks: [
+            {
+              conditionTerm: 'Idiopathic Pulmonary Fibrosis',
+              pubmed: {
+                status: 'not-found',
+                records: 0,
+                url: 'https://pubmed.ncbi.nlm.nih.gov/?term=%22Idiopathic%20Pulmonary%20Fibrosis%22%20AND%20%22Transcriptomic%20Test%20Compound%22',
+              },
+              europePmc: {
+                status: 'not-found',
+                records: 0,
+                url: 'https://europepmc.org/search?query=%22Idiopathic%20Pulmonary%20Fibrosis%22%20AND%20%22Transcriptomic%20Test%20Compound%22',
+              },
+            },
+          ],
+        },
+        caution: 'This is a computer-generated research question. It is not a treatment recommendation.',
+      },
+    ],
+  },
+}
+
 const pubMedXml = `
 <PubmedArticle>
   <MedlineCitation>
@@ -402,8 +464,9 @@ const textResponse = (body, status = 200) => ({
 
 const auditedRpModelCandidatePattern = /erucamide|melatonin|sulforaphane|tauroursodeoxycholic acid|tudca|minocycline|kus121|piceid octanoate|curcumin|ibuprofen|thx-b/i
 const auditedIpfModelCandidatePattern = /tetrandrine|spermidine|celastrol|andrographolide|ginsenoside rb1|melatonin|ramelteon|empagliflozin|berberine|tauroursodeoxycholic acid|tudca|fisetin|sulforaphane/i
+const ladaLibraryCandidatePattern = /teplizumab|low-dose aldesleukin|abatacept|rituximab|verapamil|imatinib|baricitinib|alpha-1 antitrypsin|golimumab|ustekinumab|low-dose anti-thymocyte globulin/i
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, auditedRpModelCandidatesNoMatch = false, auditedIpfModelCandidatesNoMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, auditedRpModelCandidatesNoMatch = false, auditedIpfModelCandidatesNoMatch = false, ladaLibraryCandidatesNoMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, targetLinkedCandidateNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
   const clinicalTrialRecordIds = []
@@ -415,6 +478,32 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
     clinicalTrialRecordIds,
     fetch: async (input, options = {}) => {
       const url = String(input)
+
+      if (url.includes('api.platform.opentargets.org/api/v4/graphql')) {
+        const request = JSON.parse(options.body)
+        if (/SearchDiseaseAndTargets/.test(request.query)) {
+          return jsonResponse({ data: { search: { hits: [{ id: 'EFO_0000001', entity: 'disease', name: 'Retinitis pigmentosa', description: 'Inherited retinal disease.' }] } } })
+        }
+        if (/DiseaseTargets/.test(request.query)) {
+          return jsonResponse({ data: { disease: { associatedTargets: { rows: targetLinkedCandidateNoMatch ? [{
+            score: 0.82,
+            target: { id: 'ENSG00000123456', approvedSymbol: 'TEST1', approvedName: 'Test target one' },
+          }] : [] } } } })
+        }
+      }
+      if (url.includes('chembl/api/data/target/search.json')) {
+        return jsonResponse({ targets: targetLinkedCandidateNoMatch ? [{
+          target_chembl_id: 'CHEMBLTARGET1',
+          pref_name: 'Test target one',
+          target_components: [{ target_component_synonyms: [{ component_synonym: 'TEST1', syn_type: 'GENE_SYMBOL' }] }],
+        }] : [] })
+      }
+      if (url.includes('chembl/api/data/activity.json')) {
+        return jsonResponse({ activities: targetLinkedCandidateNoMatch ? [{ molecule_chembl_id: 'CHEMBLTEST1', pchembl_value: 7.4 }] : [] })
+      }
+      if (url.includes('chembl/api/data/molecule.json')) {
+        return jsonResponse({ molecules: targetLinkedCandidateNoMatch ? [{ molecule_chembl_id: 'CHEMBLTEST1', pref_name: 'Test target-linked candidate', max_phase: 2 }] : [] })
+      }
 
       if (url.includes('datasets-server.huggingface.co/splits')) {
         return jsonResponse({ splits: [{ config: 'default', split: 'train' }] })
@@ -482,13 +571,17 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         if (failEvidence || failPubMed) throw new Error('PubMed is unavailable')
         const term = new URL(url).searchParams.get('term') || ''
         pubMedTerms.push(term)
-        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(term) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(term)) || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(term))) {
+        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)|Test target-linked candidate/i.test(term) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(term)) || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(term))) {
           const unstudiedPair = /Test AI idea with no condition match/i.test(term)
             || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(term))
             || (everyCureAllCandidatesNoMatch && /Test repurposing candidate \d+/i.test(term))
+            || (targetLinkedCandidateNoMatch && /Test target-linked candidate/i.test(term))
             || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(term))
             || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(term))
           if (!unstudiedPair) return jsonResponse({ esearchresult: { idlist: ['1001'] } })
+          return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
+        }
+        if (ladaLibraryCandidatesNoMatch && ladaLibraryCandidatePattern.test(term)) {
           return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
         }
         if (/erucamide|PreclinicalCandidate\d+/i.test(term)) {
@@ -520,13 +613,17 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
       if (url.includes('europepmc.org') || url.includes('/europepmc/')) {
         if (failEvidence) throw new Error('Europe PMC is unavailable')
         const query = new URL(url).searchParams.get('query') || ''
-        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)/i.test(query) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(query)) || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(query))) {
+        if (/Test AI idea with no condition match|Test repurposing candidate(?: one| \d+)|Test target-linked candidate/i.test(query) || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(query)) || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(query))) {
           const unstudiedPair = /Test AI idea with no condition match/i.test(query)
             || (everyCureCandidateNoMatch && /Test repurposing candidate one/i.test(query))
             || (everyCureAllCandidatesNoMatch && /Test repurposing candidate \d+/i.test(query))
+            || (targetLinkedCandidateNoMatch && /Test target-linked candidate/i.test(query))
             || (auditedRpModelCandidatesNoMatch && auditedRpModelCandidatePattern.test(query))
             || (auditedIpfModelCandidatesNoMatch && auditedIpfModelCandidatePattern.test(query))
           if (!unstudiedPair) return jsonResponse({ resultList: { result: [{ source: 'MED', id: '1001', pmid: '1001', title: 'Known condition match', abstractText: 'Known condition match.', pubYear: '2025', journalTitle: 'Test Retina Journal', pubType: 'Systematic Review' }] } })
+          return jsonResponse({ resultList: { result: [] } })
+        }
+        if (ladaLibraryCandidatesNoMatch && ladaLibraryCandidatePattern.test(query)) {
           return jsonResponse({ resultList: { result: [] } })
         }
         if (/erucamide|PreclinicalCandidate\d+/i.test(query)) {
@@ -848,7 +945,7 @@ test('RP expands to retinitis pigmentosa and returns a source-gated report', { c
   assert.ok(!response.body.review.theoryIdeas.some((idea) => /AAV-RP therapy/i.test(idea.title)))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.providerQuestion))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.candidateSource?.url))
   assert.ok(response.body.review.theoryIdeas.every((idea) => !/\bhigh[-\s]?dose\b/i.test(`${idea.title} ${idea.whyItCouldConnect} ${idea.caution}`)))
   assert.deepEqual(response.body.review.questions[0].sourceIds, ['NCT00000001'])
@@ -876,9 +973,9 @@ test('an any-condition report uses MedlinePlus for the disease overview', { conc
   assert.match(overview.conditionOverview.whatItIs, /movement disorder/i)
   assert.match(overview.conditionOverview.whatToWatch, /tremor|stiffness/i)
   assert.ok(response.body.sourceCoverage.some((lane) => lane.id === 'medlineplus' && lane.status === 'ready'))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions?.length))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
 })
 
 test('a direct condition-matched CAR-T or cell study stays in the live trial list', { concurrency: false }, async () => {
@@ -918,7 +1015,7 @@ test('a related retinal model finding stays in a clearly marked early-research l
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /erucamide/i.test(idea.title)))
 })
 
-test('a source-backed related-model molecule can enter the checked new-idea lane', { concurrency: false }, async () => {
+test('a named related-model finding cannot be called unresearched for the requested condition', { concurrency: false }, async () => {
   const mock = createMockFetch({ relatedPreclinical: true, erucamideNoDirectMatch: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
@@ -927,21 +1024,10 @@ test('a source-backed related-model molecule can enter the checked new-idea lane
   ))
 
   assert.equal(response.status, 200)
-  const idea = response.body.review.theoryIdeas.find((item) => /^erucamide$/i.test(item.title))
-  assert.ok(idea, JSON.stringify(response.body.review.theoryIdeas))
-  assert.equal(idea.directSearch.status, 'preclinical-only')
-  assert.equal(idea.directSearch.pubmed.status, 'not-found')
-  assert.equal(idea.directSearch.europePmc.status, 'not-found')
-  assert.match(idea.whyItCouldConnect, /related retinal-degeneration models/i)
-  assert.ok(idea.directSearch.candidateSource?.url)
-  assert.equal(idea.sourceIds.length, 2)
-  const linkedSources = idea.sourceIds.map((id) => response.body.sources.find((source) => source.id === id))
-  assert.ok(linkedSources.some((source) => /retinitis pigmentosa/i.test(source?.title || '')))
-  assert.ok(linkedSources.some((source) => /erucamide/i.test(`${source?.title || ''} ${source?.summary || ''}`)))
-  assert.ok(!linkedSources.some((source) => /vision rehabilitation/i.test(source?.title || '')))
+  assert.ok(!response.body.review.theoryIdeas.some((item) => /^erucamide$/i.test(item.title)), JSON.stringify(response.body.review.theoryIdeas))
 })
 
-test('a related-model molecule is labeled animal-or-lab-only instead of being hidden as a known human treatment', { concurrency: false }, async () => {
+test('a related-model molecule is withheld even when literal title-and-abstract searches are empty', { concurrency: false }, async () => {
   const mock = createMockFetch({ relatedPreclinical: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
@@ -950,16 +1036,10 @@ test('a related-model molecule is labeled animal-or-lab-only instead of being hi
   ))
 
   assert.equal(response.status, 200)
-  const idea = response.body.review.theoryIdeas.find((item) => /^erucamide$/i.test(item.title))
-  assert.ok(idea, JSON.stringify(response.body.review.theoryIdeas))
-  assert.equal(idea.directSearch.status, 'preclinical-only')
-  assert.equal(idea.directSearch.pubmed.status, 'preclinical-only')
-  assert.equal(idea.directSearch.europePmc.status, 'preclinical-only')
-  assert.match(idea.whyNotEstablished, /early research/i)
-  assert.ok(idea.directSearch.candidateSource?.url)
+  assert.ok(!response.body.review.theoryIdeas.some((item) => /^erucamide$/i.test(item.title)), JSON.stringify(response.body.review.theoryIdeas))
 })
 
-test('thin index metadata for the same audited model paper cannot turn it into a human-treatment match', { concurrency: false }, async () => {
+test('thin index metadata does not let a known related-model candidate into the new-idea lane', { concurrency: false }, async () => {
   const mock = createMockFetch({ relatedPreclinical: true, erucamideThinDirectMetadata: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
@@ -968,11 +1048,7 @@ test('thin index metadata for the same audited model paper cannot turn it into a
   ))
 
   assert.equal(response.status, 200)
-  const idea = response.body.review.theoryIdeas.find((item) => /^erucamide$/i.test(item.title))
-  assert.ok(idea, JSON.stringify(response.body.review.theoryIdeas))
-  assert.equal(idea.directSearch.status, 'preclinical-only')
-  assert.equal(idea.directSearch.europePmc.status, 'preclinical-only')
-  assert.match(idea.whyNotEstablished, /early research/i)
+  assert.ok(!response.body.review.theoryIdeas.some((item) => /^erucamide$/i.test(item.title)), JSON.stringify(response.body.review.theoryIdeas))
 })
 
 test('the audited recent-research intake keeps the erucamide paper separate from human RP care', () => {
@@ -1074,10 +1150,10 @@ test('the curated IPF source pack exposes its overview and FDA-labeled medicines
   assert.ok(blockedNac.aliases.some((alias) => /^NAC$/i.test(alias)))
 
   assert.equal(response.body.curatedTheoryIdeas.length, 4)
-  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.potentialInterventions.length > 0))
   assert.ok(response.body.review.theoryIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(!response.body.review.theoryIdeas.some((idea) => /LOXL2|macrophage|stromal cells|RNA lung/i.test(idea.title)))
   for (const name of ['Bosentan', 'Sildenafil', 'Interferon gamma-1b']) {
     const excluded = response.body.excludedTreatments.find((item) => item.aliases.some((alias) => alias.toLowerCase() === name.toLowerCase()))
@@ -1119,9 +1195,56 @@ test('Every Cure public scores are shown only as attributable computational ques
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Test repurposing candidate/i.test(idea.title)))
   assert.ok(!response.body.review.treatmentIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
   const directIdeas = response.body.review.theoryIdeas
-  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
   assert.ok(directIdeas.every((idea) => idea.directSearch?.candidateSource?.url))
   assert.ok(!directIdeas.some((idea) => /Known pair that must be filtered/i.test(idea.title)))
+})
+
+test('completed AWS transcriptomic artifacts feed the checked AI idea lane', { concurrency: false }, async () => {
+  const mock = createMockFetch()
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes({ ...env, TRANSCRIPTOMIC_RESULT_JSON: JSON.stringify(transcriptomicIpfArtifact) }).get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Idiopathic Pulmonary Fibrosis', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const artifactIdea = response.body.review.theoryIdeas.find((idea) => idea.title === 'Transcriptomic Test Compound')
+  assert.ok(artifactIdea)
+  assert.equal(artifactIdea.kind, 'ai-direct-search-no-match')
+  assert.equal(artifactIdea.directSearch.status, 'not-found')
+  assert.match(artifactIdea.whyItCouldConnect, /gene-pattern screen/i)
+  assert.ok(artifactIdea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
+  assert.ok(artifactIdea.directSearch.candidateSource?.url)
+  const coverage = response.body.sourceCoverage.find((lane) => lane.id === 'aws-transcriptomic-worker')
+  assert.equal(coverage.status, 'ready')
+  assert.equal(coverage.records, 1)
+})
+
+test('a target-linked candidate needs Open Targets, ChEMBL, and both condition literature checks', { concurrency: false }, async () => {
+  const mock = createMockFetch({ targetLinkedCandidateNoMatch: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Retinitis Pigmentosa', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const discoveryLane = response.body.sourceCoverage.find((lane) => lane.id === 'open-targets')
+  assert.equal(discoveryLane?.status, 'ready')
+  assert.match(discoveryLane?.detail || '', /ChEMBL compounds/i)
+  const targetSource = response.body.sources.find((source) => source.targetSymbol === 'TEST1' && source.origin === 'Open Targets Platform')
+  const activitySource = response.body.sources.find((source) => source.chemblId === 'CHEMBLTEST1' && source.origin === 'ChEMBL')
+  assert.ok(targetSource, JSON.stringify(response.body.sources))
+  assert.ok(activitySource, JSON.stringify(response.body.sources))
+  const idea = response.body.review.theoryIdeas.find((item) => /^Test target-linked candidate$/i.test(item.title))
+  assert.ok(idea, JSON.stringify(response.body.review.theoryIdeas))
+  assert.equal(idea.directSearch?.status, 'not-found')
+  assert.equal(idea.directSearch?.pubmed?.status, 'not-found')
+  assert.equal(idea.directSearch?.europePmc?.status, 'not-found')
+  assert.ok(idea.sourceIds.includes(targetSource.id))
+  assert.ok(idea.sourceIds.includes(activitySource.id))
+  assert.ok(idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id)))
 })
 
 test('the AI idea lane reaches ten distinct checked cards when ten public candidates pass both searches', { concurrency: false }, async () => {
@@ -1136,15 +1259,15 @@ test('the AI idea lane reaches ten distinct checked cards when ten public candid
   const directIdeas = response.body.review.theoryIdeas
   assert.equal(directIdeas.length, 10, JSON.stringify(response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')))
   assert.equal(new Set(directIdeas.map((idea) => idea.title.toLowerCase())).size, 10)
-  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
-  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.pubmed?.status)))
-  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.europePmc?.status)))
-  assert.ok(directIdeas.some((idea) => /^erucamide$/i.test(idea.title)))
-  assert.ok(directIdeas.some((idea) => /^melatonin$/i.test(idea.title)))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.pubmed?.status === 'not-found'))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.europePmc?.status === 'not-found'))
+  assert.ok(directIdeas.some((idea) => /^Test repurposing candidate \d+$/i.test(idea.title)), JSON.stringify(directIdeas))
+  assert.ok(!directIdeas.some((idea) => /^(?:erucamide|melatonin)$/i.test(idea.title)))
   assert.ok(directIdeas.every((idea) => idea.sourceIds.every((id) => response.body.sources.some((source) => source.id === id))))
 })
 
-test('audited RP model-paper sources can fill ten checked AI ideas when Every Cure is unavailable', { concurrency: false }, async () => {
+test('audited RP model-paper candidates are withheld from the new-idea lane', { concurrency: false }, async () => {
   const mock = createMockFetch({ relatedPreclinical: true, auditedRpModelCandidatesNoMatch: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
@@ -1154,15 +1277,12 @@ test('audited RP model-paper sources can fill ten checked AI ideas when Every Cu
 
   assert.equal(response.status, 200)
   const directIdeas = response.body.review.theoryIdeas
-  assert.equal(directIdeas.length, 10, JSON.stringify(response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')))
-  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
-  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id === 'rp-nei-condition-overview')))
-  assert.ok(directIdeas.some((idea) => /^erucamide$/i.test(idea.title)))
-  assert.ok(directIdeas.some((idea) => /^melatonin$/i.test(idea.title)))
-  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id.startsWith('rp-'))))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(!directIdeas.some((idea) => /^(?:erucamide|melatonin)$/i.test(idea.title)), JSON.stringify(directIdeas))
+  assert.ok(!directIdeas.some((idea) => idea.sourceIds.some((id) => /^rp-(?:erucamide|melatonin)-/i.test(id))), JSON.stringify(directIdeas))
 })
 
-test('audited IPF model-paper sources can fill ten checked unresearched ideas without vague pathways', { concurrency: false }, async () => {
+test('IPF candidates already named in pulmonary-fibrosis model papers cannot be called unresearched', { concurrency: false }, async () => {
   const mock = createMockFetch({ auditedIpfModelCandidatesNoMatch: true })
   const response = await withMockedFetch(mock.fetch, async () => callRoute(
     apiRoutes().get('/api/research-run'),
@@ -1172,19 +1292,30 @@ test('audited IPF model-paper sources can fill ten checked unresearched ideas wi
 
   assert.equal(response.status, 200)
   const directIdeas = response.body.review.theoryIdeas
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(!directIdeas.some((idea) => /^(?:tetrandrine|spermidine|empagliflozin|ramelteon)$/i.test(idea.title)), JSON.stringify(directIdeas))
+  assert.ok(!directIdeas.some((idea) => idea.sourceIds.some((id) => id.startsWith('ipf-model-'))), JSON.stringify(directIdeas))
+})
+
+test('the LADA research library fills ten source-checked unresearched cards when both exact searches find no LADA study', { concurrency: false }, async () => {
+  const mock = createMockFetch({ ladaLibraryCandidatesNoMatch: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'LADA', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const directIdeas = response.body.review.theoryIdeas
   assert.equal(directIdeas.length, 10, JSON.stringify(response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')))
   assert.equal(new Set(directIdeas.map((idea) => idea.title.toLowerCase())).size, 10)
-  assert.ok(directIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
-  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id === 'ipf-fda-condition-overview')))
-  assert.ok(directIdeas.every((idea) => idea.sourceIds.some((id) => id.startsWith('ipf-'))))
-  assert.ok(directIdeas.some((idea) => /^tetrandrine$/i.test(idea.title)))
-  assert.ok(directIdeas.some((idea) => /^spermidine$/i.test(idea.title)))
-  assert.ok(directIdeas.some((idea) => /^empagliflozin$/i.test(idea.title)))
-  assert.equal(
-    directIdeas.find((idea) => /^ramelteon$/i.test(idea.title))?.providerQuestion,
-    'Could Ramelteon matter for IPF?',
-  )
-  assert.ok(!directIdeas.some((idea) => /pathway|macrophage|rna lung|loxl2/i.test(idea.title)))
+  assert.ok(directIdeas.some((idea) => /^teplizumab$/i.test(idea.title)))
+  assert.ok(directIdeas.some((idea) => /^abatacept$/i.test(idea.title)))
+  assert.ok(directIdeas.some((idea) => /^rituximab$/i.test(idea.title)))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.candidateSource?.url))
+  assert.ok(directIdeas.every((idea) => idea.sourceIds.includes('lada-expert-consensus-overview')))
+  assert.ok(!directIdeas.some((idea) => /sitagliptin|saxagliptin|dulaglutide|vitamin d3/i.test(idea.title)))
 })
 
 test('a JSON-mode 400 retries OpenAI with a compatible request before withholding AI ideas', { concurrency: false }, async () => {
@@ -1288,7 +1419,7 @@ test('a source-backed run keeps a source-linked overview when a report lane is e
   assert.ok(response.body.review.briefing.sourceIds.length)
   assert.ok(response.body.review.questions.length)
   assert.ok(response.body.review.questions.every((question) => question.sourceIds.length))
-  assert.ok(response.body.review.theoryIdeas.every((idea) => ['not-found', 'preclinical-only'].includes(idea.directSearch?.status)))
+  assert.ok(response.body.review.theoryIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
 })
 
 test('a source-gated writer overview survives a malformed second AI pass', { concurrency: false }, async () => {

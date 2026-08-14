@@ -12,6 +12,9 @@ const OPEN_ALEX_WORKS_URL = 'https://api.openalex.org/works'
 const OPEN_FDA_LABEL_URL = 'https://api.fda.gov/drug/label.json'
 const OPEN_TARGETS_GRAPHQL_URL = 'https://api.platform.opentargets.org/api/v4/graphql'
 const CHEMBL_MOLECULE_SEARCH_URL = 'https://www.ebi.ac.uk/chembl/api/data/molecule/search.json'
+const CHEMBL_TARGET_SEARCH_URL = 'https://www.ebi.ac.uk/chembl/api/data/target/search.json'
+const CHEMBL_ACTIVITY_URL = 'https://www.ebi.ac.uk/chembl/api/data/activity.json'
+const CHEMBL_MOLECULE_URL = 'https://www.ebi.ac.uk/chembl/api/data/molecule.json'
 const CROSSREF_WORKS_URL = 'https://api.crossref.org/works'
 const SEMANTIC_SCHOLAR_SEARCH_URL = 'https://api.semanticscholar.org/graph/v1/paper/search'
 const NIH_REPORTER_PROJECTS_URL = 'https://api.reporter.nih.gov/v2/projects/search'
@@ -1649,11 +1652,13 @@ const selectedSources = (reference) => {
 
 const isIpfCondition = (condition) => /\b(ipf|idiopathic pulmonary fibrosis)\b/i.test(condition || '')
 
-const shortConditionNameForQuestion = (condition) => {
-  const value = cleanText(condition, 120)
-  if (isIpfCondition(value)) return 'IPF'
-  if (/\b(?:rp|retinitis pigmentosa)\b/i.test(value)) return 'RP'
-  return baseConditionName(value) || 'my condition'
+// Each card already explains the early research. This question makes the
+// clinician discussion personal without telling the reader to use the item.
+const aiIdeaDoctorQuestion = (candidate) => {
+  const name = cleanCandidateName(candidate)
+  return name
+    ? `Could ${name} be appropriate for me, given my health and medicines?`
+    : 'Could this be appropriate for me, given my health and medicines?'
 }
 
 const decodeXml = (value) => String(value || '')
@@ -1699,6 +1704,10 @@ const CONDITION_SEARCH_GROUPS = [
     canonical: 'Idiopathic Pulmonary Fibrosis',
     aliases: ['IPF', 'Idiopathic Pulmonary Fibrosis'],
     matchAliases: ['IPF'],
+    // "Pulmonary fibrosis" is often used for the same research space as IPF
+    // in preclinical papers. A card cannot call a name unresearched for IPF
+    // when that broader literature already names it.
+    noveltySearchPhrases: ['Idiopathic Pulmonary Fibrosis', 'Pulmonary Fibrosis'],
     relatedPreclinicalResearch: {
       searchPhrases: ['bleomycin-induced pulmonary fibrosis', 'lung fibrosis animal model'],
       matchingPhrases: ['bleomycin-induced pulmonary fibrosis', 'lung fibrosis animal model', 'pulmonary fibrosis'],
@@ -1769,6 +1778,15 @@ const conditionEvidenceTerms = (condition) => {
 }
 
 const relatedPreclinicalResearchFor = (condition) => conditionSearchGroup(condition)?.relatedPreclinicalResearch || null
+
+const noveltySearchPhrasesFor = (condition) => {
+  const group = conditionSearchGroup(condition)
+  const fallback = conditionPhrase(condition)
+  return [...new Set([
+    fallback,
+    ...(Array.isArray(group?.noveltySearchPhrases) ? group.noveltySearchPhrases : []),
+  ].map((phrase) => cleanText(phrase, 120)).filter(Boolean))]
+}
 
 const conditionVariantToken = (condition) => {
   const submitted = cleanText(condition, 120)
@@ -2058,9 +2076,15 @@ const sourceQualityScore = (source) => {
   if (source?.origin === 'openFDA') score += 24
   if (source?.origin === 'PubMed') score += 12
   if (source?.origin === 'Europe PMC') score += 8
+  // Keep the exact disease-to-target records that created a target-linked
+  // candidate. They are never clinical proof, but the card must preserve the
+  // reader's ability to inspect the biological data trail.
+  if (source?.origin === 'Open Targets Platform' && /target-disease association/i.test(type)) score += 32
+  if (source?.origin === 'ChEMBL' && /target activity/i.test(type)) score += 30
   // This keeps the single public Every Cure release alongside the report so
   // its computational cards can always link to the source that produced them.
   if (source?.everyCurePublicRelease === true) score += 6
+  if (source?.transcriptomicArtifact === true) score += 38
   if (source?.conditionScope === 'related-preclinical') score += 26
   if (Array.isArray(source?.candidateLeads) && source.candidateLeads.length) score += 34
   return score
@@ -2364,8 +2388,8 @@ const fetchCandidateEvidence = async (condition, candidates) => {
 // idea is shown only when both public literature services complete an exact
 // condition-plus-name search without a hit. A zero-result search is never
 // presented as proof that no research exists anywhere.
-const directCandidateSearchUrl = (provider, condition, candidate) => {
-  const phrase = conditionPhrase(condition)
+const directCandidateSearchUrl = (provider, condition, candidate, searchPhrase = conditionPhrase(condition)) => {
+  const phrase = cleanText(searchPhrase, 120)
   const name = candidateSearchNamesFor(candidate)[0] || cleanCandidateName(candidate?.name || candidate)
   if (provider === 'pubmed') {
     const term = `("${phrase}"[Title/Abstract]) AND ("${name}"[Title/Abstract])`
@@ -2422,8 +2446,8 @@ const fetchPubMedSourcesForIds = async (ids) => {
   return pubmedArticlesFromXml(await response.text())
 }
 
-const directPubMedCandidateCheck = async (condition, candidate) => {
-  const phrase = conditionPhrase(condition)
+const directPubMedCandidateCheck = async (condition, candidate, searchPhrase = conditionPhrase(condition)) => {
+  const phrase = cleanText(searchPhrase, 120)
   const name = candidateSearchNamesFor(candidate)[0] || cleanCandidateName(candidate?.name || candidate)
   if (!phrase || !name) throw new Error('A condition and named idea are required for the direct PubMed check.')
   const term = `("${phrase}"[Title/Abstract]) AND ("${name}"[Title/Abstract])`
@@ -2432,7 +2456,7 @@ const directPubMedCandidateCheck = async (condition, candidate) => {
   const classification = classifyDirectCandidateRecords(sources, candidate)
   return {
     status: classification.status,
-    url: directCandidateSearchUrl('pubmed', condition, candidate),
+    url: directCandidateSearchUrl('pubmed', condition, candidate, phrase),
     records: classification.records,
     sources: classification.sources,
   }
@@ -2506,8 +2530,8 @@ const directChemblCandidateBackgroundCheck = async (candidate) => {
   }
 }
 
-const directEuropePmcCandidateCheck = async (condition, candidate) => {
-  const phrase = conditionPhrase(condition)
+const directEuropePmcCandidateCheck = async (condition, candidate, searchPhrase = conditionPhrase(condition)) => {
+  const phrase = cleanText(searchPhrase, 120)
   const name = candidateSearchNamesFor(candidate)[0] || cleanCandidateName(candidate?.name || candidate)
   if (!phrase || !name) throw new Error('A condition and named idea are required for the direct Europe PMC check.')
   const query = `(TITLE_ABS:"${europePmcPhrase(phrase)}") AND TITLE_ABS:"${europePmcPhrase(name)}"`
@@ -2516,9 +2540,195 @@ const directEuropePmcCandidateCheck = async (condition, candidate) => {
   const classification = classifyDirectCandidateRecords(sources, candidate)
   return {
     status: classification.status,
-    url: directCandidateSearchUrl('europe-pmc', condition, candidate),
+    url: directCandidateSearchUrl('europe-pmc', condition, candidate, phrase),
     records: classification.records,
     sources: classification.sources,
+  }
+}
+
+// A diagnosis can be indexed under a close medical name, especially in
+// preclinical work. For example, pulmonary-fibrosis papers are relevant when
+// deciding whether a molecule is truly new for IPF. Every phrase must clear
+// both sources before the card can say "not researched for this condition."
+const checkCandidateNoveltyAcrossConditionNames = async (condition, candidate) => {
+  const phrases = noveltySearchPhrasesFor(condition)
+  const checks = await Promise.all(phrases.map(async (phrase) => {
+    const [pubmed, europePmc] = await Promise.allSettled([
+      directPubMedCandidateCheck(condition, candidate, phrase),
+      directEuropePmcCandidateCheck(condition, candidate, phrase),
+    ])
+    return {
+      phrase,
+      pubmed: pubmed.status === 'fulfilled' ? pubmed.value : null,
+      europePmc: europePmc.status === 'fulfilled' ? europePmc.value : null,
+    }
+  }))
+  const completed = checks.every((check) => check.pubmed && check.europePmc)
+  const hasResearch = checks.some((check) => [check.pubmed, check.europePmc]
+    .some((result) => result && result.status !== 'not-found'))
+  return { checks, completed, hasResearch }
+}
+
+const transcriptomicArtifactEnvValue = (env) => environmentValue(env, 'TRANSCRIPTOMIC_RESULTS_JSON')
+  || environmentValue(env, 'TRANSCRIPTOMIC_RESULT_JSON')
+  || environmentValue(env, 'TRANSCRIPTOMIC_ARTIFACTS_JSON')
+  || ''
+
+const artifactArrayFromJson = (rawValue) => {
+  const raw = cleanText(rawValue, 1_000_000)
+  if (!raw) return { configured: false, artifacts: [], error: '' }
+  try {
+    const parsed = JSON.parse(raw)
+    const values = Array.isArray(parsed)
+      ? parsed
+      : parsed?.schemaVersion
+        ? [parsed]
+        : isRecord(parsed)
+          ? Object.values(parsed)
+          : []
+    return { configured: true, artifacts: values.filter(isRecord), error: '' }
+  } catch (error) {
+    return {
+      configured: true,
+      artifacts: [],
+      error: error instanceof Error ? cleanText(error.message, 220) : 'The transcriptomic artifact JSON could not be parsed.',
+    }
+  }
+}
+
+const transcriptomicSourceId = (jobId, sourceId, fallback) => {
+  const safeJobId = cleanText(jobId, 80).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'job'
+  const safeSourceId = cleanText(sourceId, 100).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || fallback
+  return `transcriptomic-${safeJobId}-${safeSourceId}`
+}
+
+const transcriptomicSourceFrom = ({ jobId, source, fallback, type }) => {
+  const url = cleanText(source?.url, 1_000)
+  const title = cleanText(source?.title, 320)
+  if (!/^https:\/\//i.test(url) || !title) return null
+  return {
+    id: transcriptomicSourceId(jobId, source?.id || source?.signatureId, fallback),
+    title,
+    url,
+    type,
+    origin: 'AWS Batch transcriptomic worker',
+    summary: cleanText([
+      source?.contrast,
+      source?.processing,
+      source?.dataset,
+      source?.cellLine ? `Cell line: ${source.cellLine}` : '',
+      source?.tas ? `TAS: ${source.tas}` : '',
+    ].filter(Boolean).join('. '), 620),
+    transcriptomicArtifact: true,
+    aiEligible: false,
+  }
+}
+
+const conditionMatchesTranscriptomicArtifact = (condition, artifactCondition) => {
+  const requested = conditionSearchPhrases(condition).map((phrase) => candidateKey(phrase)).filter(Boolean)
+  const artifact = conditionSearchPhrases(artifactCondition).map((phrase) => candidateKey(phrase)).filter(Boolean)
+  return requested.some((left) => artifact.some((right) => left === right || (left.length >= 5 && right.includes(left)) || (right.length >= 5 && left.includes(right))))
+}
+
+const firstCompletedNoveltyCheck = (released) => (Array.isArray(released?.novelty?.checks) ? released.novelty.checks : [])
+  .find((check) => check?.pubmed?.url || check?.europePmc?.url)
+
+const transcriptomicIdeaFromReleasedCandidate = ({ artifact, released, condition }) => {
+  const candidate = cleanCandidateName(released?.compoundName)
+  if (!candidate || released?.novelty?.complete !== true || released?.novelty?.status !== 'not-found') return null
+  const jobId = cleanText(artifact?.jobId || artifact?.inversion?.jobId, 120)
+  const diseaseSource = transcriptomicSourceFrom({
+    jobId,
+    source: released?.diseaseSource || artifact?.inversion?.diseaseSignature?.source,
+    fallback: 'disease-source',
+    type: 'Transcriptomic disease signature',
+  })
+  const perturbationSource = transcriptomicSourceFrom({
+    jobId,
+    source: released?.perturbationSource,
+    fallback: `compound-${candidateKey(candidate) || 'source'}`,
+    type: 'LINCS L1000 compound signature',
+  })
+  if (!diseaseSource || !perturbationSource) return null
+
+  const noveltyCheck = firstCompletedNoveltyCheck(released)
+  const sharedGenes = Number(released?.score?.sharedGenes)
+  const geneSentence = Number.isFinite(sharedGenes) && sharedGenes > 0
+    ? `The worker found ${sharedGenes} shared genes moving in the opposite direction.`
+    : 'The worker found an opposite gene-pattern signal.'
+  const conditionLabel = cleanText(condition, 120) || cleanText(artifact?.inversion?.condition, 120) || 'this condition'
+
+  return {
+    sources: [diseaseSource, perturbationSource],
+    idea: {
+      title: candidate,
+      potentialInterventions: [candidate],
+      category: 'Gene-pattern screen',
+      whyItCouldConnect: `${candidate} came from a measured CMap/LINCS gene-pattern screen. ${geneSentence} This is a research clue, not proof it helps people.`,
+      whyNotEstablished: `The worker checked PubMed and Europe PMC for ${candidate} with ${conditionLabel}. It did not find a direct title or abstract match. That does not prove the idea is new or helpful.`,
+      providerQuestion: aiIdeaDoctorQuestion(candidate),
+      caution: released?.caution || 'This is a computer-generated research question. It is not a treatment recommendation and must not be used to start, stop, or combine treatments.',
+      verificationQuery: `"${conditionLabel}" AND "${candidate}"`,
+      sourceIds: [diseaseSource.id, perturbationSource.id],
+      kind: 'ai-direct-search-no-match',
+      directSearch: {
+        status: 'not-found',
+        pubmed: noveltyCheck?.pubmed || { status: 'not-found', records: 0, url: directCandidateSearchUrl('pubmed', conditionLabel, candidate) },
+        europePmc: noveltyCheck?.europePmc || { status: 'not-found', records: 0, url: directCandidateSearchUrl('europe-pmc', conditionLabel, candidate) },
+        pubmedBackground: { status: 'not-run', url: '', records: 0 },
+        chemblBackground: { status: 'not-run', url: '', records: 0 },
+        candidateSource: perturbationSource,
+      },
+    },
+  }
+}
+
+const transcriptomicArtifactEvidenceForCondition = (condition, env) => {
+  const parsed = artifactArrayFromJson(transcriptomicArtifactEnvValue(env))
+  if (!parsed.configured) return { sources: [], ideas: [], coverage: null }
+  if (parsed.error) {
+    return {
+      sources: [],
+      ideas: [],
+      coverage: {
+        id: 'aws-transcriptomic-worker',
+        label: 'Transcriptomic inversion worker',
+        status: 'unavailable',
+        records: 0,
+        detail: `A completed worker artifact was configured, but the JSON could not be read: ${parsed.error}`,
+      },
+    }
+  }
+
+  const matchedArtifacts = parsed.artifacts.filter((artifact) => artifact?.schemaVersion === 'aws-batch-transcriptomic-result/v1'
+    && conditionMatchesTranscriptomicArtifact(condition, artifact?.inversion?.condition))
+  const converted = matchedArtifacts
+    .flatMap((artifact) => (Array.isArray(artifact?.inversion?.released) ? artifact.inversion.released : [])
+      .map((released) => transcriptomicIdeaFromReleasedCandidate({ artifact, released, condition }))
+      .filter(Boolean))
+  const sources = converted.flatMap((entry) => entry.sources)
+  const ideas = []
+  const seen = new Set()
+  for (const entry of converted) {
+    const key = candidateKey(entry.idea?.title)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    ideas.push(entry.idea)
+    if (ideas.length === TARGET_AI_IDEA_COUNT) break
+  }
+
+  return {
+    sources,
+    ideas,
+    coverage: {
+      id: 'aws-transcriptomic-worker',
+      label: 'Transcriptomic inversion worker',
+      status: matchedArtifacts.length ? 'ready' : 'not-run',
+      records: ideas.length,
+      detail: matchedArtifacts.length
+        ? `${ideas.length} completed transcriptomic idea${ideas.length === 1 ? '' : 's'} was imported from precomputed AWS Batch artifact${matchedArtifacts.length === 1 ? '' : 's'}.`
+        : 'A transcriptomic artifact setting exists, but no completed artifact matched this condition.',
+    },
   }
 }
 
@@ -2533,40 +2743,6 @@ const directSearchEvidenceSourceIds = (sources) => (Array.isArray(sources) ? sou
   .sort((left, right) => Number(Boolean(right?.conditionOverview)) - Number(Boolean(left?.conditionOverview)))
   .map((source) => source.id)
   .slice(0, 2)
-
-const sameEvidenceRecord = (left, right) => {
-  const leftPmid = cleanText(left?.pmid, 40)
-  const rightPmid = cleanText(right?.pmid, 40)
-  if (leftPmid && rightPmid && leftPmid === rightPmid) return true
-
-  const leftDoi = cleanText(left?.doi, 220).replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').toLowerCase()
-  const rightDoi = cleanText(right?.doi, 220).replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '').toLowerCase()
-  if (leftDoi && rightDoi && leftDoi === rightDoi) return true
-
-  const leftTitle = normalizedEvidenceText(left?.title)
-  const rightTitle = normalizedEvidenceText(right?.title)
-  return Boolean(leftTitle && rightTitle && leftTitle === rightTitle)
-}
-
-const candidateAlreadyAppearsInDirectConditionPacket = (candidate, condition, sources, trials) => {
-  const relatedModelSources = (Array.isArray(sources) ? sources : [])
-    .filter((source) => source?.conditionScope === 'related-preclinical')
-    .filter((source) => recordMentionsCandidate(source, candidate))
-  const sourceMatch = (Array.isArray(sources) ? sources : []).some((source) => (
-    // A finding in a related animal or lab model is useful background for a
-    // new research question. It is not a direct study in the entered illness.
-    // Indexes can return the exact same model paper again as a normal source,
-    // so use its PMID, DOI, or title to avoid calling that duplicate a human
-    // condition study.
-    source?.conditionScope !== 'related-preclinical'
-    && isConditionScopedSource(source, condition)
-    && recordMentionsCandidate(source, candidate)
-    && directCandidateRecordClass(source) === 'human'
-    && !relatedModelSources.some((modelSource) => sameEvidenceRecord(source, modelSource))
-  ))
-  const trialMatch = (Array.isArray(trials) ? trials : []).some((trial) => recordMentionsCandidate(trial, candidate))
-  return sourceMatch || trialMatch
-}
 
 const candidateBackgroundSourceFromPacket = (candidate, sources) => {
   const source = (Array.isArray(sources) ? sources : [])
@@ -2606,7 +2782,7 @@ const sourceBackedAiIdeaSeeds = (sources, condition) => {
         candidate: name,
         category: 'New idea to check',
         whyItCouldConnect: `${name} was studied in ${cleanText(source.conditionScopeLabel || 'a related disease model', 140)}. That is not a study in people with ${cleanText(condition, 120)}, but it gives a specific question for a specialist to check.`,
-        providerQuestion: simpleDoctorQuestion(`Could ${name} matter for ${shortConditionNameForQuestion(condition)}?`),
+        providerQuestion: aiIdeaDoctorQuestion(name),
         // The exact supporting paper is already in sourceIds. Skipping extra
         // background lookups keeps this lane focused on the direct human
         // evidence check and avoids public-API overload during a full run.
@@ -2617,37 +2793,56 @@ const sourceBackedAiIdeaSeeds = (sources, condition) => {
       }
     })
     .filter(Boolean)
-    // Send a wider source-backed pool into the direct screen. A direct human
-    // condition match removes a name, so limiting this stage to ten would
-    // make it impossible to finish with ten checked cards.
+    // Send a wider source-backed pool into the direct screen. Any condition
+    // research removes a name, so limiting this stage to ten would make it
+    // impossible to finish with ten checked cards.
     .slice(0, MAX_AI_IDEA_SEEDS)
 }
 
-const relatedPreclinicalCandidateStatus = (candidate, sources, trials) => {
-  const relatedSources = (Array.isArray(sources) ? sources : [])
-    .filter((source) => source?.conditionScope === 'related-preclinical')
-    .filter((source) => recordMentionsCandidate(source, candidate))
-  const trialMatch = (Array.isArray(trials) ? trials : []).some((trial) => recordMentionsCandidate(trial, candidate))
-  return {
-    hasRelatedAnimalOrLabSource: relatedSources.length > 0,
-    hasDirectSourceOrTrialMatch: trialMatch,
-    relatedSources,
-  }
+const sourceBackedAiIdeaSeedsForNovelty = (sources, condition) => sourceBackedAiIdeaSeeds(sources, condition)
+  .filter((idea) => !candidateAlreadyAppearsInConditionResearchPacket(idea, condition, sources, []))
+
+// LADA has a short, reviewed library of named immune and beta-cell research
+// questions. It was previously kept only as an unused planning map, so a live
+// LADA report could finish with an empty unresearched lane even though there
+// were concrete names available to check. These seeds still have to pass the
+// exact PubMed and Europe PMC checks below before a card can be shown.
+const conditionLibraryAiIdeaSeeds = (condition) => {
+  if (!/\b(?:lada|latent autoimmune diabetes)\b/i.test(condition || '')) return []
+
+  const seen = new Set()
+  return _theoryTemplatesForCondition(condition)
+    .flatMap(([, , whyItCouldConnect, , , candidates]) => (Array.isArray(candidates) ? candidates : [])
+      .map((candidate) => ({ candidate, whyItCouldConnect })))
+    .map(({ candidate, whyItCouldConnect }) => {
+      const name = cleanCandidateName(candidate)
+      const key = candidateKey(name)
+      if (!name || !key || seen.has(key)) return null
+      if (!isSpecificCandidateName(name) || !isPatientDiscussibleAiIdeaCandidate(name)) return null
+      seen.add(key)
+      return {
+        candidate: name,
+        category: 'Unresearched idea to check',
+        whyItCouldConnect: cleanText(whyItCouldConnect, 440),
+        providerQuestion: aiIdeaDoctorQuestion(name),
+      }
+    })
+    .filter(Boolean)
+    .slice(0, MAX_AI_IDEA_SEEDS)
 }
 
-const directResultAfterKnownPreclinicalCheck = (result, relatedSources) => {
-  if (!result || !['found', 'unclear'].includes(result.status)) return result
-  const records = Array.isArray(result.sources) ? result.sources : []
-  // Some indexes return only a short or incomplete abstract for the exact
-  // same model paper already audited in the packet. Do not let that thin
-  // metadata turn the model paper into a supposed human-condition match.
-  if (records.length && records.every((record) => (
-    relatedSources.some((source) => sameEvidenceRecord(record, source))
-    || directCandidateRecordClass(record) === 'animal-or-lab'
-  ))) {
-    return { ...result, status: 'preclinical-only' }
-  }
-  return result
+// A card can use the word "not researched" only when the candidate does not
+// already appear in any supplied condition or related-condition research
+// record. This is deliberately stricter than the human-study gate used
+// elsewhere: a model paper is still research about the illness.
+const candidateAlreadyAppearsInConditionResearchPacket = (candidate, condition, sources, trials) => {
+  const sourceMatch = (Array.isArray(sources) ? sources : []).some((source) => (
+    !['Open Targets Platform', 'ChEMBL'].includes(source?.origin)
+    && (isConditionScopedSource(source, condition) || source?.conditionScope === 'related-preclinical')
+    && recordMentionsCandidate(source, candidate)
+  ))
+  const trialMatch = (Array.isArray(trials) ? trials : []).some((trial) => recordMentionsCandidate(trial, candidate))
+  return sourceMatch || trialMatch
 }
 
 const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
@@ -2669,53 +2864,44 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
     const batch = eligibleSeeds.slice(index, index + AI_IDEA_DIRECT_CHECK_BATCH_SIZE)
     const batchResults = await Promise.all(batch.map(async (idea) => {
       const sourceBackedResearch = idea?.sourceBackedResearch === true
-      const [pubMed, europePmc, pubMedBackground, chemblBackground] = await Promise.allSettled([
-        directPubMedCandidateCheck(condition, idea),
-        directEuropePmcCandidateCheck(condition, idea),
+      const [novelty, pubMedBackground, chemblBackground] = await Promise.allSettled([
+        checkCandidateNoveltyAcrossConditionNames(condition, idea),
         // A curated animal or lab paper is already a named, linked
         // background source for this exact card. Only generated candidates
         // need these extra identity/background lookups.
         sourceBackedResearch ? Promise.resolve(null) : directPubMedCandidateBackgroundCheck(idea),
         sourceBackedResearch ? Promise.resolve(null) : directChemblCandidateBackgroundCheck(idea),
       ])
-      const rawPubMedResult = pubMed.status === 'fulfilled' ? pubMed.value : null
-      const rawEuropePmcResult = europePmc.status === 'fulfilled' ? europePmc.value : null
+      const noveltyResult = novelty.status === 'fulfilled' ? novelty.value : null
       const pubMedBackgroundResult = pubMedBackground.status === 'fulfilled' ? pubMedBackground.value : null
       const chemblBackgroundResult = chemblBackground.status === 'fulfilled' ? chemblBackground.value : null
       const packetBackgroundSource = candidateBackgroundSourceFromPacket(idea, sources)
-      const packetStatus = relatedPreclinicalCandidateStatus(idea, sources, trials)
-      const pubMedResult = directResultAfterKnownPreclinicalCheck(rawPubMedResult, packetStatus.relatedSources)
-      const europePmcResult = directResultAfterKnownPreclinicalCheck(rawEuropePmcResult, packetStatus.relatedSources)
-      const completedDirectSearch = Boolean(pubMedResult || europePmcResult)
+      const exactNameCheck = noveltyResult?.checks?.[0] || null
+      const pubMedResult = exactNameCheck?.pubmed || null
+      const europePmcResult = exactNameCheck?.europePmc || null
+      const completedDirectSearch = noveltyResult?.completed === true
       const preclinicalSource = [
         ...(pubMedResult?.sources || []),
         ...(europePmcResult?.sources || []),
       ].find((source) => directCandidateRecordClass(source) === 'animal-or-lab')
       const backgroundSource = packetBackgroundSource || preclinicalSource || pubMedBackgroundResult?.source || chemblBackgroundResult?.source
       const hasBackgroundMatch = Boolean(backgroundSource?.title && backgroundSource?.url)
-      const hasConfirmedHumanDirectMatch = packetStatus.hasDirectSourceOrTrialMatch
-        || candidateAlreadyAppearsInDirectConditionPacket(idea, condition, sources, trials)
-        || pubMedResult?.status === 'found'
-        || europePmcResult?.status === 'found'
-      const hasEarlyResearchOnly = !hasConfirmedHumanDirectMatch
-        && (packetStatus.hasRelatedAnimalOrLabSource
-          || [pubMedResult?.status, europePmcResult?.status].some((status) => status === 'preclinical-only'))
-      // A linked model paper can support an honest "not tested in people"
-      // card even when an index returns a vague review record or is slow. A
-      // confirmed human study or a current trial still removes the card.
-      const hasNoDirectConditionMatch = !hasConfirmedHumanDirectMatch
-        && (hasEarlyResearchOnly || [pubMedResult?.status, europePmcResult?.status].every((status) => status === 'not-found' || status === 'preclinical-only'))
+      const hasExistingConditionResearch = candidateAlreadyAppearsInConditionResearchPacket(idea, condition, sources, trials)
+        || noveltyResult?.hasResearch === true
+      // "Not researched" is an all-or-nothing label. An animal paper or a
+      // close condition-family paper is still research and blocks the card.
+      const hasNoDirectConditionMatch = !hasExistingConditionResearch
         && completedDirectSearch
         && hasBackgroundMatch
       const directSearch = {
-        status: hasNoDirectConditionMatch ? (hasEarlyResearchOnly ? 'preclinical-only' : 'not-found') : hasConfirmedHumanDirectMatch ? 'found' : 'unavailable',
+        status: hasNoDirectConditionMatch ? 'not-found' : hasExistingConditionResearch ? 'found' : 'unavailable',
         pubmed: pubMedResult || { status: 'unavailable', url: directCandidateSearchUrl('pubmed', condition, idea), records: 0 },
         europePmc: europePmcResult || { status: 'unavailable', url: directCandidateSearchUrl('europe-pmc', condition, idea), records: 0 },
         pubmedBackground: pubMedBackgroundResult || { status: 'unavailable', url: '', records: 0 },
         chemblBackground: chemblBackgroundResult || { status: 'unavailable', url: '', records: 0 },
         candidateSource: backgroundSource,
       }
-      if (!hasNoDirectConditionMatch && !hasConfirmedHumanDirectMatch) return null
+      if (!hasNoDirectConditionMatch && !hasExistingConditionResearch) return null
 
       const candidate = cleanCandidateName(idea.candidate)
       return {
@@ -2724,11 +2910,9 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
         category: cleanText(idea.category, 80) || 'AI research idea',
         whyItCouldConnect: cleanText(idea.whyItCouldConnect, 440),
         whyNotEstablished: hasNoDirectConditionMatch
-          ? hasEarlyResearchOnly
-            ? `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. The results we found were early research, not a study in people. That does not show it will help.`
-            : `We searched ${candidate} together with ${cleanText(condition, 120)} in PubMed and Europe PMC. Neither checked search showed a direct match. That does not prove nobody has studied it or that it will help.`
-          : `Our search found a human study or current trial connected with ${candidate} and ${cleanText(condition, 120)}. This is not a new idea, and a search result does not prove it helps.`,
-        providerQuestion: simpleDoctorQuestion(idea.providerQuestion || `Is ${candidate} worth discussing`),
+          ? `We searched PubMed and Europe PMC for ${candidate} with ${cleanText(condition, 120)} and related medical names. We did not find a study linking them. That does not mean it will help.`
+          : `Our search found research connecting ${candidate} with ${cleanText(condition, 120)} or a related medical name. We did not list it as a new idea.`,
+        providerQuestion: aiIdeaDoctorQuestion(candidate),
         caution: 'This is an AI research question, not a treatment recommendation. Do not start, stop, buy, combine, or change a treatment from this card.',
         verificationQuery: `"${cleanText(condition, 120)}" AND "${candidate}"`,
         sourceIds: [...new Set([
@@ -2741,7 +2925,7 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
                 ...idea.sourceIds,
               ]
             : defaultSourceIds),
-        ])].filter((sourceId) => (Array.isArray(sources) ? sources : []).some((source) => source?.id === sourceId)).slice(0, 3),
+        ])].filter((sourceId) => (Array.isArray(sources) ? sources : []).some((source) => source?.id === sourceId)).slice(0, 4),
         kind: hasNoDirectConditionMatch ? 'ai-direct-search-no-match' : 'ai-direct-search-has-match',
         directSearch,
       }
@@ -2765,7 +2949,7 @@ const verifyAiIdeasNotFound = async ({ condition, ideas, sources, trials }) => {
       status: 'ready',
       records: checked.length,
       detail: checked.length
-        ? `${noMatchIdeas.length} named AI idea${noMatchIdeas.length === 1 ? '' : 's'} had no human-condition match in the two exact searches. ${matchedIdeas.length} idea${matchedIdeas.length === 1 ? '' : 's'} already ${matchedIdeas.length === 1 ? 'has' : 'have'} a direct condition match and ${matchedIdeas.length === 1 ? 'is' : 'are'} clearly marked as already studied.`
+        ? `${noMatchIdeas.length} named AI idea${noMatchIdeas.length === 1 ? '' : 's'} cleared the condition-name literature checks. ${matchedIdeas.length} idea${matchedIdeas.length === 1 ? '' : 's'} already ${matchedIdeas.length === 1 ? 'has' : 'have'} condition research and ${matchedIdeas.length === 1 ? 'was' : 'were'} withheld from the new-idea list.`
         : `We ran ${directSearchesCompleted} checks, but no named AI idea had enough search evidence to show safely.`,
     },
   }
@@ -2831,11 +3015,11 @@ const fetchOpenAlexEvidence = async (condition, env) => {
   return { status: 'ready', sources, detail: '' }
 }
 
-// Open Targets is a disease/target knowledge layer. Its record can help a
-// reviewer understand what disease entity was retrieved, but it is not used
-// alone to make a treatment claim or to label a product as useful.
+// Open Targets supplies disease-to-target associations. It is a discovery
+// source only: association evidence identifies a biological question, not a
+// medicine that works for the condition.
 const fetchOpenTargetsEvidence = async (condition) => {
-  const query = `query SearchDisease($queryString: String!) {
+  const query = `query SearchDiseaseAndTargets($queryString: String!) {
     search(queryString: $queryString) {
       hits { id entity name description }
     }
@@ -2853,8 +3037,8 @@ const fetchOpenTargetsEvidence = async (condition) => {
       && aliases.has(normalizedEvidenceText(item?.name)))
   const id = cleanText(hit?.id, 140)
   const name = cleanText(hit?.name, 220)
-  if (!id || !name) return []
-  return [{
+  if (!id || !name) return { sources: [], targets: [] }
+  const diseaseSource = {
     id: `open-targets-${id.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
     title: `Open Targets disease record: ${name}`,
     url: `https://platform.opentargets.org/disease/${encodeURIComponent(id)}`,
@@ -2862,7 +3046,172 @@ const fetchOpenTargetsEvidence = async (condition) => {
     origin: 'Open Targets Platform',
     summary: cleanText(hit?.description, 620) || `Open Targets has a disease record for ${name}. This source is used for research discovery, not as proof that a treatment works.`,
     aiEligible: false,
-  }]
+  }
+
+  const targetQuery = `query DiseaseTargets($diseaseId: String!) {
+    disease(efoId: $diseaseId) {
+      associatedTargets(page: { index: 0, size: 12 }) {
+        rows {
+          score
+          target { id approvedSymbol approvedName }
+        }
+      }
+    }
+  }`
+  const targetResponse = await fetchWithTimeout(OPEN_TARGETS_GRAPHQL_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: targetQuery, variables: { diseaseId: id } }),
+  }, 16_000)
+  if (!targetResponse.ok) throw new Error(`Open Targets target lookup returned ${targetResponse.status}.`)
+  const targetData = await targetResponse.json()
+  const rows = Array.isArray(targetData?.data?.disease?.associatedTargets?.rows)
+    ? targetData.data.disease.associatedTargets.rows
+    : []
+  const seen = new Set()
+  const diseaseSourceKey = id.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+  const targets = rows
+    .map((row) => {
+      const targetId = cleanText(row?.target?.id, 80)
+      const symbol = cleanText(row?.target?.approvedSymbol, 80)
+      const targetName = cleanText(row?.target?.approvedName, 180)
+      const score = Number(row?.score)
+      if (!targetId || !symbol || !Number.isFinite(score) || score <= 0) return null
+      const key = targetId.toLowerCase()
+      if (seen.has(key)) return null
+      seen.add(key)
+      return {
+        id: targetId,
+        symbol,
+        name: targetName || symbol,
+        score,
+        sourceId: `open-targets-${diseaseSourceKey}-${targetId.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 8)
+  const targetSources = targets.map((target) => ({
+    id: target.sourceId,
+    title: `Open Targets target-disease association: ${target.symbol} and ${name}`,
+    url: `https://platform.opentargets.org/target/${encodeURIComponent(target.id)}/associations/${encodeURIComponent(id)}`,
+    type: 'Open Targets target-disease association',
+    origin: 'Open Targets Platform',
+    summary: `${target.symbol} is listed in Open Targets as a disease-associated target for ${name}. This is a research lead, not evidence that changing this target will help a person.`,
+    targetId: target.id,
+    targetSymbol: target.symbol,
+    targetScore: target.score,
+    aiEligible: false,
+  }))
+  return { sources: [diseaseSource, ...targetSources], targets }
+}
+
+const chemblTargetForSymbol = async (symbol) => {
+  const targetName = cleanText(symbol, 80)
+  if (!targetName) return null
+  const url = new URL(CHEMBL_TARGET_SEARCH_URL)
+  url.searchParams.set('q', targetName)
+  url.searchParams.set('limit', '8')
+  const response = await fetchWithTimeout(url, {}, 14_000)
+  if (!response.ok) throw new Error(`ChEMBL target search returned ${response.status}.`)
+  const data = await response.json()
+  const records = Array.isArray(data?.targets) ? data.targets : []
+  const normalizedSymbol = normalizedEvidenceText(targetName)
+  const record = records.find((item) => normalizedEvidenceText(item?.pref_name) === normalizedSymbol)
+    || records.find((item) => normalizedEvidenceText(item?.target_components?.[0]?.target_component_synonyms?.find((entry) => entry?.syn_type === 'GENE_SYMBOL')?.component_synonym) === normalizedSymbol)
+  const id = cleanText(record?.target_chembl_id, 80)
+  return id ? { id, name: cleanText(record?.pref_name, 180) || targetName } : null
+}
+
+const chemblCompoundsForTarget = async (target) => {
+  const chemblTarget = await chemblTargetForSymbol(target?.symbol)
+  if (!chemblTarget) return []
+  const activityUrl = new URL(CHEMBL_ACTIVITY_URL)
+  activityUrl.searchParams.set('target_chembl_id', chemblTarget.id)
+  activityUrl.searchParams.set('assay_type', 'B')
+  activityUrl.searchParams.set('pchembl_value__gte', '6')
+  activityUrl.searchParams.set('limit', '20')
+  activityUrl.searchParams.set('only', 'molecule_chembl_id,pchembl_value')
+  const activityResponse = await fetchWithTimeout(activityUrl, {}, 16_000)
+  if (!activityResponse.ok) throw new Error(`ChEMBL activity lookup returned ${activityResponse.status}.`)
+  const activityData = await activityResponse.json()
+  const activityRows = Array.isArray(activityData?.activities) ? activityData.activities : []
+  const moleculeIds = [...new Set(activityRows
+    .map((item) => cleanText(item?.molecule_chembl_id, 80))
+    .filter(Boolean))]
+    .slice(0, 12)
+  if (!moleculeIds.length) return []
+
+  const moleculeUrl = new URL(CHEMBL_MOLECULE_URL)
+  moleculeUrl.searchParams.set('molecule_chembl_id__in', moleculeIds.join(','))
+  moleculeUrl.searchParams.set('max_phase__gte', '1')
+  moleculeUrl.searchParams.set('limit', String(moleculeIds.length))
+  const moleculeResponse = await fetchWithTimeout(moleculeUrl, {}, 16_000)
+  if (!moleculeResponse.ok) throw new Error(`ChEMBL molecule lookup returned ${moleculeResponse.status}.`)
+  const moleculeData = await moleculeResponse.json()
+  const moleculeRows = Array.isArray(moleculeData?.molecules) ? moleculeData.molecules : []
+  const potencyById = new Map(activityRows.map((item) => [cleanText(item?.molecule_chembl_id, 80), Number(item?.pchembl_value) || 0]))
+  const sources = []
+  const ideas = moleculeRows
+    .map((molecule) => {
+      const id = cleanText(molecule?.molecule_chembl_id, 80)
+      const name = cleanCandidateName(molecule?.pref_name)
+      if (!id || !name || !isSpecificCandidateName(name) || !isPatientDiscussibleAiIdeaCandidate(name)) return null
+      const activitySourceId = `chembl-activity-${cleanText(target?.id, 80).toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${id.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
+      sources.push({
+        id: activitySourceId,
+        title: `ChEMBL target activity: ${name} and ${cleanText(target?.symbol, 80)}`,
+        url: `https://www.ebi.ac.uk/chembl/api/data/activity.json?${new URLSearchParams({ target_chembl_id: chemblTarget.id, molecule_chembl_id: id, assay_type: 'B' }).toString()}`,
+        type: 'ChEMBL target activity',
+        origin: 'ChEMBL',
+        summary: `ChEMBL has binding-assay activity records connecting ${name} with ${cleanText(target?.symbol, 80)}. This is a laboratory activity record, not proof that it helps ${cleanText(target?.diseaseName, 140)}.`,
+        targetId: target?.id,
+        targetSymbol: target?.symbol,
+        chemblId: id,
+        aiEligible: false,
+      })
+      return {
+        candidate: name,
+        category: 'Target-linked drug idea',
+        whyItCouldConnect: `${name} has a ChEMBL binding record for ${cleanText(target?.symbol, 80)}, a target linked with ${cleanText(target?.diseaseName, 140)} in Open Targets. This is a research clue, not proof it will help.`,
+        providerQuestion: aiIdeaDoctorQuestion(name),
+        sourceIds: [target?.sourceId, activitySourceId].filter(Boolean),
+        targetId: target?.id,
+        targetSymbol: target?.symbol,
+        targetScore: Number(target?.score) || 0,
+        chemblId: id,
+        potency: potencyById.get(id) || 0,
+      }
+    })
+    .filter(Boolean)
+  return { ideas, sources }
+}
+
+const fetchTargetLinkedAiIdeaSeeds = async (condition) => {
+  const discovery = await fetchOpenTargetsEvidence(condition)
+  const targets = (discovery.targets || []).map((target) => ({ ...target, diseaseName: condition }))
+  const settled = await Promise.allSettled(targets.slice(0, 4).map(chemblCompoundsForTarget))
+  const seen = new Set()
+  const targetResults = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : [])
+  const ideas = targetResults.flatMap((result) => result.ideas || [])
+    .sort((left, right) => right.targetScore - left.targetScore || right.potency - left.potency)
+    .filter((idea) => {
+      const key = candidateKey(idea.candidate)
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 20)
+  return {
+    sources: [...(discovery.sources || []), ...targetResults.flatMap((result) => result.sources || [])],
+    ideas,
+    targets: targets.length,
+    status: discovery.sources?.length ? 'ready' : 'not-found',
+    detail: ideas.length
+      ? `${ideas.length} named ChEMBL compounds were linked to high-scoring Open Targets disease targets. They still require condition literature checks.`
+      : discovery.sources?.length
+        ? 'Open Targets returned disease targets, but ChEMBL did not return a usable named compound link for this run.'
+        : 'Open Targets did not return an exact disease record for this wording.',
+  }
 }
 
 const crossrefYear = (record) => {
@@ -3362,13 +3711,17 @@ const retrieveEvidenceSources = async (condition, env) => {
     },
     {
       id: 'open-targets',
-      label: 'Open Targets disease and gene knowledge',
+      label: 'Open Targets and ChEMBL target-linked discovery',
       url: 'https://platform.opentargets.org/',
-      fetch: async () => ({
-        status: 'ready',
-        sources: await fetchOpenTargetsEvidence(condition),
-        detail: 'Disease and target knowledge is used for discovery only. It does not prove that a product will help.',
-      }),
+      fetch: async () => {
+        const discovery = await fetchTargetLinkedAiIdeaSeeds(condition)
+        return {
+          status: discovery.status,
+          sources: discovery.sources,
+          targetIdeas: discovery.ideas,
+          detail: discovery.detail,
+        }
+      },
     },
     {
       id: 'crossref',
@@ -3435,10 +3788,12 @@ const retrieveEvidenceSources = async (condition, env) => {
         : 'Searched, but no condition-related record passed the source gate.'),
       sources,
       ideas: Array.isArray(result.value.ideas) ? result.value.ideas : [],
+      targetIdeas: Array.isArray(result.value.targetIdeas) ? result.value.targetIdeas : [],
     }
   })
 
   const everyCureLane = coverage.find((lane) => lane.id === 'everycure-matrix')
+  const targetDiscoveryLane = coverage.find((lane) => lane.id === 'open-targets')
   const coreSources = dedupeEvidenceSources(
     coverage.map((lane) => attachSourceTitleTreatmentCandidates(lane.sources || [], condition)),
     16,
@@ -3451,13 +3806,15 @@ const retrieveEvidenceSources = async (condition, env) => {
     ...coreSources,
     ...everyCureSources.filter((source) => !coreSources.some((item) => item.id === source.id)),
   ]
+  const sourcesWithDiscovery = retainTargetDiscoverySources(sourcesWithEveryCure, targetDiscoveryLane?.sources)
 
   return {
     // Tag direct condition-titled treatment records before trimming the source
     // packet, so useful patient-facing evidence is not displaced by a generic
     // background paper when an AI pass is slow or unavailable.
-    sources: sourcesWithEveryCure,
+    sources: sourcesWithDiscovery,
     everyCureTheoryIdeas: Array.isArray(everyCureLane?.ideas) ? everyCureLane.ideas : [],
+    targetLinkedAiIdeaSeeds: Array.isArray(targetDiscoveryLane?.targetIdeas) ? targetDiscoveryLane.targetIdeas : [],
     coverage: [
       ...coverage.map((lane) => ({
       id: lane.id,
@@ -3513,6 +3870,21 @@ const retainEveryCurePublicSource = (sources, availableSources) => {
   ]
 }
 
+const retainTargetDiscoverySources = (sources, availableSources) => {
+  const base = Array.isArray(sources) ? sources : []
+  const targetSources = (Array.isArray(availableSources) ? availableSources : [])
+    .filter((source) => ['Open Targets Platform', 'ChEMBL'].includes(source?.origin))
+  return [
+    ...base,
+    ...targetSources.filter((source) => !base.some((item) => item.id === source.id)),
+  ]
+}
+
+const retainDiscoverySources = (sources, availableSources) => retainTargetDiscoverySources(
+  retainEveryCurePublicSource(sources, availableSources),
+  availableSources,
+)
+
 const normalizePatient = (raw) => ({
   condition: canonicalConditionName(raw?.condition),
   // This is a patient-facing tool. Keep every generated report at a clear,
@@ -3566,6 +3938,8 @@ const isSpecificTrialIntervention = (value) => {
   const name = cleanInterventionName(value)
   return Boolean(name)
     && !/^(?:arm|group|cohort)\s*(?:\d+|[a-z])$|^(?:placebo|sham|no intervention|standard(?: care| treatment)?|usual(?: care| treatment)?|routine(?: care| treatment)?|supportive care|observation(?:al)?)(?:\b|:)/i.test(name)
+    // Registry arm labels can prefix a placebo with phase or dose text.
+    && !/\b(?:placebo|sham)\b/i.test(name)
     && !/^(?:adjuvant|adjunctive|combination|maintenance|rescue|supportive|standard|usual|conventional|experimental|investigational)\s+(?:therapy|treatment|care)$/i.test(name)
     && !/^(?:enhance|improve|optimize|evaluate|compare|measure|monitor)\b/i.test(name)
     && !/\b(?:following|before|after)\s+(?:treatment|therapy|procedure|surgery|device|start|initiation)\b/i.test(name)
@@ -6116,7 +6490,7 @@ const completeTheoryIdeasForPacket = (reviewedIdeas, packet) => {
   // treatment or trial lanes, not beside a claim that AI found something new.
   return (Array.isArray(packet?.aiIdeasNotFound) ? packet.aiIdeasNotFound : [])
     .filter((idea) => idea?.kind === 'ai-direct-search-no-match')
-    .filter((idea) => ['not-found', 'preclinical-only'].includes(idea?.directSearch?.status))
+    .filter((idea) => idea?.directSearch?.status === 'not-found')
     .filter((idea) => isPatientDiscussibleAiIdeaCandidate(idea?.title))
     .filter((idea) => {
       const candidateSource = idea?.directSearch?.candidateSource || idea?.directSearch?.pubmedBackground?.source
@@ -6354,7 +6728,7 @@ const ipfEvidenceBundle = async (condition, env) => {
   return {
     mode: 'curated-plus-live',
     sourceLabel: 'Curated IPF and current research sources',
-    sources: retainEveryCurePublicSource(
+    sources: retainDiscoverySources(
       dedupeEvidenceSources([curatedSources, recentResearchSources, liveEvidence.sources], 40),
       liveEvidence.sources,
     ),
@@ -6364,6 +6738,7 @@ const ipfEvidenceBundle = async (condition, env) => {
     // but they are not a substitute for a completed condition-plus-name
     // literature check in the AI-idea lane.
     curatedTheoryIdeas: liveEvidence.everyCureTheoryIdeas || [],
+    targetLinkedAiIdeaSeeds: liveEvidence.targetLinkedAiIdeaSeeds || [],
     excludedTreatments: (reference.excludedAgents || []).map(toExcludedTreatment).filter(Boolean),
     centers: (reference.topCenters || []).slice(0, 6).map((center) => ({
       name: cleanText(center.name, 200),
@@ -6437,7 +6812,7 @@ const retrievedEvidenceBundle = async (condition, env) => {
   return {
     mode: 'live-retrieved',
     sourceLabel: 'Current research sources',
-    sources: retainEveryCurePublicSource(
+    sources: retainDiscoverySources(
       // Preserve enough clearly labeled model records for the separate
       // research-question lane, while still retaining the direct-condition
       // overview, human research, and regulatory sources above it.
@@ -6447,6 +6822,7 @@ const retrievedEvidenceBundle = async (condition, env) => {
     curatedDiscussionLeads: foundationDiscussionLeads.map(toCuratedDiscussionLead).filter(Boolean),
     curatedLifestyleIdeas: foundationLifestyleIdeas.map(toCuratedLifestyleIdea).filter(Boolean),
     curatedTheoryIdeas: liveEvidence.everyCureTheoryIdeas || [],
+    targetLinkedAiIdeaSeeds: liveEvidence.targetLinkedAiIdeaSeeds || [],
     excludedTreatments: foundationExcludedTreatments.map(toExcludedTreatment).filter(Boolean),
     centers: conditionFoundationCenters(condition),
     researchers: [],
@@ -6470,6 +6846,19 @@ const createPacket = ({ patient, bundle, trials, sites, researchers }) => ({
   aiIdeasWithMatches: Array.isArray(bundle.aiIdeasWithMatches) ? bundle.aiIdeasWithMatches : [],
   excludedTreatments: Array.isArray(bundle.excludedTreatments) ? bundle.excludedTreatments : [],
 })
+
+const mergeAiIdeaResults = (...groups) => {
+  const ideas = []
+  const seen = new Set()
+  for (const idea of groups.flat()) {
+    const key = candidateKey(idea?.title)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    ideas.push(idea)
+    if (ideas.length === TARGET_AI_IDEA_COUNT) break
+  }
+  return ideas
+}
 
 const explorationContextFor = (packet, review) => {
   const seen = new Set()
@@ -6511,6 +6900,7 @@ const runResearch = async (body, env) => {
       excludedTreatments: [],
       sourceCoverage: [{ id: 'evidence', label: 'Evidence retrieval', status: 'unavailable', records: 0, detail: 'The live evidence sources could not be reached for this run.' }],
   }
+  const transcriptomicArtifactEvidence = transcriptomicArtifactEvidenceForCondition(patient.condition, env)
   const trialServiceAvailable = trialResult.status === 'fulfilled'
   const trialData = trialServiceAvailable ? trialResult.value : { trials: [], sites: [], researchers: [] }
   const academicCenterDiscovery = academicCenterResult.status === 'fulfilled'
@@ -6536,6 +6926,8 @@ const runResearch = async (body, env) => {
     detail: 'The AI idea scout could not be reached for this run.',
   }))
   const aiIdeaSeeds = combineAiIdeaSeeds(
+    conditionLibraryAiIdeaSeeds(patient.condition),
+    bundle.targetLinkedAiIdeaSeeds,
     aiIdeaScout.ideas,
     everyCureAiIdeaSeeds(bundle.curatedTheoryIdeas),
   )
@@ -6591,16 +6983,12 @@ const runResearch = async (body, env) => {
     || relatedModelCandidateResult.status === 'fulfilled'
   const candidateVerificationAvailable = candidateExtractionAvailable
     && ['ready', 'not-run'].includes(candidateRelationReview.status)
-  const sourceBackedAiSeeds = sourceBackedAiIdeaSeeds(verifiedSourceRecords, patient.condition)
+  const sourceBackedAiSeeds = sourceBackedAiIdeaSeedsForNovelty(verifiedSourceRecords, patient.condition)
   const aiIdeasNotFoundResult = await verifyAiIdeasNotFound({
     condition: patient.condition,
-    // When the source packet has named products from exact related-model
-    // papers, do not fill this patient-facing section with broader AI or
-    // computer-score guesses. Those paper-backed candidates get checked
-    // first; the other lanes remain available when no such papers exist.
-    ideas: sourceBackedAiSeeds.length
-      ? sourceBackedAiSeeds
-      : aiIdeaSeeds,
+    // Keep source-backed model names in the pool, but do not let them use up
+    // the available checks before broader candidate sources are considered.
+    ideas: combineAiIdeaSeeds(aiIdeaSeeds, sourceBackedAiSeeds),
     sources: verifiedSourceRecords,
     trials: verifiedTrialRecords,
   }).catch(() => ({
@@ -6614,7 +7002,13 @@ const runResearch = async (body, env) => {
       detail: 'The direct literature checks for AI ideas could not be completed, so no AI idea was shown.',
     },
   }))
-  if (!aiIdeasNotFoundResult.ideas.length && aiIdeaScout.status !== 'ready') {
+  // The reviewed LADA library does not depend on an AI provider. If its
+  // direct literature checks are unavailable, report that truthfully instead
+  // of making the patient-facing status sound like the LADA candidates were
+  // missing because an AI-writing call failed.
+  if (!aiIdeasNotFoundResult.ideas.length
+    && aiIdeaScout.status !== 'ready'
+    && !conditionLibraryAiIdeaSeeds(patient.condition).length) {
     aiIdeasNotFoundResult.coverage = {
       ...aiIdeasNotFoundResult.coverage,
       status: aiIdeaScout.status === 'not-run' ? 'not-run' : 'unavailable',
@@ -6623,15 +7017,16 @@ const runResearch = async (body, env) => {
   }
   const enrichedBundle = {
     ...bundle,
-    aiIdeasNotFound: aiIdeasNotFoundResult.ideas,
+    aiIdeasNotFound: mergeAiIdeaResults(transcriptomicArtifactEvidence.ideas, aiIdeasNotFoundResult.ideas),
     aiIdeasWithMatches: aiIdeasNotFoundResult.matchedIdeas,
-    sources: retainEveryCurePublicSource(
-      dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources], conditionIsIpf ? 36 : 36),
+    sources: retainDiscoverySources(
+      dedupeEvidenceSources([verifiedSourceRecords, verifiedCandidateSources, transcriptomicArtifactEvidence.sources], conditionIsIpf ? 36 : 36),
       bundle.sources,
     ),
     sourceCoverage: [
       ...(bundle.sourceCoverage || []),
       ...(candidateEvidence.coverage || []),
+      ...(transcriptomicArtifactEvidence.coverage ? [transcriptomicArtifactEvidence.coverage] : []),
       aiIdeasNotFoundResult.coverage,
       {
         id: 'candidate-verification',
