@@ -465,9 +465,10 @@ const textResponse = (body, status = 200) => ({
 const auditedRpModelCandidatePattern = /erucamide|melatonin|sulforaphane|tauroursodeoxycholic acid|tudca|minocycline|kus121|piceid octanoate|curcumin|ibuprofen|thx-b/i
 const auditedIpfModelCandidatePattern = /tetrandrine|spermidine|celastrol|andrographolide|ginsenoside rb1|melatonin|ramelteon|empagliflozin|berberine|tauroursodeoxycholic acid|tudca|fisetin|sulforaphane/i
 const rpLibraryCandidatePattern = /dimethyl fumarate|edaravone|trehalose|spermidine|fisetin|nicotinamide riboside|urolithin a|riluzole|elamipretide|carnosic acid|astaxanthin|pterostilbene/i
+const ipfLibraryCandidatePattern = /riluzole|apremilast|roflumilast|ibudilast|naltrexone|urolithin a|elamipretide|carnosic acid|astaxanthin|pterostilbene|resmetirom|ketotifen|cromolyn sodium|palmitoylethanolamide|hydroxytyrosol|dexpramipexole|coenzyme q10|alpha-lipoic acid|fluvoxamine|dextromethorphan/i
 const ladaLibraryCandidatePattern = /teplizumab|low-dose aldesleukin|abatacept|rituximab|verapamil|imatinib|baricitinib|alpha-1 antitrypsin|golimumab|ustekinumab|low-dose anti-thymocyte globulin/i
 
-const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, auditedRpModelCandidatesNoMatch = false, auditedIpfModelCandidatesNoMatch = false, rpLibraryCandidatesNoMatch = false, ladaLibraryCandidatesNoMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, targetLinkedCandidateNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
+const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed = false, sparseReview = false, malformedReview = false, titleFallback = false, relationReviewUnavailable = false, relatedPreclinical = false, erucamideNoDirectMatch = false, erucamideThinDirectMetadata = false, auditedRpModelCandidatesNoMatch = false, auditedIpfModelCandidatesNoMatch = false, rpLibraryCandidatesNoMatch = false, ipfLibraryCandidatesNoMatch = false, ladaLibraryCandidatesNoMatch = false, directCellStudy = false, delayedVariantTrial = false, failExactVariantTrial = false, everyCureCandidateNoMatch = false, everyCureAllCandidatesNoMatch = false, targetLinkedCandidateNoMatch = false, rejectOpenAiJsonFormat = false, rejectOpenAiTools = false } = {}) => {
   const pubMedTerms = []
   const clinicalTrialQueries = []
   const clinicalTrialRecordIds = []
@@ -588,6 +589,9 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
         if (rpLibraryCandidatesNoMatch && rpLibraryCandidatePattern.test(term)) {
           return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
         }
+        if (ipfLibraryCandidatesNoMatch && ipfLibraryCandidatePattern.test(term)) {
+          return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['1001'] } })
+        }
         if (/erucamide|PreclinicalCandidate\d+/i.test(term)) {
           if (erucamideNoDirectMatch) {
             return jsonResponse({ esearchresult: { idlist: /\)\s+AND\s+\(/i.test(term) ? [] : ['42321469'] } })
@@ -631,6 +635,9 @@ const createMockFetch = ({ failTrials = false, failEvidence = false, failPubMed 
           return jsonResponse({ resultList: { result: [] } })
         }
         if (rpLibraryCandidatesNoMatch && rpLibraryCandidatePattern.test(query)) {
+          return jsonResponse({ resultList: { result: [] } })
+        }
+        if (ipfLibraryCandidatesNoMatch && ipfLibraryCandidatePattern.test(query)) {
           return jsonResponse({ resultList: { result: [] } })
         }
         if (/erucamide|PreclinicalCandidate\d+/i.test(query)) {
@@ -1294,6 +1301,28 @@ test('the RP reviewed library fills checked unresearched cards when no gene is s
   assert.ok(directIdeas.every((idea) => idea.directSearch?.europePmc?.status === 'not-found'))
   assert.ok(directIdeas.every((idea) => idea.directSearch?.candidateSource?.url))
   assert.ok(!directIdeas.some((idea) => /n-acetylcysteine|goji|lycium|valproic acid|erucamide/i.test(idea.title)), JSON.stringify(directIdeas))
+})
+
+test('the IPF reviewed library fills checked unresearched cards without leaking studied IPF items', { concurrency: false }, async () => {
+  const mock = createMockFetch({ ipfLibraryCandidatesNoMatch: true })
+  const response = await withMockedFetch(mock.fetch, async () => callRoute(
+    apiRoutes().get('/api/research-run'),
+    'POST',
+    { privacyAcknowledged: true, patient: { condition: 'Idiopathic Pulmonary Fibrosis', reportStyle: 'plain' } },
+  ))
+
+  assert.equal(response.status, 200)
+  const directIdeas = response.body.review.theoryIdeas
+  assert.equal(directIdeas.length, 10, JSON.stringify(response.body.sourceCoverage.find((lane) => lane.id === 'ai-idea-direct-search')))
+  assert.equal(new Set(directIdeas.map((idea) => idea.title.toLowerCase())).size, 10)
+  assert.ok(directIdeas.some((idea) => /^riluzole$/i.test(idea.title)), JSON.stringify(directIdeas))
+  assert.ok(directIdeas.some((idea) => /^apremilast$/i.test(idea.title)), JSON.stringify(directIdeas))
+  assert.ok(directIdeas.some((idea) => /^roflumilast$/i.test(idea.title)), JSON.stringify(directIdeas))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.status === 'not-found'))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.pubmed?.status === 'not-found'))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.europePmc?.status === 'not-found'))
+  assert.ok(directIdeas.every((idea) => idea.directSearch?.candidateSource?.url))
+  assert.ok(!directIdeas.some((idea) => /nintedanib|pirfenidone|nicotinamide riboside|zinc|tetrandrine|metformin|n-acetylcysteine/i.test(idea.title)), JSON.stringify(directIdeas))
 })
 
 test('audited RP model-paper candidates are withheld from the new-idea lane', { concurrency: false }, async () => {

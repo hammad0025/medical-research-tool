@@ -2803,9 +2803,7 @@ const sourceBackedAiIdeaSeedsForNovelty = (sources, condition) => sourceBackedAi
   .filter((idea) => !candidateAlreadyAppearsInConditionResearchPacket(idea, condition, sources, []))
 
 const reviewedConditionAiIdeaSeeds = (condition) => {
-  if (!/\b(?:retinitis pigmentosa|\brp\b|rod-cone dystrophy|inherited retinal)\b/i.test(condition || '')) return []
-
-  return [
+  if (/\b(?:retinitis pigmentosa|\brp\b|rod-cone dystrophy|inherited retinal)\b/i.test(condition || '')) return [
     {
       candidate: 'Dimethyl fumarate',
       category: 'Medicine idea to check',
@@ -2867,6 +2865,111 @@ const reviewedConditionAiIdeaSeeds = (condition) => {
       whyItCouldConnect: 'Cell-stress and inflammation pathways can be checked in retinal disease research. Pterostilbene is a named compound in that space, so the app checks direct RP research.',
     },
   ]
+
+  if (/\b(?:ipf|idiopathic pulmonary fibrosis)\b/i.test(condition || '')) return [
+    {
+      candidate: 'Riluzole',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'IPF involves injury and stress signals in lung cells. Riluzole is a named nerve-cell stress medicine, so the app checks whether it has direct IPF research.',
+    },
+    {
+      candidate: 'Apremilast',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Inflammation signals can interact with scarring biology. Apremilast is a named immune-signaling medicine, so the app checks whether it has direct IPF research.',
+    },
+    {
+      candidate: 'Roflumilast',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Some lung medicines affect inflammation messages. Roflumilast is a named respiratory medicine, so the app checks whether it has direct IPF research.',
+    },
+    {
+      candidate: 'Ibudilast',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Cell-stress and inflammatory signaling are research questions in scarring diseases. Ibudilast is a named anti-inflammatory medicine, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Naltrexone',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Immune and tissue-stress signals can be research questions in scarring disease. Naltrexone is a named medicine, so the app checks whether it has direct IPF research.',
+    },
+    {
+      candidate: 'Urolithin A',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Mitochondria are cell-energy parts that can be studied in lung-cell stress. Urolithin A is a named mitochondrial research product, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Elamipretide',
+      category: 'Peptide idea to check',
+      whyItCouldConnect: 'Mitochondrial stress is one possible way to frame lung-cell injury research. Elamipretide is a named mitochondrial peptide, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Carnosic acid',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Cell-stress defense is one possible research angle in lung injury. Carnosic acid is a named NRF2-related compound, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Astaxanthin',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Oxidative stress is one research angle in lung-scarring biology. Astaxanthin is a named antioxidant product, so the app checks whether it has direct IPF research.',
+    },
+    {
+      candidate: 'Pterostilbene',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Cell-stress and inflammation pathways can be checked in scarring research. Pterostilbene is a named compound in that space, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Resmetirom',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Metabolism and tissue-scarring signals can overlap across organs. Resmetirom is a named thyroid-receptor medicine, so the app checks whether it has direct IPF research.',
+    },
+    {
+      candidate: 'Ketotifen',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Mast-cell signaling can be a research question in tissue injury. Ketotifen is a named mast-cell medicine, so the app checks whether it has direct IPF research.',
+    },
+    {
+      candidate: 'Cromolyn sodium',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Mast-cell signaling can be checked as one possible lung-injury pathway. Cromolyn sodium is a named mast-cell medicine, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Palmitoylethanolamide',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Inflammation and pain-signaling biology can overlap with tissue-stress research. Palmitoylethanolamide is a named product, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Hydroxytyrosol',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Oxidative stress is one possible research angle in lung-cell injury. Hydroxytyrosol is a named olive-derived compound, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Dexpramipexole',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Immune-cell and mitochondrial signals can be checked as research questions in lung disease. Dexpramipexole is a named medicine, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Coenzyme Q10',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Mitochondrial stress can be checked as a research question in lung-cell injury. Coenzyme Q10 is a named mitochondrial supplement, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Alpha-lipoic acid',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Oxidative stress can be checked as one part of lung-injury research. Alpha-lipoic acid is a named antioxidant supplement, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Fluvoxamine',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Cell-stress signaling can be checked as a research question in inflammatory injury. Fluvoxamine is a named sigma-1 receptor medicine, so the app checks direct IPF research.',
+    },
+    {
+      candidate: 'Dextromethorphan',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Nerve and immune signaling can overlap with tissue-stress research. Dextromethorphan is a named medicine, so the app checks whether it has direct IPF research.',
+    },
+  ]
+
+  return []
 }
 
 // Some conditions have a reviewed queue of named research questions. These are
