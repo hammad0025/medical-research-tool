@@ -2802,19 +2802,87 @@ const sourceBackedAiIdeaSeeds = (sources, condition) => {
 const sourceBackedAiIdeaSeedsForNovelty = (sources, condition) => sourceBackedAiIdeaSeeds(sources, condition)
   .filter((idea) => !candidateAlreadyAppearsInConditionResearchPacket(idea, condition, sources, []))
 
-// LADA has a short, reviewed library of named immune and beta-cell research
-// questions. It was previously kept only as an unused planning map, so a live
-// LADA report could finish with an empty unresearched lane even though there
-// were concrete names available to check. These seeds still have to pass the
-// exact PubMed and Europe PMC checks below before a card can be shown.
-const conditionLibraryAiIdeaSeeds = (condition) => {
-  if (!/\b(?:lada|latent autoimmune diabetes)\b/i.test(condition || '')) return []
+const reviewedConditionAiIdeaSeeds = (condition) => {
+  if (!/\b(?:retinitis pigmentosa|\brp\b|rod-cone dystrophy|inherited retinal)\b/i.test(condition || '')) return []
 
+  return [
+    {
+      candidate: 'Dimethyl fumarate',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'RP damages retinal cells over time. Dimethyl fumarate is a named medicine tied to cell-stress response research, so the app checks whether it has direct RP research.',
+    },
+    {
+      candidate: 'Edaravone',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Oxidative stress is one research angle in retinal-cell damage. Edaravone is a named oxidative-stress medicine, so it is worth checking against direct RP research.',
+    },
+    {
+      candidate: 'Trehalose',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Retinal cells depend on cleanup systems that remove damaged cell parts. Trehalose is a named autophagy-related product, so the app checks whether it has direct RP research.',
+    },
+    {
+      candidate: 'Spermidine',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Autophagy and cell-aging pathways can matter in nerve-cell research. Spermidine is a named product in that research space, so the app checks for direct RP research.',
+    },
+    {
+      candidate: 'Fisetin',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Cell-aging and inflammation signals are possible research questions in retinal disease. Fisetin is a named product in that biology, so the app checks for direct RP research.',
+    },
+    {
+      candidate: 'Nicotinamide riboside',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Retinal cells use a lot of energy. Nicotinamide riboside is a named NAD-related product, so the app checks whether it has direct RP research.',
+    },
+    {
+      candidate: 'Urolithin A',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Mitochondria are cell-energy parts that can be studied in retinal-cell stress. Urolithin A is a named mitochondrial research product, so the app checks direct RP research.',
+    },
+    {
+      candidate: 'Riluzole',
+      category: 'Medicine idea to check',
+      whyItCouldConnect: 'Nerve-cell protection is a possible research question when retinal cells are being lost. Riluzole is a named nerve-cell medicine, so the app checks whether it has direct RP research.',
+    },
+    {
+      candidate: 'Elamipretide',
+      category: 'Peptide idea to check',
+      whyItCouldConnect: 'Mitochondrial stress is a possible way to frame retinal-cell research. Elamipretide is a named mitochondrial peptide, so the app checks whether it has direct RP research.',
+    },
+    {
+      candidate: 'Carnosic acid',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Cell-stress defense is a possible research angle in retinal degeneration. Carnosic acid is a named NRF2-related compound, so the app checks direct RP research.',
+    },
+    {
+      candidate: 'Astaxanthin',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Oxidative stress is one research angle in eye disease. Astaxanthin is a named antioxidant product, so the app checks whether it has direct RP research.',
+    },
+    {
+      candidate: 'Pterostilbene',
+      category: 'Supplement idea to check',
+      whyItCouldConnect: 'Cell-stress and inflammation pathways can be checked in retinal disease research. Pterostilbene is a named compound in that space, so the app checks direct RP research.',
+    },
+  ]
+}
+
+// Some conditions have a reviewed queue of named research questions. These are
+// not displayed directly. Each seed still has to pass the exact PubMed and
+// Europe PMC condition-plus-name checks below before a card can be shown.
+const conditionLibraryAiIdeaSeeds = (condition) => {
   const seen = new Set()
-  return _theoryTemplatesForCondition(condition)
-    .flatMap(([, , whyItCouldConnect, , , candidates]) => (Array.isArray(candidates) ? candidates : [])
-      .map((candidate) => ({ candidate, whyItCouldConnect })))
-    .map(({ candidate, whyItCouldConnect }) => {
+  const reviewedSeeds = reviewedConditionAiIdeaSeeds(condition)
+  const templateSeeds = /\b(?:lada|latent autoimmune diabetes)\b/i.test(condition || '')
+    ? _theoryTemplatesForCondition(condition)
+      .flatMap(([, , whyItCouldConnect, , , candidates]) => (Array.isArray(candidates) ? candidates : [])
+        .map((candidate) => ({ candidate, whyItCouldConnect, category: 'Unresearched idea to check' })))
+    : []
+
+  return [...reviewedSeeds, ...templateSeeds]
+    .map(({ candidate, whyItCouldConnect, category }) => {
       const name = cleanCandidateName(candidate)
       const key = candidateKey(name)
       if (!name || !key || seen.has(key)) return null
@@ -2822,7 +2890,7 @@ const conditionLibraryAiIdeaSeeds = (condition) => {
       seen.add(key)
       return {
         candidate: name,
-        category: 'Unresearched idea to check',
+        category: cleanText(category, 80) || 'Unresearched idea to check',
         whyItCouldConnect: cleanText(whyItCouldConnect, 440),
         providerQuestion: aiIdeaDoctorQuestion(name),
       }
@@ -7033,10 +7101,10 @@ const runResearch = async (body, env) => {
     detail: 'The AI idea scout could not be reached for this run.',
   }))
   const aiIdeaSeeds = combineAiIdeaSeeds(
-    conditionLibraryAiIdeaSeeds(patient.condition),
     bundle.targetLinkedAiIdeaSeeds,
-    aiIdeaScout.ideas,
     everyCureAiIdeaSeeds(bundle.curatedTheoryIdeas),
+    aiIdeaScout.ideas,
+    conditionLibraryAiIdeaSeeds(patient.condition),
   )
   const [candidateEvidenceResult, packetCandidateResult, practicalPacketCandidateResult, relatedModelCandidateResult] = await Promise.allSettled([
     scout.candidates?.length

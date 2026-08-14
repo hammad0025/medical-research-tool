@@ -1417,10 +1417,10 @@ function ResearchIdeas({ condition, result }) {
 
         <section className="research-idea-lane research-idea-lane--exploratory">
           <div className="research-idea-lane__header">
-            <div><p className="card-kicker">2. Not researched for this condition</p><p>These names did not show research for this condition in the sources we checked. They are ideas to discuss, not treatments. They may not help.</p></div>
-            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? `${theoryIdeas.length} checked idea${theoryIdeas.length === 1 ? '' : 's'}` : 'No checked idea today'}</StatusPill>
+            <div><p className="card-kicker">2. Not researched for this condition</p><p>These are named ideas the app checked against PubMed and Europe PMC for this condition. They are doctor questions, not treatments.</p></div>
+            <StatusPill tone={theoryIdeas.length ? 'experimental' : 'neutral'}>{theoryIdeas.length ? `${theoryIdeas.length} checked idea${theoryIdeas.length === 1 ? '' : 's'}` : 'No safe idea shown'}</StatusPill>
           </div>
-          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>We could not verify a named idea for this report. We do not add random names just to fill this list.</p></div>}
+          {theoryIdeas.length ? <TheoryIdeaCards condition={condition} result={result} ideas={theoryIdeas} /> : <div className="research-idea-empty research-idea-empty--exploratory"><Icon name="shield" size={18} /><p>No checked name passed this strict screen. We did not add filler. Add a gene, subtype, symptom, or current medicine to make the search more specific.</p></div>}
         </section>
       </div>
     </section>
