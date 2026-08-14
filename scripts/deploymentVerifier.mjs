@@ -107,7 +107,7 @@ const summarizeReport = (report) => {
   const review = isRecord(report.review) ? report.review : {}
   const exploration = isRecord(report.exploration) ? report.exploration : {}
   const cards = {
-    treatmentIdeas: cardCount(review.treatmentIdeas) + cardCount(exploration.treatmentPaths),
+    treatmentIdeas: cardCount(review.treatmentIdeas) + cardCount(report.curatedDiscussionLeads) + cardCount(exploration.treatmentPaths),
     lifestyle: cardCount(review.lifestyle) + cardCount(exploration.lifestyle),
     safety: cardCount(review.safety) + cardCount(exploration.safety),
     researchConnections: cardCount(review.hypotheses) + cardCount(exploration.connections),

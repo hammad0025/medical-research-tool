@@ -25,6 +25,7 @@ const report = {
   sources: [],
   trials: [],
   centers: [],
+  curatedDiscussionLeads: [{ title: 'N-acetylcysteine (NAC)', sourceIds: ['rp-nac-phase-1-2020'] }],
   review: {
     treatmentIdeas: [],
     lifestyle: [],
@@ -32,7 +33,7 @@ const report = {
     hypotheses: [],
   },
   exploration: {
-    treatmentPaths: [{ title: 'Gene-specific retina research' }],
+    treatmentPaths: [],
     lifestyle: [{ title: 'Low-vision support' }],
     safety: [{ title: 'Review all treatment claims' }],
     connections: [{ title: 'Gene result can guide the search' }],
@@ -82,7 +83,9 @@ const createDeploymentFetch = ({ badReport = false, setupRequired = false } = {}
       if (body.privacyAcknowledged !== true) {
         return jsonResponse({ error: 'Please confirm the privacy and safety notice before starting research.' }, 400)
       }
-      return jsonResponse(badReport ? { ...report, exploration: { ...report.exploration, treatmentPaths: [] } } : report)
+      return jsonResponse(badReport
+        ? { ...report, curatedDiscussionLeads: [], exploration: { ...report.exploration, treatmentPaths: [] } }
+        : report)
     }
     if (path === '/api/access/logout') {
       loggedIn = false
