@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { normalizeDeploymentUrl, verifyDeployment } from '../scripts/deploymentVerifier.mjs'
+import { normalizeDeploymentUrl, REPORT_TIMEOUT_MS, verifyDeployment } from '../scripts/deploymentVerifier.mjs'
 
 const jsonResponse = (body, status = 200, headers = {}) => ({
   status,
@@ -38,6 +38,10 @@ const report = {
     connections: [{ title: 'Gene result can guide the search' }],
   },
 }
+
+test('full deployment report checks allow six minutes', () => {
+  assert.equal(REPORT_TIMEOUT_MS, 360_000)
+})
 
 const createDeploymentFetch = ({ badReport = false, setupRequired = false } = {}) => {
   const calls = []

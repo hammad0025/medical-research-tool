@@ -1,5 +1,5 @@
 const DEFAULT_TIMEOUT_MS = 25_000
-const REPORT_TIMEOUT_MS = 180_000
+export const REPORT_TIMEOUT_MS = 360_000
 
 const isRecord = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
