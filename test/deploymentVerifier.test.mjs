@@ -20,23 +20,25 @@ const textResponse = (body, status = 200) => ({
 })
 
 const report = {
-  status: 'exploration',
+  status: 'ready',
   patient: { condition: 'Retinitis Pigmentosa' },
-  sources: [],
-  trials: [],
+  sources: [{ id: 'rp-fda-luxturna-rpe65', title: 'FDA approval: LUXTURNA', caution: 'This label applies only to a specific gene result.' }],
+  trials: [{ id: 'NCT06627179', title: 'Study to Evaluate Ultevursen' }],
   centers: [],
   curatedDiscussionLeads: [{ title: 'N-acetylcysteine (NAC)', sourceIds: ['rp-nac-phase-1-2020'] }],
+  curatedLifestyleIdeas: [{ title: 'Low-vision support', summary: 'Ask about support for daily tasks.', caution: 'A clinician should check fit.' }],
   review: {
     treatmentIdeas: [],
     lifestyle: [],
     safety: [],
     hypotheses: [],
+    theoryIdeas: [],
   },
   exploration: {
     treatmentPaths: [],
-    lifestyle: [{ title: 'Low-vision support' }],
-    safety: [{ title: 'Review all treatment claims' }],
-    connections: [{ title: 'Gene result can guide the search' }],
+    lifestyle: [],
+    safety: [],
+    connections: [],
   },
 }
 
@@ -84,7 +86,14 @@ const createDeploymentFetch = ({ badReport = false, setupRequired = false } = {}
         return jsonResponse({ error: 'Please confirm the privacy and safety notice before starting research.' }, 400)
       }
       return jsonResponse(badReport
-        ? { ...report, curatedDiscussionLeads: [], exploration: { ...report.exploration, treatmentPaths: [] } }
+        ? {
+          ...report,
+          sources: [],
+          trials: [],
+          curatedDiscussionLeads: [],
+          curatedLifestyleIdeas: [],
+          exploration: { ...report.exploration, treatmentPaths: [] },
+        }
         : report)
     }
     if (path === '/api/access/logout') {

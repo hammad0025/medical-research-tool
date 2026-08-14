@@ -102,15 +102,17 @@ const cookieFromLogin = (response) => {
 }
 
 const cardCount = (value) => asArray(value).filter(isRecord).length
+const sourceCautionCount = (value) => asArray(value)
+  .filter((source) => isRecord(source) && cleanText(source.caution, 220)).length
 
 const summarizeReport = (report) => {
   const review = isRecord(report.review) ? report.review : {}
   const exploration = isRecord(report.exploration) ? report.exploration : {}
   const cards = {
     treatmentIdeas: cardCount(review.treatmentIdeas) + cardCount(report.curatedDiscussionLeads) + cardCount(exploration.treatmentPaths),
-    lifestyle: cardCount(review.lifestyle) + cardCount(exploration.lifestyle),
-    safety: cardCount(review.safety) + cardCount(exploration.safety),
-    researchConnections: cardCount(review.hypotheses) + cardCount(exploration.connections),
+    lifestyle: cardCount(review.lifestyle) + cardCount(report.curatedLifestyleIdeas) + cardCount(exploration.lifestyle),
+    safety: cardCount(review.safety) + cardCount(report.excludedTreatments) + sourceCautionCount(report.sources) + cardCount(exploration.safety),
+    researchConnections: cardCount(review.hypotheses) + cardCount(review.theoryIdeas) + cardCount(report.curatedTheoryIdeas) + cardCount(report.trials) + cardCount(exploration.connections),
   }
 
   return {
